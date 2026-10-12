@@ -63,7 +63,7 @@ export function xpBar(
   >
     <div
       data-xp-bar-fill
-      class="h-full rounded-full bg-malibu-blue"
+      class="h-full rounded-full bg-df-red"
       style="width: ${fill}%"
     ></div>
   </div>`;

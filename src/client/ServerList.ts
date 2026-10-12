@@ -1,4 +1,5 @@
 import { GameID } from "@openfront/engine-api/Schemas";
+import { usesAccountApi } from "@openfront/shared/AccountFeatures";
 import {
   commitsMatch,
   isCommitLike,
@@ -411,6 +412,11 @@ function warnMalformedOnce(detail: unknown): void {
  */
 function fetchOnce(): Promise<ServerList | null> {
   if (inflight !== null) return inflight;
+  // No account backend means no list service to ask. Not an outage either:
+  // nothing was attempted, so nothing is recorded, and the page's own server
+  // (bootstrap values) stays in charge. Without this a standalone deployment
+  // reads as "API unreachable" after two beats and Create/Join Lobby lock.
+  if (!usesAccountApi()) return Promise.resolve(null);
   const site = safeSite();
   if (site === undefined) return Promise.resolve(null);
   inflight = fetchServerList(site)
@@ -439,6 +445,7 @@ function fetchOnce(): Promise<ServerList | null> {
  */
 export function startServerListPolling(): void {
   if (polling) return;
+  if (!usesAccountApi()) return;
   try {
     if (safeSite() === undefined) return;
     if (isReplayShellHost(window.location.hostname)) return;

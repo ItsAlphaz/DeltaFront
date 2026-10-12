@@ -55,11 +55,11 @@ function partsOf(host: HTMLElement): HTMLElement[] {
 }
 
 describe("usernameText", () => {
-  it("renders the base in blue and the suffix as a muted #", () => {
+  it("renders the base in the primary text colour and the suffix as a muted #", () => {
     const parts = partsOf(renderToHost("player.1234"));
     expect(parts).toHaveLength(2);
     expect(parts[0].textContent).toBe("player");
-    expect(parts[0].className).toContain("text-blue-300");
+    expect(parts[0].className).toContain("text-df-text");
     expect(parts[1].textContent).toBe("#1234");
     expect(parts[1].className).toContain("text-white/40");
   });

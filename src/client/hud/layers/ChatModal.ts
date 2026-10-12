@@ -151,7 +151,7 @@ export class ChatModal extends LitElement {
         <span
           class="relative inline-block w-8 h-4.5 rounded-full transition-colors ${this
             .showAll
-            ? "bg-blue-500"
+            ? "bg-df-red"
             : "bg-zinc-600"}"
         >
           <span

@@ -103,7 +103,7 @@ export class ToggleInputCard extends LitElement {
           <div
             class="w-5 h-5 rounded border flex items-center justify-center transition-colors mt-1 ${this
               .checked
-              ? "bg-blue-500 border-blue-500"
+              ? "bg-df-red border-df-red"
               : "border-white/20 bg-white/5"}"
           >
             ${this.checked

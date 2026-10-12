@@ -88,7 +88,7 @@ type BoundKey =
 const CHIP_BASE =
   "px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider " +
   "border transition-colors";
-const CHIP_ON = "bg-malibu-blue text-white border-malibu-blue";
+const CHIP_ON = "bg-df-red text-white border-df-red";
 const CHIP_OFF =
   "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white";
 const PANE_HEADING =
@@ -97,7 +97,7 @@ const SECTION_LABEL =
   "block text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5";
 const FIELD_CLASS =
   "px-2 py-1.5 rounded-lg bg-black/30 border border-white/10 text-white " +
-  "text-xs focus:outline-none focus:border-malibu-blue";
+  "text-xs focus:outline-none focus:border-df-red";
 const BUTTON_CLASS =
   "px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider " +
   "border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 " +
@@ -425,7 +425,7 @@ export class DetailedGameViewModal extends BaseModal {
         class="${SLOT_CLASS} flex flex-col items-center justify-center gap-3 rounded-2xl bg-surface border border-white/10"
       >
         <span
-          class="w-8 h-8 border-[3px] border-blue-500/30 border-t-blue-500 rounded-full animate-spin"
+          class="w-8 h-8 border-[3px] border-df-red/30 border-t-df-red rounded-full animate-spin"
         ></span>
         <span class="text-xs uppercase tracking-widest text-white/50">
           ${translateText("detailed_view.spawning")}
@@ -593,7 +593,7 @@ export class DetailedGameViewModal extends BaseModal {
           >
             <input
               type="checkbox"
-              class="w-4 h-4 accent-malibu-blue"
+              class="w-4 h-4 accent-df-red"
               .checked=${this.filters.hideEmpty}
               @change=${(e: Event) =>
                 this.patchFilters({

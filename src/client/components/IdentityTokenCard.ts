@@ -96,7 +96,7 @@ export class IdentityTokenCard extends LitElement {
           .value=${token}
           aria-label=${translateText("account_modal.identity_token_title")}
           @focus=${(e: Event) => (e.target as HTMLInputElement).select()}
-          class="flex-1 min-w-0 px-3 py-1.5 bg-black/40 border border-white/20 rounded-lg text-white text-xs font-mono focus:outline-none focus:border-blue-500"
+          class="flex-1 min-w-0 px-3 py-1.5 bg-black/40 border border-white/20 rounded-lg text-white text-xs font-mono focus:outline-none focus:border-df-red"
         />
         <o-button
           variant="secondary"

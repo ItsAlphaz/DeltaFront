@@ -1,50 +1,33 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="proprietary/images/OpenFrontLogoDark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="proprietary/images/OpenFrontLogo.svg">
-    <img src="proprietary/images/OpenFrontLogo.svg" alt="OpenFrontIO Logo" width="300">
-  </picture>
+  <img src="resources/images/branding/deltafront-logo.png" alt="DeltaFront" width="360">
 </p>
 
-[OpenFront.io](https://openfront.io/) is an online real-time strategy game focused on territorial control and alliance building. Players compete to expand their territory, build structures, and form strategic alliances in various maps based on real-world geography.
+**DeltaFront** is a fast-paced multiplayer strategy game where players battle for territory, build their nations, form alliances, and dominate the front.
 
-This is a fork/rewrite of WarFront.io. Credit to https://github.com/WarFrontIO.
+DeltaFront is an independent fork of [OpenFront](https://github.com/openfrontio/OpenFrontIO) (itself a fork/rewrite of [WarFront.io](https://github.com/WarFrontIO)). It is not affiliated with or endorsed by OpenFront Inc.
 
-![CI](https://github.com/openfrontio/OpenFrontIO/actions/workflows/ci.yml/badge.svg)
-[![Crowdin](https://badges.crowdin.net/openfront-mls/localized.svg)](https://crowdin.com/project/openfront-mls)
-[![CLA assistant](https://cla-assistant.io/readme/badge/openfrontio/OpenFrontIO)](https://cla-assistant.io/openfrontio/OpenFrontIO)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-red.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Assets: CC BY-SA 4.0](https://img.shields.io/badge/Assets-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
-## License
+## License and attribution
 
-OpenFront source code is licensed under the **GNU Affero General Public License v3.0**
+DeltaFront's source code is licensed under the **GNU Affero General Public License v3.0**, inherited from OpenFront.
 
-Current copyright notices appear in:
+The upstream license's additional terms (AGPL §7) apply to DeltaFront:
 
-- Footer: "© OpenFront and Contributors"
-- Loading screen: "© OpenFront and Contributors"
+- The notice **"© OpenFront and Contributors"** must stay in reasonably visible places. DeltaFront shows it in the footer and on the game-starting screen.
+- A modified version must not misrepresent its origin or use "OpenFront" as its title. DeltaFront shows a "Based on OpenFront" notice in the footer.
+- Players of a network deployment must be offered the corresponding source (AGPL §13). The footer's GitHub link is that offer. Point `BRAND.sourceRepoUrl` in `src/client/Branding.ts` at the DeltaFront repository.
 
-Modified versions must preserve these notices in reasonably visible locations.
+See [LICENSE](LICENSE), [LICENSE-ASSETS](LICENSE-ASSETS) and [LICENSING.md](LICENSING.md) (upstream license history), and [CREDITS.md](CREDITS.md).
 
-See the [LICENSE](LICENSE) for complete requirements.
+Upstream also keeps a `proprietary/` folder of All Rights Reserved OpenFront assets (logo, display font, music). DeltaFront does **not** include, build or ship it. Its music is therefore absent: add your own tracks at `resources/sounds/music/menu-theme.mp3`, `resources/sounds/music/gameplay.mp3` and `resources/sounds/effects/game-start-alert.mp3` (missing audio fails silently).
 
-For asset licensing, see [LICENSE-ASSETS](LICENSE-ASSETS).  
-For license history, see [LICENSING.md](LICENSING.md).
-
-## 🌟 Features
-
-- **Real-time Strategy Gameplay**: Expand your territory and engage in strategic battles
-- **Alliance System**: Form alliances with other players for mutual defense
-- **Multiple Maps**: Play across various geographical regions including Europe, Asia, Africa, and more
-- **Resource Management**: Balance your expansion with defensive capabilities
-- **Cross-platform**: Play in any modern web browser
-
-## 📋 Prerequisites
+## Prerequisites
 
 - [Node.js](https://nodejs.org/) v24.15.0 or newer in the Node 24 release line
 - [npm](https://www.npmjs.com/) v12.1.0 or newer in the npm 12 release line
-- A modern web browser (Chrome, Firefox, Edge, etc.)
+- A modern web browser
 
 Node.js may bundle an older npm version. Upgrade it before installing project dependencies:
 
@@ -52,112 +35,69 @@ Node.js may bundle an older npm version. Upgrade it before installing project de
 npm install --global --ignore-scripts npm@12.1.0
 ```
 
-## 🚀 Installation
-
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/openfrontio/OpenFrontIO.git
-   cd OpenFrontIO
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   npm run inst
-   ```
-
-   Do NOT use `npm install` nor `npm i` for project dependencies. Use `npm run inst`; it runs the safer `npm ci --ignore-scripts` to install exactly the versions in `package-lock.json` without running lifecycle scripts.
-
-   The repository also rejects dependency releases less than seven days old and dependencies sourced from Git, remote URLs, local tarballs, or directories. Wait until a new release passes the seven-day window before updating it; security exceptions require explicit maintainer review.
-
-## 🎮 Running the Game
-
-### Development Mode
-
-Run both the client and server in development mode with live reloading:
+## Installation
 
 ```bash
-npm run dev
+git clone DeltaFront repository URL < your > DeltaFront
+cd DeltaFront
+npm run inst
 ```
 
-This will:
+Use `npm run inst`, not `npm install`. It runs `npm ci --ignore-scripts`, which installs exactly the versions in `package-lock.json` without running lifecycle scripts. `.npmrc` also rejects dependency releases less than seven days old and dependencies from Git, remote URLs, tarballs or directories.
 
-- Start the webpack dev server for the client
-- Launch the game server with development settings
-- Open the game in your default browser (to disable this behavior, set `SKIP_BROWSER_OPEN=true` in your environment)
-
-### Client Only
-
-To run just the client with hot reloading:
+## Running the game
 
 ```bash
-npm run start:client
+npm run dev              # client (http://localhost:9000) + game server, hot reload
+npm run start:client     # client only
+npm run start:server-dev # game server only
 ```
 
-### Server Only
+Set `SKIP_BROWSER_OPEN=true` to stop `npm run dev` opening a browser.
 
-To run just the server with development settings:
+Single-player, private lobbies and public lobbies run entirely on the local server. Accounts, stats, the store, clans and leaderboards come from a separate account API (`api.<DOMAIN>`), which is closed source upstream and not part of this repository. In dev the client looks for it at `http://localhost:8787`, so those features are unavailable locally and `ECONNREFUSED` lines in the server log are expected.
+
+## Configuration
+
+Production servers read their settings from environment variables; see [example.env](example.env). Optional DeltaFront-specific ones:
+
+| Variable                     | Purpose                                                 |
+| ---------------------------- | ------------------------------------------------------- |
+| `GOOGLE_ANALYTICS_ID`        | GA4 measurement ID (`G-…`). Unset: no Google Analytics. |
+| `CLOUDFLARE_ANALYTICS_TOKEN` | Cloudflare Web Analytics token. Unset: no beacon.       |
+
+Product name, community links (Discord, Reddit, wiki), the source-code link, the Steam app ID, the tutorial video and the ads switch live in [`src/client/Branding.ts`](src/client/Branding.ts). A link left empty hides the UI that would use it.
+
+### Account backend features
+
+OpenFront's account API (sign-in, store, clans, ranked, leaderboards) is closed source and not part of this repository, so DeltaFront ships with those features **off** and their UI hidden. Solo, private and public lobbies and the simulation do not need it. The switches are in [`packages/shared/src/AccountFeatures.ts`](packages/shared/src/AccountFeatures.ts); what each needs, and the two decisions before a public deployment, are in [docs/DeltaFrontServices.md](docs/DeltaFrontServices.md).
+
+## Branding and theme
+
+- Logo and icon: `resources/images/branding/` (see the README there).
+- Colours, radii and shared button/input/panel classes: the `@theme` and `@layer components` blocks in [`src/client/styles.css`](src/client/styles.css), with tokens named `--color-df-*`.
+- Display font: Pixelify Sans (SIL OFL 1.1), in `resources/fonts/pixelify-sans/`.
+
+## Development tools
 
 ```bash
-npm run start:server-dev
+npm run format # Prettier
+npm run lint   # Oxlint + ESLint
+npm run lint:fix
+npm run typecheck  # tsc for the root project and every package
+npm test           # Vitest
+npm run build-prod # production build into static/
 ```
 
-### Connecting to staging or production backends
+## Project structure
 
-Sometimes it's useful to connect to production servers when replaying a game, testing user profiles, purchases, or login flow.
-
-> To replay a production game, make sure you're on the same commit that the game you want to replay was executed on, you can find the `gitCommit` value via `https://api.openfront.io/game/[gameId]`.
-> Unfinished games cannot be replayed on localhost.
-
-To connect to staging api servers:
-
-```bash
-npm run dev:staging
-```
-
-To connect to production api servers:
-
-```bash
-npm run dev:prod
-```
-
-## 🛠️ Development Tools
-
-- **Format code**:
-
-  ```bash
-  npm run format
-  ```
-
-- **Lint code with Oxlint and ESLint**:
-
-  ```bash
-  npm run lint
-  ```
-
-- **Lint and fix code with Oxlint and ESLint**:
-
-  ```bash
-  npm run lint:fix
-  ```
-
-- **Testing**
-  ```bash
-  npm test
-  ```
-
-## 🏗️ Project Structure
-
-- `/src/client` - Frontend game client
-- `/src/server` - Backend game server
+- `/src/client` - Frontend game client (Lit + Tailwind UI, WebGL2 renderer)
+- `/src/server` - Backend game server (Express + ws)
 - `/packages/engine` - Deterministic game simulation (`@openfront/engine`)
 - `/packages/engine-api` - The engine's contract: types, schemas, game updates and the worker protocol (`@openfront/engine-api`)
 - `/packages/engine-lib` - Engine code also used outside the engine: map grid, rules, helpers (`@openfront/engine-lib`)
 - `/packages/shared` - Code shared by client and server: wire schemas, env, asset URLs (`@openfront/shared`)
-- `/packages/zbin` - Compact binary wire format for zod schemas (self-contained, zod-only)
-- `/resources` - Static assets (images, maps, etc.)
+- `/packages/zbin` - Compact binary wire format for zod schemas
+- `/resources` - Open assets (CC BY-SA 4.0): images, maps, sounds, translations
 
-## 🤝 Contributing
-
-Contributions and translations are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, the approved-issue process, project governance, and translation info.
+The `@openfront/*` workspace package names are internal import paths kept from upstream so upstream changes keep merging cleanly.

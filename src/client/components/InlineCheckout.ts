@@ -417,15 +417,15 @@ export class InlineCheckout extends LitElement {
         ${this.walletVisible
           ? html`<button
               data-pay-with-card
-              class="w-full border-0 bg-transparent py-1 text-center text-xs font-semibold text-blue-300 underline underline-offset-2 cursor-pointer transition-colors duration-200 hover:text-white disabled:opacity-50"
+              class="w-full border-0 bg-transparent py-1 text-center text-xs font-semibold text-df-red-bright underline underline-offset-2 cursor-pointer transition-colors duration-200 hover:text-white disabled:opacity-50"
               ?disabled=${this.fallbackBusy || this.confirming}
               @click=${(e: Event) => this.onPriceClick(e)}
             >
               ${translateText("store.pay_with_card")}
             </button>`
           : html`<button
-              class="purchase-sparkle-btn relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center
-               hover:bg-blue-600 hover:border-blue-400 hover:text-white hover:shadow-[0_0_20px_rgba(96,165,250,0.6)] disabled:opacity-50"
+              class="purchase-sparkle-btn relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-df-red/15 text-df-text border border-df-red/50 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center
+               hover:bg-df-red hover:border-df-red-bright hover:text-white disabled:opacity-50"
               ?disabled=${this.fallbackBusy || this.confirming}
               @click=${(e: Event) => this.onPriceClick(e)}
             >
@@ -474,7 +474,7 @@ export class InlineCheckout extends LitElement {
                   @input=${(e: Event) => {
                     this.emailValue = (e.target as HTMLInputElement).value;
                   }}
-                  class="mb-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  class="mb-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-df-red/50"
                 />
                 <p class="mb-3 text-xs text-white/50">
                   ${translateText("store.card_email_hint")}
@@ -491,7 +491,7 @@ export class InlineCheckout extends LitElement {
             ?disabled=${this.confirming ||
             !this.cardReady ||
             (this.emailRequired && !this.emailLooksValid())}
-            class="w-full min-h-11 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-base font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+            class="w-full min-h-11 px-4 py-2.5 rounded-xl bg-df-red text-white text-base font-bold hover:bg-df-red-bright transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
           >
             ${this.confirming
               ? html`<span

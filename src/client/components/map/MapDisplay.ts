@@ -131,7 +131,7 @@ export class MapDisplay extends LitElement {
         @keydown="${this.handleKeydown}"
         class="w-full h-full p-3 flex flex-col items-center justify-between rounded-xl border cursor-pointer transition-all duration-200 active:scale-95 gap-3 group ${this
           .selected
-          ? "bg-malibu-blue/20 border-malibu-blue/50 shadow-[var(--shadow-malibu-blue-strong)]"
+          ? "bg-df-red/20 border-df-red/50 shadow-[var(--shadow-df-red-strong)]"
           : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 hover:scale-105"}"
       >
         ${this.isLoading

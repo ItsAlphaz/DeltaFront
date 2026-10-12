@@ -11,7 +11,7 @@ import { translateText } from "../../Utils";
 // currently verified must not announce itself as a verified player.
 export function verifiedBadge(
   sizeClass = "w-4 h-4",
-  colorClass = "text-blue-400",
+  colorClass = "text-df-red-bright",
   label?: string | null,
 ): TemplateResult {
   const text =

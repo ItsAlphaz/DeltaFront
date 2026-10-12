@@ -27,7 +27,7 @@ export class PlayerStatsGrid extends LitElement {
                   ${this.values[i] ?? ""}
                 </div>
                 <div
-                  class="text-blue-200/60 text-xs font-bold uppercase tracking-widest"
+                  class="text-df-text-muted text-xs font-bold uppercase tracking-widest"
                 >
                   ${this.titles[i] ?? ""}
                 </div>

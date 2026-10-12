@@ -1,3 +1,4 @@
+import { usesAccountApi } from "@openfront/shared/AccountFeatures";
 import type { NewsItem, StreamsFeed } from "@openfront/shared/ApiSchemas";
 import {
   ClaimAllRewardsResponse,
@@ -2288,6 +2289,9 @@ export async function fetchTribeLeaderboard(): Promise<
 }
 
 export async function getNews(): Promise<NewsItem[]> {
+  // The served copy lives on the account backend; without one the bundled
+  // resources/news.json is the news.
+  if (!usesAccountApi()) return newsItemsFallback as NewsItem[];
   try {
     const res = await fetch(`${getApiBase()}/news.json`, {
       headers: { Accept: "application/json" },
@@ -2318,6 +2322,8 @@ async function getServedConfig<T>(
   schema: z.ZodType<T>,
   fallback: unknown,
 ): Promise<T> {
+  // Same rule as getNews: no backend, use the bundled fallback.
+  if (!usesAccountApi()) return schema.parse(fallback);
   try {
     const res = await fetch(`${getApiBase()}/${name}`, {
       headers: { Accept: "application/json" },

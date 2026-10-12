@@ -300,7 +300,7 @@ export class EffectsGrid extends LitElement {
           const active = this.activeNukeType === nt;
           return html`<button
             class="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-colors ${active
-              ? "bg-blue-600 text-white"
+              ? "bg-df-red text-white"
               : "bg-white/5 text-white/50 hover:text-white/80 hover:bg-white/10"}"
             @click=${() => this.selectNukeType(nt)}
           >
@@ -322,7 +322,7 @@ export class EffectsGrid extends LitElement {
           const active = this.activeType === type;
           return html`<button
             class="-mb-px max-w-full shrink-0 whitespace-normal border-b-2 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-colors ${active
-              ? "border-malibu-blue text-aquarius"
+              ? "border-df-red text-df-red-bright"
               : "border-transparent text-white/40 hover:text-white/70"}"
             @click=${() => this.selectEffectType(type)}
           >

@@ -144,9 +144,11 @@ describe("NewsBox", () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it("contains a tournament entry", () => {
-      const items = getVisibleNewsItems(allItems);
-      expect(items.some((i) => i.type === "tournament")).toBe(true);
+    it("only uses item types the banner has a label for", () => {
+      const known = ["tournament", "tutorial", "announcement", "warning"];
+      for (const item of getVisibleNewsItems(allItems)) {
+        expect(known).toContain(item.type);
+      }
     });
   });
 });

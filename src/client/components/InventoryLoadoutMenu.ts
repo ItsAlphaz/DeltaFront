@@ -42,7 +42,7 @@ export class InventoryLoadoutMenu extends LitElement {
     const isActive = name === this.active;
     return html`<div
       class="flex items-stretch overflow-hidden rounded-lg border ${isActive
-        ? "border-blue-400 bg-blue-500/20"
+        ? "border-df-red bg-df-red/20"
         : "border-white/15 bg-white/5"}"
     >
       <button

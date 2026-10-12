@@ -372,7 +372,7 @@ export class ClanManageView extends LitElement {
               @input=${(e: Event) =>
                 (this.manageName = (e.target as HTMLInputElement).value)}
               maxlength="35"
-              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-medium hover:bg-white/10 text-sm"
+              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm"
             />
           </div>
           <div>
@@ -388,7 +388,7 @@ export class ClanManageView extends LitElement {
                 ).value)}
               maxlength="200"
               rows="3"
-              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-medium hover:bg-white/10 text-sm resize-none"
+              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm resize-none"
             ></textarea>
           </div>
           ${this.myRole === "leader"
@@ -407,7 +407,7 @@ export class ClanManageView extends LitElement {
                       ).value)}
                     placeholder="https://discord.gg/..."
                     maxlength="255"
-                    class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-medium hover:bg-white/10 text-sm"
+                    class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm"
                   />
                   <p class="text-white/40 text-xs mt-2">
                     ${translateText("clan_modal.discord_url_hint")}
@@ -431,7 +431,7 @@ export class ClanManageView extends LitElement {
               @click=${() => (this.manageIsOpen = !this.manageIsOpen)}
               class="relative w-12 h-7 rounded-full transition-all ${this
                 .manageIsOpen
-                ? "bg-malibu-blue"
+                ? "bg-df-red"
                 : "bg-white/20"}"
             >
               <div
@@ -445,7 +445,7 @@ export class ClanManageView extends LitElement {
           <button
             @click=${() => this.handleSaveSettings()}
             ?disabled=${this.saving}
-            class="w-full px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-malibu-blue hover:bg-aquarius active:bg-malibu-blue/80 rounded-xl transition-all disabled:opacity-50"
+            class="w-full px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-xl transition-all disabled:opacity-50"
           >
             ${this.saving
               ? translateText("clan_modal.saving")
@@ -563,14 +563,14 @@ export class ClanManageView extends LitElement {
       <div
         class="flex flex-col py-2.5 px-3 rounded-xl border
         ${isMe
-          ? "bg-malibu-blue/10 border-malibu-blue/20"
+          ? "bg-df-red/10 border-df-red/20"
           : "bg-white/5 border-white/10"}"
       >
         <div class="flex items-center flex-wrap gap-1.5">
           <div
             class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0
           ${isMe
-              ? "bg-malibu-blue/20 text-aquarius"
+              ? "bg-df-red/20 text-df-red-bright"
               : "bg-white/10 text-white/50"}"
           >
             ${renderRoleIcon(member.role)}

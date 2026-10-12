@@ -263,7 +263,7 @@ export class UnitDisplay extends LitElement implements Controller {
                 </div>
                 ${unitType === UnitType.Warship
                   ? html`<div
-                      class="mt-1 px-2 py-1 text-[10px] text-cyan-300 border-t border-white/10"
+                      class="mt-1 px-2 py-1 text-[10px] text-df-text-secondary border-t border-white/10"
                     >
                       ⇧ ${translateText("build_menu.warship_shift_hint")}
                     </div>`

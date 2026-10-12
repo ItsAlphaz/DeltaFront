@@ -222,13 +222,13 @@ export abstract class StatsTable extends LitElement {
       >
         ${column.isOrderable
           ? html`<button
-              class="inline-flex items-center justify-center gap-1 hover:text-sky-200 transition-colors"
+              class="inline-flex items-center justify-center gap-1 hover:text-df-red-bright transition-colors"
               aria-label=${label}
               @click=${() => this.setSort(column.id)}
             >
               ${visual}
               ${sorted
-                ? html`<span class="text-sky-300" aria-hidden="true"
+                ? html`<span class="text-df-red-bright" aria-hidden="true"
                     >${this.sortOrder === "asc" ? "↑" : "↓"}</span
                   >`
                 : nothing}

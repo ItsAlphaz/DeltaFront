@@ -1,4 +1,5 @@
 import { ID, isValidGameID } from "@openfront/engine-api/Schemas";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import { generateID, replacer } from "@openfront/shared/SharedUtil";
@@ -93,21 +94,25 @@ export async function startWorker() {
   const lobbyService = new WorkerLobbyService(server, wss, gm, log);
   const singleplayerPresence = new SingleplayerPresence();
 
-  setTimeout(
-    () => {
-      // The ranked loop follows the deployment-active flag the master pushes
-      // to this worker (OPE-469): a draining, standby or fenced server keeps
-      // the games it has but stops offering new matches.
-      startRankedCheckinLoops({
-        gm,
-        playlist,
-        workerId,
-        log,
-        isActive: () => lobbyService.isDeploymentActive(),
-      });
-    },
-    1000 + Math.random() * 2000,
-  );
+  // Matchmaking is brokered by the account backend, so a server without the
+  // ranked feature never offers itself (each loop would just fail every ~5s).
+  if (ACCOUNT_FEATURES.ranked) {
+    setTimeout(
+      () => {
+        // The ranked loop follows the deployment-active flag the master pushes
+        // to this worker (OPE-469): a draining, standby or fenced server keeps
+        // the games it has but stops offering new matches.
+        startRankedCheckinLoops({
+          gm,
+          playlist,
+          workerId,
+          log,
+          isActive: () => lobbyService.isDeploymentActive(),
+        });
+      },
+      1000 + Math.random() * 2000,
+    );
+  }
 
   if (ServerEnv.otelEnabled()) {
     initWorkerMetrics(gm, lobbyService, singleplayerPresence);
@@ -119,7 +124,12 @@ export async function startWorker() {
     ServerEnv.jwtIssuer() + "/reserved_clan_tags",
     log,
   );
-  privilegeRefresher.start();
+  // The cosmetics catalog and reserved clan tags come from the account
+  // backend. Without those features nothing is loaded and get() keeps
+  // answering with the fail-open checker, as it does before the first load.
+  if (ACCOUNT_FEATURES.store || ACCOUNT_FEATURES.clans) {
+    privilegeRefresher.start();
+  }
 
   // Ahead of everything that can reject a request — the worker-prefix check
   // below and the rate limiter further down — so that a 404 or a 429 still

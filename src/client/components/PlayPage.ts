@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
@@ -25,14 +26,14 @@ export class PlayPage extends LitElement {
 
         <!-- Mobile: Fixed top bar -->
         <div
-          class="lg:hidden fixed left-0 right-0 top-[var(--top-ad-height,0px)] z-40 pt-[env(safe-area-inset-top)] bg-surface border-b border-white/10"
+          class="lg:hidden fixed left-0 right-0 top-[var(--top-ad-height,0px)] z-40 pt-[env(safe-area-inset-top)] bg-df-bg-secondary border-b border-df-border"
         >
           <div
             class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center h-14 px-2 gap-2"
           >
             <button
               id="hamburger-btn"
-              class="col-start-1 justify-self-start h-10 shrink-0 aspect-[4/3] flex text-white/90 rounded-md items-center justify-center transition-colors"
+              class="col-start-1 justify-self-start h-10 shrink-0 aspect-[4/3] flex text-df-text hover:text-df-red-bright focus-visible:outline-2 focus-visible:outline-df-red items-center justify-center transition-colors"
               data-i18n-aria-label="main.menu"
               aria-expanded="false"
               aria-controls="sidebar-menu"
@@ -56,12 +57,12 @@ export class PlayPage extends LitElement {
             </button>
 
             <div
-              class="col-start-2 flex items-center justify-center text-malibu-blue min-w-0"
+              class="col-start-2 flex h-7 max-w-[28vw] items-center justify-center min-w-0"
             >
               <img
-                src=${assetUrl("images/OpenFrontLogo.svg")}
-                alt="OpenFront"
-                class="h-full w-auto"
+                src=${assetUrl("images/branding/deltafront-logo.png")}
+                alt="DeltaFront"
+                class="pixelated h-full w-auto max-w-full object-contain"
               />
             </div>
 
@@ -72,7 +73,9 @@ export class PlayPage extends LitElement {
               class="col-start-3 justify-self-end shrink-0 flex items-center gap-0.5"
             >
               <nav-utility-icons size="mobile"></nav-utility-icons>
-              <nav-account-menu variant="mobile"></nav-account-menu>
+              ${ACCOUNT_FEATURES.accounts
+                ? html`<nav-account-menu variant="mobile"></nav-account-menu>`
+                : ""}
             </div>
           </div>
         </div>
@@ -94,14 +97,14 @@ export class PlayPage extends LitElement {
 
             <!-- Identity row: username over the currently selected cosmetic background. -->
             <div
-              class="relative bg-surface border-y border-white/10 overflow-visible flex items-center sm:min-h-[60px] sm:flex-1 sm:z-20 sm:border-y-0 sm:rounded-xl"
+              class="relative bg-df-panel border-y border-df-border overflow-visible flex items-center sm:min-h-[60px] sm:flex-1 sm:z-20 sm:border sm:rounded-sm"
             >
               <!-- Selected skin/pattern fills the bubble like the player's territory in game. -->
               <cosmetic-background
-                class="absolute inset-0 z-0 overflow-hidden sm:rounded-xl pointer-events-none"
+                class="absolute inset-0 z-0 overflow-hidden sm:rounded-sm pointer-events-none"
               ></cosmetic-background>
               <div
-                class="relative z-10 flex h-full w-full min-w-0 items-center bg-surface/80 p-1 sm:rounded-xl"
+                class="relative z-10 flex h-full w-full min-w-0 items-center bg-df-panel/80 p-1 sm:rounded-sm"
               >
                 <username-input
                   class="flex-1 min-w-0 h-10 sm:h-[50px]"

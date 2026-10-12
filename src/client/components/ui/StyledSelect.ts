@@ -29,7 +29,7 @@ export const styledSelect = ({
 }: StyledSelectProps): TemplateResult => html`
   <div class="relative ${className}">
     <select
-      class="w-full appearance-none py-1.5 pl-3 pr-9 border border-white/20 rounded-lg bg-black/40 text-white text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+      class="w-full appearance-none py-1.5 pl-3 pr-9 border border-white/20 rounded-lg bg-black/40 text-white text-xs focus:outline-none focus:border-df-red focus:ring-1 focus:ring-df-red transition-all"
       aria-label=${ariaLabel}
       .value=${value}
       @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}

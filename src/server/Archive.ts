@@ -1,4 +1,5 @@
 import { GameID, ID } from "@openfront/engine-api/Schemas";
+import { usesAccountApi } from "@openfront/shared/AccountFeatures";
 import { replacer } from "@openfront/shared/SharedUtil";
 import {
   GameRecord,
@@ -13,6 +14,9 @@ import { ServerEnv } from "./ServerEnv";
 const log = logger.child({ component: "Archive" });
 
 export async function archive(gameRecord: GameRecord) {
+  // Records are stored by the account backend (stats, replays). With none,
+  // there is nowhere to send them.
+  if (!usesAccountApi()) return;
   try {
     const parsed = GameRecordSchema.safeParse(gameRecord);
     if (!parsed.success) {

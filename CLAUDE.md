@@ -27,7 +27,7 @@ npx vitest NationAllianceBehavior --run # match by name pattern
 
 ## Architecture
 
-OpenFront.io is a real-time multiplayer territorial strategy game. There are four components:
+DeltaFront is a real-time multiplayer territorial strategy game, forked from OpenFront. The `@openfront/*` package names and other internal identifiers are kept from upstream on purpose (easier upstream merges); player-facing branding is DeltaFront. Keep the "© OpenFront and Contributors" notice visible (AGPL §7, see LICENSE). There are four components:
 
 1. **The engine** — Deterministic game simulation, split into npm workspace packages under `packages/` (see below). Pure TypeScript with **no external dependencies** beyond zod. Must stay bit-identical on every client: use the seeded PRNG, and use `packages/engine-lib/src/DetMath.ts` instead of `Math.exp`/`log`/`pow`/`sin`/… or `**` with an exponent other than 2 (ESLint enforces this). Runs in a Web Worker thread. All `packages/engine`, `packages/engine-api` and `packages/engine-lib` changes **must** include tests.
 2. **`src/client/`** — Rendering (custom WebGL2 renderer in `src/client/render/`), UI (Lit web components + Tailwind CSS 4), WebSocket communication.
@@ -90,9 +90,19 @@ The game server only serves `index.html` and the WebSocket. All other assets (JS
 | `docs/API.md`                          | Public API endpoints                       |
 | `vite.config.ts`                       | Build config, CDN handling                 |
 
+## Branding / Theme
+
+- Product name, community links, source-code link, Steam app ID: `src/client/Branding.ts` (empty link hides its UI).
+- Colours, radii, shared `.df-btn` / `.df-input` / `.df-panel` classes: `src/client/styles.css` (`--color-df-*` tokens). Use them instead of hard-coded colours; red is for primary actions, selection, focus and accents.
+- Logo and icon: `resources/images/branding/`. Upstream's `proprietary/` folder (All Rights Reserved OpenFront assets) is removed and must not be re-added.
+
+## Account backend features
+
+`packages/shared/src/AccountFeatures.ts` (`ACCOUNT_FEATURES`) switches off everything that needs OpenFront's closed account API. UI for a disabled feature is hidden, not left to fail, and the client skips its network calls. `tests/setup.ts` turns every flag on before each test (the inherited suite tests the full product); tests of the shipped default turn them off themselves. See `docs/DeltaFrontServices.md`.
+
 ## UI Text / i18n
 
-All user-visible text must go through `translateText()` and have a corresponding entry added to `resources/lang/en.json`. Translations are managed via Crowdin. DO NOT modify any other translation files.
+All user-visible text must go through `translateText()` and have a corresponding entry added to `resources/lang/en.json`. Upstream manages translations via Crowdin; in DeltaFront, other language files are only edited for branding.
 
 ## Testing Patterns
 

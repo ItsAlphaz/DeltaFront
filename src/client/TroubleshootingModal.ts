@@ -39,7 +39,7 @@ export class TroubleshootingModal extends BaseModal {
           class="text-white text-xl sm:text-2xl md:text-3xl font-bold uppercase tracking-widest break-words hyphens-auto"
         >
           <a
-            class="hover:text-blue-200 text-blue-400 cursor-pointer"
+            class="hover:text-df-text text-df-red-bright cursor-pointer"
             @click=${this.close}
             >${translateText("main.help")}</a
           >

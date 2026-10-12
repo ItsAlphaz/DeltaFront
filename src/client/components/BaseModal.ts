@@ -314,14 +314,14 @@ export abstract class BaseModal extends LitElement {
 
   protected renderLoadingSpinner(
     message?: string,
-    spinnerColor: "blue" | "green" | "yellow" | "white" = "blue",
+    spinnerColor: "brand" | "green" | "yellow" | "white" = "brand",
   ): TemplateResult {
     return renderLoadingSpinner(message, spinnerColor);
   }
 }
 
 const spinnerColorClasses: Record<string, string> = {
-  blue: "border-blue-500/30 border-t-blue-500",
+  brand: "border-df-red/30 border-t-df-red",
   green: "border-green-500/30 border-t-green-500",
   yellow: "border-yellow-500/30 border-t-yellow-500",
   white: "border-white/20 border-t-white",
@@ -333,7 +333,7 @@ const spinnerColorClasses: Record<string, string> = {
  */
 export function renderLoadingSpinner(
   message?: string,
-  spinnerColor: "blue" | "green" | "yellow" | "white" = "blue",
+  spinnerColor: "brand" | "green" | "yellow" | "white" = "brand",
 ): TemplateResult {
   return html`
     <div

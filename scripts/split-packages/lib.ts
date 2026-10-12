@@ -13,15 +13,7 @@ export const ROOT = path.resolve(
 );
 
 // Every place a module specifier can point into src/core or a package.
-const SCAN_DIRS = [
-  "src",
-  "tests",
-  "scripts",
-  "packages",
-  "zbin",
-  "proprietary",
-  "__mocks__",
-];
+const SCAN_DIRS = ["src", "tests", "scripts", "packages", "zbin", "__mocks__"];
 const SCAN_FILES = ["vite.config.ts"];
 const SOURCE_EXT = /\.(ts|tsx|mts|cts|js|mjs)$/;
 

@@ -133,7 +133,7 @@ export class MatchmakingModal extends BaseModal {
     if (!this.connected) {
       return this.renderLoadingSpinner(
         translateText("matchmaking_modal.connecting"),
-        "blue",
+        "brand",
       );
     }
     if (this.gameID === null) {

@@ -743,7 +743,7 @@ export class SteamLinkModal extends BaseModal {
             ${translateText("steam_link_modal.success")}
           </p>
           <button
-            class="${BUTTON_BASE} bg-malibu-blue text-white hover:bg-aquarius"
+            class="${BUTTON_BASE} bg-df-red text-white hover:bg-df-red-bright"
             @click=${() => this.close()}
           >
             ${translateText("common.close")}
@@ -867,7 +867,7 @@ export class SteamLinkModal extends BaseModal {
           </p>
           <input
             type="text"
-            class="steam-link-code-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-center tracking-widest uppercase placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-medium"
+            class="steam-link-code-input w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-center tracking-widest uppercase placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium"
             placeholder=${translateText("steam_link_modal.code_placeholder")}
             .value=${this.codeDraft}
             @input=${(e: Event) => this.handleCodeInput(e)}
@@ -888,7 +888,7 @@ export class SteamLinkModal extends BaseModal {
               ${translateText("common.cancel")}
             </button>
             <button
-              class="steam-link-code-submit-btn ${BUTTON_BASE} bg-malibu-blue text-white hover:bg-aquarius"
+              class="steam-link-code-submit-btn ${BUTTON_BASE} bg-df-red text-white hover:bg-df-red-bright"
               @click=${() => this.handleCodeSubmit()}
             >
               ${translateText("steam_link_modal.code_submit")}
@@ -949,7 +949,7 @@ export class SteamLinkModal extends BaseModal {
             ${translateText("common.cancel")}
           </button>
           <button
-            class="steam-link-confirm-btn ${BUTTON_BASE} bg-malibu-blue text-white hover:bg-aquarius"
+            class="steam-link-confirm-btn ${BUTTON_BASE} bg-df-red text-white hover:bg-df-red-bright"
             ?disabled=${confirmDisabled}
             @click=${() => this.handleConfirm()}
           >

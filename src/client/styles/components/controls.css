@@ -86,6 +86,6 @@
 }
 
 .setting-input.keybind.listening .key {
-  background-color: #1d4ed8; /* blue-700 */
-  box-shadow: 0 2px 0 #0f172a; /* darker blue */
+  background-color: var(--color-df-red);
+  box-shadow: 0 2px 0 var(--color-df-red-dark);
 }

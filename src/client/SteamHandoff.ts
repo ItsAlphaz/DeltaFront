@@ -1,8 +1,7 @@
+import { BRAND } from "./Branding";
 import { clientPlatform } from "./ClientPlatform";
 import { Platform } from "./Platform";
 import type { UserSettings } from "./UserSettings";
-
-const STEAM_APP_ID = 3560670;
 
 export type SteamHandoffMode = "none" | "ask" | "steam";
 
@@ -10,7 +9,7 @@ export type SteamHandoffMode = "none" | "ask" | "steam";
 // (openfront-desktop, inviteIds.ts). The flag name is a contract with builds
 // already installed on players' machines.
 export function steamJoinUrl(gameId: string): string {
-  return `steam://run/${STEAM_APP_ID}//+join_game%20${gameId}/`;
+  return `steam://run/${BRAND.steamAppId}//+join_game%20${gameId}/`;
 }
 
 // A custom-scheme navigation leaves this page in place, which is what lets
@@ -31,6 +30,7 @@ export function launchSteamJoin(gameId: string): () => void {
 }
 
 export function canHandOffToSteam(): boolean {
+  if (BRAND.steamAppId === null) return false;
   return clientPlatform() === "web" && !Platform.isIOS && !Platform.isAndroid;
 }
 

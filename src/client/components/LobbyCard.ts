@@ -163,7 +163,7 @@ export interface LobbyCardOptions {
  * line box and renders short and low.
  */
 const PILL =
-  "rounded bg-malibu-blue px-2 py-1 text-xs font-bold tracking-widest text-white";
+  "rounded-sm bg-df-bg/85 border-l-2 border-df-red px-2 py-1 text-xs font-bold tracking-widest text-df-text";
 // No backdrop-filter anywhere in the card: under a transformed ancestor
 // Chrome clips it with a separate mask and the map leaks at the corners.
 const BADGE = "rounded bg-black/70";

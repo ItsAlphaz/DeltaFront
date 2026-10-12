@@ -1099,7 +1099,7 @@ export class UserSettingModal extends BaseModal {
       : html`
           <div
             id="display-f11-hint"
-            class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300/70 text-xs"
+            class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-white/5 border border-df-border text-df-text-secondary text-xs"
           >
             ${translateText("user_setting.display_f11_hint")}
           </div>
@@ -1191,7 +1191,7 @@ export class UserSettingModal extends BaseModal {
   private renderKeybindSettings() {
     return html`
       <div
-        class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300/70 text-xs"
+        class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-white/5 border border-df-border text-df-text-secondary text-xs"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -1211,7 +1211,7 @@ export class UserSettingModal extends BaseModal {
       </div>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-4 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-4 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.view_options")}
       </h2>
@@ -1260,7 +1260,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.build_controls")}
       </h2>
@@ -1366,7 +1366,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.menu_shortcuts")}
       </h2>
@@ -1442,7 +1442,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.attack_ratio_controls")}
       </h2>
@@ -1472,7 +1472,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.attack_keybinds")}
       </h2>
@@ -1518,7 +1518,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.ally_keybinds")}
       </h2>
@@ -1574,7 +1574,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.zoom_controls")}
       </h2>
@@ -1600,7 +1600,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
         ${translateText("user_setting.camera_movement")}
       </h2>

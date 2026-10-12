@@ -139,7 +139,7 @@ export class StreamingNow extends LitElement {
           </span>
         </div>
         <div
-          class="w-full truncate text-[11px] font-medium text-white transition-colors group-hover:text-blue-300"
+          class="w-full truncate text-[11px] font-medium text-white transition-colors group-hover:text-df-red-bright"
         >
           ${s.displayName}
         </div>

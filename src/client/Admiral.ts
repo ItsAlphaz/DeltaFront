@@ -40,9 +40,12 @@ declare global {
  * and ROTATES — when the provider reissues the tag, re-sync this from it.
  * This third-party script runs with full page access, so it is injected ONLY
  * for ad-eligible (non-adfree) users and NEVER for paid sessions.
+ *
+ * Empty in DeltaFront: the upstream tag belongs to OpenFront's Admiral
+ * property (and shows its adblock popup). Set DeltaFront's own tag and
+ * ADMIRAL_GAM_KEY here to turn Admiral back on.
  */
-const ADMIRAL_PAYLOAD_SRC =
-  "https://introjava.com/assets/js/gfjjtpm64er_5.v1.js";
+const ADMIRAL_PAYLOAD_SRC = "";
 
 /**
  * localStorage key Admiral writes its GAM targeting segments (`.lgk`) to.
@@ -58,7 +61,7 @@ let injected = false;
  * (its adblock popup fires autonomously once the payload runs).
  */
 export function loadAdmiral(): void {
-  if (injected) return;
+  if (injected || ADMIRAL_PAYLOAD_SRC === "") return;
   injected = true;
 
   // 1. Command-queue stub — must exist before the payload loads so buffered

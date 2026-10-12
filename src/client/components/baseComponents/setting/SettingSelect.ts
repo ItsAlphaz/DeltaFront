@@ -57,7 +57,7 @@ export class SettingSelect extends LitElement {
         <div class="relative w-full">
           <select
             id="setting-select-input"
-            class="w-full appearance-none py-2 pl-3 pr-9 border border-white/20 rounded-lg bg-black/40 text-white font-mono text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full appearance-none py-2 pl-3 pr-9 border border-white/20 rounded-lg bg-black/40 text-white font-mono text-sm focus:outline-none focus:border-df-red focus:ring-1 focus:ring-df-red transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             .value=${String(this.value)}
             ?disabled=${this.disabled}
             @change=${this.handleChange}

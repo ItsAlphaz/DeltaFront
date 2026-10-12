@@ -232,8 +232,8 @@
   border-radius: 6px;
   background: linear-gradient(
     to right,
-    #2196f3 0%,
-    #2196f3 var(--fill),
+    var(--color-df-red) 0%,
+    var(--color-df-red) var(--fill),
     #444 var(--fill),
     #444 100%
   );
@@ -246,7 +246,7 @@
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #2196f3;
+  border: 2px solid var(--color-df-red);
   cursor: pointer;
 }
 
@@ -257,7 +257,7 @@
 }
 
 .setting-input.slider::-moz-range-progress {
-  background-color: #2196f3;
+  background-color: var(--color-df-red);
   height: 10px;
   border-radius: 5px;
 }
@@ -377,6 +377,6 @@
 }
 
 .setting-key:focus {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--color-df-red);
   outline-offset: 2px;
 }

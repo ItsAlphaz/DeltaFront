@@ -309,7 +309,7 @@ export class DesktopStatusBar extends LitElement {
                 class="mt-1 h-1.5 w-full rounded-full bg-white/15 overflow-hidden"
               >
                 <div
-                  class="h-full bg-malibu-blue transition-[width] duration-200"
+                  class="h-full bg-df-red transition-[width] duration-200"
                   style="width: ${this.percent()}%"
                 ></div>
               </div>`
@@ -363,10 +363,10 @@ export class DesktopStatusBar extends LitElement {
   private reachabilityAction() {
     const disabled = this.retryDisabled();
     return html`<button
-      class="shrink-0 px-4 py-2 rounded-md bg-malibu-blue hover:bg-aquarius
+      class="shrink-0 px-4 py-2 rounded-md bg-df-red hover:bg-df-red-bright
              text-sm font-medium uppercase tracking-wider
              disabled:opacity-50 disabled:cursor-not-allowed
-             disabled:hover:bg-malibu-blue"
+             disabled:hover:bg-df-red"
       ?disabled=${disabled}
       title=${this.attempting
         ? translateText("desktop_status.retrying")
@@ -427,7 +427,7 @@ export class DesktopStatusBar extends LitElement {
     if (bridge === null) return nothing;
     if (s.status === "staged") {
       return html`<button
-        class="shrink-0 px-4 py-2 rounded-md bg-malibu-blue hover:bg-aquarius
+        class="shrink-0 px-4 py-2 rounded-md bg-df-red hover:bg-df-red-bright
                text-sm font-medium uppercase tracking-wider"
         @click=${() => {
           bridge.apply().catch((err: unknown) => {
@@ -484,7 +484,7 @@ export class DesktopStatusBar extends LitElement {
     // link one.
     if (s.status === "signed-out" && s.reason === "needs-account") {
       return html`<button
-        class="shrink-0 px-4 py-2 rounded-md bg-malibu-blue hover:bg-aquarius
+        class="shrink-0 px-4 py-2 rounded-md bg-df-red hover:bg-df-red-bright
                text-sm font-medium uppercase tracking-wider"
         @click=${() => {
           // desktopLinkGate() is null on the web and on a shell too old to
@@ -510,7 +510,7 @@ export class DesktopStatusBar extends LitElement {
       </button>`;
     }
     return html`<button
-      class="shrink-0 px-4 py-2 rounded-md bg-malibu-blue hover:bg-aquarius
+      class="shrink-0 px-4 py-2 rounded-md bg-df-red hover:bg-df-red-bright
              text-sm font-medium uppercase tracking-wider"
       @click=${() => {
         this.sessionAtRetry = s;

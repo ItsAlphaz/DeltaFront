@@ -164,13 +164,13 @@ export class ReplayControls extends LitElement {
               style=${`width: ${loadedPct}%`}
             ></div>
             <div
-              class="absolute inset-y-0 left-0 bg-sky-400"
+              class="absolute inset-y-0 left-0 bg-df-red"
               style=${`width: ${playedPct}%`}
             ></div>
           </div>
           <input
             type="range"
-            class="relative w-full h-4 m-0 appearance-none bg-transparent cursor-pointer [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-sky-400 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-sky-400"
+            class="relative w-full h-4 m-0 appearance-none bg-transparent cursor-pointer [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-df-red-bright [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-df-red-bright"
             min="0"
             max=${Math.max(0, this.total - 1)}
             .value=${String(frame)}
@@ -230,7 +230,7 @@ export class ReplayControls extends LitElement {
               html`<button
                 class="py-0.5 px-1 text-sm text-white rounded-sm border transition border-gray-500 hover:border-gray-200 ${sp ===
                 this.speed
-                  ? "bg-malibu-blue"
+                  ? "bg-df-red"
                   : ""}"
                 @click=${() => this.setSpeed(sp)}
               >

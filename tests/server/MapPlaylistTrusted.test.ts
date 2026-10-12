@@ -1,4 +1,5 @@
 import { GameConfig, GameConfigSchema } from "@openfront/engine-api/Schemas";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { describe, expect, it, vi } from "vitest";
 import { MapPlaylist } from "../../src/server/MapPlaylist";
 
@@ -27,6 +28,18 @@ describe("MapPlaylist trusted-only public games", () => {
       ...Array(6).fill(false),
       true,
     ]);
+  });
+
+  // "Trusted" is granted by the account backend, so a server without accounts
+  // would lock these lobbies for everyone, permanently.
+  it("schedules no trusted-only games without the accounts feature", async () => {
+    ACCOUNT_FEATURES.accounts = false;
+    const playlist = new MapPlaylist();
+    const types = ["ffa", "team", "special"] as const;
+    for (let i = 0; i < 28; i++) {
+      const config = await playlist.gameConfig(types[i % 3]);
+      expect(config.trusted).toBeUndefined();
+    }
   });
 
   it("counts per playlist instance, starting open", async () => {

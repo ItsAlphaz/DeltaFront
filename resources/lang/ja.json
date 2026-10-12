@@ -23,7 +23,6 @@
     "delete_account_confirm_button": "完全に削除",
     "delete_account_confirm_word": "DELETE",
     "delete_account_desc": "アカウントとすべてのデータを完全に削除します。",
-    "delete_account_failed": "削除に失敗しました。support@openfront.io までお問い合わせください",
     "delete_account_rate_limited": "アカウントの削除は一時的に利用できません。後でもう一度お試しください。",
     "delete_account_scheduled": "アカウントは24時間後に削除されます。削除を取り消す場合は、サポートにお問い合わせください。",
     "delete_account_title": "アカウントを削除",
@@ -32,7 +31,7 @@
     "desktop_login_discord": "ブラウザでDiscordを使って続行",
     "desktop_login_google": "ブラウザでGoogleを使って続行",
     "desktop_login_needs_update": "ログインには新しいバージョンのデスクトップアプリが必要です。Steamを再起動して更新してから、もう一度お試しください。",
-    "desktop_sign_in_desc": "ログインすると、ブラウザでOpenFrontのウェブサイトが開きます。そこでログインし、Steamアカウントとの連携を確認すると、ゲームに反映されます。",
+    "desktop_sign_in_desc": "ログインすると、ブラウザでDeltaFrontのウェブサイトが開きます。そこでログインし、Steamアカウントとの連携を確認すると、ゲームに反映されます。",
     "email_placeholder": "メールアドレスを入力してください。",
     "enter_email_address": "メールアドレスを入力してください。",
     "failed_to_send_recovery_email": "認証メールを送信できませんでした。",
@@ -50,7 +49,7 @@
     "link_google_already_linked": "そのGoogleアカウントはすでにほかのプレイヤーに連携されています。",
     "link_google_error": "Googleアカウントを連携できませんでした。ログインしていることを確認して、再度お試しください。",
     "link_google_failed": "Googleとの連携を開始できませんでした。再度お試しください。",
-    "link_google_on_web": "OpenFrontのウェブサイトでGoogleを連携",
+    "link_google_on_web": "DeltaFrontのウェブサイトでGoogleを連携",
     "link_google_success": "Googleアカウントと連携しました。",
     "link_steam": "Steamアカウントを連携",
     "link_steam_error": "Steamアカウントを連携できませんでした。ログインしていることを確認して、もう一度お試しください。",
@@ -64,13 +63,13 @@
     "login_deleted": "このアカウントは削除されています。",
     "login_email_exists": "このメールアドレスのアカウントはすでに存在します。そちらにログインしてから、設定でこのアカウントを連携してください。",
     "login_error": "ログインを確認できませんでした。もう一度お試しください。",
-    "login_no_account": "このSteamアカウントに紐づくOpenFrontアカウントはまだありません。既存のアカウントにログインして設定からSteamを連携するか、Steamでゲームを起動してください。",
+    "login_no_account": "このSteamアカウントに紐づくDeltaFrontアカウントはまだありません。既存のアカウントにログインして設定からSteamを連携するか、Steamでゲームを起動してください。",
     "manage_subscription": "管理",
     "manage_subscription_on_steam": "Steamで請求されています。管理画面からSteamのサブスクリプションページを開けます。",
     "manage_subscription_on_steam_ending": "解約しました。{date}まで有効です。管理画面からSteamのサブスクリプションページを開けます。",
     "manage_subscription_on_steam_ending_no_date": "解約しました。お支払い済みの期間が終了するまで有効です。管理画面からSteamのサブスクリプションページを開けます。",
     "manage_subscription_on_steam_no_tier_change": "Steamで請求されています。管理画面からSteamのサブスクリプションページを開けます。プランを変更するには、現在の月の終了後に解約して、新しいプランに加入してください。",
-    "manage_subscription_on_web": "OpenFrontのウェブサイトで請求内容の管理や変更ができます。",
+    "manage_subscription_on_web": "DeltaFrontのウェブサイトで請求内容の管理や変更ができます。",
     "marketing_desc": "時折のニュースやイベント、ゲームの情報をお届けします。いつでも登録解除できます。",
     "marketing_no_email": "メールをアカウントにリンクして更新情報を受け取れます。",
     "marketing_no_email_steam": "Steam はあなたのメールアドレスを共有していないため、アップデート内容を送信することはありません。",
@@ -477,7 +476,7 @@
   "common": {
     "available": "利用可能",
     "back": "戻る",
-    "backend_unreachable": "OpenFrontサーバーに接続できません。接続を確認してもう一度お試しください。",
+    "backend_unreachable": "DeltaFrontサーバーに接続できません。接続を確認してもう一度お試しください。",
     "cancel": "キャンセル",
     "cap_label": "クラウンキャップ",
     "cap_tooltip": "受取主が受け取れる量",
@@ -580,11 +579,11 @@
     "back_to_game": "ゲームに戻る",
     "browser_fallback": "自動でブラウザを開くのに失敗しました。上記のリンクから飛んでください。",
     "cancel": "キャンセル",
-    "code_destination_generic": "あなたのアカウントとリンクするためにOpenfrontでこのコードを入力してください：",
+    "code_destination_generic": "あなたのアカウントとリンクするためにDeltaFrontでこのコードを入力してください：",
     "code_destination_site": "アカウントをリンクするために、このコードを {site} に入力してください：",
     "continue_to_game": "ゲームを続ける",
     "expired": "このコードは有効期限が過ぎています。新しいコードを取得して、やり直してください。",
-    "heading": "ようこそ、Openfrontへ！",
+    "heading": "ようこそ、DeltaFrontへ！",
     "link_existing": "既存のアカウントとリンクする",
     "linking_failed_reason": "連携に失敗しました：{reason}",
     "linking_failed_unknown": "予期しないエラーで連携に失敗しました。",
@@ -594,16 +593,16 @@
     "retry": "再試行",
     "starting_link": "アカウントを連携しています…",
     "ticket_unavailable": "現在、アカウントを連携できません。もう一度お試しいただくか、そのままゲームを続けてください。",
-    "title": "OpenFront ー アカウント設定"
+    "title": "DeltaFront ー アカウント設定"
   },
   "desktop_presence": {
     "in_game": "ゲーム中",
     "spectating": "観戦中"
   },
   "desktop_session": {
-    "generic": "OpenFrontアカウントにログインできませんでした",
-    "needs_account": "オンラインでプレイするにはOpenFrontアカウントが必要です",
-    "network": "OpenFrontに接続できません。接続を確認してください。",
+    "generic": "DeltaFrontアカウントにログインできませんでした",
+    "needs_account": "オンラインでプレイするにはDeltaFrontアカウントが必要です",
+    "network": "DeltaFrontに接続できません。接続を確認してください。",
     "retry": "再試行",
     "retrying": "ログイン中…",
     "steam_backend": "Steamでログインできません。しばらくしてからもう一度お試しください。",
@@ -613,7 +612,7 @@
   },
   "desktop_status": {
     "go_online": "オンラインにする",
-    "offline": "オフライン：OpenFrontのサーバーに接続できません",
+    "offline": "オフライン：DeltaFrontのサーバーに接続できません",
     "retry": "再試行",
     "retrying": "再試行中…"
   },
@@ -626,12 +625,12 @@
     "retry": "やり直す"
   },
   "desktop_webgl_gate": {
-    "intro": "OpenFrontでグラフィックカードを使用できないため、ゲームを起動できません。通常は一時的な問題です。解決するには：",
-    "quit": "OpenFrontを終了",
+    "intro": "DeltaFrontでグラフィックカードを使用できないため、ゲームを起動できません。通常は一時的な問題です。解決するには：",
+    "quit": "DeltaFrontを終了",
     "step_drivers": "それでも解決しない場合は、NVIDIA、AMD、またはIntelの公式サイトからグラフィックドライバーを更新してください。",
-    "step_quit": "OpenFrontを終了してください。",
+    "step_quit": "DeltaFrontを終了してください。",
     "step_restart_computer": "問題が続く場合は、パソコンを再起動してください。",
-    "step_restart_steam": "Steamを再起動してから、OpenFrontをもう一度起動してください。",
+    "step_restart_steam": "Steamを再起動してから、DeltaFrontをもう一度起動してください。",
     "title": "グラフィックアクセラレーションを利用できません"
   },
   "detailed_view": {
@@ -972,7 +971,7 @@
     "preset_colorblind_desc": "色覚対応した領土と国境線の色",
     "preset_custom": "カスタム",
     "preset_default": "デフォルト",
-    "preset_default_desc": "標準的なOpenFrontの見た目",
+    "preset_default_desc": "標準的なDeltaFrontの見た目",
     "preset_delete_confirm": "プリセット「{name}」を削除しますか？",
     "preset_evans_pick": "Evanのおすすめ",
     "preset_evans_pick_desc": "Evanが実際のゲームで使用している設定",
@@ -1091,7 +1090,7 @@
     "radial_title": "円形メニュー",
     "table_action": "操作",
     "table_key": "キー",
-    "troubleshooting_desc": "OpenFrontの再生中にパフォーマンスの問題、クラッシュ、その他の問題が発生した場合は、トラブルシューティングページをご覧ください。問題の診断と修正に役立ちます：",
+    "troubleshooting_desc": "DeltaFrontの再生中にパフォーマンスの問題、クラッシュ、その他の問題が発生した場合は、トラブルシューティングページをご覧ください。問題の診断と修正に役立ちます：",
     "ui_attack_ratio": "攻撃比率 - 攻撃時に使用する兵力の割合で、スライダーで調整でき、攻撃側の兵力が防御側より多いほど損失が減り、少ないと攻撃側の損害が増えますが、この効果は攻撃と防御の比率が2対1を超えるとそれ以上強化されません。\n",
     "ui_control": "コントロールパネル",
     "ui_control_desc": "コントロールパネルには以下が含まれます :",
@@ -1111,7 +1110,7 @@
     "ui_wilderness": "荒野",
     "ui_your_team": "あなたのチーム :",
     "video_tutorial": "チュートリアル動画",
-    "video_tutorial_title": "OpenFront.io チュートリアル"
+    "video_tutorial_title": "DeltaFront チュートリアル"
   },
   "host_modal": {
     "anonymous_players": "匿名のプレイヤー",
@@ -1183,14 +1182,14 @@
     "got_it": "了解",
     "how": "詳細",
     "later": "あとで",
-    "modal_desc": "お使いのブラウザは全画面表示に対応していませんが、OpenFrontをホーム画面に追加することで、没入感のある体験をお楽しみいただけます：",
+    "modal_desc": "お使いのブラウザは全画面表示に対応していませんが、DeltaFrontをホーム画面に追加することで、没入感のある体験をお楽しみいただけます：",
     "modal_title": "iOSでフルスクリーンにする",
     "never": "しない",
     "step_add_to_home_label": "ホーム画面に追加",
     "step_open": "ホーム画面から開く - アドレスバーなしでフルスクリーンを起動します",
     "step_scroll_and_tap": "下へスクロールしてタップ",
     "step_share": "ブラウザの共有ボタンをタップ",
-    "text": "フルスクリーンにするには、OpenFrontをホーム画面に追加してください"
+    "text": "フルスクリーンにするには、DeltaFrontをホーム画面に追加してください"
   },
   "kick_reason": {
     "admin": "管理者によってキックされました。",
@@ -1285,7 +1284,7 @@
     "solo": "ソロ",
     "store": "ストア",
     "terms_of_service": "利用規約",
-    "title": "OpenFront (ALPHA)",
+    "title": "DeltaFront (ALPHA)",
     "troubleshooting": "トラブルシューティング",
     "tutorial": "チュートリアル",
     "user_avatar_alt": "{username}のアバター",
@@ -1458,7 +1457,7 @@
     "dismiss": "解除",
     "error": "保存できませんでした。もう一度お試しください。",
     "no": "今はしない",
-    "title": "OpenFrontの最新情報を受け取りますか？",
+    "title": "DeltaFrontの最新情報を受け取りますか？",
     "yes": "はい"
   },
   "matchmaking_modal": {
@@ -1488,7 +1487,7 @@
     "ranked_pairing_note": "チームモードでは、キューにいるフレンドやクランメンバーは、可能な限り同じチームになります。フレンドが優先され、その次にクランメンバーが組まれます。レートが離れすぎている場合は、公平性を保つため別々にマッチングされます。",
     "ranked_title": "ランク戦",
     "retry_lobbies": "再試行",
-    "servers_unreachable": "OpenFrontのサーバーに接続できません",
+    "servers_unreachable": "DeltaFrontのサーバーに接続できません",
     "teams_count": "{teamCount}チーム",
     "teams_of": "各{playersPerTeam}人の{teamCount}チーム",
     "teams_title": "チーム"
@@ -1522,7 +1521,7 @@
   },
   "news_box": {
     "dismiss": "無視",
-    "firefox_warning": "OpenFront.ioは[Firefoxベースのブラウザ](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox)でうまく動作しません。良いパフォーマンスのために[Chromiumベースのブラウザ](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium)を使用するのをおすすめします。",
+    "firefox_warning": "DeltaFrontは[Firefoxベースのブラウザ](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox)でうまく動作しません。良いパフォーマンスのために[Chromiumベースのブラウザ](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium)を使用するのをおすすめします。",
     "go_to_item": "{num}番目のアイテムに移動",
     "news": "お知らせ",
     "tournament": "トーナメント",
@@ -1763,9 +1762,9 @@
     "waiting_for_players": "プレイヤーを待っています"
   },
   "purchase_nudge": {
-    "body": "OpenFrontを楽しんでいただけて何よりです！もしよかったらご支援をいただけると嬉しいです。何か1つでも購入すると、以降は広告なしでゲームをお楽しみできます。",
+    "body": "DeltaFrontを楽しんでいただけて何よりです！もしよかったらご支援をいただけると嬉しいです。何か1つでも購入すると、以降は広告なしでゲームをお楽しみできます。",
     "close": "閉じる",
-    "title": "OpenFrontを楽しんでいますか？",
+    "title": "DeltaFrontを楽しんでいますか？",
     "visit_store": "ストアを見る"
   },
   "radial_menu": {
@@ -1817,7 +1816,7 @@
     "launched": "このロビーをSteamアプリで開いています。何も起こらない場合は、Steamが起動していることを確認してください。",
     "open_in_steam": "Steamで開く",
     "play_in_browser": "ブラウザでプレイ",
-    "prompt": "Steam版のOpenFrontをお持ちです。このロビーへの参加方法を選択してください。",
+    "prompt": "Steam版のDeltaFrontをお持ちです。このロビーへの参加方法を選択してください。",
     "remember": "この選択を記憶する",
     "title": "ロビーに参加",
     "try_again": "もう一度試す"
@@ -1835,23 +1834,23 @@
     "conflict_games": "{games, plural, =0 {プレイしたゲームはありません} other {#回プレイ済み}}",
     "conflict_games_capped": "{games}+回プレイ済み",
     "conflict_keep": "{username}を引き続き使用し、Steamでの購入履歴もアカウント連携時に引き継ぎます。",
-    "conflict_prompt": "Steamの{persona}は、すでに別のOpenFrontアカウントに連携されています。",
-    "conflict_prompt_no_persona": "このSteamアカウントは、すでに別のOpenFrontアカウントに連携されています。",
+    "conflict_prompt": "Steamの{persona}は、すでに別のDeltaFrontアカウントに連携されています。",
+    "conflict_prompt_no_persona": "このSteamアカウントは、すでに別のDeltaFrontアカウントに連携されています。",
     "conflict_warning": "この操作は取り消せません。",
     "invalid_code": "有効なコードではないようです。確認してもう一度お試しください。",
     "linking": "連携中…",
     "load_error": "アカウント情報を読み込めませんでした。Steamからもう一度お試しください。",
     "load_error_code": "アカウント情報を読み込めませんでした。もう一度お試しください。",
     "reason_account_already_has_steam": "このアカウントはすでに別のSteamアカウントと連携されています。",
-    "reason_discard_blocked": "このSteamアカウントに紐づくOpenFrontアカウントは自動で削除できません。サポートまでお問い合わせください。こちらで対応します。",
-    "reason_discard_blocked_paid": "このSteamアカウントに紐づくOpenFrontアカウントには購入履歴があるため、自動で削除できません。サポートまでお問い合わせください。こちらで対応します。",
+    "reason_discard_blocked": "このSteamアカウントに紐づくDeltaFrontアカウントは自動で削除できません。サポートまでお問い合わせください。こちらで対応します。",
+    "reason_discard_blocked_paid": "このSteamアカウントに紐づくDeltaFrontアカウントには購入履歴があるため、自動で削除できません。サポートまでお問い合わせください。こちらで対応します。",
     "reason_discard_deferred": "このアカウントでの購入処理がまだ完了していません。数分後にもう一度お試しください。",
     "reason_discard_not_linked": "アカウント連携が完了しませんでした。もう一度連携を開始してください。",
     "reason_expired": "この連携リンクの有効期限が切れています。Steamからもう一度お試しください。",
     "reason_offer_unavailable": "この確認画面の有効期限が切れています。もう一度連携を開始してください。",
     "reason_rate_limited": "試行回数が多すぎます。{seconds, plural, =0 {少し} other {#秒}}待ってからもう一度お試しください。",
     "reason_steam_has_progress": "このSteamアカウントにはすでに独自のゲーム進行状況があるため、統合できません。",
-    "reason_steam_linked_elsewhere": "この Steam アカウントは既に別の OpenFront アカウントにリンクされています。",
+    "reason_steam_linked_elsewhere": "この Steam アカウントは既に別の DeltaFront アカウントにリンクされています。",
     "success": "あなたのSteamアカウントがリンクされました。",
     "title": "Steamアカウントと連携する"
   },
@@ -1861,9 +1860,9 @@
   },
   "steam_wishlist": {
     "cta": "ウィッシュリストに追加",
-    "on_steam": "SteamでOpenFrontを開く",
+    "on_steam": "SteamでDeltaFrontを開く",
     "release": "2026年７月〜９月に公開",
-    "title": "OpenFrontをウィッシュリストに登録！"
+    "title": "DeltaFrontをウィッシュリストに登録！"
   },
   "store": {
     "already_owned": "すでにこのアイテムを所有しています。課金はされていません。",
@@ -1940,7 +1939,7 @@
     "subscription_purchase_success": "サブスクリプションが有効になりました！",
     "subscriptions": "サブスクリプション",
     "switch_button": "切り替える",
-    "tier_change_steam_needs_desktop": "あなたのサブスクリプションはSteam経由で請求されます。SteamのOpenFrontアプリから変更するか、Steamアカウントの設定で管理してください。",
+    "tier_change_steam_needs_desktop": "あなたのサブスクリプションはSteam経由で請求されます。SteamのDeltaFrontアプリから変更するか、Steamアカウントの設定で管理してください。",
     "tier_change_unavailable_steam": "Steamでプランを切り替えるには、Steamアカウントの設定でサブスクリプションをキャンセルし、今月の終了後に新しいプランを登録します。",
     "title": "ストア",
     "tribe_boost_button": "ブースト",
@@ -2017,7 +2016,7 @@
     "browser": "ブラウザ",
     "canvas_2d_no_gpu": "Canvas 2D (GPUなし)",
     "charging": "充電中",
-    "chromium_tip": "OpenFrontはChromiumベースのブラウザで最適に動作します。",
+    "chromium_tip": "DeltaFrontはChromiumベースのブラウザで最適に動作します。",
     "copied_to_clipboard": "クリップボードに情報がコピーされました！ヘルプが必要な場合は、Discordで共有してください。",
     "device_pixel_ratio": "デバイスのピクセル比",
     "environment": "環境",
@@ -2108,8 +2107,8 @@
     "warship": "戦艦"
   },
   "update_available": {
-    "desktop": "OpenFrontの新しいバージョンが利用可能です。バックグラウンドでダウンロードされます。準備ができたら更新バーから再読み込みしてください。",
-    "message": "OpenFrontが新しいバージョンに更新されました。ページを再読み込みします。"
+    "desktop": "DeltaFrontの新しいバージョンが利用可能です。バックグラウンドでダウンロードされます。準備ができたら更新バーから再読み込みしてください。",
+    "message": "DeltaFrontが新しいバージョンに更新されました。ページを再読み込みします。"
   },
   "user_setting": {
     "alert_frame_desc": "警告フレームの表示を切り替えます。有効時、裏切られたときや陸上から攻撃を受けたときにフレームが表示されます。",
@@ -2335,7 +2334,7 @@
     "other_won": "{player}の勝利！",
     "requeue": "もう一度プレイする",
     "spectate": "観戦する",
-    "support_openfront": "OpenFront を支援！",
+    "support_openfront": "DeltaFront を支援！",
     "territory_pattern": "領土スキンを手に入れて広告をなしにしよう！",
     "you_won": "勝利！",
     "your_team": "あなたのチームの勝利！",

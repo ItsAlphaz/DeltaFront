@@ -11,6 +11,7 @@ import {
   TeamCountConfig,
 } from "@openfront/engine-api/Schemas";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import { EventBus } from "@openfront/shared/EventBus";
 import {
@@ -257,7 +258,7 @@ export class HostLobbyModal extends BaseModal {
         >
           ${translateText("host_modal.title")}
         </span>
-        ${this.renderVisibilityToggle()}
+        ${this.canOfferPublicListing() ? this.renderVisibilityToggle() : null}
       `,
       onBack: () => {
         this.leaveLobbyOnClose = true;
@@ -288,6 +289,14 @@ export class HostLobbyModal extends BaseModal {
     });
   }
 
+  // Listing a lobby publicly is a subscription feature, so without the store
+  // there is no way to qualify and the toggle would only lead to a dead-end
+  // "subscribe" dialog. Dev skips the entitlement gate (see canListPublicly),
+  // so the flow stays reachable for local testing.
+  private canOfferPublicListing(): boolean {
+    return ACCOUNT_FEATURES.store || ClientEnv.env() === GameEnv.Dev;
+  }
+
   // Private/Public segmented toggle in the header. Shown to everyone;
   // non-subscribers get a subscription-required dialog instead of a listing
   // request (the server re-checks the subscription regardless). Listing is
@@ -298,7 +307,7 @@ export class HostLobbyModal extends BaseModal {
       <button
         class="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all ${this
           .publiclyListed === isPublic
-          ? "bg-malibu-blue text-white"
+          ? "bg-df-red text-white"
           : "text-white/50 hover:text-white"}"
         @click=${() => this.handleVisibilitySelect(isPublic)}
       >

@@ -46,7 +46,7 @@ import {
 // The homepage lobby card's modifier pill, one size down: a lobby can run a
 // dozen settings and they all have to fit beside the preview.
 const SETTING_TAG =
-  "rounded bg-malibu-blue px-1.5 py-0.5 text-[11px] font-bold tracking-widest text-white";
+  "rounded bg-df-red px-1.5 py-0.5 text-[11px] font-bold tracking-widest text-white";
 
 @customElement("join-lobby-modal")
 export class JoinLobbyModal extends BaseModal {
@@ -322,7 +322,7 @@ export class JoinLobbyModal extends BaseModal {
                 id="lobbyIdInput"
                 placeholder=${translateText("private_lobby.enter_id")}
                 @keyup=${this.handleChange}
-                class="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono text-sm tracking-wider"
+                class="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-df-red focus:border-transparent transition-all font-mono text-sm tracking-wider"
               />
               <o-button
                 variant="ghost"

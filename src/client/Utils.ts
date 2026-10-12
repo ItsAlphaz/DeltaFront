@@ -14,12 +14,13 @@ import { GameConfig } from "@openfront/engine-api/Schemas";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { stripVersionPrefix } from "@openfront/shared/ServerList";
 import IntlMessageFormat from "intl-messageformat";
+import { BRAND } from "./Branding";
 import { ClientEnv } from "./ClientEnv";
 import type { LangSelector } from "./LangSelector";
 import { pagePin } from "./PagePin";
 import { Platform } from "./Platform";
 
-export const TUTORIAL_VIDEO_URL = "https://www.youtube.com/embed/7J5zwb_s_Cg";
+export const TUTORIAL_VIDEO_URL = BRAND.tutorialVideoUrl;
 
 // The desktop shell cannot embed YouTube inside Electron, so it bundles the
 // same tutorial and serves it under a reserved prefix of its app:// scheme

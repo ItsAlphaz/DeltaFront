@@ -10,7 +10,7 @@
     "cancel_subscription_confirm": "Résilier votre abonnement ? Vous pourriez perdre l'accès immédiatement.",
     "cancel_subscription_confirm_steam": "Votre abonnement reste actif jusqu'au {date}. Les abonnements Steam ne peuvent plus être réactivés une fois annulés — Pour vous réabonner, vous devrez payer de nouveau.",
     "cancel_subscription_confirm_steam_no_date": "Votre abonnement reste actif jusqu'à la fin de la période pour laquelle vous avez payé. Les abonnements Steam ne peuvent plus être réactivés une fois annulés — Pour vous réabonner, vous devrez payer de nouveau.",
-    "cancel_subscription_failed": "Impossible de résilier l'abonnement. Veuillez réessayer ou utiliser l'option \"Gérer\" sur le site OpenFront.",
+    "cancel_subscription_failed": "Impossible de résilier l'abonnement. Veuillez réessayer ou utiliser l'option \"Gérer\" sur le site DeltaFront.",
     "cancel_subscription_success": "Abonnement résilié. Votre compte montre maintenant vos avantages actuels.",
     "cancel_subscription_success_steam": "Annulé — actif jusqu'au {date}.",
     "cancel_subscription_success_steam_no_date": "Annulé — actif jusqu'à la fin de la période pour laquelle vous avez payé.",
@@ -23,7 +23,6 @@
     "delete_account_confirm_button": "Supprimer définitivement",
     "delete_account_confirm_word": "SUPPRIMER",
     "delete_account_desc": "Supprimez définitivement votre compte et toutes ses données.",
-    "delete_account_failed": "La suppression de votre compte a échoué, merci de contacter le support à support@openfront.io",
     "delete_account_rate_limited": "Il est momentanément impossible de supprimer votre compte, merci de réessayer plus tard.",
     "delete_account_scheduled": "Votre compte sera supprimé dans 24 heures. Si vous changez d'avis, merci de contacter le support pour annuler cette action.",
     "delete_account_title": "Supprimer le compte",
@@ -32,7 +31,7 @@
     "desktop_login_discord": "Continuer avec Discord dans votre navigateur",
     "desktop_login_google": "Continuer avec Google dans votre navigateur",
     "desktop_login_needs_update": "La connexion nécessite une version plus récente de l'application de bureau. Redémarrez Steam pour le mettre à jour, puis réessayez.",
-    "desktop_sign_in_desc": "La connexion ouvre OpenFront dans votre navigateur. Connectez-vous là-bas, confirmez le lien vers votre compte Steam, et le jeu suivra.",
+    "desktop_sign_in_desc": "La connexion ouvre DeltaFront dans votre navigateur. Connectez-vous là-bas, confirmez le lien vers votre compte Steam, et le jeu suivra.",
     "email_placeholder": "Entrez votre adresse email",
     "enter_email_address": "Veuillez saisir une adresse e-mail",
     "failed_to_send_recovery_email": "Échec de l'envoi de l'e-mail de récupération",
@@ -50,7 +49,7 @@
     "link_google_already_linked": "Ce compte Google est déjà lié à un autre joueur.",
     "link_google_error": "Impossible de lier votre compte Google. Assurez-vous que votre compte est bien connecté et réessayez.",
     "link_google_failed": "Impossible de démarrer la liaison Google. Veuillez réessayer.",
-    "link_google_on_web": "Lier Google sur le site OpenFront",
+    "link_google_on_web": "Lier Google sur le site DeltaFront",
     "link_google_success": "Compte Google lié.",
     "link_steam": "Lier un compte Steam",
     "link_steam_error": "Impossible de lier votre compte Steam. Merci de vous assurer que votre compte est bien connecté, puis réessayez.",
@@ -64,13 +63,13 @@
     "login_deleted": "Ce compte a été supprimé.",
     "login_email_exists": "Vous avez déjà un compte avec cet e-mail. Connectez-vous, puis liez ce compte dans les paramètres.",
     "login_error": "Nous n'avons pas pu vérifier cette connexion. Merci de réessayer l'opération.",
-    "login_no_account": "Aucun compte OpenFront n'utilise ce compte Steam pour le moment. Connectez-vous avec un compte existant et liez-le à Steam depuis les paramètres, ou en lançant le jeu depuis Steam.",
+    "login_no_account": "Aucun compte DeltaFront n'utilise ce compte Steam pour le moment. Connectez-vous avec un compte existant et liez-le à Steam depuis les paramètres, ou en lançant le jeu depuis Steam.",
     "manage_subscription": "Gérer",
     "manage_subscription_on_steam": "Facturé via Steam. \"Gérer\" ouvre votre page d'abonnements Steam.",
     "manage_subscription_on_steam_ending": "Annulé — actif jusqu'au {date}. \"Gérer\" ouvre votre page d'abonnements Steam.",
     "manage_subscription_on_steam_ending_no_date": "Annulé — actif jusqu'à la fin de la période pour laquelle vous avez payé. \"Gérer\" ouvre votre page d'abonnements Steam.",
     "manage_subscription_on_steam_no_tier_change": "Facturé via Steam. \"Gérer\" ouvre votre page d'abonnements Steam. Pour changer de grade d'abonnement, annulez l'actuel et abonnez-vous au nouveau après la fin du mois en cours.",
-    "manage_subscription_on_web": "Gérez ou modifiez votre facturation sur le site Web OpenFront.",
+    "manage_subscription_on_web": "Gérez ou modifiez votre facturation sur le site Web DeltaFront.",
     "marketing_desc": "Nouveautés occasionnelles, événements, et mises à jour. Se désabonner à tout moment.",
     "marketing_no_email": "Lier une adresse mail à votre compte pour vous abonner aux mises à jour.",
     "marketing_no_email_steam": "Steam ne partageant pas votre adresse e-mail avec nous, nous n'avons aucun moyen de vous envoyer des mises à jour.",
@@ -477,7 +476,7 @@
   "common": {
     "available": "Disponible",
     "back": "Retour",
-    "backend_unreachable": "Impossible de joindre les serveurs OpenFront. Veuillez vérifier votre connexion et réessayez.",
+    "backend_unreachable": "Impossible de joindre les serveurs DeltaFront. Veuillez vérifier votre connexion et réessayez.",
     "cancel": "Annuler",
     "cap_label": "Limite",
     "cap_tooltip": "Capacité restante du destinataire",
@@ -580,11 +579,11 @@
     "back_to_game": "Retour au jeu",
     "browser_fallback": "Impossible d'ouvrir le navigateur automatiquement — utilisez le lien ci-dessus.",
     "cancel": "Annuler",
-    "code_destination_generic": "Entrez ce code sur le site d'OpenFront pour lier votre compte :",
+    "code_destination_generic": "Entrez ce code sur le site d'DeltaFront pour lier votre compte :",
     "code_destination_site": "Entrez ce code sur {site} pour lier votre compte :",
     "continue_to_game": "Continuer vers la partie",
     "expired": "Ce code a expiré. Recommencez l'opération pour en recevoir un nouveau.",
-    "heading": "Bienvenue sur OpenFront",
+    "heading": "Bienvenue sur DeltaFront",
     "link_existing": "Lier un compte existant",
     "linking_failed_reason": "La liaison a échoué : {reason}",
     "linking_failed_unknown": "La liaison a échoué pour une raison inconnue.",
@@ -594,16 +593,16 @@
     "retry": "Réessayer",
     "starting_link": "Début de la liaison du compte…",
     "ticket_unavailable": "Impossible de démarrer la liaison de compte. Vous pouvez réessayer ou continuer à jouer.",
-    "title": "OpenFront - Configuration du compte"
+    "title": "DeltaFront - Configuration du compte"
   },
   "desktop_presence": {
     "in_game": "En jeu",
     "spectating": "Mode spectateur"
   },
   "desktop_session": {
-    "generic": "Impossible de se connecter à votre compte OpenFront",
-    "needs_account": "Configurez votre compte OpenFront pour jouer en ligne",
-    "network": "Impossible d'accéder à OpenFront. Vérifiez votre connexion.",
+    "generic": "Impossible de se connecter à votre compte DeltaFront",
+    "needs_account": "Configurez votre compte DeltaFront pour jouer en ligne",
+    "network": "Impossible d'accéder à DeltaFront. Vérifiez votre connexion.",
     "retry": "Réessayer",
     "retrying": "Connexion en cours…",
     "steam_backend": "Steam a du mal à vous connecter. Merci de réessayer dans quelques minutes.",
@@ -613,7 +612,7 @@
   },
   "desktop_status": {
     "go_online": "Jouer en ligne",
-    "offline": "Hors-ligne : Impossible de joindre les serveurs OpenFront",
+    "offline": "Hors-ligne : Impossible de joindre les serveurs DeltaFront",
     "retry": "Réessayer",
     "retrying": "Nouvelle tentative…"
   },
@@ -626,12 +625,12 @@
     "retry": "Réessayer"
   },
   "desktop_webgl_gate": {
-    "intro": "Impossible pour OpenFront d'utiliser votre carte graphique, le jeu n'a pas pu se lancer. Ceci est généralement temporaire. Pour résoudre ce problème :",
-    "quit": "Quitter OpenFront",
+    "intro": "Impossible pour DeltaFront d'utiliser votre carte graphique, le jeu n'a pas pu se lancer. Ceci est généralement temporaire. Pour résoudre ce problème :",
+    "quit": "Quitter DeltaFront",
     "step_drivers": "Si le problème persiste, mettez à joueurs vos pilotes NVIDIA, AMD ou Intel.",
-    "step_quit": "Quitter OpenFront.",
+    "step_quit": "Quitter DeltaFront.",
     "step_restart_computer": "Si le problème persiste, redémarrez votre ordinateur.",
-    "step_restart_steam": "Redémarrez Steam, puis relancez OpenFront.",
+    "step_restart_steam": "Redémarrez Steam, puis relancez DeltaFront.",
     "title": "Accélération graphique indisponible"
   },
   "detailed_view": {
@@ -972,10 +971,10 @@
     "preset_colorblind_desc": "Couleurs des territoires et des frontières adaptées aux personnes daltoniennes",
     "preset_custom": "Personnalisé",
     "preset_default": "Par défaut",
-    "preset_default_desc": "L’apparence standard d’OpenFront",
+    "preset_default_desc": "L’apparence standard d’DeltaFront",
     "preset_delete_confirm": "Supprimer le préréglage « {name} » ?",
     "preset_evans_pick": "Choix d'Evan",
-    "preset_evans_pick_desc": "Les paramètres avec lesquels Evan joue à OpenFront",
+    "preset_evans_pick_desc": "Les paramètres avec lesquels Evan joue à DeltaFront",
     "preset_migrated_name": "Mes paramètres",
     "preset_name_placeholder": "Nom du préréglage",
     "preset_night": "Nuit",
@@ -1091,7 +1090,7 @@
     "radial_title": "Menu radial",
     "table_action": "Action",
     "table_key": "Touche",
-    "troubleshooting_desc": "Si vous rencontrez des problèmes de performance, des plantages ou d'autres problèmes lors de la lecture d'OpenFront, veuillez visiter notre page de dépannage pour vous aider à diagnostiquer et à résoudre les problèmes courants :",
+    "troubleshooting_desc": "Si vous rencontrez des problèmes de performance, des plantages ou d'autres problèmes lors de la lecture d'DeltaFront, veuillez visiter notre page de dépannage pour vous aider à diagnostiquer et à résoudre les problèmes courants :",
     "ui_attack_ratio": "Ratio d'attaque - La quantité de troupes qui seront utilisées lors de votre attaque. Vous pouvez ajuster le ratio d'attaque en utilisant le curseur. Avoir plus de troupes attaquantes que défensives vous fera perdre moins de troupes dans l'attaque, quand en avoir moins va augmenter les dommages infligés à vos troupes attaquantes. L'effet ne dépasse pas le ratio de 2:1.",
     "ui_control": "Panneau de contrôle",
     "ui_control_desc": "Le panneau de contrôle contient les éléments suivants :",
@@ -1111,7 +1110,7 @@
     "ui_wilderness": "Région sauvage",
     "ui_your_team": "Votre équipe :",
     "video_tutorial": "Tutoriel vidéo",
-    "video_tutorial_title": "Tutoriel OpenFront.io"
+    "video_tutorial_title": "Tutoriel DeltaFront"
   },
   "host_modal": {
     "anonymous_players": "Joueurs anonymes",
@@ -1183,14 +1182,14 @@
     "got_it": "J'ai compris",
     "how": "Comment",
     "later": "Plus tard",
-    "modal_desc": "Votre navigateur ne supporte pas le grand écran, mais vous pouvez ajouter OpenFront à votre écran d'accueil pour une meilleure expérience :",
+    "modal_desc": "Votre navigateur ne supporte pas le grand écran, mais vous pouvez ajouter DeltaFront à votre écran d'accueil pour une meilleure expérience :",
     "modal_title": "Grand écran sur iOS",
     "never": "Jamais",
     "step_add_to_home_label": "Ajouter à l'écran d'accueil",
     "step_open": "Ouvrir depuis votre écran d'accueil — ouvre en grand écran sans la barre d'adresse",
     "step_scroll_and_tap": "Défilez vers le bas et tapotez",
     "step_share": "Tapotez le bouton \"Partager\" dans votre navigateur",
-    "text": "Pour le grand écran, ajouter OpenFront à votre écran d'accueil"
+    "text": "Pour le grand écran, ajouter DeltaFront à votre écran d'accueil"
   },
   "kick_reason": {
     "admin": "Expulsé par un admin",
@@ -1285,7 +1284,7 @@
     "solo": "Solo",
     "store": "Boutique",
     "terms_of_service": "Conditions d'utilisation",
-    "title": "OpenFront (ALPHA)",
+    "title": "DeltaFront (ALPHA)",
     "troubleshooting": "Dépannage",
     "tutorial": "Tutoriel",
     "user_avatar_alt": "Avatar de {username}",
@@ -1458,7 +1457,7 @@
     "dismiss": "Ignorer",
     "error": "Échec de la sauvegarde. Veuillez réessayer.",
     "no": "Non merci",
-    "title": "Voulez-vous rester informé·e des nouveautés d'OpenFront ?",
+    "title": "Voulez-vous rester informé·e des nouveautés d'DeltaFront ?",
     "yes": "Oui s'il vous plaît"
   },
   "matchmaking_modal": {
@@ -1488,7 +1487,7 @@
     "ranked_pairing_note": "Dans les modes en équipe, les membres d’un même clan et les amis dans la file d’attente sont placés dans la même équipe lorsque c’est possible. Les amis sont regroupés en priorité, puis les membres du clan. Si vos Elos sont trop éloignées, vous serez placés séparément afin de préserver l’équilibre des parties.",
     "ranked_title": "Classés",
     "retry_lobbies": "Réessayer",
-    "servers_unreachable": "Impossible de se connecter aux serveurs OpenFront",
+    "servers_unreachable": "Impossible de se connecter aux serveurs DeltaFront",
     "teams_count": "{teamCount} équipes",
     "teams_of": " {teamCount} équipes de {playersPerTeam}",
     "teams_title": "Équipes"
@@ -1522,7 +1521,7 @@
   },
   "news_box": {
     "dismiss": "Ignorer",
-    "firefox_warning": "OpenFront.io ne fonctionne pas bien avec [les navigateurs basés sur Firefox](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Nous vous recommandons d'utiliser un navigateur [basé sur Chromium](https://en.wikipedia.org/wiki/Chromium_(web_browser) #Browsers_based_on_Chromium) pour de meilleures performances.",
+    "firefox_warning": "DeltaFront ne fonctionne pas bien avec [les navigateurs basés sur Firefox](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Nous vous recommandons d'utiliser un navigateur [basé sur Chromium](https://en.wikipedia.org/wiki/Chromium_(web_browser) #Browsers_based_on_Chromium) pour de meilleures performances.",
     "go_to_item": "Aller à l'article {num}",
     "news": "NOUVEAUTÉS",
     "tournament": "TOURNOI",
@@ -1763,9 +1762,9 @@
     "waiting_for_players": "En attente de joueurs"
   },
   "purchase_nudge": {
-    "body": "On dirait que vous aimez jouer à OpenFront ! Pensez à nous soutenir en effectuant un achat dans la boutique : n’importe quel achat supprime les publicités à vie.",
+    "body": "On dirait que vous aimez jouer à DeltaFront ! Pensez à nous soutenir en effectuant un achat dans la boutique : n’importe quel achat supprime les publicités à vie.",
     "close": "Fermer",
-    "title": "Vous aimez OpenFront ?",
+    "title": "Vous aimez DeltaFront ?",
     "visit_store": "Visiter la boutique"
   },
   "radial_menu": {
@@ -1817,7 +1816,7 @@
     "launched": "Ouverture de ce salon dans l’application Steam. Si rien ne se passe, assurez-vous que Steam est lancé.",
     "open_in_steam": "Ouvrir dans Steam",
     "play_in_browser": "Jouer dans le navigateur",
-    "prompt": "Vous avez OpenFront sur Steam, comment souhaitez-vous rejoindre ce salon ?",
+    "prompt": "Vous avez DeltaFront sur Steam, comment souhaitez-vous rejoindre ce salon ?",
     "remember": "Se souvenir de mon choix",
     "title": "Rejoindre le salon",
     "try_again": "Réessayer"
@@ -1835,23 +1834,23 @@
     "conflict_games": "{games, plural, =0 {Aucune partie jouée} one {# partie jouée} other {# parties jouées}}",
     "conflict_games_capped": "{games}+ parties jouées",
     "conflict_keep": "Vous conserverez {username} et vos achats Steam seront transférés lors de la liaison.",
-    "conflict_prompt": "Le compte Steam {persona} est déjà lié à un autre compte OpenFront.",
-    "conflict_prompt_no_persona": "Ce compte Steam est déjà lié à un autre compte OpenFront.",
+    "conflict_prompt": "Le compte Steam {persona} est déjà lié à un autre compte DeltaFront.",
+    "conflict_prompt_no_persona": "Ce compte Steam est déjà lié à un autre compte DeltaFront.",
     "conflict_warning": "Cette action est irréversible.",
     "invalid_code": "Cela ne ressemble pas à un code valide. Vérifiez-le et réessayez.",
     "linking": "Liaison…",
     "load_error": "Impossible de charger les détails de votre compte. Veuillez réessayer depuis Steam.",
     "load_error_code": "Impossible de charger les détails de votre compte. Veuillez réessayer.",
     "reason_account_already_has_steam": "Votre compte est déjà lié à un autre compte Steam.",
-    "reason_discard_blocked": "Le compte OpenFront associé à ce compte Steam ne peut pas être supprimé automatiquement. Veuillez contacter le support afin que nous puissions résoudre le problème pour vous.",
-    "reason_discard_blocked_paid": "Le compte OpenFront associé à ce compte Steam contient des achats et ne peut donc pas être supprimé automatiquement. Veuillez contacter le support afin que nous puissions résoudre le problème pour vous.",
+    "reason_discard_blocked": "Le compte DeltaFront associé à ce compte Steam ne peut pas être supprimé automatiquement. Veuillez contacter le support afin que nous puissions résoudre le problème pour vous.",
+    "reason_discard_blocked_paid": "Le compte DeltaFront associé à ce compte Steam contient des achats et ne peut donc pas être supprimé automatiquement. Veuillez contacter le support afin que nous puissions résoudre le problème pour vous.",
     "reason_discard_deferred": "Un achat sur ce compte est toujours en cours de traitement. Merci de réessayer dans quelques minutes.",
     "reason_discard_not_linked": "La liaison n’a pas abouti. Merci de retenter l'opération.",
     "reason_expired": "Ce lien a expiré. Veuillez réessayer depuis Steam.",
     "reason_offer_unavailable": "Cette confirmation a expiré. Merci de retenter la liaison.",
     "reason_rate_limited": "Trop de tentatives. Attendez {seconds, plural, =0 {un instant} one {# seconde} other {# secondes}} et réessayez.",
     "reason_steam_has_progress": "Ce compte Steam possède déjà sa propre progression et ne peut pas être fusionné.",
-    "reason_steam_linked_elsewhere": "Ce compte Steam est déjà lié à un compte OpenFront différent.",
+    "reason_steam_linked_elsewhere": "Ce compte Steam est déjà lié à un compte DeltaFront différent.",
     "success": "Votre compte Steam est maintenant lié.",
     "title": "Lier un compte Steam"
   },
@@ -1861,9 +1860,9 @@
   },
   "steam_wishlist": {
     "cta": "Ajouter à la liste de souhaits",
-    "on_steam": "OpenFront sur Steam",
+    "on_steam": "DeltaFront sur Steam",
     "release": "Disponible au 3ᵉ trimestre 2026",
-    "title": "Ajoutez OpenFront à votre liste de souhaits sur Steam !"
+    "title": "Ajoutez DeltaFront à votre liste de souhaits sur Steam !"
   },
   "store": {
     "already_owned": "Vous possédez déjà cet article. Aucun montant n’a été débité.",
@@ -1940,7 +1939,7 @@
     "subscription_purchase_success": "Abonnement activé !",
     "subscriptions": "Abonnements",
     "switch_button": "Changer",
-    "tier_change_steam_needs_desktop": "Votre abonnement est facturé via Steam. Modifiez-le depuis OpenFront sur Steam ou gérez-le dans les paramètres de votre compte Steam.",
+    "tier_change_steam_needs_desktop": "Votre abonnement est facturé via Steam. Modifiez-le depuis DeltaFront sur Steam ou gérez-le dans les paramètres de votre compte Steam.",
     "tier_change_unavailable_steam": "Pour changer de grade sur Steam, annulez votre abonnement dans les paramètres de votre compte Steam, puis abonnez-vous au grade souhaité à la fin du mois en cours.",
     "title": "Boutique",
     "tribe_boost_button": "Mettre en avant",
@@ -2017,7 +2016,7 @@
     "browser": "Navigateur",
     "canvas_2d_no_gpu": "Canvas 2D (sans GPU)",
     "charging": "Chargement",
-    "chromium_tip": "OpenFront fonctionne mieux sur les navigateurs basés sur Chromium.",
+    "chromium_tip": "DeltaFront fonctionne mieux sur les navigateurs basés sur Chromium.",
     "copied_to_clipboard": "Informations copiées dans le presse-papiers ! N'hésitez pas à le partager sur notre Discord si vous avez besoin d'aide.",
     "device_pixel_ratio": "Ratio de pixels de l'appareil",
     "environment": "Environnement",
@@ -2108,8 +2107,8 @@
     "warship": "Navire de guerre"
   },
   "update_available": {
-    "desktop": "Une nouvelle version d’OpenFront est disponible. Elle sera téléchargée en arrière-plan ; une fois prête, rechargez la page depuis la barre de mise à jour.",
-    "message": "Une nouvelle version d'OpenFront est disponible. La page va maintenant se rafraîchir pour se mettre à jour."
+    "desktop": "Une nouvelle version d’DeltaFront est disponible. Elle sera téléchargée en arrière-plan ; une fois prête, rechargez la page depuis la barre de mise à jour.",
+    "message": "Une nouvelle version d'DeltaFront est disponible. La page va maintenant se rafraîchir pour se mettre à jour."
   },
   "user_setting": {
     "alert_frame_desc": "Activer/Désactiver le cadre d'alerte. Lorsqu'il est activé, le cadre s'affichera lorsque vous serez trahi ou attaqué par la terre.",
@@ -2335,7 +2334,7 @@
     "other_won": "{player} a gagné !",
     "requeue": "Rejouer",
     "spectate": "Regarder",
-    "support_openfront": "Soutenir OpenFront!",
+    "support_openfront": "Soutenir DeltaFront!",
     "territory_pattern": "Achetez une décoration de territoire pour retirer les publicités !",
     "you_won": "Vous avez gagné !",
     "your_team": "Votre équipe a gagné !",

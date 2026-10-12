@@ -52,16 +52,16 @@ export class TokenLoginModal extends BaseModal {
     return html`
       <div class="flex items-center gap-4">
         <div
-          class="w-12 h-12 rounded-full border border-blue-400/40 bg-blue-500/10 flex items-center justify-center"
+          class="w-12 h-12 rounded-full border border-df-red/40 bg-df-red/10 flex items-center justify-center"
         >
           <div
-            class="w-6 h-6 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"
+            class="w-6 h-6 border-2 border-df-red/30 border-t-df-red rounded-full animate-spin"
           ></div>
         </div>
         <div class="flex flex-col gap-2">
           <p class="text-lg font-semibold text-white">${loggingText}</p>
           <div class="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-            <div class="h-full w-1/2 bg-blue-400/80 animate-pulse"></div>
+            <div class="h-full w-1/2 bg-df-red/80 animate-pulse"></div>
           </div>
         </div>
       </div>

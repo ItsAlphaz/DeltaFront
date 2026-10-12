@@ -535,7 +535,7 @@ export class StoreModal extends BaseModal {
           const active = this.cosmeticsSubTab === tab;
           return html`<button
             class="-mb-px whitespace-nowrap border-b-2 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-colors ${active
-              ? "border-malibu-blue text-aquarius"
+              ? "border-df-red text-df-red-bright"
               : "border-transparent text-white/40 hover:text-white/70"}"
             @click=${() => this.setCosmeticsSubTab(tab)}
           >

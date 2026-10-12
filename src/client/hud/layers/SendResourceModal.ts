@@ -271,7 +271,7 @@ export class SendResourceModal extends LitElement {
         <div class="flex items-center gap-2 text-[13px]">
           <!-- Available -->
           <span
-            class="inline-flex items-center gap-1 rounded-full bg-indigo-600/15 px-2 py-0.5 ring-1 ring-indigo-400/40 text-indigo-100"
+            class="inline-flex items-center gap-1 rounded-full bg-df-red/15 px-2 py-0.5 ring-1 ring-df-red/40 text-df-text"
             title=${this.i18n.availableTooltip()}
           >
             <span class="opacity-90">${this.i18n.availableChip()}</span>
@@ -299,7 +299,7 @@ export class SendResourceModal extends LitElement {
                 ${dead
                 ? "bg-zinc-800/70 text-zinc-400 ring-zinc-700 cursor-not-allowed"
                 : active
-                  ? "bg-indigo-600 text-white ring-indigo-300/60"
+                  ? "bg-df-red text-white ring-df-red-bright/60"
                   : "bg-zinc-800 text-zinc-200 ring-zinc-700 hover:bg-zinc-700 hover:text-zinc-50"}"
               @click=${() => {
                 if (dead) return;
@@ -343,7 +343,7 @@ export class SendResourceModal extends LitElement {
     return html`
       <div class="${sliderOuterMb}">
         <div
-          class="relative px-1 rounded-lg overflow-visible focus-within:ring-2 focus-within:ring-indigo-500/30"
+          class="relative px-1 rounded-lg overflow-visible focus-within:ring-2 focus-within:ring-df-red/30"
         >
           <input
             type="range"
@@ -425,7 +425,7 @@ export class SendResourceModal extends LitElement {
     return html`
       <div class="mt-3 text-center text-sm text-zinc-200">
         ${this.i18n.summarySend()}
-        <span class="font-semibold text-indigo-400 font-mono"
+        <span class="font-semibold text-df-red-bright font-mono"
           >${this.format(allowed)}</span
         >
         · ${this.i18n.summaryKeep()}
@@ -457,8 +457,8 @@ export class SendResourceModal extends LitElement {
         </button>
         <button
           class="h-10 min-w-24 rounded-lg px-3 text-sm font-semibold text-white
-                 bg-indigo-600 enabled:hover:bg-indigo-500
-                 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-400/50
+                 bg-df-red enabled:hover:bg-df-red-bright
+                 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-df-red/50
                  disabled:cursor-not-allowed disabled:opacity-50"
           ?disabled=${disabled}
           @click=${() => this.confirm()}

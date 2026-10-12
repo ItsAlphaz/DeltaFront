@@ -648,7 +648,7 @@ export class InventoryModal extends BaseModal {
           <input
             class="h-12 w-full max-w-md border border-white/10 bg-black/60
               rounded-xl shadow-inner text-xl text-center focus:outline-none
-              focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-white/30 transition-all"
+              focus:ring-2 focus:ring-df-red/50 focus:border-df-red text-white placeholder-white/30 transition-all"
             type="text"
             placeholder=${translateText("cosmetics.search")}
             .value=${this.search}
@@ -703,7 +703,7 @@ export class InventoryModal extends BaseModal {
           type="button"
           data-inventory-retry
           ?disabled=${this.isLoading}
-          class="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          class="rounded-lg bg-df-red px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
           @click=${(event: Event) => {
             if (this.isLoading) return;
             (event.currentTarget as HTMLButtonElement).disabled = true;

@@ -331,7 +331,7 @@ export class PlayerStatsSummary extends LitElement {
         <div
           data-label
           aria-hidden="true"
-          class="truncate text-[10px] font-bold uppercase tracking-wider text-blue-200/55"
+          class="truncate text-[10px] font-bold uppercase tracking-wider text-df-text-muted"
         >
           ${translateText(shortLabel)}
         </div>
@@ -391,10 +391,10 @@ export class PlayerStatsSummary extends LitElement {
       >
         <div
           data-win-rate
-          class="relative overflow-hidden rounded-xl border border-malibu-blue/25 bg-gradient-to-br from-malibu-blue/15 via-white/5 to-transparent px-4 py-3"
+          class="relative overflow-hidden rounded-xl border border-df-red/25 bg-gradient-to-br from-df-red/15 via-white/5 to-transparent px-4 py-3"
         >
           <div
-            class="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-aquarius/10 blur-2xl"
+            class="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-df-red-bright/10 blur-2xl"
           ></div>
           <div
             class="relative grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)] sm:items-center"
@@ -406,7 +406,7 @@ export class PlayerStatsSummary extends LitElement {
             <div class="flex flex-wrap items-start gap-x-8 gap-y-3">
               <div>
                 <div
-                  class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200/60"
+                  class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted"
                 >
                   ${translateText("player_stats_tree.stats_win_rate")}
                 </div>
@@ -420,7 +420,7 @@ export class PlayerStatsSummary extends LitElement {
                 ? html`
                     <div data-last-100>
                       <div
-                        class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200/60"
+                        class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted"
                       >
                         ${translateText("player_stats_tree.stats_last_100")}
                       </div>
@@ -446,7 +446,7 @@ export class PlayerStatsSummary extends LitElement {
                       : "border-l border-white/10"}"
                   >
                     <div
-                      class="truncate text-[10px] font-bold uppercase tracking-wider text-blue-200/55"
+                      class="truncate text-[10px] font-bold uppercase tracking-wider text-df-text-muted"
                       title=${translateText(stat.label)}
                     >
                       ${translateText(stat.label)}
@@ -468,7 +468,7 @@ export class PlayerStatsSummary extends LitElement {
             (group) => html`
               <div data-metric-group=${group.heading}>
                 <div
-                  class="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200/45"
+                  class="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted"
                 >
                   ${translateText(group.heading)}
                 </div>

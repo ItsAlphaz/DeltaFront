@@ -6,9 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title data-i18n="main.title">OpenFront (ALPHA)</title>
+    <title data-i18n="main.title">DeltaFront</title>
+    <meta name="theme-color" content="#090909" />
     <link rel="manifest" href="<%- manifestHref %>" />
-    <link rel="icon" type="image/svg+xml" href="<%- faviconHref %>" />
+    <link rel="icon" type="image/png" href="<%- faviconHref %>" />
 
     <!-- Preload styles -->
     <style>
@@ -19,7 +20,7 @@
       html.preload {
         visibility: visible !important;
         opacity: 1 !important;
-        background-color: #111827 !important;
+        background-color: #090909 !important;
       }
 
       html.preload body {
@@ -134,19 +135,19 @@
       }
     </style>
 
-    <!-- SEO -->
-    <link rel="canonical" href="https://openfront.io/" />
+    <!-- SEO. No canonical / og:url: they must be the deployment's own absolute
+         URL, so add them once DeltaFront has a public domain. -->
     <meta
       name="description"
-      content="Conquer the world in this multiplayer battle royale! Expand your nation, eliminate opponents, and dominate the map in this fast-paced IO game."
+      content="DeltaFront is a fast-paced multiplayer strategy game where players battle for territory, build their nations, form alliances, and dominate the front."
     />
 
     <!-- Open Graph -->
-    <meta property="og:url" content="https://openfront.io/" />
-    <meta property="og:title" content="OpenFront - Battle Royale" />
+    <meta property="og:site_name" content="DeltaFront" />
+    <meta property="og:title" content="DeltaFront" />
     <meta
       property="og:description"
-      content="Conquer the world in this multiplayer battle royale! Expand your nation, eliminate opponents, and dominate the map in this fast-paced IO game."
+      content="DeltaFront is a fast-paced multiplayer strategy game where players battle for territory, build their nations, form alliances, and dominate the front."
     />
     <meta property="og:image" content="<%- gameplayScreenshotUrl %>" />
     <meta property="og:type" content="game" />
@@ -186,18 +187,6 @@
       ) {
         document.documentElement.classList.add("desktop-shell");
       }
-      document.documentElement.style.setProperty(
-        "--background-image-url",
-        `url("<%- backgroundImageUrl %>")`,
-      );
-      // document.documentElement.style.setProperty(
-      //   "--desktop-logo-image-url",
-      //   `url("<%- desktopLogoImageUrl %>")`,
-      // );
-      document.documentElement.style.setProperty(
-        "--mobile-logo-image-url",
-        `url("<%- mobileLogoImageUrl %>")`,
-      );
     </script>
 
     <!-- CrazyGames SDK -->
@@ -219,65 +208,51 @@
       window.ramp.passiveMode = true;
     </script>
 
+    <!--
+      Optional analytics, off unless the deployment sets GOOGLE_ANALYTICS_ID /
+      CLOUDFLARE_ANALYTICS_TOKEN (see ServerEnv). Injected from script rather
+      than templated tags so an unset value leaves nothing on the page.
+    -->
     <script>
-      window.googletag = window.googletag || { cmd: [] };
-      googletag.cmd.push(function () {
-        googletag.pubads().set("page_url", "http://openfront.io ");
-      });
-    </script>
-
-    <!-- Analytics -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=AW-16702609763"
-    ></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-
-      gtag("js", new Date());
-      gtag("config", "AW-16702609763");
-    </script>
-    <!-- Google tag (gtag.js) -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-WQGQQ8RDN4"
-    ></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag("js", new Date());
-
-      gtag("config", "G-WQGQQ8RDN4");
+      (function (gaId, cfToken) {
+        if (gaId) {
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = function () {
+            window.dataLayer.push(arguments);
+          };
+          window.gtag("js", new Date());
+          window.gtag("config", gaId);
+          var ga = document.createElement("script");
+          ga.async = true;
+          ga.src =
+            "https://www.googletagmanager.com/gtag/js?id=" +
+            encodeURIComponent(gaId);
+          document.head.appendChild(ga);
+        }
+        if (cfToken) {
+          var cf = document.createElement("script");
+          cf.defer = true;
+          cf.src = "https://static.cloudflareinsights.com/beacon.min.js";
+          cf.setAttribute(
+            "data-cf-beacon",
+            JSON.stringify({ token: cfToken }),
+          );
+          document.head.appendChild(cf);
+        }
+      })(
+        <%- typeof googleAnalyticsId !== "undefined" && googleAnalyticsId ? googleAnalyticsId : "null" %>,
+        <%- typeof cloudflareAnalyticsToken !== "undefined" && cloudflareAnalyticsToken ? cloudflareAnalyticsToken : "null" %>,
+      );
     </script>
   </head>
 
   <body
-    class="select-none font-sans min-h-screen bg-neutral-800 transition-opacity duration-300 ease-in-out flex flex-row flex-wrap content-start"
+    class="select-none font-sans min-h-screen bg-df-bg text-df-text transition-opacity duration-300 ease-in-out flex flex-row flex-wrap content-start"
   >
-    <div id="hex-grid" class="fixed inset-0 -z-50 pointer-events-none">
-      <div
-        id="background-layer"
-        class="absolute inset-x-0 top-0 -bottom-[4cm] bg-cover opacity-30 [filter:brightness(1.0)] dark:[filter:sepia(0.2)_saturate(1.2)_hue-rotate(180deg)_brightness(0.9)]"
-        style="
-          background-image: var(--background-image-url);
-          background-position: center top;
-        "
-      ></div>
-      <div
-        class="absolute inset-0 bg-center bg-no-repeat bg-contain hidden lg:block"
-        style="background-image: var(--desktop-logo-image-url); opacity: 0.5"
-      ></div>
-      <div
-        class="absolute inset-0 bg-center bg-no-repeat bg-contain lg:hidden"
-        style="background-image: var(--mobile-logo-image-url); opacity: 0.5"
-      ></div>
-    </div>
+    <div
+      id="df-backdrop"
+      class="df-backdrop fixed inset-0 -z-50 pointer-events-none"
+    ></div>
 
     <!-- LEFT SIDEBAR MENU -->
 
@@ -290,7 +265,7 @@
 
     <mobile-nav-bar
       id="sidebar-menu"
-      class="peer [.in-game_&]:hidden z-[40001] fixed left-0 top-0 h-full flex flex-col justify-start overflow-visible bg-black/70 backdrop-blur-xl border-r border-white/10 transition-transform duration-500 ease-out transform -translate-x-full w-[70%] [&.open]:translate-x-0 lg:hidden"
+      class="peer [.in-game_&]:hidden z-[40001] fixed left-0 top-0 h-full flex flex-col justify-start overflow-visible bg-df-bg border-r border-df-border transition-transform duration-500 ease-out transform -translate-x-full w-[70%] [&.open]:translate-x-0 lg:hidden"
       role="dialog"
       data-i18n-aria-label="main.menu"
     ></mobile-nav-bar>
@@ -591,19 +566,6 @@
       });
     </script>
 
-    <!-- Analytics -->
-    <script
-      defer
-      src="https://static.cloudflareinsights.com/beacon.min.js"
-      data-cf-beacon='{"token": "03d93e6fefb349c28ee69b408fa25a13"}'
-    ></script>
     <script type="module" src="/src/client/Main.ts"></script>
-    <footer>
-      <script
-        data-cfasync="false"
-        async
-        src="//cdn.intergient.com/1025558/75940/ramp.js"
-      ></script>
-    </footer>
   </body>
 </html>

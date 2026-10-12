@@ -108,9 +108,11 @@ export class LeaderboardClanTable extends LitElement {
         class="flex flex-col items-center justify-center p-12 text-white h-full"
       >
         <div
-          class="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-6"
+          class="w-12 h-12 border-4 border-df-red/30 border-t-df-red rounded-full animate-spin mb-6"
         ></div>
-        <p class="text-blue-200/80 text-sm font-bold tracking-widest uppercase">
+        <p
+          class="text-df-text-secondary text-sm font-bold tracking-widest uppercase"
+        >
           ${translateText("common.loading")}
         </p>
       </div>
@@ -338,9 +340,9 @@ export class LeaderboardClanTable extends LitElement {
                           ${rankIcon}
                         </div>
                       </td>
-                      <td class="py-3 px-4 font-bold text-blue-300">
+                      <td class="py-3 px-4 font-bold text-df-text">
                         <div
-                          class="px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/20 inline-block"
+                          class="px-2.5 py-1 rounded bg-white/5 border border-df-border inline-block"
                         >
                           ${clan.clanTag}
                         </div>
@@ -354,7 +356,7 @@ export class LeaderboardClanTable extends LitElement {
                             class="w-24 h-1 bg-white/10 rounded-full overflow-hidden"
                           >
                             <div
-                              class="h-full bg-blue-500/50 rounded-full"
+                              class="h-full bg-df-red/70 rounded-full"
                               style="width: ${(clan.games / maxGames) * 100}%"
                             ></div>
                           </div>

@@ -302,7 +302,7 @@ export class LeaderboardPlayerList extends LitElement {
 
     return html`
       <tfoot class="sticky bottom-0 z-20">
-        <tr class="bg-blue-600 border-t border-blue-400/30 shadow-2xl">
+        <tr class="bg-df-red-dark border-t border-df-red/30 shadow-2xl">
           <td class="py-3 px-4 text-center">
             <div
               class="w-10 h-10 mx-auto flex items-center justify-center rounded-lg font-bold font-mono text-lg bg-white/20 text-white"
@@ -313,7 +313,7 @@ export class LeaderboardPlayerList extends LitElement {
           <td class="py-3 px-4">
             <div class="flex flex-col">
               <span
-                class="text-[10px] uppercase font-bold text-blue-200/80 leading-tight"
+                class="text-[10px] uppercase font-bold text-df-text-secondary leading-tight"
                 >${translateText("leaderboard_modal.your_ranking")}</span
               >
               <player-name
@@ -336,7 +336,7 @@ export class LeaderboardPlayerList extends LitElement {
                 >${(entry.winRate * 100).toFixed(1)}%</span
               >
               <span
-                class="text-[10px] uppercase text-blue-200/80 font-bold tracking-wider"
+                class="text-[10px] uppercase text-df-text-secondary font-bold tracking-wider"
                 >${translateText("leaderboard_modal.ratio")}</span
               >
             </div>
@@ -368,7 +368,7 @@ export class LeaderboardPlayerList extends LitElement {
       <tr
         data-current-user=${isCurrentUser ? "true" : "false"}
         class="border-b border-white/5 hover:bg-white/[0.07] transition-colors group ${isCurrentUser
-          ? "bg-blue-500/15"
+          ? "bg-df-red/15"
           : ""}"
       >
         <td class="py-3 px-4 text-center">
@@ -383,7 +383,7 @@ export class LeaderboardPlayerList extends LitElement {
             <player-name
               .username=${player.accountUsername}
               .publicId=${player.playerId}
-              .nameClass=${"font-bold text-blue-300 truncate text-base hover:underline"}
+              .nameClass=${"font-bold text-df-text truncate text-base hover:underline hover:text-df-red-bright"}
               .onNameClick=${() => this.openProfile(player.playerId)}
             ></player-name>
           </div>
@@ -417,7 +417,7 @@ export class LeaderboardPlayerList extends LitElement {
       return html`
         <div class="flex items-center justify-center py-4 text-white/50">
           <div
-            class="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mr-2"
+            class="w-4 h-4 border-2 border-df-red/30 border-t-df-red rounded-full animate-spin mr-2"
           ></div>
           <span class="text-[10px] font-bold uppercase tracking-widest">
             ${translateText("common.loading")}
@@ -448,9 +448,11 @@ export class LeaderboardPlayerList extends LitElement {
         class="flex flex-col items-center justify-center p-12 text-white h-full"
       >
         <div
-          class="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-6"
+          class="w-12 h-12 border-4 border-df-red/30 border-t-df-red rounded-full animate-spin mb-6"
         ></div>
-        <p class="text-blue-200/80 text-sm font-bold tracking-widest uppercase">
+        <p
+          class="text-df-text-secondary text-sm font-bold tracking-widest uppercase"
+        >
           ${translateText("common.loading")}
         </p>
       </div>

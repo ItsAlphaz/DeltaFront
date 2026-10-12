@@ -152,7 +152,7 @@ describe("ClanModal — rendering", () => {
       expect(leaderSpan!.className).toContain("amber");
     });
 
-    it("shows blue role badge class for officer/member", async () => {
+    it("shows brand-red role badge class for officer/member", async () => {
       (modal as unknown as { myClanRoles: Map<string, string> }).myClanRoles =
         new Map([["TST", "officer"]]);
       setState(modal, "myClans" as keyof ClanModal, [makeClan()] as never);
@@ -164,7 +164,7 @@ describe("ClanModal — rendering", () => {
         s.textContent?.trim().includes("role_officer"),
       );
       expect(officerSpan).toBeTruthy();
-      expect(officerSpan!.className).toContain("blue");
+      expect(officerSpan!.className).toContain("df-red");
     });
   });
 

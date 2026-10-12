@@ -253,6 +253,62 @@ describe("RenderHtml faroCollectorUrl injection", () => {
   });
 });
 
+describe("RenderHtml optional analytics", () => {
+  beforeEach(() => {
+    stubIdentity();
+    vi.stubEnv("TURNSTILE_SITE_KEY", "test-key");
+    vi.stubEnv("GIT_COMMIT", "abc");
+    vi.stubEnv("DOMAIN", "deltafront.example");
+    vi.stubEnv("SUBDOMAIN", "blue");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    clearAppShellContentCache();
+  });
+
+  test("loads no analytics when none is configured", async () => {
+    vi.stubEnv("GOOGLE_ANALYTICS_ID", "");
+    vi.stubEnv("CLOUDFLARE_ANALYTICS_TOKEN", "");
+    const html = await renderHtmlContent(REAL_TEMPLATE);
+    expect(html).toMatch(/\}\)\(\s*null,\s*null,\s*\);/);
+  });
+
+  test("passes the configured IDs to the loader", async () => {
+    vi.stubEnv("GOOGLE_ANALYTICS_ID", "G-ABC123XYZ");
+    vi.stubEnv(
+      "CLOUDFLARE_ANALYTICS_TOKEN",
+      "0123456789abcdef0123456789abcdef",
+    );
+    const html = await renderHtmlContent(REAL_TEMPLATE);
+    expect(html).toMatch(
+      /\}\)\(\s*"G-ABC123XYZ",\s*"0123456789abcdef0123456789abcdef",\s*\);/,
+    );
+  });
+
+  // The values land in an inline script, so anything off-format is dropped
+  // rather than escaped.
+  test("ignores malformed IDs", async () => {
+    vi.stubEnv("GOOGLE_ANALYTICS_ID", '"</script><script>alert(1)//');
+    vi.stubEnv("CLOUDFLARE_ANALYTICS_TOKEN", "not-a-token");
+    const html = await renderHtmlContent(REAL_TEMPLATE);
+    expect(html).not.toContain("alert(1)");
+    expect(html).toMatch(/\}\)\(\s*null,\s*null,\s*\);/);
+  });
+
+  test("ships none of upstream OpenFront's ad or analytics accounts", async () => {
+    const html = await renderHtmlContent(REAL_TEMPLATE);
+    for (const id of [
+      "G-WQGQQ8RDN4",
+      "AW-16702609763",
+      "03d93e6fefb349c28ee69b408fa25a13",
+      "cdn.intergient.com",
+    ]) {
+      expect(html).not.toContain(id);
+    }
+  });
+});
+
 // The real template, not a fixture. Everything above renders a one-line stub,
 // which is the right scope for those tests but cannot catch the thing this
 // file most needs to catch: that the guarded BOOTSTRAP_CONFIG block in

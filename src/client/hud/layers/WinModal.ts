@@ -1,5 +1,6 @@
 import { RankedType } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import type { GameXpEligible } from "@openfront/shared/ApiSchemas";
 import { Pattern } from "@openfront/shared/CosmeticSchemas";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -14,12 +15,13 @@ import {
   TUTORIAL_VIDEO_URL,
 } from "../../../client/Utils";
 import { getUserMe } from "../../Api";
+import { BRAND } from "../../Branding";
 import "../../components/CosmeticCard";
 import { cosmeticSelectionLabel } from "../../components/CosmeticPresentation";
 import type { GameXpPanelState } from "../../components/GameXpPanel";
 import type { LegendCeremony } from "../../components/LegendCeremony";
 import "../../components/PurchaseButton";
-import "../../components/SteamWishlist";
+import { hasSteamStorePage } from "../../components/SteamWishlist";
 import { Controller } from "../../Controller";
 import {
   fetchCosmetics,
@@ -33,7 +35,6 @@ import { MAX_PRESTIGE, reachedLegendThisGame } from "../../Progression";
 import { resolveXpAccount } from "../../ProgressionAccount";
 import { fetchProgressionConfig, pollGameXp } from "../../ProgressionApi";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
-import { steamSDK } from "../../SteamSDK";
 import { SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
 
@@ -280,44 +281,28 @@ export class WinModal extends LitElement implements Controller {
         transform: translateY(0) scale(0.98);
       }
       .win-action:focus-visible {
-        outline: 2px solid #3fa9f5;
+        outline: 2px solid var(--color-df-text);
         outline-offset: 2px;
       }
       .win-action-main {
-        background: linear-gradient(
-          to top,
-          rgba(0, 132, 209, 0.95) 0%,
-          rgba(0, 101, 170, 0.8) 100%
-        );
-        border-color: rgba(63, 169, 245, 0.55);
+        background: var(--color-df-red);
+        border-color: var(--color-df-red);
+        border-bottom-color: var(--color-df-red-dark);
       }
       .win-action-main:hover,
       .win-action-main:focus-visible {
-        background: linear-gradient(
-          to top,
-          rgba(29, 150, 230, 1) 0%,
-          rgba(0, 120, 200, 0.9) 100%
-        );
-        border-color: rgba(125, 200, 255, 0.9);
-        box-shadow: 0 0 20px rgba(63, 169, 245, 0.55);
+        background: var(--color-df-red-bright);
+        border-color: var(--color-df-red-bright);
+        border-bottom-color: var(--color-df-red-dark);
       }
       .win-action-quiet {
-        background: linear-gradient(
-          to top,
-          rgba(80, 80, 80, 0.55) 0%,
-          rgba(15, 15, 20, 0.85) 100%
-        );
-        border-color: rgba(255, 255, 255, 0.15);
+        background: var(--color-df-panel);
+        border-color: var(--color-df-border);
       }
       .win-action-quiet:hover,
       .win-action-quiet:focus-visible {
-        background: linear-gradient(
-          to top,
-          rgba(110, 110, 120, 0.6) 0%,
-          rgba(25, 25, 32, 0.9) 100%
-        );
-        border-color: rgba(255, 255, 255, 0.35);
-        box-shadow: 0 0 14px rgba(255, 255, 255, 0.25);
+        background: var(--color-df-bg-secondary);
+        border-color: var(--color-df-red);
       }
       @media (prefers-reduced-motion: reduce) {
         .win-action,
@@ -334,24 +319,31 @@ export class WinModal extends LitElement implements Controller {
   }
 
   innerHtml() {
-    // The Steam desktop build has nothing to wishlist — fall through to the
-    // other promos so the box is never empty.
-    const canWishlist = !steamSDK.isOnSteam();
+    // Each promo only appears when what it points at exists: the Steam page,
+    // a Discord, a cosmetic store. With none of them, the box stays empty
+    // rather than pitching something the player cannot reach.
+    const canWishlist = hasSteamStorePage();
+    const canDiscord = BRAND.discordUrl !== "";
+    const canPatterns = ACCOUNT_FEATURES.store;
+    const none = html``;
 
     if (isInIframe()) {
-      return canWishlist ? this.steamWishlist() : this.discordDisplay();
+      if (canWishlist) return this.steamWishlist();
+      if (canDiscord) return this.discordDisplay();
+      return canPatterns ? this.renderPatternButton() : none;
     }
 
-    if (!this.isWin && getGamesPlayed() < 3) {
+    if (!this.isWin && getGamesPlayed() < 3 && TUTORIAL_VIDEO_URL !== "") {
       return this.renderYoutubeTutorial();
     }
     if (this.rand < 0.25 && canWishlist) {
       return this.steamWishlist();
-    } else if (this.rand < 0.5) {
+    } else if (this.rand < 0.5 && canDiscord) {
       return this.discordDisplay();
-    } else {
+    } else if (canPatterns) {
       return this.renderPatternButton();
     }
+    return none;
   }
 
   renderYoutubeTutorial() {
@@ -473,10 +465,10 @@ export class WinModal extends LitElement implements Controller {
           ${translateText("win_modal.discord_description")}
         </p>
         <a
-          href="https://discord.com/invite/openfront"
+          href=${BRAND.discordUrl}
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-block px-6 py-3 bg-indigo-600 text-white rounded-sm font-semibold transition-all duration-200 hover:bg-indigo-700 hover:-translate-y-px no-underline"
+          class="inline-block px-6 py-3 bg-df-red text-white rounded-sm font-semibold transition-all duration-200 hover:bg-df-red-bright hover:-translate-y-px no-underline"
         >
           ${translateText("win_modal.join_server")}
         </a>

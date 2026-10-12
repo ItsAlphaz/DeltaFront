@@ -9,6 +9,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { TeamCountConfig } from "@openfront/engine-api/Schemas";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { generateID } from "@openfront/shared/SharedUtil";
@@ -288,7 +289,8 @@ export class SinglePlayerModal extends BaseModal {
   };
 
   private renderNotLoggedInBanner(): TemplateResult {
-    if (crazyGamesSDK.isOnCrazyGames()) {
+    // The prompt leads to the account page, which needs the account backend.
+    if (crazyGamesSDK.isOnCrazyGames() || !ACCOUNT_FEATURES.accounts) {
       return html``;
     }
     return html`<button

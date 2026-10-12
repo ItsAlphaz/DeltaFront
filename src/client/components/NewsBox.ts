@@ -150,14 +150,14 @@ export class NewsBox extends LitElement {
                   href="${item.url}"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="text-sm font-medium text-white hover:text-blue-300 transition-colors truncate block"
+                  class="text-sm font-medium text-white hover:text-df-red-bright transition-colors truncate block"
                   >${item.title}</a
                 >`
               : html`<span class="text-sm font-medium text-white truncate block"
                   >${item.title}</span
                 >`}
             <span
-              class="text-xs text-white/50 block [&_a]:text-blue-300 [&_a:hover]:text-blue-200"
+              class="text-xs text-white/50 block [&_a]:text-df-red-bright [&_a:hover]:text-df-text"
               >${this.renderMarkdown?.(
                 item.descriptionTranslationKey
                   ? translateText(item.descriptionTranslationKey)

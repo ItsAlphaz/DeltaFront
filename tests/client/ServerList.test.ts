@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientEnv, NoServerError } from "../../src/client/ClientEnv";
 import { resetPagePinForTests } from "../../src/client/PagePin";
@@ -2010,5 +2011,45 @@ describe("versionedPathForMismatchedGame", () => {
     await withList();
     (window as any).openfrontDesktop = {};
     expect(versionedPathForMismatchedGame("cAbCd12345", OLD)).toBeNull();
+  });
+});
+
+// DeltaFront ships without an account backend, so there is no list service to
+// ask. A standalone page must neither fetch the list nor mistake the missing
+// service for an outage: after two failed beats upstream locks Create Lobby,
+// Ranked and Join Lobby ("backendUnreachableConfirmed"), which would end
+// private multiplayer on a server that never had an API.
+describe("without an account backend", () => {
+  beforeEach(() => {
+    Object.assign(ACCOUNT_FEATURES, {
+      accounts: false,
+      store: false,
+      ranked: false,
+      clans: false,
+      leaderboards: false,
+    });
+  });
+
+  it("never fetches the list, however long the heartbeat would have run", async () => {
+    vi.useFakeTimers();
+    startServerListPolling();
+    await vi.advanceTimersByTimeAsync(5 * RETRY_MAX_MS);
+    await ensureServerList();
+    await refreshServerList();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("is not reported as an outage, so multiplayer entry points stay open", async () => {
+    vi.useFakeTimers();
+    startServerListPolling();
+    await vi.advanceTimersByTimeAsync(5 * RETRY_MAX_MS);
+    expect(backendReachable()).toBeNull();
+    expect(backendUnreachableConfirmed()).toBe(false);
+  });
+
+  it("still fetches once any account feature is on", async () => {
+    ACCOUNT_FEATURES.clans = true;
+    await ensureServerList();
+    expect(fetchMock).toHaveBeenCalled();
   });
 });

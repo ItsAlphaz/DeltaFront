@@ -108,9 +108,11 @@ export class LeaderboardTribeTable extends LitElement {
         class="flex flex-col items-center justify-center p-12 text-white h-full"
       >
         <div
-          class="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-6"
+          class="w-12 h-12 border-4 border-df-red/30 border-t-df-red rounded-full animate-spin mb-6"
         ></div>
-        <p class="text-blue-200/80 text-sm font-bold tracking-widest uppercase">
+        <p
+          class="text-df-text-secondary text-sm font-bold tracking-widest uppercase"
+        >
           ${translateText("common.loading")}
         </p>
       </div>
@@ -342,7 +344,7 @@ export class LeaderboardTribeTable extends LitElement {
                             class="w-24 h-1 bg-white/10 rounded-full overflow-hidden"
                           >
                             <div
-                              class="h-full bg-blue-500/50 rounded-full"
+                              class="h-full bg-df-red/70 rounded-full"
                               style="width: ${(tribe.playerReach / maxReach) *
                               100}%"
                             ></div>

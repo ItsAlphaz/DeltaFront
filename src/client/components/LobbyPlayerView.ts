@@ -219,7 +219,7 @@ export class LobbyTeamView extends LitElement {
             return html`<div
               class="px-2 py-1 rounded-sm mb-1 text-xs text-white border break-words
                 ${this.isCurrentPlayer(client)
-                ? "bg-malibu-blue/20 border-sky-500/40"
+                ? "bg-df-red/20 border-df-red/40"
                 : "bg-gray-700/70 border-transparent"}"
             >
               ${this.renderLevelBadge(client, listSlot)}${displayName}
@@ -341,7 +341,7 @@ export class LobbyTeamView extends LitElement {
       <div
         class="bg-gray-800 border rounded-xl flex flex-col
           ${this.teamContainsCurrentPlayer(preview)
-          ? "border-sky-500/60"
+          ? "border-df-red/60"
           : "border-gray-700"}"
       >
         <div
@@ -373,7 +373,7 @@ export class LobbyTeamView extends LitElement {
                   return html` <div
                     class="px-2 py-1 rounded-sm text-xs flex items-center justify-between border
                       ${this.isCurrentPlayer(p)
-                      ? "bg-malibu-blue/20 border-sky-500/40"
+                      ? "bg-df-red/20 border-df-red/40"
                       : "bg-gray-700/70 border-transparent"}"
                   >
                     <span class="flex items-center gap-1 min-w-0">
@@ -593,7 +593,7 @@ export class LobbyTeamView extends LitElement {
     if (client.verified !== true || anonymized) return html``;
     return html`<svg
       viewBox="0 0 24 24"
-      class="inline-block w-3.5 h-3.5 align-[-2px] text-blue-400 shrink-0"
+      class="inline-block w-3.5 h-3.5 align-[-2px] text-df-red-bright shrink-0"
       aria-label=${translateText("username.verified_heading")}
     >
       <circle cx="12" cy="12" r="10" fill="currentColor"></circle>

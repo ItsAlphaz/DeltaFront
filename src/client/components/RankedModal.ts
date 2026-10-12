@@ -186,7 +186,7 @@ export class RankedModal extends BaseModal {
     return html`
       <button
         @click=${onClick}
-        class="relative flex flex-col w-full h-28 sm:h-32 rounded-2xl bg-malibu-blue border-0 transition-all duration-200 hover:bg-aquarius hover:scale-[1.03] hover:shadow-[var(--shadow-action-card-hover)] active:bg-malibu-blue/80 active:scale-[0.98] p-6 items-center justify-center gap-3"
+        class="relative flex flex-col w-full h-28 sm:h-32 rounded-2xl bg-df-red border-0 transition-all duration-200 hover:bg-df-red-bright hover:scale-[1.03] hover:shadow-[var(--shadow-action-card-hover)] active:bg-df-red/80 active:scale-[0.98] p-6 items-center justify-center gap-3"
       >
         <div class="flex flex-col items-center gap-1 text-center">
           <h3

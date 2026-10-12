@@ -374,15 +374,15 @@ export class ControlPanel extends LitElement implements Controller {
     const { greenPercent, orangePercent } = this.calculateTroopBar();
     return html`
       <div
-        class="w-full h-6 border border-gray-600 rounded-md bg-gray-900/60 overflow-hidden relative"
+        class="w-full h-6 border border-hud-troops-border rounded-md bg-hud-troops-empty overflow-hidden relative"
       >
         <div class="relative h-full">
           <div
-            class="absolute inset-y-0 left-0 w-full origin-left bg-malibu-blue transition-transform duration-200 ease-out"
+            class="absolute inset-y-0 left-0 w-full origin-left bg-hud-troops transition-transform duration-200 ease-out"
             style="transform: scaleX(${greenPercent / 100});"
           ></div>
           <div
-            class="absolute inset-y-0 left-0 w-full origin-left bg-aquarius transition-transform duration-200 ease-out"
+            class="absolute inset-y-0 left-0 w-full origin-left bg-hud-troops-away transition-transform duration-200 ease-out"
             style="transform: translateX(${greenPercent}%) scaleX(${orangePercent /
             100});"
           ></div>
@@ -391,10 +391,10 @@ export class ControlPanel extends LitElement implements Controller {
           class="absolute inset-0 flex items-center justify-between px-1.5 text-xs font-bold leading-none pointer-events-none"
           translate="no"
         >
-          <span class="text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+          <span class="text-white text-shadow-pixel"
             >${renderTroops(this._troops)}</span
           >
-          <span class="text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+          <span class="text-white text-shadow-pixel"
             >${renderTroops(this._maxTroops)}</span
           >
         </div>
@@ -413,10 +413,10 @@ export class ControlPanel extends LitElement implements Controller {
               aria-hidden="true"
               width="12"
               height="12"
-              class="brightness-0 invert drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+              class="brightness-0 invert drop-shadow-[1px_1px_0_#000]"
             />
             <span
-              class="text-[10px] font-bold drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] ${this
+              class="text-[10px] font-bold text-shadow-pixel ${this
                 ._troopRateIsIncreasing
                 ? "text-green-400"
                 : "text-orange-400"}"
@@ -432,15 +432,15 @@ export class ControlPanel extends LitElement implements Controller {
     const { greenPercent, orangePercent } = this.calculateTroopBar();
     return html`
       <div
-        class="w-full h-6 border border-gray-600 rounded-md bg-gray-900/60 overflow-hidden relative"
+        class="w-full h-6 border border-hud-troops-border rounded-md bg-hud-troops-empty overflow-hidden relative"
       >
         <div class="relative h-full">
           <div
-            class="absolute inset-y-0 left-0 w-full origin-left bg-malibu-blue transition-transform duration-200 ease-out"
+            class="absolute inset-y-0 left-0 w-full origin-left bg-hud-troops transition-transform duration-200 ease-out"
             style="transform: scaleX(${greenPercent / 100});"
           ></div>
           <div
-            class="absolute inset-y-0 left-0 w-full origin-left bg-aquarius transition-transform duration-200 ease-out"
+            class="absolute inset-y-0 left-0 w-full origin-left bg-hud-troops-away transition-transform duration-200 ease-out"
             style="transform: translateX(${greenPercent}%) scaleX(${orangePercent /
             100});"
           ></div>
@@ -450,19 +450,18 @@ export class ControlPanel extends LitElement implements Controller {
           translate="no"
         >
           <span class="flex-1 flex justify-end h-full items-center pr-0.5">
-            <span class="text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+            <span class="text-white text-shadow-pixel"
               >${renderTroops(this._troops)}</span
             >
           </span>
           <span
-            class="h-full flex items-center px-0.5 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+            class="h-full flex items-center px-0.5 text-white text-shadow-pixel"
             >/</span
           >
           <span
             class="flex-1 flex justify-start h-full items-center pl-0.5 gap-0.5"
           >
-            <span
-              class="text-white tabular-nums w-[3.5rem] drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+            <span class="text-white tabular-nums w-[3.5rem] text-shadow-pixel"
               >${renderTroops(this._maxTroops)}</span
             >
             <img
@@ -471,7 +470,7 @@ export class ControlPanel extends LitElement implements Controller {
               aria-hidden="true"
               width="22"
               height="22"
-              class="shrink-0 brightness-0 invert drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] ml-1.5"
+              class="shrink-0 brightness-0 invert drop-shadow-[1px_1px_0_#000] ml-1.5"
             />
           </span>
         </div>
@@ -490,7 +489,7 @@ export class ControlPanel extends LitElement implements Controller {
       <div
         class="flex items-center gap-1.5 px-1.5 py-1 rounded-md border text-xs font-medium mb-1 ${isWarning
           ? "border-orange-400/60 bg-orange-400/10 text-orange-300"
-          : "border-blue-400/60 bg-blue-400/10 text-blue-300"}"
+          : "border-df-border bg-white/5 text-df-text-secondary"}"
       >
         <span class="shrink-0">${isWarning ? "⚠" : "ℹ"}</span>
         <span>${translateText(this._notification.message)}</span>
@@ -586,7 +585,7 @@ export class ControlPanel extends LitElement implements Controller {
           .value=${String(Math.round(this.attackRatio * 100))}
           @input=${(e: Event) => this.handleRatioSliderInput(e)}
           @pointerup=${(e: Event) => this.handleRatioSliderPointerUp(e)}
-          class="flex-1 h-1.5 accent-aquarius cursor-pointer"
+          class="flex-1 h-1.5 accent-df-red-bright cursor-pointer"
         />
       </div>
     `;
@@ -657,7 +656,7 @@ export class ControlPanel extends LitElement implements Controller {
             .value=${String(Math.round(this.attackRatio * 100))}
             @input=${(e: Event) => this.handleRatioSliderInput(e)}
             @pointerup=${(e: Event) => this.handleRatioSliderPointerUp(e)}
-            class="w-full h-1.5 accent-aquarius cursor-pointer"
+            class="w-full h-1.5 accent-df-red-bright cursor-pointer"
           />
         </div>
       </div>

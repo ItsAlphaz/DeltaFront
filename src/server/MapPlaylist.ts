@@ -17,6 +17,7 @@ import {
 import { GameConfig, TeamCountConfig } from "@openfront/engine-api/Schemas";
 import { SAM_CONSTRUCTION_TICKS } from "@openfront/engine-lib/configuration/Config";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { ScheduledPublicGameType } from "@openfront/shared/WireSchemas";
 import { logger } from "./Logger";
 import { getMapLandTiles } from "./MapLandTiles";
@@ -136,7 +137,10 @@ export class MapPlaylist {
 
   public async gameConfig(type: ScheduledPublicGameType): Promise<GameConfig> {
     this.scheduled++;
-    const trusted = this.scheduled % TRUSTED_PUBLIC_EVERY === 0;
+    // "Trusted" is a tier only the account backend can grant. Without
+    // accounts nobody could ever join such a lobby, so none is scheduled.
+    const trusted =
+      ACCOUNT_FEATURES.accounts && this.scheduled % TRUSTED_PUBLIC_EVERY === 0;
     const config = await this.rollConfig(type, trusted);
     if (trusted) {
       config.trusted = true;

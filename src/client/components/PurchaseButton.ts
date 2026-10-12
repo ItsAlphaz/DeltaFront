@@ -40,16 +40,16 @@ if (!document.getElementById(PURCHASE_STYLE_ID)) {
     .purchase-btn-wrap:hover .purchase-sparkle-btn,
     [data-cosmetic-shell]:hover .purchase-btn-wrap .purchase-sparkle-btn {
       background: rgb(37,99,235);
-      border-color: rgb(96,165,250);
+      border-color: var(--color-df-red-bright);
       color: white;
-      box-shadow: 0 0 20px rgba(96,165,250,0.6);
+      box-shadow: 0 0 20px rgb(255 37 45 / 0.6);
     }
     .purchase-btn-wrap:hover .purchase-sparkle-btn-hard,
     [data-cosmetic-shell]:hover .purchase-btn-wrap .purchase-sparkle-btn-hard {
-      background: rgb(29,78,216);
-      border-color: rgb(96,165,250);
+      background: var(--color-df-red);
+      border-color: var(--color-df-red-bright);
       color: white;
-      box-shadow: 0 0 20px rgba(96,165,250,0.6);
+      box-shadow: 0 0 20px rgb(255 37 45 / 0.6);
     }
     .purchase-btn-wrap:hover .purchase-sparkle-btn-soft,
     [data-cosmetic-shell]:hover .purchase-btn-wrap .purchase-sparkle-btn-soft {
@@ -59,19 +59,19 @@ if (!document.getElementById(PURCHASE_STYLE_ID)) {
       box-shadow: 0 0 20px rgba(217,119,6,0.6);
     }
     @keyframes purchase-pulse {
-      0%   { box-shadow: 0 0 15px rgba(96,165,250,0.6), 0 0 30px rgba(37,99,235,0.3); }
-      50%  { box-shadow: 0 0 25px rgba(96,165,250,0.9), 0 0 50px rgba(37,99,235,0.5); }
-      100% { box-shadow: 0 0 15px rgba(96,165,250,0.6), 0 0 30px rgba(37,99,235,0.3); }
+      0%   { box-shadow: 0 0 15px rgb(255 37 45 / 0.6), 0 0 30px rgb(168 15 22 / 0.3); }
+      50%  { box-shadow: 0 0 25px rgb(255 37 45 / 0.9), 0 0 50px rgb(168 15 22 / 0.5); }
+      100% { box-shadow: 0 0 15px rgb(255 37 45 / 0.6), 0 0 30px rgb(168 15 22 / 0.3); }
     }
     .purchase-sparkle-btn:hover {
-      background: rgb(29,78,216) !important;
-      border-color: rgb(96,165,250) !important;
+      background: var(--color-df-red) !important;
+      border-color: var(--color-df-red-bright) !important;
       color: white !important;
       animation: purchase-pulse 1.2s ease-in-out infinite !important;
     }
     .purchase-sparkle-btn-hard:hover {
-      background: rgb(29,78,216) !important;
-      border-color: rgb(96,165,250) !important;
+      background: var(--color-df-red) !important;
+      border-color: var(--color-df-red-bright) !important;
       color: white !important;
       animation: purchase-pulse 1.2s ease-in-out infinite !important;
     }
@@ -109,8 +109,8 @@ if (!document.getElementById(PURCHASE_STYLE_ID)) {
       width: 3px;
       height: 3px;
       border-radius: 50%;
-      background: rgba(96,165,250,0.9);
-      box-shadow: 0 0 4px rgba(96,165,250,0.8);
+      background: rgb(255 37 45 / 0.9);
+      box-shadow: 0 0 4px rgb(255 37 45 / 0.8);
       opacity: 0;
       display: none;
     }
@@ -135,8 +135,8 @@ if (!document.getElementById(PURCHASE_STYLE_ID)) {
       width: 4px;
       height: 4px;
       border-radius: 50%;
-      background: rgba(96,165,250,1);
-      box-shadow: 0 0 6px rgba(96,165,250,0.9), 0 0 2px rgba(255,255,255,0.5);
+      background: rgb(255 37 45 / 1);
+      box-shadow: 0 0 6px rgb(255 37 45 / 0.9), 0 0 2px rgba(255,255,255,0.5);
       opacity: 0;
       display: none;
     }
@@ -202,7 +202,7 @@ if (!document.getElementById(PURCHASE_STYLE_ID)) {
       width: 40px;
       height: 40px;
       border: 4px solid rgba(255,255,255,0.2);
-      border-top-color: rgb(96,165,250);
+      border-top-color: var(--color-df-red-bright);
       border-radius: 50%;
       animation: cosmetic-spin 0.8s linear infinite;
     }
@@ -357,8 +357,8 @@ export class PurchaseButton extends LitElement {
 
     return html`
       <button
-        class="purchase-sparkle-btn relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center
-         hover:bg-blue-600 hover:border-blue-400 hover:text-white hover:shadow-[0_0_20px_rgba(96,165,250,0.6)]"
+        class="purchase-sparkle-btn relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-df-red/15 text-df-text border border-df-red/50 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center
+         hover:bg-df-red hover:border-df-red-bright hover:text-white"
         ?disabled=${this.busy}
         @click=${(e: Event) => this.handleClick(e, this.onPurchaseDollar)}
       >
@@ -373,8 +373,8 @@ export class PurchaseButton extends LitElement {
   private renderHardButton() {
     return html`
       <button
-        class="purchase-sparkle-btn-hard relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center gap-2
-         hover:bg-blue-600 hover:border-blue-400 hover:text-white hover:shadow-[0_0_20px_rgba(96,165,250,0.6)]"
+        class="purchase-sparkle-btn-hard relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-df-red/15 text-df-text border border-df-red/50 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center gap-2
+         hover:bg-df-red hover:border-df-red-bright hover:text-white"
         ?disabled=${this.busy}
         @click=${(e: Event) => {
           e.stopPropagation();

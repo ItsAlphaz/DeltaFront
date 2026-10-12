@@ -7,11 +7,11 @@ import { html, svg, TemplateResult } from "lit";
 // colours them (the honeycomb's `--hx-color`, the flash's `--flash-bg`, the
 // shockwave's `--shock-color`) and adds its own beats on top.
 
-// The honeycomb baked into the menu background (resources/images/
-// background.webp, 2500x1382): flat-topped hexes with 147px sides, one of
-// whose rows of horizontal edges runs along y=1260 with an edge centred on
-// x=144. Measured from the image, so traced hexes sit on its own lines when
-// drawn over it at the same scale and position (cover, centred). `d` is each
+// The honeycomb geometry, measured from the menu background upstream used
+// (a 2500x1382 image, no longer shipped; DeltaFront's menu backdrop is flat):
+// flat-topped hexes with 147px sides, one of whose rows of horizontal edges
+// runs along y=1260 with an edge centred on x=144. The traced hexes keep that
+// layout and are drawn at the same scale and position (cover, centred). `d` is each
 // hex's distance from the focus point (the middle across, `focusY` of the way
 // down), 0..1, for the waves.
 export interface Honeycomb {
@@ -109,14 +109,10 @@ const CEREMONY_CSS = /* css */ `
   inherits: true;
   initial-value: 0;
 }
-/* The menu background, as it sits behind every page, but at full strength:
-   the moment has the whole screen to itself. */
+/* The menu backdrop, as it sits behind every page: the moment has the whole
+   screen to itself. */
 .ceremony-backdrop {
-  background-color: #070d18;
-  background-image: var(--background-image-url);
-  background-size: cover;
-  background-position: center;
-  filter: brightness(0.7);
+  background-color: var(--color-df-bg);
   animation: ceremony-fade-in 400ms ease-out both;
 }
 /* Darker in the middle and at the edges, so the badge and the words read
@@ -136,11 +132,11 @@ const CEREMONY_CSS = /* css */ `
   width: 100%;
   height: 100%;
   pointer-events: none;
-  filter: drop-shadow(0 0 6px var(--hx-glow, var(--hx-color, #00c8ff)));
+  filter: drop-shadow(0 0 6px var(--hx-glow, var(--hx-color, var(--color-df-red-bright))));
 }
 .ceremony-honeycomb .hx {
   fill: none;
-  stroke: var(--hx-color, #00c8ff);
+  stroke: var(--hx-color, var(--color-df-red-bright));
   stroke-width: 9;
   stroke-linejoin: round;
   opacity: 0;
@@ -176,11 +172,11 @@ const CEREMONY_CSS = /* css */ `
   }
   40% {
     opacity: 0.9;
-    stroke: var(--hx-color, #00c8ff);
+    stroke: var(--hx-color, var(--color-df-red-bright));
   }
   100% {
     opacity: 0.12;
-    stroke: var(--hx-color, #00c8ff);
+    stroke: var(--hx-color, var(--color-df-red-bright));
   }
 }
 /* At rest: a slow shimmer rolling outward. */

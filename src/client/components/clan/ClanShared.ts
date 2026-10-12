@@ -162,7 +162,7 @@ export function renderMemberSearchInput(
         type="text"
         .value=${value}
         @input=${onInput}
-        class="w-full h-10 pl-10 pr-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-medium hover:bg-white/10 text-sm"
+        class="w-full h-10 pl-10 pr-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm"
         placeholder="${translateText(placeholderKey)}"
       />
       <svg
@@ -241,7 +241,7 @@ export function renderMemberSortControl(
       <select
         @change=${(e: Event) =>
           onSortChange((e.target as HTMLSelectElement).value as ClanMemberSort)}
-        class="flex-1 sm:flex-none h-10 pl-3 pr-8 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-medium hover:bg-white/10 text-sm appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1rem] bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22rgba(255,255,255,0.5)%22 stroke-width=%222%22><path stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22m6 9 6 6 6-6%22/></svg>')]"
+        class="flex-1 sm:flex-none h-10 pl-3 pr-8 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1rem] bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22rgba(255,255,255,0.5)%22 stroke-width=%222%22><path stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22m6 9 6 6 6-6%22/></svg>')]"
       >
         ${sortOptions.map(
           (opt) => html`
@@ -260,7 +260,7 @@ export function renderMemberSortControl(
         @click=${onOrderToggle}
         title=${orderLabel}
         aria-label=${orderLabel}
-        class="h-10 w-10 shrink-0 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all"
+        class="h-10 w-10 shrink-0 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all"
       >
         ${renderOrderIcon(order)}
       </button>
@@ -296,7 +296,7 @@ export function renderMemberPagination(
               @click=${() => onPerPageChange(opt)}
               class="px-2 py-1 text-xs font-bold rounded-lg transition-all
                 ${membersPerPage === opt
-                ? "bg-malibu-blue/15 text-aquarius border border-malibu-blue/30"
+                ? "bg-df-red/15 text-df-red-bright border border-df-red/30"
                 : "text-white/40 hover:text-white/70 border border-transparent"}"
             >
               ${opt}
@@ -340,7 +340,7 @@ export function renderWLBarRow(
         <div class="absolute inset-0 flex">
           ${wins > 0
             ? html`<div
-                class="bg-malibu-blue h-full"
+                class="bg-df-red h-full"
                 style="width:${winPct}%"
               ></div>`
             : ""}
@@ -389,14 +389,14 @@ export function renderMemberRow(
     <div
       class="flex flex-col py-2.5 px-3 rounded-xl border
         ${isMe
-        ? "bg-malibu-blue/10 border-malibu-blue/20"
+        ? "bg-df-red/10 border-df-red/20"
         : "bg-white/5 border-white/10"}"
     >
       <div class="flex items-center gap-3">
         <div
           class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0
             ${isMe
-            ? "bg-malibu-blue/20 text-aquarius"
+            ? "bg-df-red/20 text-df-red-bright"
             : "bg-white/10 text-white/50"}"
         >
           ${renderRoleIcon(member.role)}

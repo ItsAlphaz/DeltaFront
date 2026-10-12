@@ -255,10 +255,6 @@ export function getPublicDir(resourcesDir: string): string {
   return path.join(resourcesDir, "public");
 }
 
-export function getProprietaryDir(rootDir: string = process.cwd()): string {
-  return path.join(rootDir, "proprietary");
-}
-
 // Scans directories with synchronous fs.existsSync — assumes a small number of sourceDirs.
 function resolveSourceDir(relativePath: string, sourceDirs: string[]): string {
   for (const dir of sourceDirs) {

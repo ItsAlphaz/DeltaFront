@@ -35,7 +35,7 @@ const getButtonStyles = () => {
     red: `${btnBase} text-red-400 hover:bg-red-500/10 hover:text-red-300 focus-visible:ring-red-400/30`,
     green: `${btnBase} text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 focus-visible:ring-emerald-400/30`,
     yellow: `${btnBase} text-[#f59e0b] hover:bg-[#f59e0b]/10 hover:text-[#fbbf24] focus-visible:ring-[#f59e0b]/30`,
-    indigo: `${btnBase} text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 focus-visible:ring-indigo-400/30`,
+    indigo: `${btnBase} text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 focus-visible:ring-df-red/30`,
     sky: `${btnBase} text-[#38bdf8] hover:bg-[#38bdf8]/10 hover:text-[#0ea5e9] focus-visible:ring-[#38bdf8]/30`,
   };
 };

@@ -1,15 +1,16 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 import { NavNotificationsController } from "./NavNotificationsController";
 
+// The open page gets a red bar on its left edge and white text.
 const MOBILE_ITEM =
-  "nav-menu-item block w-full text-left font-bold uppercase tracking-[0.05em] " +
-  "text-white/70 transition-all duration-200 cursor-pointer " +
-  "hover:text-blue-600 hover:translate-x-2.5 " +
-  "hover:drop-shadow-[0_0_20px_rgba(37,99,235,0.5)] " +
-  "[&.active]:text-blue-600 [&.active]:translate-x-2.5 " +
-  "[&.active]:drop-shadow-[0_0_20px_rgba(37,99,235,0.5)] " +
+  "nav-menu-item block w-full text-left font-display font-bold uppercase tracking-[0.08em] " +
+  "text-df-text-secondary transition-colors duration-150 cursor-pointer " +
+  "border-l-4 border-transparent pl-3 hover:text-df-text " +
+  "focus-visible:outline-2 focus-visible:outline-df-red " +
+  "[&.active]:text-df-text [&.active]:border-df-red " +
   "text-[clamp(18px,2.8vh,32px)] py-[clamp(0.2rem,0.8vh,0.75rem)]";
 
 @customElement("mobile-nav-bar")
@@ -82,13 +83,13 @@ export class MobileNavBar extends LitElement {
       >
         <!-- Logo + Menu -->
         <div
-          class="flex flex-col text-malibu-blue mb-4 ml-[clamp(0.2rem,0.4vw,0.4vh)]"
+          class="flex flex-col mb-4 pb-4 border-b border-df-border ml-[clamp(0.2rem,0.4vw,0.4vh)]"
         >
           <div class="flex flex-col items-center gap-1">
             <img
-              src=${assetUrl("images/OpenFrontLogo.svg")}
-              alt="OpenFront"
-              class="w-auto h-auto max-w-[220px] max-h-[4.5rem]"
+              src=${assetUrl("images/branding/deltafront-logo.png")}
+              alt="DeltaFront"
+              class="pixelated w-auto h-auto max-w-[220px] max-h-[4.5rem]"
             />
             <div
               id="game-version"
@@ -102,35 +103,41 @@ export class MobileNavBar extends LitElement {
           data-page="page-play"
           data-i18n="main.play"
         ></button>
+        ${ACCOUNT_FEATURES.store
+          ? html`<div
+                class="no-crazygames nav-menu-item flex items-center w-full cursor-pointer"
+                data-page="page-item-store"
+                @click=${this._notifications.onStoreClick}
+              >
+                <button class="${MOBILE_ITEM}" data-i18n="main.store"></button>
+                ${this._notifications.showStoreDot()
+                  ? this._renderDot("bg-df-red-bright")
+                  : ""}
+              </div>
+              <button
+                class="${MOBILE_ITEM} ${currentPage === "page-inventory"
+                  ? "active"
+                  : ""}"
+                data-page="page-inventory"
+                data-i18n="main.inventory"
+              ></button>`
+          : ""}
+        ${ACCOUNT_FEATURES.leaderboards
+          ? html`<button
+              class="${MOBILE_ITEM}"
+              data-page="page-leaderboard"
+              data-i18n="main.leaderboard"
+            ></button>`
+          : ""}
+        ${ACCOUNT_FEATURES.clans
+          ? html`<button
+              class="no-crazygames ${MOBILE_ITEM}"
+              data-page="page-clan"
+              data-i18n="main.clans"
+            ></button>`
+          : ""}
         <div
-          class="no-crazygames nav-menu-item flex items-center w-full cursor-pointer"
-          data-page="page-item-store"
-          @click=${this._notifications.onStoreClick}
-        >
-          <button class="${MOBILE_ITEM}" data-i18n="main.store"></button>
-          ${this._notifications.showStoreDot()
-            ? this._renderDot("bg-red-500")
-            : ""}
-        </div>
-        <button
-          class="${MOBILE_ITEM} ${currentPage === "page-inventory"
-            ? "active"
-            : ""}"
-          data-page="page-inventory"
-          data-i18n="main.inventory"
-        ></button>
-        <button
-          class="${MOBILE_ITEM}"
-          data-page="page-leaderboard"
-          data-i18n="main.leaderboard"
-        ></button>
-        <button
-          class="no-crazygames ${MOBILE_ITEM}"
-          data-page="page-clan"
-          data-i18n="main.clans"
-        ></button>
-        <div
-          class="flex flex-col w-full mt-auto [.in-game_&]:hidden items-end justify-end pt-4 border-t border-white/10"
+          class="flex flex-col w-full mt-auto [.in-game_&]:hidden items-end justify-end pt-4 border-t border-df-border"
         ></div>
       </div>
     `;

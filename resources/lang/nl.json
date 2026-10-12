@@ -10,7 +10,7 @@
     "cancel_subscription_confirm": "Uw abonnement annuleren? Je kunt de toegang onmiddellijk verliezen.",
     "cancel_subscription_confirm_steam": "Je abonnement blijft actief tot {date}. Steam-abonnementen kunnen niet opnieuw worden geactiveerd nadat ze zijn geannuleerd — als je je opnieuw wilt abonneren zou je een nieuwe aanschaffen.",
     "cancel_subscription_confirm_steam_no_date": "Je abonnement blijft actief tot het einde van de periode waarvoor je hebt betaald. Steam abonnementen kunnen niet gereactiveerd worden zodra ze geannuleerd zijn — om opnieuw te abonneren koop je een nieuwe.",
-    "cancel_subscription_failed": "Het annuleren van het abonnement is mislukt. Probeer het opnieuw of beheer je facturering op de OpenFront website.",
+    "cancel_subscription_failed": "Het annuleren van het abonnement is mislukt. Probeer het opnieuw of beheer je facturering op de DeltaFront website.",
     "cancel_subscription_success": "Abonnement geannuleerd. Je account toont nu je huidige toegang.",
     "cancel_subscription_success_steam": "Geannuleerd — actief tot {date}.",
     "cancel_subscription_success_steam_no_date": "Geannuleerd - actief tot het einde van de periode waarvoor je hebt betaald.",
@@ -23,7 +23,6 @@
     "delete_account_confirm_button": "Permanent Verwijderen",
     "delete_account_confirm_word": "VERWIJDEREN",
     "delete_account_desc": "Verwijder je account en alle gegevens permanent.",
-    "delete_account_failed": "Verwijderen mislukt, neem contact op met support via support@openfront.io",
     "delete_account_rate_limited": "Account verwijderen is tijdelijk niet beschikbaar, probeer het later opnieuw.",
     "delete_account_scheduled": "Je account zal binnen 24 uur worden verwijderd. Als je van gedachten verandert, neem dan contact op met support om te annuleren.",
     "delete_account_title": "Verwijder account",
@@ -32,7 +31,7 @@
     "desktop_login_discord": "Ga verder met Discord in je browser",
     "desktop_login_google": "Ga verder met Google in je browser",
     "desktop_login_needs_update": "Inloggen vereist een nieuwere versie van de desktopapp. Herstart Steam om te updaten, en probeer het opnieuw.",
-    "desktop_sign_in_desc": "Inloggen opent de OpenFront website in uw browser. Meld je hier aan, bevestig de link naar je Steam account en het spel zal het ophalen.",
+    "desktop_sign_in_desc": "Inloggen opent de DeltaFront website in uw browser. Meld je hier aan, bevestig de link naar je Steam account en het spel zal het ophalen.",
     "email_placeholder": "Voer je e-mailadres in",
     "enter_email_address": "Voer een e-mailadres in alsjeblieft",
     "failed_to_send_recovery_email": "Verzenden herstel e-mail mislukt",
@@ -50,7 +49,7 @@
     "link_google_already_linked": "Dat Google-account is al gekoppeld aan een andere speler.",
     "link_google_error": "Kan je Google-account niet koppelen. Zorg ervoor dat je bent aangemeld en probeer het opnieuw.",
     "link_google_failed": "Kan Google-koppeling niet starten. Probeer het opnieuw.",
-    "link_google_on_web": "Koppel Google op de OpenFront website",
+    "link_google_on_web": "Koppel Google op de DeltaFront website",
     "link_google_success": "Google-account gekoppeld.",
     "link_steam": "Koppel Steam Account",
     "link_steam_error": "Kan je Steam-account niet koppelen. Zorg ervoor dat je bent aangemeld en probeer het opnieuw.",
@@ -64,13 +63,13 @@
     "login_deleted": "Dit account is al verwijderd.",
     "login_email_exists": "Je hebt al een account met dit e-mailadres. Log in met dit account en koppel dit account in instellingen.",
     "login_error": "Inloggen kon niet worden geverifieerd. Probeer het opnieuw.",
-    "login_no_account": "Nog geen OpenFront account gebruikt dit Steam account. Meld je aan met je bestaande account en koppel Steam via instellingen, of start het spel op Steam.",
+    "login_no_account": "Nog geen DeltaFront account gebruikt dit Steam account. Meld je aan met je bestaande account en koppel Steam via instellingen, of start het spel op Steam.",
     "manage_subscription": "Beheren",
     "manage_subscription_on_steam": "Via Steam gefactureerd. Beheer opent de Steam abonnementspagina.",
     "manage_subscription_on_steam_ending": "Geannuleerd - actief tot {date}. Beheer opent je Steam abonnementen pagina.",
     "manage_subscription_on_steam_ending_no_date": "Geannuleerd — actief tot het einde van de periode waarvoor je hebt betaald. Beheer opent je Steam abonnementen pagina.",
     "manage_subscription_on_steam_no_tier_change": "Gefactureerd via Steam. Beheer opent je Steam abonnementen pagina. Om van niveau te wisselen, annuleer en abonneer je op de nieuwe rang na afloop van je huidige maand.",
-    "manage_subscription_on_web": "Beheer of wijzig uw facturering op de OpenFront website.",
+    "manage_subscription_on_web": "Beheer of wijzig uw facturering op de DeltaFront website.",
     "marketing_desc": "Af en toe nieuwsberichten, evenementen en game-updates. Afmelden kan op ieder moment.",
     "marketing_no_email": "Koppel een email aan uw account om updates te ontvangen.",
     "marketing_no_email_steam": "Steam deelt je e-mailadres niet met ons, dus er is niets om updates naar te verzenden.",
@@ -477,7 +476,7 @@
   "common": {
     "available": "Beschikbaar",
     "back": "Terug",
-    "backend_unreachable": "Kan de OpenFront servers niet bereiken. Controleer je verbinding en probeer het opnieuw.",
+    "backend_unreachable": "Kan de DeltaFront servers niet bereiken. Controleer je verbinding en probeer het opnieuw.",
     "cancel": "Annuleer",
     "cap_label": "Limiet",
     "cap_tooltip": "Resterende capaciteit ontvanger",
@@ -580,11 +579,11 @@
     "back_to_game": "Terug naar spel",
     "browser_fallback": "Kon je browser niet automatisch openen - gebruik de bovenstaande link.",
     "cancel": "Annuleer",
-    "code_destination_generic": "Voer deze code in op de OpenFront website om je account te koppelen:",
+    "code_destination_generic": "Voer deze code in op de DeltaFront website om je account te koppelen:",
     "code_destination_site": "Voer deze code in bij {site} om je account te koppelen:",
     "continue_to_game": "Doorgaan naar Spel",
     "expired": "Deze code is verlopen. Begin opnieuw om een nieuwe te krijgen.",
-    "heading": "Welkom bij OpenFront",
+    "heading": "Welkom bij DeltaFront",
     "link_existing": "Koppel bestaand account",
     "linking_failed_reason": "Koppelen mislukt: {reason}",
     "linking_failed_unknown": "Koppelen mislukt om onbekende reden.",
@@ -594,16 +593,16 @@
     "retry": "Probeer opnieuw",
     "starting_link": "Account koppelen Starten…",
     "ticket_unavailable": "Kan account koppelen nu niet starten. Je kunt het opnieuw proberen, of doorgaan met het spel.",
-    "title": "OpenFront - Account setup"
+    "title": "DeltaFront - Account setup"
   },
   "desktop_presence": {
     "in_game": "In het spel",
     "spectating": "Aan het toeschouwen"
   },
   "desktop_session": {
-    "generic": "Kan niet inloggen op je OpenFront account",
-    "needs_account": "Stel je OpenFront account in om online te spelen",
-    "network": "Kan OpenFront niet bereiken. Controleer je verbinding.",
+    "generic": "Kan niet inloggen op je DeltaFront account",
+    "needs_account": "Stel je DeltaFront account in om online te spelen",
+    "network": "Kan DeltaFront niet bereiken. Controleer je verbinding.",
     "retry": "Probeer opnieuw",
     "retrying": "Aanmelden…",
     "steam_backend": "Steam heeft problemen met je inlog. Probeer het binnenkort opnieuw.",
@@ -613,7 +612,7 @@
   },
   "desktop_status": {
     "go_online": "Ga online",
-    "offline": "Offline: kan de OpenFront servers niet bereiken",
+    "offline": "Offline: kan de DeltaFront servers niet bereiken",
     "retry": "Probeer opnieuw",
     "retrying": "Opnieuw proberen…"
   },
@@ -626,12 +625,12 @@
     "retry": "Probeer opnieuw"
   },
   "desktop_webgl_gate": {
-    "intro": "OpenFront kan je grafische kaart niet gebruiken, waardoor het spel niet kan worden uitgevoerd. Dit is meestal tijdelijk. Om het op te lossen:",
-    "quit": "OpenFront afsluiten",
+    "intro": "DeltaFront kan je grafische kaart niet gebruiken, waardoor het spel niet kan worden uitgevoerd. Dit is meestal tijdelijk. Om het op te lossen:",
+    "quit": "DeltaFront afsluiten",
     "step_drivers": "Als het nog steeds gebeurt, update je grafische drivers van NVIDIA, AMD of Intel.",
-    "step_quit": "OpenFront afsluiten.",
+    "step_quit": "DeltaFront afsluiten.",
     "step_restart_computer": "Als dit blijft gebeuren, herstart dan je computer.",
-    "step_restart_steam": "Herstart de Steam en start daarna OpenFront opnieuw.",
+    "step_restart_steam": "Herstart de Steam en start daarna DeltaFront opnieuw.",
     "title": "Grafische acceleratie niet beschikbaar"
   },
   "detailed_view": {
@@ -972,7 +971,7 @@
     "preset_colorblind_desc": "Kleurenblind-vriendelijke territorium en rand kleuren",
     "preset_custom": "Aangepast",
     "preset_default": "Standaard",
-    "preset_default_desc": "De standaard OpenFront look",
+    "preset_default_desc": "De standaard DeltaFront look",
     "preset_delete_confirm": "Verwijder preset \"{name}\"?",
     "preset_evans_pick": "Evan's Keuze",
     "preset_evans_pick_desc": "De instellingen waarmee Evan daadwerkelijk speelt",
@@ -1111,7 +1110,7 @@
     "ui_wilderness": "Wildernis",
     "ui_your_team": "Jouw team:",
     "video_tutorial": "Videohandleiding",
-    "video_tutorial_title": "Openfront-io Handleiding"
+    "video_tutorial_title": "DeltaFront Handleiding"
   },
   "host_modal": {
     "anonymous_players": "Anonieme spelers",
@@ -1183,14 +1182,14 @@
     "got_it": "Begrepen",
     "how": "Hoe",
     "later": "Later",
-    "modal_desc": "Je browser ondersteunt geen volledig scherm, maar je kunt OpenFront toevoegen aan je startscherm voor een meeslepende ervaring:",
+    "modal_desc": "Je browser ondersteunt geen volledig scherm, maar je kunt DeltaFront toevoegen aan je startscherm voor een meeslepende ervaring:",
     "modal_title": "Volledig scherm op iOS",
     "never": "Nooit",
     "step_add_to_home_label": "Aan Startscherm toevoegen",
     "step_open": "Open vanaf uw startscherm — start volledig scherm zonder de adresbalk",
     "step_scroll_and_tap": "Scroll naar beneden en klik",
     "step_share": "Tik op de knop 'Delen' in uw browser",
-    "text": "Voor volledig scherm, voeg OpenFront toe aan je startscherm"
+    "text": "Voor volledig scherm, voeg DeltaFront toe aan je startscherm"
   },
   "kick_reason": {
     "admin": "Uit het spel verwijderd door een admin",
@@ -1285,7 +1284,7 @@
     "solo": "Solo",
     "store": "Winkel",
     "terms_of_service": "Servicevoorwaarden",
-    "title": "OpenFront (ALFA)",
+    "title": "DeltaFront (ALFA)",
     "troubleshooting": "Problemen oplossen",
     "tutorial": "Tutorial",
     "user_avatar_alt": "Avatar van {username}",
@@ -1458,7 +1457,7 @@
     "dismiss": "Negeren",
     "error": "Kan dat niet opslaan. Probeer het opnieuw.",
     "no": "Nee bedankt",
-    "title": "Blijf bij met OpenFront?",
+    "title": "Blijf bij met DeltaFront?",
     "yes": "Ja graag"
   },
   "matchmaking_modal": {
@@ -1488,7 +1487,7 @@
     "ranked_pairing_note": "In teammodus, clangenoten en vrienden in de wachtrij worden waar mogelijk in hetzelfde team geplaatst. Vrienden worden eerst gekoppeld, dan clangenoten. Als je beoordelingen te ver uit elkaar staan, wordt je afzonderlijk vergeleken om spellen eerlijk te houden.",
     "ranked_title": "Competitief",
     "retry_lobbies": "Probeer opnieuw",
-    "servers_unreachable": "Kan geen verbinding maken met de OpenFront servers",
+    "servers_unreachable": "Kan geen verbinding maken met de DeltaFront servers",
     "teams_count": "{teamCount} teams",
     "teams_of": "{teamCount} teams van {playersPerTeam}",
     "teams_title": "Teams"
@@ -1522,7 +1521,7 @@
   },
   "news_box": {
     "dismiss": "Dismiss",
-    "firefox_warning": "OpenFront.io presteert niet goed op [Firefox-gebaseerde browsers](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). We raden je aan om een [Chromium-gebaseerde browser] (https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) te gebruiken voor de beste prestaties.",
+    "firefox_warning": "DeltaFront presteert niet goed op [Firefox-gebaseerde browsers](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). We raden je aan om een [Chromium-gebaseerde browser] (https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) te gebruiken voor de beste prestaties.",
     "go_to_item": "Ga naar item nr. {num}",
     "news": "NIEUWS",
     "tournament": "TOURNOOI",
@@ -1763,9 +1762,9 @@
     "waiting_for_players": "Wachten op spelers"
   },
   "purchase_nudge": {
-    "body": "Het lijkt erop dat je geniet van het spelen van OpenFront! Overweeg om ons te steunen door een aankoop te doen - elke aankoop maakt je advertentievrij voor het leven.",
+    "body": "Het lijkt erop dat je geniet van het spelen van DeltaFront! Overweeg om ons te steunen door een aankoop te doen - elke aankoop maakt je advertentievrij voor het leven.",
     "close": "Sluiten",
-    "title": "Tevreden met OpenFront?",
+    "title": "Tevreden met DeltaFront?",
     "visit_store": "Bezoek winkel"
   },
   "radial_menu": {
@@ -1817,7 +1816,7 @@
     "launched": "Openen van deze lobby in de Steam app. Als er niets gebeurt, zorg ervoor dat Steam actief is.",
     "open_in_steam": "Openen in Steam",
     "play_in_browser": "Speel in browser",
-    "prompt": "Je hebt OpenFront op Steam. Waar wil je je bij deze lobby aansluiten?",
+    "prompt": "Je hebt DeltaFront op Steam. Waar wil je je bij deze lobby aansluiten?",
     "remember": "Onthoud mijn keuze",
     "title": "Deelnemen aan Lobby",
     "try_again": "Opnieuw proberen"
@@ -1835,23 +1834,23 @@
     "conflict_games": "{games, plural, =0 {Geen spellen gespeeld} one {# spel gespeeld} other {# spellen gespeeld}}",
     "conflict_games_capped": "{games}+ gespeelde spellen",
     "conflict_keep": "Je zal {username} houden, en je Steam aankopen bewegen over de link.",
-    "conflict_prompt": "Steam {persona} is al gekoppeld aan een ander OpenFront account.",
-    "conflict_prompt_no_persona": "Dit Steam account is al gekoppeld aan een ander OpenFront account.",
+    "conflict_prompt": "Steam {persona} is al gekoppeld aan een ander DeltaFront account.",
+    "conflict_prompt_no_persona": "Dit Steam account is al gekoppeld aan een ander DeltaFront account.",
     "conflict_warning": "Dit kan niet ongedaan worden gemaakt.",
     "invalid_code": "Dat ziet er niet uit als een geldige code. Controleer en probeer het opnieuw.",
     "linking": "Koppelen…",
     "load_error": "Kan je accountgegevens niet laden. Probeer het opnieuw vanuit Steam.",
     "load_error_code": "Kan je accountgegevens niet laden. Probeer het opnieuw.",
     "reason_account_already_has_steam": "Je account is al gekoppeld aan een ander Steam account.",
-    "reason_discard_blocked": "Het OpenFront account van dit Steam account kan niet automatisch worden verwijderd. Neem contact op met support en we zullen het voor je regelen.",
-    "reason_discard_blocked_paid": "Het OpenFront account van dit Steam account heeft aankopen gemaakt, we kunnen het dus niet automatisch verwijderen. Neem contact op met support en we zullen het voor je regelen.",
+    "reason_discard_blocked": "Het DeltaFront account van dit Steam account kan niet automatisch worden verwijderd. Neem contact op met support en we zullen het voor je regelen.",
+    "reason_discard_blocked_paid": "Het DeltaFront account van dit Steam account heeft aankopen gemaakt, we kunnen het dus niet automatisch verwijderen. Neem contact op met support en we zullen het voor je regelen.",
     "reason_discard_deferred": "Een aankoop op dat account is nog steeds gaande. Probeer het over een paar minuten opnieuw.",
     "reason_discard_not_linked": "De link is niet voltooid. Start de link opnieuw.",
     "reason_expired": "Deze link is verlopen. Probeer het opnieuw via Steam.",
     "reason_offer_unavailable": "Deze bevestiging is verlopen. Start de link opnieuw.",
     "reason_rate_limited": "Te veel pogingen. Wacht aub {seconds, plural, =0 {een moment} one {# seconde} other {# seconden}} en probeer het opnieuw.",
     "reason_steam_has_progress": "Dit Steam account heeft al zijn eigen voortgang en kan niet worden samengevoegd.",
-    "reason_steam_linked_elsewhere": "Dit Steam account is al gekoppeld aan een ander OpenFront account.",
+    "reason_steam_linked_elsewhere": "Dit Steam account is al gekoppeld aan een ander DeltaFront account.",
     "success": "Je Steam account is nu gekoppeld.",
     "title": "Koppel Steam Account"
   },
@@ -1861,9 +1860,9 @@
   },
   "steam_wishlist": {
     "cta": "Zet nu op je verlanglijst",
-    "on_steam": "OpenFront op steam",
+    "on_steam": "DeltaFront op steam",
     "release": "Beschikbaar Q3 2026",
-    "title": "Zet OpenFront op je Steam verlanglijst!"
+    "title": "Zet DeltaFront op je Steam verlanglijst!"
   },
   "store": {
     "already_owned": "Je bezit dit item al. Er is niets in rekening gebracht.",
@@ -1940,7 +1939,7 @@
     "subscription_purchase_success": "Abonnement geactiveerd!",
     "subscriptions": "Abonnementen",
     "switch_button": "Wissel",
-    "tier_change_steam_needs_desktop": "Je abonnement wordt gefactureerd via Steam. Verander het via OpenFront app op Steam of beheer het in je Steam account instellingen.",
+    "tier_change_steam_needs_desktop": "Je abonnement wordt gefactureerd via Steam. Verander het via DeltaFront app op Steam of beheer het in je Steam account instellingen.",
     "tier_change_unavailable_steam": "Om van niveau te wisselen op Steam, annuleer je abonnement in je Steam account instellingen en meld je aan op de nieuwe rang na afloop van je huidige maand.",
     "title": "Winkel",
     "tribe_boost_button": "Boost",
@@ -2017,7 +2016,7 @@
     "browser": "Browser",
     "canvas_2d_no_gpu": "Canvas 2D (geen GPU)",
     "charging": "Opladen",
-    "chromium_tip": "OpenFront werkt het best met browsers gebaseerd op Chromium.",
+    "chromium_tip": "DeltaFront werkt het best met browsers gebaseerd op Chromium.",
     "copied_to_clipboard": "Info gekopieerd naar het klembord! Voel je vrij om het te delen op onze Discord als je hulp nodig hebt.",
     "device_pixel_ratio": "Pixelverhouding van apparaat",
     "environment": "Milieu",
@@ -2108,8 +2107,8 @@
     "warship": "Oorlogsschip"
   },
   "update_available": {
-    "desktop": "Een nieuwe versie van OpenFront is beschikbaar. Het wordt in de achtergrond gedownload; herlaad van de updatebalk zodra het klaas is.",
-    "message": "Een nieuwe versie van OpenFront is beschikbaar. De pagina zal nu ververst worden om te updaten."
+    "desktop": "Een nieuwe versie van DeltaFront is beschikbaar. Het wordt in de achtergrond gedownload; herlaad van de updatebalk zodra het klaas is.",
+    "message": "Een nieuwe versie van DeltaFront is beschikbaar. De pagina zal nu ververst worden om te updaten."
   },
   "user_setting": {
     "alert_frame_desc": "Schakel het waarschuwingskader aan/uit. Als ingeschakeld, wordt het kader getoond wanneer je wordt verraden of over land wordt aangevallen.",
@@ -2335,7 +2334,7 @@
     "other_won": "{player} heeft gewonnen!",
     "requeue": "Opnieuw spelen",
     "spectate": "Toekijken",
-    "support_openfront": "Steun OpenFront!",
+    "support_openfront": "Steun DeltaFront!",
     "territory_pattern": "Koop een skin om advertentievrij te gaan!",
     "you_won": "Je hebt gewonnen!",
     "your_team": "Je team heeft gewonnen!",

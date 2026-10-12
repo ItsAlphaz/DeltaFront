@@ -1,4 +1,5 @@
 import { GameMapType, GameType } from "@openfront/engine-api/game/GameTypes";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { PublicGameInfo, PublicGames } from "@openfront/shared/WireSchemas";
 import { html, LitElement, nothing, type TemplateResult } from "lit";
@@ -55,13 +56,13 @@ import {
 import { isReplayShellHost } from "./VersionedReplay";
 
 const PRIMARY_ACTION =
-  "bg-malibu-blue hover:bg-aquarius active:bg-malibu-blue/80 hover:scale-y-105 hover:scale-x-[1.01]";
+  "bg-df-red hover:bg-df-red-bright active:bg-df-red/80 hover:scale-y-105 hover:scale-x-[1.01]";
 const SECONDARY_ACTION =
   "bg-surface hover:brightness-[1.08] active:brightness-[0.95] hover:scale-105 hover:shadow-[var(--shadow-action-card-hover)]";
 const DISABLED = "opacity-50 cursor-not-allowed pointer-events-none";
-/** Tutorial card: the panel's gold, dark text for contrast. */
+/** Tutorial card: white beside Solo's red, dark text for contrast. */
 const TUTORIAL_ACTION =
-  "bg-cyber-yellow hover:bg-yellow-300 active:bg-cyber-yellow/80 !text-gray-900 hover:scale-y-105 hover:scale-x-[1.01]";
+  "bg-df-text hover:bg-white active:bg-df-text-secondary !text-df-bg hover:scale-y-105 hover:scale-x-[1.01]";
 
 /** The Tutorial card shows beside Solo until the player has played this many games. */
 const TUTORIAL_CARD_MAX_GAMES = 5;
@@ -600,7 +601,7 @@ export class GameModeSelector extends LitElement {
       ${translateText(message)}
       ${canRetry
         ? html`<button
-            class="px-4 py-2 rounded-md bg-malibu-blue hover:bg-aquarius text-white text-sm font-medium uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-malibu-blue"
+            class="px-4 py-2 rounded-md bg-df-red hover:bg-df-red-bright text-white text-sm font-medium uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-df-red"
             ?disabled=${this.retryCoolingDown}
             @click=${this.retryLobbies}
           >
@@ -691,7 +692,11 @@ export class GameModeSelector extends LitElement {
               </div>`
             : nothing}
         </div>
-        <div class="grid grid-cols-3 gap-4 h-14 sm:col-span-2 sm:row-start-4">
+        <div
+          class="grid ${ACCOUNT_FEATURES.ranked
+            ? "grid-cols-3"
+            : "grid-cols-2"} gap-4 h-14 sm:col-span-2 sm:row-start-4"
+        >
           ${this.renderSmallActionCard(
             translateText("main.create"),
             this.openHostLobby,
@@ -699,26 +704,28 @@ export class GameModeSelector extends LitElement {
             undefined,
             true,
           )}
-          ${this.renderSmallActionCard(
-            translateText("mode_selector.ranked_title"),
-            this.openRankedMenu,
-            SECONDARY_ACTION,
-            undefined,
-            true,
-            // Ranked admits trusted accounts only. A trusted viewer gets the
-            // green open lock; anyone else meets the red locks and the trust
-            // popup inside the ranked modal. Small, so it clears the label on
-            // narrow (mobile) buttons.
-            this.viewerTrusted
-              ? trustLockIcon(true, {
-                  tooltipTitle: translateText(
-                    "mode_selector.ranked_trust_tooltip_title",
-                  ),
-                  position: "top-1 right-1",
-                  small: true,
-                })
-              : nothing,
-          )}
+          ${ACCOUNT_FEATURES.ranked
+            ? this.renderSmallActionCard(
+                translateText("mode_selector.ranked_title"),
+                this.openRankedMenu,
+                SECONDARY_ACTION,
+                undefined,
+                true,
+                // Ranked admits trusted accounts only. A trusted viewer gets
+                // the green open lock; anyone else meets the red locks and the
+                // trust popup inside the ranked modal. Small, so it clears the
+                // label on narrow (mobile) buttons.
+                this.viewerTrusted
+                  ? trustLockIcon(true, {
+                      tooltipTitle: translateText(
+                        "mode_selector.ranked_trust_tooltip_title",
+                      ),
+                      position: "top-1 right-1",
+                      small: true,
+                    })
+                  : nothing,
+              )
+            : nothing}
           ${this.renderSmallActionCard(
             translateText("main.join"),
             this.openJoinLobby,
@@ -738,7 +745,7 @@ export class GameModeSelector extends LitElement {
                       class="flex items-center justify-center h-44 sm:h-full"
                     >
                       <span
-                        class="size-24 rounded-full border-[6px] border-blue-500/30 border-t-blue-500 animate-spin"
+                        class="size-24 rounded-full border-[6px] border-df-red/30 border-t-df-red animate-spin"
                       ></span>
                     </div>`}
             </div>`
@@ -888,7 +895,7 @@ export class GameModeSelector extends LitElement {
         <button
           @click=${this.openDetailedView}
           ?disabled=${!this.inputValid}
-          class="group/upcoming flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.04] py-1.5 pl-2.5 pr-1.5 transition-colors hover:border-malibu-blue/50 hover:bg-malibu-blue/15 ${this
+          class="group/upcoming flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.04] py-1.5 pl-2.5 pr-1.5 transition-colors hover:border-df-red/50 hover:bg-df-red/15 ${this
             .inputValid
             ? ""
             : DISABLED}"
@@ -898,7 +905,7 @@ export class GameModeSelector extends LitElement {
             >${translateText("public_lobby.upcoming")}</span
           >
           <span
-            class="flex shrink-0 items-center gap-0.5 rounded bg-malibu-blue py-0.5 pl-2 pr-1 text-xs font-bold uppercase tracking-wider text-white group-hover/upcoming:bg-aquarius"
+            class="flex shrink-0 items-center gap-0.5 rounded-sm bg-white/10 py-0.5 pl-2 pr-1 text-xs font-bold uppercase tracking-wider text-df-text group-hover/upcoming:bg-df-red"
           >
             ${count > 0
               ? translateText("public_lobby.see_all", { count })
@@ -954,7 +961,7 @@ export class GameModeSelector extends LitElement {
         @click=${onClick}
         ?disabled=${!this.inputValid}
         aria-disabled=${blocked}
-        class="relative flex items-center justify-center w-full h-full rounded-lg ${bgClass} transition-all duration-200 text-sm lg:text-base font-medium text-white uppercase tracking-wider text-center ${!this
+        class="relative flex items-center justify-center w-full h-full rounded-lg ${bgClass} transition-all duration-200 font-display text-sm lg:text-base font-bold text-white uppercase tracking-widest text-center ${!this
           .inputValid
           ? DISABLED
           : blocked
@@ -964,7 +971,7 @@ export class GameModeSelector extends LitElement {
         ${title}
         ${badge
           ? html`<span
-              class="absolute -top-2 -right-2 min-w-[1.375rem] h-[1.375rem] px-1.5 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold tracking-normal"
+              class="absolute -top-2 -right-2 min-w-[1.375rem] h-[1.375rem] px-1.5 flex items-center justify-center rounded-full bg-df-red-bright text-white text-xs font-bold tracking-normal"
               >${badge}</span
             >`
           : nothing}

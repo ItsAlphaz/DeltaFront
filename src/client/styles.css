@@ -7,37 +7,99 @@
 
 @theme {
   --default-ring-width: 3px;
-  --default-ring-color: var(--color-malibu-blue);
-  --font-display: "OpenFront", Inter, Arial, sans-serif;
+  --default-ring-color: var(--color-df-red);
+  /* Pixel display face for headings, buttons and nav labels; body text stays
+     on the system sans for readability. Registered in Main.ts. */
+  --font-display: "Pixelify Sans", Inter, Arial, sans-serif;
 
-  /* Openfront.io brand palette — see Openfront_Brand_Guidelines.pdf §4 */
-  --color-malibu-blue: #0084d1;
-  --color-aquarius: #3fa9f5;
-  --color-dawn-blue: #cccccc;
-  --color-bright-white: #ffffff;
-  --color-bright-blue: #1e90ff;
+  /* DeltaFront brand palette. Black/white surfaces with red reserved for
+     primary actions, selection, focus and brand accents — not whole panels.
+     Every utility (bg-df-red, text-df-text-muted, border-df-border, ...) and
+     every var(--color-df-*) reads from here. */
+  --color-df-bg: #090909;
+  --color-df-bg-secondary: #111111;
+  --color-df-panel: #161616;
+  --color-df-red: #e31b23;
+  --color-df-red-dark: #a80f16;
+  --color-df-red-bright: #ff252d;
+  --color-df-text: #f5f5f5;
+  --color-df-text-secondary: #b8b8b8;
+  --color-df-text-muted: #777777;
+  --color-df-border: #292929;
 
-  /* Openfront Masters sub-brand */
+  /* In-game troop bar (ControlPanel). Its own tokens so the bar can stay
+     high-contrast without moving the brand reds used everywhere else:
+     current troops, troops out attacking, unused capacity, frame. */
+  --color-hud-troops: #ff3030;
+  --color-hud-troops-away: var(--color-df-red-dark);
+  --color-hud-troops-empty: #101010;
+  --color-hud-troops-border: #f0d000;
+  /* 1px hard black outline (no blur) for text over the troop bar. */
+  --text-shadow-pixel: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000;
+
+  /* Special-event / Masters accent (gold). Kept for medal and event
+     semantics, not for general UI. */
   --color-cyber-yellow: #ffd700;
-  --color-limestone: #999999;
 
-  /* Background & decorative — not for standalone UI use */
-  --color-deep-navy: #0a1628;
-  --color-hex-cyan: #00c8ff;
-  --color-frame-orange: #f97316;
+  /* App-specific surface color */
+  --color-surface: var(--color-df-bg-secondary);
 
-  /* App-specific surface colors */
-  --color-surface: #0a1628;
+  --shadow-df-red: 0 0 0 1px rgba(227, 27, 35, 0.35);
+  --shadow-df-red-soft: 0 0 0 1px rgba(227, 27, 35, 0.25);
+  --shadow-df-red-strong: 0 0 0 2px rgba(227, 27, 35, 0.45);
+  --shadow-df-red-pill: 0 0 0 1px rgba(227, 27, 35, 0.4);
+  --shadow-df-red-ring-sm: 0 0 0 3px rgba(227, 27, 35, 0.25);
+  --shadow-df-red-ring-lg: 0 0 0 4px rgba(227, 27, 35, 0.35);
+  --shadow-lobby-card-hover: 0 0 0 2px var(--color-df-red);
+  --shadow-action-card-hover: 0 0 0 1px var(--color-df-red);
 
-  --shadow-malibu-blue: 0 0 15px rgba(0, 132, 209, 0.2);
-  --shadow-malibu-blue-soft: 0 0 12px rgba(0, 132, 209, 0.2);
-  --shadow-malibu-blue-strong: 0 0 15px rgba(0, 132, 209, 0.3);
-  --shadow-malibu-blue-pill: 0 0 6px rgba(0, 132, 209, 0.35);
-  --shadow-malibu-blue-ring-sm: 0 0 0 4px rgba(0, 132, 209, 0.2);
-  --shadow-malibu-blue-ring-lg: 0 0 0 6px rgba(0, 132, 209, 0.3);
-  --shadow-lobby-card-hover: 0 0 0 2px #0084d1, 0 0 20px rgba(0, 132, 209, 0.5);
-  --shadow-action-card-hover:
-    0 0 0 1px #0084d1, 0 0 12px rgba(0, 132, 209, 0.35);
+  /* Sharp, blocky corners: the whole radius scale is tightened here so every
+     rounded-* utility follows. rounded-full (pills, avatars) is unchanged. */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 6px;
+  --radius-4xl: 8px;
+
+  /* Tailwind's gray/slate/zinc are blue-tinted. Re-point them at one neutral
+     scale built on the brand surfaces so existing gray utilities read as
+     black/white without touching every component. */
+  --color-gray-50: #f5f5f5;
+  --color-gray-100: #ececec;
+  --color-gray-200: #d6d6d6;
+  --color-gray-300: #b8b8b8;
+  --color-gray-400: #9a9a9a;
+  --color-gray-500: #777777;
+  --color-gray-600: #4a4a4a;
+  --color-gray-700: #292929;
+  --color-gray-800: #161616;
+  --color-gray-900: #111111;
+  --color-gray-950: #090909;
+  --color-slate-50: var(--color-gray-50);
+  --color-slate-100: var(--color-gray-100);
+  --color-slate-200: var(--color-gray-200);
+  --color-slate-300: var(--color-gray-300);
+  --color-slate-400: var(--color-gray-400);
+  --color-slate-500: var(--color-gray-500);
+  --color-slate-600: var(--color-gray-600);
+  --color-slate-700: var(--color-gray-700);
+  --color-slate-800: var(--color-gray-800);
+  --color-slate-900: var(--color-gray-900);
+  --color-slate-950: var(--color-gray-950);
+  --color-zinc-50: var(--color-gray-50);
+  --color-zinc-100: var(--color-gray-100);
+  --color-zinc-200: var(--color-gray-200);
+  --color-zinc-300: var(--color-gray-300);
+  --color-zinc-400: var(--color-gray-400);
+  --color-zinc-500: var(--color-gray-500);
+  --color-zinc-600: var(--color-gray-600);
+  --color-zinc-700: var(--color-gray-700);
+  --color-zinc-800: var(--color-gray-800);
+  --color-zinc-900: var(--color-gray-900);
+  --color-zinc-950: var(--color-gray-950);
 }
 
 @layer base {
@@ -46,21 +108,137 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
+    border-color: var(--color-df-border, currentColor);
+  }
+
+  html {
+    /* Native checkboxes, radios and range inputs pick up the brand red. */
+    accent-color: var(--color-df-red);
   }
 
   input,
   textarea,
   select {
-    background-color: #fff;
-    color: #000;
+    background-color: var(--color-df-panel);
+    color: var(--color-df-text);
   }
 
   input::placeholder,
   textarea::placeholder {
-    color: var(--color-gray-400);
+    color: var(--color-df-text-muted);
   }
 
+  /* Pixel artwork (flags, sprites, icons drawn at low resolution) stays crisp
+     when scaled; opt in with .pixelated. */
+  .pixelated {
+    image-rendering: pixelated;
+  }
+}
+
+/* DeltaFront shared components. Built on the tokens above so buttons, inputs
+   and panels share one set of states instead of re-declaring them per
+   component. */
+@layer components {
+  .df-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.625rem 1.25rem;
+    border: 2px solid transparent;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1;
+    transition:
+      background-color 120ms ease-out,
+      border-color 120ms ease-out,
+      color 120ms ease-out,
+      transform 60ms ease-out;
+  }
+  .df-btn:focus-visible {
+    outline: 2px solid var(--color-df-text);
+    outline-offset: 2px;
+  }
+  .df-btn:not(:disabled):active {
+    transform: translateY(1px);
+  }
+  .df-btn:disabled,
+  .df-btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    background-color: var(--color-df-panel);
+    border-color: var(--color-df-border);
+    color: var(--color-df-text-muted);
+  }
+
+  /* Primary: the one red action on a surface. A darker bottom edge gives the
+     blocky, pressed-key look. */
+  .df-btn-primary {
+    background-color: var(--color-df-red);
+    border-color: var(--color-df-red);
+    border-bottom-color: var(--color-df-red-dark);
+    color: #fff;
+  }
+  .df-btn-primary:not(:disabled):hover {
+    background-color: var(--color-df-red-bright);
+    border-color: var(--color-df-red-bright);
+    border-bottom-color: var(--color-df-red-dark);
+  }
+  .df-btn-primary:not(:disabled):active {
+    background-color: var(--color-df-red-dark);
+    border-color: var(--color-df-red-dark);
+  }
+
+  /* Secondary: dark surface, light text, red on hover. */
+  .df-btn-secondary {
+    background-color: var(--color-df-panel);
+    border-color: var(--color-df-border);
+    color: var(--color-df-text);
+  }
+  .df-btn-secondary:not(:disabled):hover {
+    border-color: var(--color-df-red);
+    color: #fff;
+  }
+  .df-btn-secondary:not(:disabled):active {
+    background-color: var(--color-df-bg);
+  }
+
+  .df-input {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--color-df-bg);
+    border: 1px solid var(--color-df-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-df-text);
+    transition: border-color 120ms ease-out;
+  }
+  .df-input:hover {
+    border-color: var(--color-gray-600);
+  }
+  .df-input:focus,
+  .df-input:focus-visible {
+    outline: none;
+    border-color: var(--color-df-red);
+    box-shadow: 0 0 0 1px var(--color-df-red);
+  }
+  .df-input:disabled {
+    cursor: not-allowed;
+    color: var(--color-df-text-muted);
+    background-color: var(--color-df-bg-secondary);
+  }
+
+  .df-panel {
+    background-color: var(--color-df-panel);
+    border: 1px solid var(--color-df-border);
+    border-radius: var(--radius-sm);
+  }
+}
+
+@layer base {
   .custom-plutonium-input {
     appearance: textfield;
     -moz-appearance: textfield;
@@ -174,7 +352,7 @@ body.page-open {
   padding: 15px 20px;
   font-size: 16px;
   cursor: pointer;
-  background-color: var(--color-malibu-blue);
+  background-color: var(--color-df-red);
   color: white;
   border: none;
   border-radius: 8px;
@@ -184,7 +362,7 @@ body.page-open {
 }
 
 .start-game-button:not(:disabled):hover {
-  background-color: var(--color-aquarius);
+  background-color: var(--color-df-red-bright);
 }
 
 .start-game-button:disabled {
@@ -231,7 +409,7 @@ body.page-open {
 }
 
 .option-card.selected {
-  border-color: #4a9eff;
+  border-color: var(--color-df-red);
   background: rgba(74, 158, 255, 0.1);
 }
 
@@ -283,8 +461,8 @@ label.option-card:hover {
 }
 
 .option-card.selected .checkbox-icon {
-  border-color: #4a9eff;
-  background: #4a9eff;
+  border-color: var(--color-df-red);
+  background: var(--color-df-red);
 }
 
 .option-card.selected .checkbox-icon::after {
@@ -388,14 +566,14 @@ label.option-card:hover {
 #bots-count::-moz-range-progress,
 #private-lobby-bots-count::-moz-range-progress {
   height: 8px;
-  background-color: #0075ff;
+  background-color: var(--color-df-red);
 }
 
 #bots-count::-moz-range-thumb,
 #private-lobby-bots-count::-moz-range-thumb {
   height: 16px;
   width: 16px;
-  background: #0075ff;
+  background: var(--color-df-red);
   border: none;
   border-radius: 50%;
 }
@@ -406,7 +584,7 @@ label.option-card:hover {
   height: 8px;
   background: linear-gradient(
     to right,
-    #0075ff var(--progress, 0%),
+    var(--color-df-red) var(--progress, 0%),
     white var(--progress, 0%)
   );
 }
@@ -416,7 +594,7 @@ label.option-card:hover {
   -webkit-appearance: none;
   height: 16px;
   width: 16px;
-  background: #0075ff;
+  background: var(--color-df-red);
   border: none;
   border-radius: 50%;
   margin-top: -4px;
@@ -428,7 +606,7 @@ label.option-card:hover {
 }
 
 .random-map.selected {
-  border: 2px solid #4a9eff;
+  border: 2px solid var(--color-df-red);
   background: rgba(74, 158, 255, 0.1);
 }
 
@@ -641,7 +819,7 @@ label.option-card:hover {
 /* News button glows blue while there is unread news. */
 news-button .active button {
   position: relative;
-  border-color: var(--color-malibu-blue) !important;
+  border-color: var(--color-df-red) !important;
   border-width: 2px !important;
   box-shadow:
     0 0 0 1px rgba(37, 99, 235, 0.5),
@@ -753,4 +931,19 @@ unit-display .tutorial-highlight::after {
 
 .remove-player-btn:hover {
   background: #ef4444;
+}
+
+/* Menu backdrop: flat black with a faint tactical grid and a thin red front
+   line along the top. Pure CSS, so nothing is scaled or blurred. */
+.df-backdrop {
+  background-color: var(--color-df-bg);
+  background-image:
+    linear-gradient(var(--color-df-red), var(--color-df-red)),
+    linear-gradient(to right, rgb(255 255 255 / 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+  background-size:
+    100% 2px,
+    32px 32px,
+    32px 32px;
+  background-repeat: no-repeat, repeat, repeat;
 }

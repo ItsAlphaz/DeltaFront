@@ -22,7 +22,7 @@ export function splitAccountUsername(username: string): {
  */
 export function usernameText(
   username: string,
-  baseClass = "text-blue-300",
+  baseClass = "text-df-text",
 ): TemplateResult {
   const { base, discriminator } = splitAccountUsername(username);
   // The outer span keeps the name a single flex item: a bare separator text

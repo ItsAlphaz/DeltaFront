@@ -272,7 +272,7 @@ export class ProfileCard extends LitElement {
       ? nothing
       : html`<div data-profile-lifetime class="truncate">
           <span
-            class="text-[10px] font-bold uppercase tracking-wider text-blue-200/55"
+            class="text-[10px] font-bold uppercase tracking-wider text-df-text-muted"
             >${translateText("profile_card.lifetime_xp")}</span
           >
           <span class="ml-1 font-black tabular-nums text-yellow-300"
@@ -448,7 +448,7 @@ export class ProfileCard extends LitElement {
         ? nothing
         : html`<span
             data-profile-clan
-            class="font-black tracking-wider text-aquarius ${this.compact
+            class="font-black tracking-wider text-df-red-bright ${this.compact
               ? "shrink-0 text-sm"
               : "block text-sm"}"
             >[${this.clanTag}]</span

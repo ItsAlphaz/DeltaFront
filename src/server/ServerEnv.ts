@@ -85,6 +85,21 @@ export class ServerEnv {
     if (!v) return undefined;
     return v;
   }
+  // Optional: this deployment's Google Analytics 4 measurement ID
+  // (G-XXXXXXXXXX). Absent keeps gtag off the page. Format-checked because it
+  // is written into an inline script; anything else is ignored.
+  static googleAnalyticsId(): string | undefined {
+    const v = process.env.GOOGLE_ANALYTICS_ID;
+    if (!v || !/^G-[A-Z0-9]{4,20}$/.test(v)) return undefined;
+    return v;
+  }
+  // Optional: this deployment's Cloudflare Web Analytics beacon token.
+  // Absent keeps the beacon off the page. Format-checked like the GA ID.
+  static cloudflareAnalyticsToken(): string | undefined {
+    const v = process.env.CLOUDFLARE_ANALYTICS_TOKEN;
+    if (!v || !/^[a-f0-9]{32}$/.test(v)) return undefined;
+    return v;
+  }
   static jwtAudience(): string {
     const v = process.env.DOMAIN;
     if (!v) {

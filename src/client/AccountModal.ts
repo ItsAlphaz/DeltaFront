@@ -242,7 +242,7 @@ export class AccountModal extends BaseModal {
         .value=${this.email}
         @input=${this.handleEmailInput}
         placeholder=${translateText("account_modal.email_placeholder")}
-        class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-medium hover:bg-white/10"
+        class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10"
       />
       <o-button
         variant="primary"
@@ -836,11 +836,11 @@ export class AccountModal extends BaseModal {
         >
           <div class="text-center mb-8">
             <div
-              class="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/10 shadow-inner"
+              class="w-16 h-16 bg-gradient-to-br from-df-red/20 to-df-red-dark/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/10 shadow-inner"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                class="w-8 h-8 text-blue-400"
+                class="w-8 h-8 text-df-red-bright"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"

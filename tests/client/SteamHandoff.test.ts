@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BRAND } from "../../src/client/Branding";
 import {
   launchSteamJoin,
   steamHandoffMode,
@@ -19,6 +20,15 @@ function settings(
     steamBuildSeen: () => steamBuildSeen,
   };
 }
+
+// DeltaFront ships with no Steam app; these exercise the handoff as it
+// behaves once one is configured.
+beforeEach(() => {
+  BRAND.steamAppId = "3560670";
+});
+afterEach(() => {
+  BRAND.steamAppId = null;
+});
 
 describe("steamJoinUrl", () => {
   it("passes the game id as a +join_game launch argument", () => {
@@ -54,6 +64,11 @@ describe("steamHandoffMode", () => {
 
   it("never hands off from inside the desktop shell", () => {
     (window as { openfrontDesktop?: unknown }).openfrontDesktop = {};
+    expect(steamHandoffMode(settings("steam", true), "")).toBe("none");
+  });
+
+  it("never hands off when no Steam app is configured", () => {
+    BRAND.steamAppId = null;
     expect(steamHandoffMode(settings("steam", true), "")).toBe("none");
   });
 

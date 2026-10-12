@@ -124,7 +124,7 @@ export class ClanDonationsView extends LitElement {
               data-currency-filter=${tab.key}
               @click=${() => this.setFilter(tab.key)}
               class="flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap rounded-lg transition-colors ${active
-                ? "bg-malibu-blue/20 text-aquarius border border-malibu-blue/30"
+                ? "bg-df-red/20 text-df-red-bright border border-df-red/30"
                 : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"}"
             >
               ${translateText(tab.labelKey)}

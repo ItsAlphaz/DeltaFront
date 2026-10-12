@@ -255,7 +255,7 @@ export class FriendsList extends LitElement {
       return html`
         <div class="flex items-center justify-center p-12">
           <div
-            class="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"
+            class="w-10 h-10 border-4 border-df-red/30 border-t-df-red rounded-full animate-spin"
           ></div>
         </div>
       `;
@@ -272,7 +272,7 @@ export class FriendsList extends LitElement {
   private renderTeamInfo(): TemplateResult {
     return html`
       <div
-        class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 flex items-center gap-3"
+        class="bg-white/5 border border-df-border rounded-xl p-3 flex items-center gap-3"
       >
         <span class="text-blue-400 text-lg shrink-0">🛡️</span>
         <p class="text-sm text-white/80">
@@ -300,7 +300,7 @@ export class FriendsList extends LitElement {
             @keydown=${(e: KeyboardEvent) => {
               if (e.key === "Enter") void this.handleSend();
             }}
-            class="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-malibu-blue/50 focus:border-malibu-blue/50 transition-all font-mono text-sm"
+            class="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-mono text-sm"
             placeholder=${translateText("friends.public_id_placeholder")}
             maxlength="200"
             ?disabled=${this.actionPending}
@@ -308,7 +308,7 @@ export class FriendsList extends LitElement {
           <button
             @click=${() => void this.handleSend()}
             ?disabled=${this.actionPending || this.addInput.trim().length === 0}
-            class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            class="px-4 py-2 text-sm font-bold text-white bg-df-red hover:bg-df-red-bright rounded-lg transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
             ${translateText("friends.send_request")}
           </button>

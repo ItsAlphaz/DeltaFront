@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { TokenPayload, TokenPayloadSchema } from "@openfront/shared/ApiSchemas";
 import { base64urlToUuid } from "@openfront/shared/Base64";
 import { decodeJwt } from "jose";
@@ -384,6 +385,9 @@ export function isSessionActive(sub: string): boolean {
 export async function userAuth(
   shouldRefresh: boolean = true,
 ): Promise<UserAuth> {
+  // Sessions are issued by the account backend. Without one there is nothing
+  // to refresh or verify: stay signed out and skip the /auth/refresh request.
+  if (!ACCOUNT_FEATURES.accounts) return false;
   try {
     const jwt = __jwt;
     if (!jwt) {

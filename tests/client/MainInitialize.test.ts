@@ -10,6 +10,7 @@ import { EventBus } from "@openfront/shared/EventBus";
 import fs from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { BRAND } from "../../src/client/Branding";
 import { loadModal } from "../../src/client/LazyModals";
 import { SendKickPlayerIntentEvent } from "../../src/client/LobbyEvents";
 import { capturePagePin } from "../../src/client/PagePin";
@@ -229,6 +230,11 @@ describe("Client.initialize() booted from Main.ts module scope", () => {
       "achievements.pushed",
       JSON.stringify({ playerId: "p1", names: ["win_ffa"] }),
     );
+
+    // This harness checks the boot as it runs with an ad provider configured.
+    // The shipped default (BRAND.adsEnabled = false) is covered in
+    // tests/DeltaFrontFeatures.test.ts.
+    BRAND.adsEnabled = true;
 
     // The import runs bootstrap: component registration, element upgrades,
     // then `new Client().initialize()`.

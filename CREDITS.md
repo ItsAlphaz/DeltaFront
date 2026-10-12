@@ -2,8 +2,15 @@
 
 ## Code
 
-OpenFront is licensed under AGPL-3.0.  
-See [Contributors](https://github.com/openfrontio/OpenFrontIO/graphs/contributors) for code contributors.
+DeltaFront is a fork of OpenFront, licensed under AGPL-3.0.  
+© OpenFront and Contributors. See [OpenFront contributors](https://github.com/openfrontio/OpenFrontIO/graphs/contributors) for upstream code contributors.
+
+## Fonts
+
+### Pixelify Sans
+
+DeltaFront's display face. Copyright 2021 The Pixelify Sans Project Authors (https://github.com/eifetx/Pixelify-Sans).  
+Licensed under the [SIL Open Font License 1.1](resources/fonts/pixelify-sans/OFL.txt).
 
 ## Map Data
 

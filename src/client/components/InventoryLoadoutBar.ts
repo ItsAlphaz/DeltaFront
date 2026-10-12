@@ -91,8 +91,8 @@ export class InventoryLoadoutBar extends LitElement {
                 category: entry.label,
                 summary: ariaSummary,
               })}
-              class="flex min-h-24 min-w-36 flex-col items-center justify-center gap-1 rounded-xl border p-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${isActive
-                ? "border-blue-400 bg-blue-500/20 text-white"
+              class="flex min-h-24 min-w-36 flex-col items-center justify-center gap-1 rounded-xl border p-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-df-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${isActive
+                ? "border-df-red bg-df-red/20 text-white"
                 : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10"}"
               @click=${() => this.onCategorySelect?.(entry.category)}
             >

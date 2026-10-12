@@ -65,7 +65,7 @@ export class PastGameXpCard extends LitElement {
 
   private heading(extra = ""): TemplateResult {
     return html`<div
-      class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200/55 ${extra}"
+      class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted ${extra}"
     >
       ${translateText("progression.xp_heading")}
     </div>`;

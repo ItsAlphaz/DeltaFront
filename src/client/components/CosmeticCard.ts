@@ -57,7 +57,7 @@ if (!document.getElementById(COSMETIC_CARD_STYLE_ID)) {
     }
     [data-cosmetic-shell][data-cosmetic-rarity="rare"] {
       background: linear-gradient(to top, rgba(20,60,160,0.7) 0%, rgba(15,15,20,0.85) 100%);
-      border-color: rgba(96,165,250,0.5);
+      border-color: rgb(255 37 45 / 0.5);
     }
     [data-cosmetic-shell][data-cosmetic-rarity="epic"] {
       background: linear-gradient(to top, rgba(90,20,160,0.75) 0%, rgba(15,15,20,0.85) 100%);
@@ -79,7 +79,7 @@ if (!document.getElementById(COSMETIC_CARD_STYLE_ID)) {
     }
     cosmetic-card:hover [data-cosmetic-shell][data-cosmetic-rarity="rare"] {
       transform: translateY(-4px);
-      box-shadow: 0 0 14px rgba(96,165,250,0.7);
+      box-shadow: 0 0 14px rgb(255 37 45 / 0.7);
     }
     cosmetic-card:hover [data-cosmetic-shell][data-cosmetic-rarity="epic"] {
       transform: translateY(-4px);
@@ -293,7 +293,7 @@ export class CosmeticCard extends LitElement {
       case "uncommon":
         return "hover:shadow-[0_14px_30px_rgba(74,222,128,0.22)]";
       case "rare":
-        return "hover:shadow-[0_14px_30px_rgba(96,165,250,0.28)]";
+        return "hover:shadow-[0_14px_30px_rgb(255 37 45 / 0.28)]";
       case "epic":
         return "hover:shadow-[0_14px_34px_rgba(232,121,249,0.32)]";
       case "legendary":

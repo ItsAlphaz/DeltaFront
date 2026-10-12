@@ -422,7 +422,7 @@ export class TribesPanel extends LitElement {
         ${translateText("store.tribes_login_required")}
       </p>
       <button
-        class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-wider text-sm transition-colors cursor-pointer"
+        class="px-5 py-2 rounded-lg bg-df-red hover:bg-df-red-bright text-white font-bold uppercase tracking-wider text-sm transition-colors cursor-pointer"
         @click=${() => window.showPage?.("page-account")}
       >
         ${translateText("main.sign_in")}
@@ -450,7 +450,7 @@ export class TribesPanel extends LitElement {
           type="text"
           maxlength=${MAX_TRIBE_NAME_LENGTH}
           placeholder=${translateText("store.tribe_name_placeholder")}
-          class="flex-1 min-w-0 bg-black/30 border border-white/10 rounded px-3 py-2 text-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/40"
+          class="flex-1 min-w-0 bg-black/30 border border-white/10 rounded px-3 py-2 text-white outline-none focus:border-df-red focus:ring-1 focus:ring-df-red/40"
           ?disabled=${this.purchasing}
         />
         <button

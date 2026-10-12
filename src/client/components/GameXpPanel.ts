@@ -1339,7 +1339,7 @@ export class GameXpPanel extends LitElement {
       >
         <div
           data-xp-line=${attrs.line ?? nothing}
-          class="truncate text-[10px] font-bold uppercase tracking-wider text-blue-200/55"
+          class="truncate text-[10px] font-bold uppercase tracking-wider text-df-text-muted"
         >
           ${label}
         </div>

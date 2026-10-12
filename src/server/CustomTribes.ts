@@ -1,4 +1,5 @@
 import { Tribe, TribeSchema } from "@openfront/engine-api/Schemas";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { z } from "zod";
 import { ServerEnv } from "./ServerEnv";
 
@@ -27,6 +28,9 @@ export interface TribePoolPlayer {
 export async function fetchCustomTribes(
   players: TribePoolPlayer[],
 ): Promise<Tribe[]> {
+  // Purchased tribe names are a store feature; without one the pool is empty
+  // and the game starts with organic bot names, with no request made.
+  if (!ACCOUNT_FEATURES.store) return [];
   const response = await fetch(`${ServerEnv.jwtIssuer()}/custom_tribes`, {
     method: "POST",
     signal: AbortSignal.timeout(1500),

@@ -1,4 +1,5 @@
 import { GAME_ID_REGEX } from "@openfront/engine-api/Schemas";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -35,6 +36,7 @@ import {
   runBootInterrupt,
   steamGrantStringsReady,
 } from "./BootInterrupts";
+import { BRAND } from "./Branding";
 import type { JoinLobbyResult } from "./ClientGameRunner";
 import {
   getPlayerCosmeticsRefs,
@@ -446,61 +448,85 @@ class Client {
     // Register modals with the URL router. Lobby modals (join/host) and
     // matchmaking are intentionally omitted — they own their own URL state
     // (path-based) or none at all.
-    modalRouter.register("store", {
-      tag: "store-modal",
-      pageId: "page-item-store",
-    });
-    modalRouter.register("settings", {
-      tag: "user-setting",
-      pageId: "page-settings",
-    });
-    modalRouter.register("leaderboard", {
-      tag: "leaderboard-modal",
-      pageId: "page-leaderboard",
-    });
-    modalRouter.register("clan", { tag: "clan-modal", pageId: "page-clan" });
-    modalRouter.register("account", {
-      tag: "account-modal",
-      pageId: "page-account",
-    });
-    // Profile-menu modals: popup style, so no pageId.
-    modalRouter.register("account-settings", { tag: "account-settings-modal" });
-    modalRouter.register("change-username", { tag: "change-username-modal" });
-    modalRouter.register("subscription", { tag: "subscription-modal" });
-    modalRouter.register("stats", {
-      tag: "game-stats-modal",
-      pageId: "page-stats",
-    });
-    modalRouter.register("profile", {
-      tag: "player-profile-modal",
-      pageId: "page-profile",
-    });
-    modalRouter.register("help", { tag: "help-modal", pageId: "page-help" });
-    modalRouter.register("news", { tag: "news-modal", pageId: "page-news" });
-    modalRouter.register("language", {
-      tag: "language-modal",
-      pageId: "page-language",
-    });
-    modalRouter.register("single-player", {
-      tag: "single-player-modal",
-      pageId: "page-single-player",
-    });
-    modalRouter.register("ranked", {
-      tag: "ranked-modal",
-      pageId: "page-ranked",
-    });
-    modalRouter.register("detailed-view", {
-      tag: "detailed-view-modal",
-      pageId: "page-detailed-view",
-    });
-    modalRouter.register("troubleshooting", {
-      tag: "troubleshooting-modal",
-      pageId: "page-troubleshooting",
-    });
-    modalRouter.register("inventory", {
-      tag: "inventory-modal",
-      pageId: "page-inventory",
-    });
+    // Pages that need the account backend are registered only when it is
+    // switched on (ACCOUNT_FEATURES); an unregistered #modal=... hash is
+    // stripped silently, so a stale link to one lands on the homepage.
+    const routes: Array<[boolean, string, { tag: string; pageId?: string }]> = [
+      [
+        ACCOUNT_FEATURES.store,
+        "store",
+        { tag: "store-modal", pageId: "page-item-store" },
+      ],
+      [true, "settings", { tag: "user-setting", pageId: "page-settings" }],
+      [
+        ACCOUNT_FEATURES.leaderboards,
+        "leaderboard",
+        { tag: "leaderboard-modal", pageId: "page-leaderboard" },
+      ],
+      [
+        ACCOUNT_FEATURES.clans,
+        "clan",
+        { tag: "clan-modal", pageId: "page-clan" },
+      ],
+      [
+        ACCOUNT_FEATURES.accounts,
+        "account",
+        { tag: "account-modal", pageId: "page-account" },
+      ],
+      // Profile-menu modals: popup style, so no pageId.
+      [
+        ACCOUNT_FEATURES.accounts,
+        "account-settings",
+        { tag: "account-settings-modal" },
+      ],
+      [
+        ACCOUNT_FEATURES.accounts,
+        "change-username",
+        { tag: "change-username-modal" },
+      ],
+      [ACCOUNT_FEATURES.store, "subscription", { tag: "subscription-modal" }],
+      [
+        ACCOUNT_FEATURES.accounts,
+        "stats",
+        { tag: "game-stats-modal", pageId: "page-stats" },
+      ],
+      [
+        ACCOUNT_FEATURES.accounts,
+        "profile",
+        { tag: "player-profile-modal", pageId: "page-profile" },
+      ],
+      [true, "help", { tag: "help-modal", pageId: "page-help" }],
+      [true, "news", { tag: "news-modal", pageId: "page-news" }],
+      [true, "language", { tag: "language-modal", pageId: "page-language" }],
+      [
+        true,
+        "single-player",
+        { tag: "single-player-modal", pageId: "page-single-player" },
+      ],
+      [
+        ACCOUNT_FEATURES.ranked,
+        "ranked",
+        { tag: "ranked-modal", pageId: "page-ranked" },
+      ],
+      [
+        true,
+        "detailed-view",
+        { tag: "detailed-view-modal", pageId: "page-detailed-view" },
+      ],
+      [
+        true,
+        "troubleshooting",
+        { tag: "troubleshooting-modal", pageId: "page-troubleshooting" },
+      ],
+      [
+        ACCOUNT_FEATURES.store,
+        "inventory",
+        { tag: "inventory-modal", pageId: "page-inventory" },
+      ],
+    ];
+    for (const [enabled, name, entry] of routes) {
+      if (enabled) modalRouter.register(name, entry);
+    }
 
     // Kick the server-list fetch off here, before anything below awaits the
     // network, so it overlaps with the rest of boot: by the time a player
@@ -531,12 +557,16 @@ class Client {
     await customElements.whenDefined("mobile-nav-bar");
     await customElements.whenDefined("desktop-nav-bar");
 
-    const openFrontFont = new FontFace(
-      "OpenFront",
-      `url(${assetUrl("fonts/OpenFront.ttf")})`,
-    );
-    document.fonts.add(openFrontFont);
-    openFrontFont.load().catch(() => {});
+    // The display face behind --font-display (SIL OFL, resources/fonts).
+    for (const weight of ["400", "700"]) {
+      const displayFont = new FontFace(
+        "Pixelify Sans",
+        `url(${assetUrl(`fonts/pixelify-sans/PixelifySans-${weight}.woff2`)}) format("woff2")`,
+        { weight, display: "swap" },
+      );
+      document.fonts.add(displayFont);
+      displayFont.load().catch(() => {});
+    }
 
     // The tagged version only, so a player's version reads the same across web
     // and Steam. The build's full identity -- the commit on an untagged build,
@@ -730,8 +760,13 @@ class Client {
       }
       const isAdFree =
         userMeResponse !== false && userMeResponse.player?.adfree === true;
+      // BRAND.adsEnabled is false until DeltaFront has its own ad provider:
+      // the upstream tags are not shipped, so ad slots would sit empty.
       window.adsEnabled =
-        !isAdFree && !crazyGamesSDK.isOnCrazyGames() && !isDesktopShell();
+        BRAND.adsEnabled &&
+        !isAdFree &&
+        !crazyGamesSDK.isOnCrazyGames() &&
+        !isDesktopShell();
       // Ad-eligible users only: paid/adfree users must never load Admiral (its
       // adblock popup fires autonomously once the payload runs). Start watching
       // adblock state; once a blocker is ever detected the in-game ad is

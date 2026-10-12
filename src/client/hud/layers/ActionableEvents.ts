@@ -339,7 +339,7 @@ export class ActionableEvents extends LitElement implements Controller {
                     <button
                       class="inline-block px-3 py-1 text-white rounded-sm text-xs lg:text-sm cursor-pointer transition-colors duration-300
                         ${btn.className.includes("btn-info")
-                        ? "bg-blue-500 hover:bg-blue-600"
+                        ? "bg-df-red hover:bg-df-red-bright"
                         : btn.className.includes("btn-gray")
                           ? "bg-gray-500 hover:bg-gray-600"
                           : "bg-green-600 hover:bg-green-700"}"

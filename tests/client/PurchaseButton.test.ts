@@ -62,7 +62,7 @@ describe("PurchaseButton", () => {
     ).toBe(false);
   });
 
-  it("uses blue purchase controls instead of equipped-state green", async () => {
+  it("uses brand-red purchase controls instead of equipped-state green", async () => {
     button = document.createElement("purchase-button") as PurchaseButton;
     button.dollarPrice = "$5";
     button.priceHard = 100;
@@ -76,7 +76,7 @@ describe("PurchaseButton", () => {
       ".purchase-sparkle-btn-hard",
     ]) {
       const purchase = button.querySelector<HTMLButtonElement>(selector)!;
-      expect(purchase.className).toMatch(/blue/);
+      expect(purchase.className).toMatch(/df-red/);
       expect(purchase.className).not.toMatch(/green|emerald/);
     }
   });

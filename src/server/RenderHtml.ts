@@ -101,24 +101,26 @@ export async function renderHtmlContent(
       ServerEnv.faroCollectorUrl() === undefined
         ? undefined
         : JSON.stringify(ServerEnv.faroCollectorUrl()),
+    // Optional analytics; the template injects nothing when these are unset.
+    googleAnalyticsId:
+      ServerEnv.googleAnalyticsId() === undefined
+        ? undefined
+        : JSON.stringify(ServerEnv.googleAnalyticsId()),
+    cloudflareAnalyticsToken:
+      ServerEnv.cloudflareAnalyticsToken() === undefined
+        ? undefined
+        : JSON.stringify(ServerEnv.cloudflareAnalyticsToken()),
     manifestHref: buildAssetUrl("manifest.json", assetManifest, cdnBase),
-    faviconHref: buildAssetUrl("images/Favicon.svg", assetManifest, cdnBase),
+    faviconHref: buildAssetUrl(
+      "images/branding/deltafront-icon.png",
+      assetManifest,
+      cdnBase,
+    ),
     gameplayScreenshotUrl: buildAssetUrl(
       "images/GameplayScreenshot.png",
       assetManifest,
       cdnBase,
     ),
-    backgroundImageUrl: buildAssetUrl(
-      "images/background.webp",
-      assetManifest,
-      cdnBase,
-    ),
-    desktopLogoImageUrl: buildAssetUrl(
-      "images/OpenFront.png",
-      assetManifest,
-      cdnBase,
-    ),
-    mobileLogoImageUrl: buildAssetUrl("images/OF.png", assetManifest, cdnBase),
   });
 }
 

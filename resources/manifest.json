@@ -1,15 +1,9 @@
 {
   "icons": [
     {
-      "purpose": "maskable",
-      "sizes": "512x512",
-      "src": "/icons/icon512_maskable.png",
-      "type": "image/png"
-    },
-    {
       "purpose": "any",
-      "sizes": "512x512",
-      "src": "/icons/icon512_rounded.png",
+      "sizes": "500x500",
+      "src": "/images/branding/deltafront-icon.png",
       "type": "image/png"
     }
   ],
@@ -18,8 +12,11 @@
   "display": "standalone",
   "dir": "auto",
   "lang": "en",
-  "name": "OpenFront.io",
-  "short_name": "OpenFront",
+  "name": "DeltaFront",
+  "short_name": "DeltaFront",
+  "description": "DeltaFront is a fast-paced multiplayer strategy game where players battle for territory, build their nations, form alliances, and dominate the front.",
+  "background_color": "#090909",
+  "theme_color": "#090909",
   "start_url": "/",
   "id": "/"
 }

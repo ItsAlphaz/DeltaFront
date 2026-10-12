@@ -1,4 +1,3 @@
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-* @openfrontio/maintainer
-resources/lang @openfrontio/translation-approver
-resources/lang/en.json @openfrontio/maintainer
+# DeltaFront: add the GitHub users or teams who review changes, e.g.
+# * @your-github-username
