@@ -35,3 +35,8 @@ map-generator/map-generator.exe
 # src/core package split (#1701): tick-trace inputs and baselines
 .tick-records/
 .tick-baseline/
+
+# Account API signing keys and other secrets (see example.env): never commit
+*.pem
+*.key
+/secrets/

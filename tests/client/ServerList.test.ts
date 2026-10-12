@@ -1,4 +1,7 @@
-import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
+import {
+  ACCOUNT_FEATURES,
+  allFeaturesOff,
+} from "@openfront/shared/AccountFeatures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientEnv, NoServerError } from "../../src/client/ClientEnv";
 import { resetPagePinForTests } from "../../src/client/PagePin";
@@ -2021,13 +2024,9 @@ describe("versionedPathForMismatchedGame", () => {
 // private multiplayer on a server that never had an API.
 describe("without an account backend", () => {
   beforeEach(() => {
-    Object.assign(ACCOUNT_FEATURES, {
-      accounts: false,
-      store: false,
-      ranked: false,
-      clans: false,
-      leaderboards: false,
-    });
+    // Every flag, not a list of them: usesAccountApi() is true as soon as any
+    // one is on, and tests/setup.ts turns the whole set on.
+    Object.assign(ACCOUNT_FEATURES, allFeaturesOff());
   });
 
   it("never fetches the list, however long the heartbeat would have run", async () => {

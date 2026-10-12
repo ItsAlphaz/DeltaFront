@@ -23,6 +23,7 @@ type Pkg =
   | "zbin"
   | "client"
   | "server"
+  | "account-api"
   | "resources";
 
 // The only engine files the apps may load: the simulation worker for the
@@ -38,6 +39,17 @@ const ALLOWED: Record<Pkg, Pkg[]> = {
   zbin: ["zbin"],
   client: ["client", "shared", "engine-lib", "engine-api", "zbin", "resources"],
   server: ["server", "shared", "engine-lib", "engine-api", "zbin", "resources"],
+  // The account backend (docs/DeltaFrontAccountsPlan.md section 5.1). It reuses
+  // the wire schemas, but never the apps or the simulation, and nothing else
+  // imports it: it is its own deployable service.
+  "account-api": [
+    "account-api",
+    "shared",
+    "engine-lib",
+    "engine-api",
+    "zbin",
+    "resources",
+  ],
   resources: [],
 };
 
@@ -98,6 +110,7 @@ function packageOf(file: string): Pkg | null {
   if (m && (PACKAGES as string[]).includes(m[1])) return m[1] as Pkg;
   if (file.startsWith("src/client/")) return "client";
   if (file.startsWith("src/server/")) return "server";
+  if (file.startsWith("src/account-api/")) return "account-api";
   if (file.startsWith("resources/")) return "resources";
   return null;
 }
@@ -218,6 +231,7 @@ function violations(): {
     ...PACKAGES.flatMap((pkg) => walk(`packages/${pkg}/src`)),
     ...walk("src/client"),
     ...walk("src/server"),
+    ...walk("src/account-api"),
   ];
   for (const file of files) {
     const from = packageOf(file)!;

@@ -27,5 +27,10 @@ beforeEach(() => {
     ranked: true,
     clans: true,
     leaderboards: true,
+    payments: true,
+    friends: true,
+    progression: true,
+    tribes: true,
+    trustedLobbies: true,
   });
 });

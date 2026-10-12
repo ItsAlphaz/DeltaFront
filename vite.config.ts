@@ -369,6 +369,14 @@ export default defineConfig(({ mode }) => {
       "process.env.API_DOMAIN": JSON.stringify(
         mode === "test" ? "" : (env.API_DOMAIN ?? ""),
       ),
+      // Which account-backend features this build shows (see
+      // packages/shared/src/AccountFeatures.ts). Baked in at build time, so a
+      // production build and the game server it talks to must be given the
+      // same value. Forced empty under vitest (mode "test") so a variable in
+      // the host shell can never switch features on for the test suite.
+      "process.env.DF_ACCOUNT_FEATURES": JSON.stringify(
+        mode === "test" ? "" : (env.DF_ACCOUNT_FEATURES ?? ""),
+      ),
       // Add other process.env variables if needed, OR migrate code to import.meta.env
     },
 

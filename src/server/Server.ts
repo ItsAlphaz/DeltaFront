@@ -1,3 +1,8 @@
+// First, so .env is in process.env before any module below is evaluated:
+// packages/shared/src/AccountFeatures.ts reads DF_ACCOUNT_FEATURES once, when
+// it is imported, and the client build reads the same .env through Vite.
+import "dotenv/config";
+
 import cluster from "cluster";
 import * as dotenv from "dotenv";
 import { startMaster } from "./Master";

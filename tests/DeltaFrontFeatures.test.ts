@@ -29,6 +29,11 @@ const ALL_OFF = {
   ranked: false,
   clans: false,
   leaderboards: false,
+  payments: false,
+  friends: false,
+  progression: false,
+  tribes: false,
+  trustedLobbies: false,
 };
 
 function featuresOff(): void {

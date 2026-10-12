@@ -22,6 +22,44 @@ Turning any flag on also turns on the server-list heartbeat (`/cluster.json`) an
 
 Other server calls to the API, all failing open or being skipped without a backend: `POST /join_verify` (Turnstile + name screening), `POST/GET /game/:id` (game archive; skipped unless a flag is on), `POST /cluster/checkin` (deployed hosts only), a lobby-coordinator websocket (only with `LOBBY_COORDINATOR=api`).
 
+### Newer flags, and turning flags on (`DF_ACCOUNT_FEATURES`)
+
+DeltaFront's own account backend ([`src/account-api`](../src/account-api), planned in [DeltaFrontAccountsPlan.md](DeltaFrontAccountsPlan.md)) adds five flags. They exist from milestone M0 but **nothing reads them yet**; each gets its first use in the milestone that owns the feature, and until then turning one on changes nothing.
+
+| Flag             | Will hide when off                                                                                     | Wired in |
+| ---------------- | ------------------------------------------------------------------------------------------------------ | -------- |
+| `payments`       | Real money and the premium currency: currency packs, subscriptions, checkout, creator codes, donations | M4       |
+| `friends`        | Friends list and requests                                                                              | M1       |
+| `progression`    | XP, levels, prestige, reward claims, achievements                                                      | M1       |
+| `tribes`         | Custom tribe names and the tribe leaderboard                                                           | M4       |
+| `trustedLobbies` | The trusted-accounts-only public lobby rotation                                                        | M1       |
+
+Every flag is off unless `DF_ACCOUNT_FEATURES` names it. The value is a comma-separated list, e.g. `DF_ACCOUNT_FEATURES=accounts,leaderboards`:
+
+- unset or empty means everything off (what ships);
+- names must match exactly (case-sensitive); an unknown name enables nothing and is reported (a warning, but the account API refuses to start outside dev);
+- there is no wildcard and no way to switch a flag off, only on;
+- the client reads it **at build time** (Vite) and the game server and account API read it **at startup**, so a build and the servers it talks to must be given the same value. Put it in the same `.env` (or deployment environment) for all of them. Under `vitest` it is always empty, so a variable in your shell cannot change the test suite.
+
+Enabling a flag in production is the public launch of that feature, so it waits for the milestone's acceptance criteria, and for the account launch also the final Terms of Service and Privacy Policy (the pages in `resources/public/` are labelled placeholders).
+
+### The account API (`src/account-api`)
+
+A separate Node service that will answer the `api.<DOMAIN>` contracts the client already speaks. **Milestone M0 is the foundation only**: configuration, the PostgreSQL schema and migration runner, the constants, and a `/health` endpoint. It serves no account endpoints yet, so it is not started by `npm run dev` and no flag should be enabled against it.
+
+```bash
+npm run account-api:migrate           # apply pending migrations (needs DATABASE_URL)
+npm run account-api:migrate -- status # what is applied and what is pending
+npm run start:account-api             # start the service
+npm run admin                         # admin command line (no commands until M1)
+npm run test:account-api              # database tests; needs DATABASE_URL_TEST
+```
+
+- It needs **PostgreSQL**. There is no fallback database, and the service refuses to start if the database is unreachable or has pending migrations (it never migrates implicitly: run the migrate command as a deploy step first).
+- Configuration is read from the environment (a `.env` file works). See [`example.env`](../example.env) for every variable; nothing secret is committed. `GAME_ENV` has no default, and outside `dev` the service fails at startup, listing every problem, if something it needs is missing: the domain and origins, and, when `accounts` is enabled, the signing key and Discord and Google credentials.
+- The owner-defined numbers (Credits rewards, the daily cap, clan creation rules) live in [`src/account-api/domain/constants.ts`](../src/account-api/domain/constants.ts) and nowhere else.
+- Migrations are forward-only files in `src/account-api/migrations/`. Applied files are never edited (their checksums are verified); change the schema with a new file.
+
 ## Classification
 
 | Service / dependency                                                                                                                                                 | Where                                     | Status                                                                                                                                                                                         |
