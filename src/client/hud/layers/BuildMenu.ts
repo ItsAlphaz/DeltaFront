@@ -16,6 +16,7 @@ import { Controller } from "../../Controller";
 import {
   CloseViewEvent,
   MouseDownEvent,
+  ShowAirstrikeMenuEvent,
   ShowBuildMenuEvent,
   ShowEmojiMenuEvent,
 } from "../../InputHandler";
@@ -399,6 +400,17 @@ export class BuildMenu extends LitElement implements Controller {
   }
 
   public sendBuildOrUpgrade(buildableUnit: BuildableUnit, tile: TileRef): void {
+    if (buildableUnit.type === UnitType.Airstrike) {
+      // Nothing is launched from here: the target is the clicked tile, and the
+      // strike type is chosen in the strike-type menu.
+      this.hideMenu();
+      this.uiState.ghostStructure = UnitType.Airstrike;
+      this.uiState.airstrikeTarget = tile;
+      this.eventBus.emit(
+        new ShowAirstrikeMenuEvent(tile, innerWidth / 2, innerHeight / 2),
+      );
+      return;
+    }
     if (buildableUnit.canUpgrade !== false) {
       this.eventBus.emit(
         new SendUpgradeStructureIntentEvent(
@@ -459,7 +471,9 @@ export class BuildMenu extends LitElement implements Controller {
                     </span>
                     <span class="build-description"
                       >${item.description &&
-                      translateText(item.description)}</span
+                      translateText(item.description, {
+                        range: this.game.config().airportRange(),
+                      })}</span
                     >
                     <span class="build-cost" translate="no">
                       ${renderNumber(

@@ -1,4 +1,5 @@
 import {
+  AirstrikeTypes,
   Difficulty,
   GameType,
   PlayerType,
@@ -18,6 +19,100 @@ export interface NukeMagnitude {
 }
 
 const DEFAULT_SPAWN_IMMUNITY_TICKS = 5 * 10;
+
+/** Euclidean range, in tiles, from an Airport to the targets its planes can strike. */
+export const AIRPORT_RANGE_TILES = 400;
+/** Ticks an Airport needs to rearm after launching an airstrike (20 s). */
+export const AIRPORT_REARM_TICKS = 200;
+/**
+ * Tiles per tick every airstrike aircraft flies, whatever the strike: all three
+ * are flown by the same fighter. (Nukes fly 10, SAM missiles 12.)
+ */
+export const AIRSTRIKE_PLANE_SPEED = 2;
+
+/**
+ * Per-strike-type tuning of an airstrike. Pure data: the rules that use it live
+ * in `airstrike/` (engine-lib) and `AirstrikeExecution` (engine).
+ */
+export interface AirstrikeSpec {
+  /** Bomb/rocket troop-damage radius; strafing corridor half-width (tiles). */
+  radius: number;
+  /** Troop loss, in basis points, per 1.0 share of a player's land hit. */
+  troopFactorBps: number;
+  /** Cap on one player's troop loss per application (per burst for strafing). */
+  troopCapBps: number;
+  /** Bomb: blast radius. Rocket: lock radius. Strafing: centreline tolerance. */
+  structureRadius: number;
+  /** Levels removed from each affected structure. */
+  structureLevels: number;
+  /** Structures one application may damage. */
+  maxStructures: number;
+  /** Chance (percent) that one SAM shot at this aircraft destroys it. */
+  samHitPercent: number;
+  /** Rocket only: tiles short of the target where the rockets are released. */
+  standoff: number;
+  /** Rocket only: ticks from release to impact. */
+  rocketFlightTicks: number;
+  /** Strafing only: corridor length (tiles) centred on the target. */
+  corridorLength: number;
+  /** Strafing only: damage bursts the corridor is split into. */
+  corridorBursts: number;
+  /** Strafing only: tiles the plane flies on past the end of the corridor. */
+  exitTail: number;
+  /** Radius of the ring shown over the target to its owner (0 = none). */
+  telegraphRadius: number;
+}
+
+const AIRSTRIKE_SPECS: Record<
+  (typeof AirstrikeTypes.types)[number],
+  AirstrikeSpec
+> = {
+  [UnitType.BombingRun]: {
+    radius: 10,
+    troopFactorBps: 30_000,
+    troopCapBps: 2_500,
+    structureRadius: 10,
+    structureLevels: 1,
+    maxStructures: Number.MAX_SAFE_INTEGER,
+    samHitPercent: 65,
+    standoff: 0,
+    rocketFlightTicks: 0,
+    corridorLength: 0,
+    corridorBursts: 0,
+    exitTail: 0,
+    telegraphRadius: 10,
+  },
+  [UnitType.RocketStrike]: {
+    radius: 4,
+    troopFactorBps: 40_000,
+    troopCapBps: 1_000,
+    structureRadius: 6,
+    structureLevels: 2,
+    maxStructures: 1,
+    samHitPercent: 50,
+    standoff: 10,
+    rocketFlightTicks: 3,
+    corridorLength: 0,
+    corridorBursts: 0,
+    exitTail: 0,
+    telegraphRadius: 4,
+  },
+  [UnitType.StrafingRun]: {
+    radius: 2,
+    troopFactorBps: 30_000,
+    troopCapBps: 500,
+    structureRadius: 1.5,
+    structureLevels: 1,
+    maxStructures: 1,
+    samHitPercent: 60,
+    standoff: 0,
+    rocketFlightTicks: 0,
+    corridorLength: 40,
+    corridorBursts: 4,
+    exitTail: 8,
+    telegraphRadius: 0,
+  },
+};
 
 /** SAM launcher construction duration in ticks (non-instant-build). */
 export const SAM_CONSTRUCTION_TICKS = 30 * 10;
@@ -173,7 +268,7 @@ export class Config {
   }
   /** Ticks an Airport needs to rearm after launching an airstrike. */
   AirportCooldown(): number {
-    return 150;
+    return AIRPORT_REARM_TICKS;
   }
   /** Ticks a missile-timer structure (silo, airport) needs to rearm. */
   launcherCooldown(type: UnitType): number {
@@ -187,7 +282,14 @@ export class Config {
   }
 
   isUnitDisabled(unitType: UnitType): boolean {
-    return this._gameConfig.disabledUnits?.includes(unitType) ?? false;
+    const disabled = this._gameConfig.disabledUnits;
+    if (disabled === undefined) return false;
+    // "Airstrike" is the one toggle shown in the lobby; it switches off all
+    // three strike types (the selector and the aircraft they fly).
+    if (AirstrikeTypes.has(unitType) && disabled.includes(UnitType.Airstrike)) {
+      return true;
+    }
+    return disabled.includes(unitType);
   }
   instantBuild(): boolean {
     return this._gameConfig.instantBuild;
@@ -269,6 +371,9 @@ export class Config {
       case UnitType.TradeShip:
       case UnitType.Train:
       case UnitType.Airstrike:
+      case UnitType.BombingRun:
+      case UnitType.RocketStrike:
+      case UnitType.StrafingRun:
         info = {};
         break;
       default:
@@ -436,12 +541,19 @@ export class Config {
 
   /** Euclidean radius, in tiles, around an Airport that its planes can strike. */
   airportRange(): number {
-    return 100;
+    return AIRPORT_RANGE_TILES;
   }
 
-  /** Euclidean radius, in tiles, of the area an airstrike hits. */
-  airstrikeRadius(): number {
-    return 12;
+  /** Tiles per tick of every airstrike aircraft (the same for all strikes). */
+  airstrikePlaneSpeed(): number {
+    return AIRSTRIKE_PLANE_SPEED;
+  }
+
+  airstrikeSpec(type: UnitType): AirstrikeSpec {
+    if (!AirstrikeTypes.has(type)) {
+      throw new Error(`Not an airstrike type: ${type}`);
+    }
+    return AIRSTRIKE_SPECS[type];
   }
 
   /** Max-health boost per veterancy level, as an integer percent of base max

@@ -6,11 +6,17 @@
  * Pre-built by generate-sprite-atlases.mjs.
  */
 
+import { AirstrikeImpactPhase } from "@openfront/engine-api/game/GameUpdates";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
-import type { ConquestFx, DeadUnitFx, RendererConfig } from "../../../types";
+import type {
+  AirstrikeImpactFx,
+  ConquestFx,
+  DeadUnitFx,
+  RendererConfig,
+} from "../../../types";
 import {
+  AIRCRAFT_TYPES,
   STRUCTURE_TYPES,
-  UT_AIRSTRIKE,
   UT_SHELL,
   UT_TRAIN,
   UT_WARSHIP,
@@ -369,8 +375,19 @@ export class FxSpritePass {
       return;
     }
 
-    if (typeName === UT_AIRSTRIKE && unit.reachedTarget) {
-      this.spawnAirstrikeSprites(x, y, now);
+    if (AIRCRAFT_TYPES.has(typeName)) {
+      // An aircraft that delivered its attack leaves quietly (the impact
+      // effects come from the strike's own events); one shot down explodes.
+      if (!unit.reachedTarget) {
+        this.pushFx(x, y, FX_SAM_EXPLOSION, now);
+        this.pushLingering(
+          x,
+          y,
+          FX_MINI_SMOKE_FIRE,
+          now,
+          this.settings.fx.airstrikeSmokeLifetimeMs,
+        );
+      }
       return;
     }
 
@@ -389,20 +406,121 @@ export class FxSpritePass {
     }
   }
 
-  /** Bomb run: a blast at the target plus a ring of small blasts spread
-   *  over the strike radius. */
-  private spawnAirstrikeSprites(x: number, y: number, now: number): void {
-    this.pushFx(x, y, FX_UNIT_EXPLOSION, now);
-    const spread = this.config.airstrikeRadius() * 0.6;
-    const bombs = 6;
-    for (let i = 0; i < bombs; i++) {
-      const angle = (i / bombs) * Math.PI * 2 + 0.4;
-      this.pushFx(
-        Math.round(x + Math.cos(angle) * spread),
-        Math.round(y + Math.sin(angle) * spread),
-        FX_MINI_EXPLOSION,
-        now,
-      );
+  /**
+   * The sprites of an airstrike effect, centred where the simulation dealt the
+   * damage. Scatter positions come from a stable hash of the event, so the
+   * same event looks the same wherever and whenever it is replayed. The
+   * smoke, fire and dust linger well past the simulation event.
+   */
+  spawnAirstrikeImpact(fx: AirstrikeImpactFx, now: number): void {
+    const s = this.settings.fx;
+    const seed = (n: number) =>
+      (fx.toX * 73856093) ^ (fx.toY * 19349663) ^ (n * 83492791);
+    const scatter = (n: number, r: number): [number, number] => {
+      const angle = seededRandom(seed(n)) * Math.PI * 2;
+      const dist = Math.sqrt(seededRandom(seed(n) + 0x10000)) * r;
+      return [
+        Math.round(fx.toX + Math.cos(angle) * dist),
+        Math.round(fx.toY + Math.sin(angle) * dist),
+      ];
+    };
+    switch (fx.phase) {
+      case AirstrikeImpactPhase.BombImpact:
+        this.pushFx(fx.toX, fx.toY, FX_BUILDING_EXPLOSION, now);
+        for (let i = 0; i < 3; i++) {
+          const [x, y] = scatter(i, fx.radius * 0.4);
+          this.pushFx(x, y, FX_UNIT_EXPLOSION, now);
+        }
+        for (let i = 0; i < 8; i++) {
+          const [x, y] = scatter(10 + i, fx.radius * 0.8);
+          this.pushFx(x, y, FX_MINI_EXPLOSION, now);
+        }
+        for (let i = 0; i < 3; i++) {
+          const [x, y] = scatter(20 + i, fx.radius * 0.6);
+          this.pushLingering(
+            x,
+            y,
+            FX_MINI_BIG_SMOKE,
+            now,
+            s.airstrikeSmokeLifetimeMs,
+          );
+        }
+        for (let i = 0; i < 2; i++) {
+          const [x, y] = scatter(30 + i, fx.radius * 0.6);
+          this.pushLingering(
+            x,
+            y,
+            FX_MINI_SMOKE_FIRE,
+            now,
+            s.airstrikeSmokeLifetimeMs,
+          );
+        }
+        return;
+      case AirstrikeImpactPhase.RocketRelease: {
+        this.pushFx(fx.fromX, fx.fromY, FX_DUST, now);
+        // A short smoke trail along the rockets' flight to the target.
+        for (let i = 1; i <= 5; i++) {
+          const t = i / 6;
+          this.pushLingering(
+            Math.round(fx.fromX + (fx.toX - fx.fromX) * t),
+            Math.round(fx.fromY + (fx.toY - fx.fromY) * t),
+            FX_MINI_SMOKE,
+            now,
+            s.airstrikeTrailLifetimeMs,
+          );
+        }
+        return;
+      }
+      case AirstrikeImpactPhase.RocketImpact:
+        this.pushFx(fx.toX, fx.toY, FX_BUILDING_EXPLOSION, now);
+        for (let i = 0; i < 4; i++) {
+          const [x, y] = scatter(i, 3);
+          this.pushFx(x, y, FX_MINI_EXPLOSION, now);
+        }
+        for (let i = 0; i < 2; i++) {
+          const [x, y] = scatter(10 + i, 2);
+          this.pushLingering(
+            x,
+            y,
+            FX_MINI_FIRE,
+            now,
+            s.airstrikeFireLifetimeMs,
+          );
+        }
+        return;
+      case AirstrikeImpactPhase.StrafeBurst: {
+        // Spread along the burst's segment, a little to either side of the line.
+        const along = (n: number): [number, number] => {
+          const t = seededRandom(seed(n));
+          const side = (seededRandom(seed(n) + 0x20000) - 0.5) * 2 * fx.radius;
+          const dx = fx.toX - fx.fromX;
+          const dy = fx.toY - fx.fromY;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          return [
+            Math.round(fx.fromX + dx * t - (dy / len) * side),
+            Math.round(fx.fromY + dy * t + (dx / len) * side),
+          ];
+        };
+        for (let i = 0; i < 6; i++) {
+          const [x, y] = along(i);
+          this.pushFx(x, y, FX_DUST, now);
+        }
+        for (let i = 0; i < 3; i++) {
+          const [x, y] = along(10 + i);
+          this.pushFx(x, y, FX_MINI_EXPLOSION, now);
+        }
+        for (let i = 0; i < 2; i++) {
+          const [x, y] = along(20 + i);
+          this.pushLingering(
+            x,
+            y,
+            FX_MINI_SMOKE,
+            now,
+            s.airstrikeDustLifetimeMs,
+          );
+        }
+        return;
+      }
     }
   }
 
@@ -441,6 +559,25 @@ export class FxSpritePass {
       lifetimeMs: cfg.frameDurationMs * cfg.frameCount,
       fadeIn: 0,
       fadeOut: 1,
+    });
+  }
+
+  /** A looping sprite (smoke, fire, dust) kept on screen for `lifetimeMs`, fading out. */
+  private pushLingering(
+    x: number,
+    y: number,
+    fxType: number,
+    now: number,
+    lifetimeMs: number,
+  ): void {
+    this.activeFx.push({
+      x,
+      y,
+      fxType,
+      startMs: now,
+      lifetimeMs,
+      fadeIn: 0.1,
+      fadeOut: 0.6,
     });
   }
 

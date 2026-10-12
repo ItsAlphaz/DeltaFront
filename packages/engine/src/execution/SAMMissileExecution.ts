@@ -1,5 +1,10 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { MessageType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import {
+  AirstrikeTypes,
+  AirstrikeUnitType,
+  MessageType,
+  UnitType,
+} from "@openfront/engine-api/game/GameTypes";
 import { NukeType } from "@openfront/engine-api/StatsSchemas";
 import {
   zNum,
@@ -27,7 +32,18 @@ const INTERCEPTED_UNIT_TRANSLATION_KEYS: Partial<Record<UnitType, string>> = {
   [UnitType.AtomBomb]: "unit_type.atom_bomb",
   [UnitType.HydrogenBomb]: "unit_type.hydrogen_bomb",
   [UnitType.MIRVWarhead]: "unit_type.mirv",
+  [UnitType.BombingRun]: "unit_type.bombing_run",
+  [UnitType.RocketStrike]: "unit_type.rocket_strike",
+  [UnitType.StrafingRun]: "unit_type.strafing_run",
 };
+
+/** What a SAM missile may be fired at: nukes (the MIRV carrier itself can't be hit, only its warheads) and airstrike aircraft. */
+const SAM_TARGET_WHITELIST: readonly UnitType[] = [
+  UnitType.AtomBomb,
+  UnitType.HydrogenBomb,
+  UnitType.MIRVWarhead,
+  ...AirstrikeTypes.types,
+];
 
 export class SAMMissileExecution implements Execution {
   private active = true;
@@ -42,6 +58,9 @@ export class SAMMissileExecution implements Execution {
     private ownerUnit: Unit,
     private target: Unit,
     private targetTile: TileRef,
+    // Decided when the SAM fired (see SAMLauncherExecution): always true for
+    // nukes; a roll per shot for aircraft. A miss leaves the target flying.
+    private willHit: boolean = true,
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -59,17 +78,11 @@ export class SAMMissileExecution implements Execution {
       this.active = false;
       return;
     }
-    // The MIRV carrier itself can't be intercepted, only its warheads
-    const nukesWhitelist = [
-      UnitType.AtomBomb,
-      UnitType.HydrogenBomb,
-      UnitType.MIRVWarhead,
-    ];
     if (
       !this.target.isActive() ||
       !this.ownerUnit.isActive() ||
       this.target.owner() === this.SAMMissile.owner() ||
-      !nukesWhitelist.includes(this.target.type())
+      !SAM_TARGET_WHITELIST.includes(this.target.type())
     ) {
       // Clear the flag so other SAMs can re-target this nuke
       if (this.target.isActive()) {
@@ -85,6 +98,23 @@ export class SAMMissileExecution implements Execution {
         this.targetTile,
       );
       if (result.status === PathStatus.COMPLETE) {
+        const targetType = this.target.type();
+        if (!this.willHit) {
+          this.mg.displayMessage(
+            "events_display.sam_missed",
+            MessageType.SAM_MISS,
+            this._owner.id(),
+            undefined,
+            {
+              unit: INTERCEPTED_UNIT_TRANSLATION_KEYS[targetType] ?? targetType,
+            },
+          );
+          // Free the target so another SAM (or this one, once reloaded) can fire.
+          this.target.setTargetedBySAM(false);
+          this.SAMMissile.delete(false);
+          this.active = false;
+          return;
+        }
         this.mg.displayMessage(
           "events_display.missile_intercepted",
           MessageType.SAM_HIT,
@@ -101,9 +131,13 @@ export class SAMMissileExecution implements Execution {
         this.SAMMissile.delete(false);
 
         // Record stats
-        this.mg
-          .stats()
-          .bombIntercept(this._owner, this.target.type() as NukeType, 1);
+        if (AirstrikeTypes.has(targetType)) {
+          this.mg
+            .stats()
+            .airIntercept(this._owner, targetType as AirstrikeUnitType);
+        } else {
+          this.mg.stats().bombIntercept(this._owner, targetType as NukeType, 1);
+        }
         return;
       } else if (result.status === PathStatus.NEXT) {
         this.SAMMissile.move(result.node);
@@ -131,6 +165,7 @@ export class SAMMissileExecution implements Execution {
       ownerUnit: w.unit(this.ownerUnit),
       target: w.unit(this.target),
       targetTile: this.targetTile,
+      willHit: this.willHit,
     });
   }
 
@@ -147,6 +182,7 @@ export class SAMMissileExecution implements Execution {
     this.ownerUnit = r.unit(s.ownerUnit);
     this.target = r.unit(s.target);
     this.targetTile = s.targetTile;
+    this.willHit = s.willHit;
   }
 }
 
@@ -160,12 +196,17 @@ const SAMMissileStateSchema = z.object({
   ownerUnit: zRef(),
   target: zRef(),
   targetTile: zTile(),
+  willHit: z.boolean(),
 });
 type SAMMissileState = z.infer<typeof SAMMissileStateSchema>;
 
 export const SAMMissileExecutionSnapshot = execSnapshotType({
   name: "SAMMissile",
-  version: 1,
+  version: 2,
   schema: SAMMissileStateSchema,
+  migrations: {
+    // v1 predates airstrikes: every shot was a certain hit.
+    1: (d) => ({ ...d, willHit: true }),
+  },
   cls: () => SAMMissileExecution,
 });

@@ -411,6 +411,7 @@ export class PlayerStatsTreeView extends LitElement {
       bombs: this.mergeStatRecord(base.bombs, next.bombs),
       gold: this.mergeStatArrays(base.gold, next.gold),
       units: this.mergeStatRecord(base.units, next.units),
+      air: this.mergeStatRecord(base.air, next.air),
     };
   }
 
@@ -470,6 +471,7 @@ export class PlayerStatsTreeView extends LitElement {
       bombs: stats.bombs ? { ...stats.bombs } : undefined,
       gold: stats.gold ? [...stats.gold] : undefined,
       units: stats.units ? { ...stats.units } : undefined,
+      air: stats.air ? { ...stats.air } : undefined,
     };
   }
 

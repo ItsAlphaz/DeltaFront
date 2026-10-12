@@ -8,13 +8,16 @@
  * interceptions) are coordinated here so each sub-pass stays self-contained.
  */
 
+import { AirstrikeImpactPhase } from "@openfront/engine-api/game/GameUpdates";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
 import type {
+  AirstrikeImpactFx,
   AttackRingInput,
   ConquestFx,
   DeadUnitFx,
   RendererConfig,
 } from "../../../types";
+import { AIRCRAFT_TYPES } from "../../../types";
 import type { RenderSettings } from "../../RenderSettings";
 import { FxAttackRingPass } from "./FxAttackRingPass";
 import { nukeExplosionRadius } from "./FxSettings";
@@ -78,8 +81,28 @@ export class FxPass {
       return;
     }
 
+    // A shot-down aircraft gets the SAM ring on top of its sprite effects.
+    if (AIRCRAFT_TYPES.has(typeName) && !unit.reachedTarget) {
+      this.shockwavePass.pushSAMShockwave(x, y);
+    }
+
     // All other units: sprite-only effects
     this.spritePass.spawnFxForUnit(unit, now);
+  }
+
+  /** Airstrike effects: sprites, plus a ring over bomb and rocket blasts. */
+  applyAirstrikeImpacts(events: AirstrikeImpactFx[]): void {
+    const now = this.timeFn();
+    for (const fx of events) {
+      const startMs = now - (fx.tickAge ?? 0) * this.config.msPerTick();
+      this.spritePass.spawnAirstrikeImpact(fx, startMs);
+      if (
+        fx.phase === AirstrikeImpactPhase.BombImpact ||
+        fx.phase === AirstrikeImpactPhase.RocketImpact
+      ) {
+        this.shockwavePass.pushAirstrikeShockwave(fx.toX, fx.toY, fx.radius);
+      }
+    }
   }
 
   applyRailroadDust(tileRefs: number[]): void {

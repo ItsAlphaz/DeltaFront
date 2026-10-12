@@ -30,6 +30,18 @@ export type SoundEffect =
   | "build-train-station"
   | "transport-ship"
   | "nuke-warning"
+  // Airstrikes. The "airstrike-launch/flyby/bomb/strafe" and "aircraft-down"
+  // files are synthesized placeholders; replace them with final assets under
+  // the same names. The rocket and SAM cues reuse existing missile sounds.
+  | "airstrike-launch"
+  | "airstrike-flyby"
+  | "airstrike-bomb"
+  | "airstrike-rocket"
+  | "airstrike-rocket-hit"
+  | "airstrike-strafe"
+  | "sam-launch"
+  | "sam-intercept"
+  | "aircraft-down"
   | "spawn"
   | "game-start"
   | "victory"
@@ -65,6 +77,21 @@ export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
   ["build-train-station", assetUrl("sounds/effects/build-train-station.mp3")],
   ["transport-ship", assetUrl("sounds/effects/transport-ship.mp3")],
   ["nuke-warning", assetUrl("sounds/effects/nuke-warning.mp3")],
+  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["airstrike-launch", assetUrl("sounds/effects/airstrike-launch.mp3")],
+  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["airstrike-flyby", assetUrl("sounds/effects/airstrike-flyby.mp3")],
+  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["airstrike-bomb", assetUrl("sounds/effects/airstrike-bomb.mp3")],
+  // Missile launch / explosion: existing sounds, reused for rockets and SAMs.
+  ["airstrike-rocket", assetUrl("sounds/effects/sam-shoot.mp3")],
+  ["airstrike-rocket-hit", assetUrl("sounds/effects/sam-hit.mp3")],
+  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["airstrike-strafe", assetUrl("sounds/effects/airstrike-strafe.mp3")],
+  ["sam-launch", assetUrl("sounds/effects/sam-shoot.mp3")],
+  ["sam-intercept", assetUrl("sounds/effects/sam-hit.mp3")],
+  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["aircraft-down", assetUrl("sounds/effects/aircraft-down.mp3")],
   ["spawn", assetUrl("sounds/effects/spawn.mp3")],
   ["game-start", assetUrl("sounds/effects/game-start.mp3")],
   ["victory", assetUrl("sounds/effects/victory.mp3")],
@@ -102,6 +129,7 @@ const CUE_CATEGORY: Record<SoundEffect, Exclude<CueCategory, "ambience">> = {
   // Alerts — things the player needs to know, which is why they stay audible
   // when the window is unfocused unless that is turned off.
   "nuke-warning": "alerts",
+  "airstrike-flyby": "alerts",
   "alliance-suggested": "alerts",
   "alliance-accepted": "alerts",
   "alliance-declined": "alerts",
@@ -114,6 +142,14 @@ const CUE_CATEGORY: Record<SoundEffect, Exclude<CueCategory, "ambience">> = {
   "hydrogen-launch": "effects",
   "hydrogen-hit": "effects",
   "mirv-launch": "effects",
+  "airstrike-launch": "effects",
+  "airstrike-bomb": "effects",
+  "airstrike-rocket": "effects",
+  "airstrike-rocket-hit": "effects",
+  "airstrike-strafe": "effects",
+  "sam-launch": "effects",
+  "sam-intercept": "effects",
+  "aircraft-down": "effects",
   "ka-ching": "effects",
   conquered: "effects",
   "build-port": "effects",

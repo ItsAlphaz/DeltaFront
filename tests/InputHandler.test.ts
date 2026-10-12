@@ -3,6 +3,7 @@ import { EventBus } from "@openfront/shared/EventBus";
 import {
   AlternateViewEvent,
   AutoUpgradeEvent,
+  CloseAirstrikeMenuEvent,
   CloseViewEvent,
   ConfirmGhostStructureEvent,
   ContextMenuEvent,
@@ -107,6 +108,8 @@ describe("InputHandler AutoUpgrade", () => {
         ghostStructure: null,
         rocketDirectionUp: true,
         upgradeMultiplier: 1,
+        airstrikeTarget: null,
+        airstrikeType: UnitType.BombingRun,
       },
       mockCanvas,
       eventBus,
@@ -975,6 +978,7 @@ describe("InputHandler AutoUpgrade", () => {
       uiState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
       inputHandler = new InputHandler(
@@ -1029,6 +1033,7 @@ describe("InputHandler AutoUpgrade", () => {
       const uiState: UIState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
       inputHandler = new InputHandler(
@@ -1083,6 +1088,7 @@ describe("InputHandler AutoUpgrade", () => {
       const uiState: UIState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
       inputHandler = new InputHandler(
@@ -1135,6 +1141,7 @@ describe("InputHandler AutoUpgrade", () => {
       const uiState: UIState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
       inputHandler = new InputHandler(
@@ -1155,6 +1162,7 @@ describe("InputHandler AutoUpgrade", () => {
       const uiState: UIState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
       inputHandler = new InputHandler(
@@ -1181,6 +1189,7 @@ describe("InputHandler AutoUpgrade", () => {
       const uiState: UIState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
       inputHandler = new InputHandler(
@@ -1204,6 +1213,7 @@ describe("InputHandler AutoUpgrade", () => {
       const uiState: UIState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
       inputHandler = new InputHandler(
@@ -1230,6 +1240,7 @@ describe("InputHandler AutoUpgrade", () => {
       uiState = {
         attackRatio: 20,
         ghostStructure: null,
+        airstrikeTarget: null,
         rocketDirectionUp: true,
       } as UIState;
     });
@@ -1364,6 +1375,8 @@ describe("InputHandler AutoUpgrade", () => {
           ghostStructure: null,
           rocketDirectionUp: true,
           upgradeMultiplier: 1,
+          airstrikeTarget: null,
+          airstrikeType: UnitType.BombingRun,
         },
         mockCanvas,
         eventBus,
@@ -1393,6 +1406,8 @@ describe("InputHandler AutoUpgrade", () => {
           ghostStructure: null,
           rocketDirectionUp: true,
           upgradeMultiplier: 1,
+          airstrikeTarget: null,
+          airstrikeType: UnitType.BombingRun,
         },
         mockCanvas,
         eventBus,
@@ -1456,6 +1471,8 @@ describe("InputHandler AutoUpgrade", () => {
           ghostStructure: null,
           rocketDirectionUp: true,
           upgradeMultiplier: 1,
+          airstrikeTarget: null,
+          airstrikeType: UnitType.BombingRun,
         },
         mockCanvas,
         eventBus,
@@ -1585,6 +1602,7 @@ describe("Warship box selection (Shift+drag)", () => {
     uiState = {
       attackRatio: 20,
       ghostStructure: null,
+      airstrikeTarget: null,
       rocketDirectionUp: true,
     } as UIState;
     inputHandler = new InputHandler(
@@ -1772,6 +1790,8 @@ describe("InputHandler right-click cancels unit selection (#4692)", () => {
         ghostStructure: null,
         rocketDirectionUp: true,
         upgradeMultiplier: 1,
+        airstrikeTarget: null,
+        airstrikeType: UnitType.BombingRun,
       },
       canvas,
       eventBus,
@@ -1887,6 +1907,8 @@ describe("InputHandler teardown (OPE-411)", () => {
         ghostStructure: null,
         rocketDirectionUp: true,
         upgradeMultiplier: 1,
+        airstrikeTarget: null,
+        airstrikeType: UnitType.BombingRun,
       },
       canvas,
       eventBus,
@@ -2199,5 +2221,86 @@ describe("InputHandler teardown (OPE-411)", () => {
       handler.destroy();
       vi.useRealTimers();
     }
+  });
+});
+
+describe("InputHandler with the Airstrike type menu open", () => {
+  let inputHandler: InputHandler;
+  let eventBus: EventBus;
+  let uiState: UIState;
+
+  beforeEach(() => {
+    new UserSettings().removeCached(KEYBINDS_KEY, false);
+    eventBus = new EventBus();
+    uiState = {
+      attackRatio: 20,
+      ghostStructure: UnitType.Airstrike,
+      rocketDirectionUp: true,
+      upgradeMultiplier: 1,
+      airstrikeTarget: 123,
+      airstrikeType: UnitType.BombingRun,
+    };
+    inputHandler = new InputHandler(
+      {
+        inSpawnPhase: () => false,
+        myPlayer: () => ({ isAlive: () => true }),
+      } as GameView,
+      uiState,
+      document.createElement("canvas"),
+      eventBus,
+    );
+    inputHandler.initialize();
+  });
+
+  afterEach(() => {
+    inputHandler.destroy();
+  });
+
+  test("build keys do not change the ghost while the menu is open", () => {
+    window.dispatchEvent(
+      new KeyboardEvent("keyup", { code: "Digit1", key: "1" }),
+    );
+    expect(uiState.ghostStructure).toBe(UnitType.Airstrike);
+    expect(uiState.airstrikeTarget).toBe(123);
+  });
+
+  test("build keys work again once the menu is closed", () => {
+    uiState.airstrikeTarget = null;
+    window.dispatchEvent(
+      new KeyboardEvent("keyup", { code: "Digit1", key: "1" }),
+    );
+    expect(uiState.ghostStructure).toBe(UnitType.City);
+  });
+
+  test("Enter is left to the menu and does not confirm the ghost", () => {
+    const emit = vi.spyOn(eventBus, "emit");
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Enter" }));
+    expect(
+      emit.mock.calls.filter((c) => c[0] instanceof ConfirmGhostStructureEvent),
+    ).toHaveLength(0);
+  });
+
+  test("Escape closes only the menu: the ghost stays and no view is closed", () => {
+    const emit = vi.spyOn(eventBus, "emit");
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape" }));
+
+    const closes = emit.mock.calls
+      .map((c) => c[0])
+      .filter(
+        (e): e is CloseAirstrikeMenuEvent =>
+          e instanceof CloseAirstrikeMenuEvent,
+      );
+    expect(closes.map((c) => c.reason)).toEqual(["escape"]);
+    expect(uiState.airstrikeTarget).toBeNull();
+    expect(uiState.ghostStructure).toBe(UnitType.Airstrike);
+    expect(emit.mock.calls.some((c) => c[0] instanceof CloseViewEvent)).toBe(
+      false,
+    );
+  });
+
+  test("a second Escape then drops the Airstrike ghost", () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape" }));
+    expect(uiState.ghostStructure).toBeNull();
   });
 });

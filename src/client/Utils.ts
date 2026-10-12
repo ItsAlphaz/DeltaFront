@@ -625,6 +625,7 @@ export const severityColors: Record<string, string> = {
 export function getMessageTypeClasses(type: MessageType): string {
   switch (type) {
     case MessageType.SAM_HIT:
+    case MessageType.AIRSTRIKE_RESULT:
     case MessageType.CAPTURED_ENEMY_UNIT:
     case MessageType.CONQUERED_PLAYER:
     case MessageType.ALLIANCE_ACCEPTED:

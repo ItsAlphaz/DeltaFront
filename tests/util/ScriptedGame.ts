@@ -1,5 +1,6 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
+  AirstrikeTypes,
   AllPlayers,
   Difficulty,
   GameMapSize,
@@ -197,8 +198,9 @@ function airIntent(game: Game, p: Player, tick: number): Intent | null {
   if (hasAirport && tick >= 690 && tick < 740 && tick % 5 === 0) {
     for (const t of p.borderTiles()) {
       for (const n of game.neighbors(t)) {
-        if (p.canBuild(UnitType.Airstrike, n) !== false) {
-          return { type: "build_unit", unit: UnitType.Airstrike, tile: n };
+        const strike = AirstrikeTypes.types[(tick / 5) % 3];
+        if (p.canBuild(strike, n) !== false) {
+          return { type: "build_unit", unit: strike, tile: n };
         }
       }
     }

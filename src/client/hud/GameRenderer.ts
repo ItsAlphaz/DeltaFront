@@ -1,3 +1,4 @@
+import { UnitType } from "@openfront/engine-api/game/GameTypes";
 import { EventBus } from "@openfront/shared/EventBus";
 import { Controller } from "../Controller";
 import { AmbienceController } from "../controllers/AmbienceController";
@@ -23,6 +24,7 @@ import { UserSettings } from "../UserSettings";
 import { GameView } from "../view";
 import { FrameProfiler } from "./FrameProfiler";
 import { ActionableEvents } from "./layers/ActionableEvents";
+import { AirstrikeTypeMenu } from "./layers/AirstrikeTypeMenu";
 import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
 import { BuildMenu } from "./layers/BuildMenu";
@@ -66,6 +68,8 @@ export function createRenderer(
     ghostStructure: null,
     rocketDirectionUp: true,
     upgradeMultiplier: 1,
+    airstrikeTarget: null,
+    airstrikeType: UnitType.BombingRun,
   };
 
   //hide when the game renders
@@ -91,6 +95,16 @@ export function createRenderer(
   buildMenu.eventBus = eventBus;
   buildMenu.uiState = uiState;
   buildMenu.transformHandler = transformHandler;
+
+  const airstrikeMenu = document.querySelector(
+    "airstrike-type-menu",
+  ) as AirstrikeTypeMenu;
+  if (!airstrikeMenu || !(airstrikeMenu instanceof AirstrikeTypeMenu)) {
+    console.error("AirstrikeTypeMenu element not found in the DOM");
+  }
+  airstrikeMenu.game = game;
+  airstrikeMenu.eventBus = eventBus;
+  airstrikeMenu.uiState = uiState;
 
   const gameLeftSidebar = document.querySelector(
     "game-left-sidebar",
@@ -340,6 +354,7 @@ export function createRenderer(
     attacksDisplay,
     chatDisplay,
     buildMenu,
+    airstrikeMenu,
     new MainRadialMenu(
       eventBus,
       game,

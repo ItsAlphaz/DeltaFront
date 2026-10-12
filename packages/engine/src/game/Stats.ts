@@ -1,5 +1,8 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { TerraNullius } from "@openfront/engine-api/game/GameTypes";
+import {
+  AirstrikeUnitType,
+  TerraNullius,
+} from "@openfront/engine-api/game/GameTypes";
 import { AllPlayersStats, ClientID } from "@openfront/engine-api/Schemas";
 import {
   BoatUnitType,
@@ -114,6 +117,29 @@ export interface Stats {
 
   // Player's SAM intercepts a bomb from attacker
   bombIntercept(player: Player, type: NukeType, count: number | bigint): void;
+
+  // Airstrikes. `type` is the strike type of the aircraft.
+  // Player launches an airstrike (the aircraft takes off).
+  airLaunch(player: Player, type: AirstrikeUnitType): void;
+  // The airstrike delivered its whole attack.
+  airComplete(player: Player, type: AirstrikeUnitType): void;
+  // Player's aircraft was lost before completing its attack.
+  airShotDown(player: Player, type: AirstrikeUnitType): void;
+  // Player's SAM shot down an enemy aircraft.
+  airIntercept(player: Player, type: AirstrikeUnitType): void;
+  // Troops (engine units) killed by player's airstrike.
+  airTroopsKilled(
+    player: Player,
+    type: AirstrikeUnitType,
+    troops: number | bigint,
+  ): void;
+  // Structure levels removed, and structures taken to level 0, by an airstrike.
+  airStructureDamage(
+    player: Player,
+    type: AirstrikeUnitType,
+    levels: number,
+    destroyed: number,
+  ): void;
 
   // Player earns gold from conquering tiles or trade ships from captured
   goldWar(player: Player, captured: Player, gold: number | bigint): void;

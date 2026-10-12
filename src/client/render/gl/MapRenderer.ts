@@ -15,6 +15,7 @@ import type { MapLayer } from "@openfront/engine-api/game/MapFiles";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
 import type { SpiralRibbon } from "../frame/SpiralTrails";
 import type {
+  AirstrikeImpactFx,
   AttackRingInput,
   BonusEvent,
   ConquestFx,
@@ -259,6 +260,9 @@ export class MapRenderer {
   }
   applyBonusEvents(events: BonusEvent[]): void {
     this.renderer?.applyBonusEvents(events);
+  }
+  applyAirstrikeImpacts(events: AirstrikeImpactFx[]): void {
+    this.renderer?.applyAirstrikeImpacts(events);
   }
   triggerBlockedFlash(tileX: number, tileY: number): void {
     this.renderer?.triggerBlockedFlash(tileX, tileY);

@@ -1,5 +1,6 @@
 import {
   PlayerStats,
+  airUnits,
   boatUnits,
   bombUnits,
   otherUnits,
@@ -21,6 +22,7 @@ const BUILDING_ORDER = {
   defp: 4,
   silo: 5,
   saml: 6,
+  airp: 7,
 } as const satisfies Record<
   Exclude<(typeof otherUnits)[number], "wshp">,
   number
@@ -43,6 +45,10 @@ const UNIT_LABEL_KEYS = {
   saml: "unit_type.sam_launcher",
   silo: "unit_type.missile_silo",
   wshp: "unit_type.warship",
+  airp: "unit_type.airport",
+  bomb: "unit_type.bombing_run",
+  rckt: "unit_type.rocket_strike",
+  strf: "unit_type.strafing_run",
   abomb: "unit_type.atom_bomb",
   hbomb: "unit_type.hydrogen_bomb",
   mirv: "unit_type.mirv",
@@ -52,7 +58,8 @@ const UNIT_LABEL_KEYS = {
 } as const satisfies Record<
   | (typeof otherUnits)[number]
   | (typeof boatUnits)[number]
-  | (typeof bombUnits)[number],
+  | (typeof bombUnits)[number]
+  | (typeof airUnits)[number],
   string
 >;
 
@@ -201,6 +208,30 @@ export class PlayerStatsTable extends LitElement {
             label: UNIT_LABEL_KEYS[key],
             values: slots(stats?.bombs?.[key], 3),
           })),
+          "player_stats_table.weapon",
+        )}
+        <!-- Airstrikes: launched / completed / shot down (own aircraft) /
+        intercepted (enemy aircraft this player's SAMs shot down), then what
+        the strikes did. Troops are in the same units the rest of the UI shows. -->
+        ${statsSection(
+          "player_stats_table.air_stats",
+          [
+            "player_stats_table.launched",
+            "player_stats_table.completed",
+            "player_stats_table.shot_down",
+            "player_stats_table.intercepted",
+            "player_stats_table.troops_killed",
+            "player_stats_table.levels_destroyed",
+            "player_stats_table.destroyed",
+          ],
+          airUnits.map((key) => {
+            const values = slots(stats?.air?.[key], 7);
+            return {
+              label: UNIT_LABEL_KEYS[key],
+              // Index 4 holds troops in engine units (10 per soldier, as everywhere else).
+              values: values.map((v, i) => (i === 4 ? v / 10n : v)),
+            };
+          }),
           "player_stats_table.weapon",
         )}
         ${statsSection(

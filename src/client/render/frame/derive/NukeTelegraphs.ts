@@ -1,5 +1,5 @@
 import type { NukeTelegraphData, UnitState } from "../../types";
-import { NUKE_MAGNITUDES } from "../../types";
+import { AIRSTRIKE_TELEGRAPH_RADII, NUKE_MAGNITUDES } from "../../types";
 
 // Must match RelationMatrix.ts
 const RELATION_FRIENDLY = 1;
@@ -34,6 +34,19 @@ function classifyOwner(
 }
 
 /**
+ * Radii of the ring over a unit's target: a nuke's blast, or an airstrike's
+ * area (bomb, rocket; strafing runs have none).
+ */
+function telegraphRadii(
+  unitType: string,
+): { inner: number; outer: number } | undefined {
+  const mag = NUKE_MAGNITUDES[unitType];
+  if (mag) return mag;
+  const radius = AIRSTRIKE_TELEGRAPH_RADII[unitType];
+  return radius === undefined ? undefined : { inner: radius, outer: radius };
+}
+
+/**
  * Extract nuke telegraph circles for active nukes with targets.
  *
  * Each telegraph carries a `relation` (self / friendly / enemy) so the
@@ -57,7 +70,7 @@ export function extractNukeTelegraphs(
     const plan = motionPlans?.get(u.id);
     if (plan && plan.startTick > currentTick) continue;
 
-    const mag = NUKE_MAGNITUDES[u.unitType];
+    const mag = telegraphRadii(u.unitType);
     if (!mag) continue;
     telegraphs.push({
       x: u.targetTile % mapW,
@@ -97,7 +110,7 @@ export function extractNukeTelegraphsFromIds(
     const plan = motionPlans?.get(u.id);
     if (plan && plan.startTick > currentTick) continue;
 
-    const mag = NUKE_MAGNITUDES[u.unitType];
+    const mag = telegraphRadii(u.unitType);
     if (!mag) continue;
     telegraphs.push({
       x: u.targetTile % mapW,

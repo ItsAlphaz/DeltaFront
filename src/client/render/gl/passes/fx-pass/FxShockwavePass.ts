@@ -25,6 +25,7 @@ type RGB = readonly [number, number, number];
 
 // SAM interception keeps the classic white ring (color fields go unused there).
 const WHITE: RGB = [1, 1, 1];
+const AIRSTRIKE_BLAST_COLOR: RGB = [1, 0.72, 0.3];
 
 interface ActiveShockwave {
   x: number;
@@ -221,6 +222,24 @@ export class FxShockwavePass {
       // World tiles; the classic ring reads its width from uRingWidth instead.
       thickness: params ? (params.thickness ?? 4.0) : 0,
       cell,
+    });
+  }
+
+  /** A ring over an airstrike's blast: smaller and shorter than a nuke's, warm-coloured. */
+  pushAirstrikeShockwave(x: number, y: number, radius: number): void {
+    const fx = this.settings.fx;
+    this.active.push({
+      x,
+      y,
+      startMs: this.timeFn(),
+      durationMs: fx.airstrikeShockwaveDurationMs,
+      maxRadius: radius * fx.airstrikeShockwaveRadiusFactor,
+      style: 0,
+      colors: [AIRSTRIKE_BLAST_COLOR],
+      speed: 1,
+      transitionSpeed: 0,
+      thickness: 0, // classic style uses uRingWidth
+      cell: 0,
     });
   }
 

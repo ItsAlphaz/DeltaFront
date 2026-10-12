@@ -40,6 +40,11 @@ const stats: PlayerStats = {
     silo: [131n, 132n, 133n, 134n],
     fact: [141n, 142n, 143n, 144n],
     wshp: [151n, 152n, 153n, 154n],
+    airp: [161n, 162n, 163n, 164n],
+  },
+  air: {
+    bomb: [171n, 172n, 173n, 174n, 1750n, 176n, 177n],
+    rckt: [181n, 182n, 183n, 184n, 185n, 186n, 187n],
   },
 };
 
@@ -168,8 +173,9 @@ describe("PlayerStatsTable", () => {
         text(candidate.querySelector("th")) === "player_stats_table.building",
     );
     expect(buildings, "buildings table should exist").toBeDefined();
-    // The six structures, with the warship row moved to its own section.
-    expect(buildings?.querySelectorAll("tbody tr")).toHaveLength(6);
+    // The seven structures (airport included), with the warship row moved
+    // to its own section.
+    expect(buildings?.querySelectorAll("tbody tr")).toHaveLength(7);
     expect(buildings?.textContent).not.toContain("unit_type.warship");
 
     expect(columnsOf(table, "player_stats_table.warship_stats")).toEqual({
@@ -178,6 +184,60 @@ describe("PlayerStatsTable", () => {
       "player_stats_table.captured": "153",
       "player_stats_table.lost": "154",
     });
+  });
+
+  it("lists the airport with the other buildings", async () => {
+    const table = await renderTable(stats);
+
+    expect(
+      columnsOf(
+        table,
+        "player_stats_table.building_stats",
+        "unit_type.airport",
+      ),
+    ).toEqual({
+      "player_stats_table.building": "unit_type.airport",
+      "player_stats_table.built": "161",
+      "player_stats_table.destroyed": "162",
+      "player_stats_table.captured": "163",
+      "player_stats_table.lost": "164",
+    });
+  });
+
+  it("shows airstrike columns per strike type, troops as soldiers", async () => {
+    const table = await renderTable(stats);
+
+    expect(
+      columnsOf(table, "player_stats_table.air_stats", "unit_type.bombing_run"),
+    ).toEqual({
+      "player_stats_table.weapon": "unit_type.bombing_run",
+      "player_stats_table.launched": "171",
+      "player_stats_table.completed": "172",
+      "player_stats_table.shot_down": "173",
+      "player_stats_table.intercepted": "174",
+      // Engine troops (10 per soldier) are shown as soldiers, like elsewhere.
+      "player_stats_table.troops_killed": "175",
+      "player_stats_table.levels_destroyed": "176",
+      "player_stats_table.destroyed": "177",
+    });
+    expect(
+      columnsOf(
+        table,
+        "player_stats_table.air_stats",
+        "unit_type.rocket_strike",
+      )["player_stats_table.launched"],
+    ).toBe("181");
+  });
+
+  it("zero-fills strike types that have no stats yet", async () => {
+    const table = await renderTable({});
+
+    const row = columnsOf(
+      table,
+      "player_stats_table.air_stats",
+      "unit_type.strafing_run",
+    );
+    expect(Object.values(row).slice(1)).toEqual(Array(7).fill("0"));
   });
 
   it("shows nuke columns in launched/landed/intercepted order", async () => {

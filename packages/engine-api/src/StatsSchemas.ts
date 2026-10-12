@@ -1,6 +1,6 @@
 import { zb, ZbEncodeError } from "@openfront/zbin";
 import { z } from "zod";
-import { UnitType } from "./game/GameTypes";
+import { AirstrikeUnitType, UnitType } from "./game/GameTypes";
 
 export const bombUnits = ["abomb", "hbomb", "mirv", "mirvw"] as const;
 export const BombUnitSchema = z.enum(bombUnits);
@@ -36,6 +36,9 @@ export const otherUnits = [
   "silo",
   "saml",
   "fact",
+  // Appended: the airport (airstrikes). `units` is a partialRecord keyed by
+  // these names, so records written before this key existed stay valid.
+  "airp",
 ] as const;
 export const OtherUnitSchema = z.enum(otherUnits);
 export type OtherUnit = z.infer<typeof OtherUnitSchema>;
@@ -46,7 +49,8 @@ export type OtherUnitType =
   | UnitType.Port
   | UnitType.SAMLauncher
   | UnitType.Warship
-  | UnitType.Factory;
+  | UnitType.Factory
+  | UnitType.Airport;
 
 export const unitTypeToOtherUnit = {
   [UnitType.City]: "city",
@@ -56,7 +60,27 @@ export const unitTypeToOtherUnit = {
   [UnitType.SAMLauncher]: "saml",
   [UnitType.Warship]: "wshp",
   [UnitType.Factory]: "fact",
+  [UnitType.Airport]: "airp",
 } as const satisfies Record<OtherUnitType, OtherUnit>;
+
+// Airstrikes (appended, like every new stats field: see PlayerStatsSchema).
+export const airUnits = ["bomb", "rckt", "strf"] as const;
+export const AirUnitSchema = z.enum(airUnits);
+export type AirUnit = z.infer<typeof AirUnitSchema>;
+
+export const unitTypeToAirUnit = {
+  [UnitType.BombingRun]: "bomb",
+  [UnitType.RocketStrike]: "rckt",
+  [UnitType.StrafingRun]: "strf",
+} as const satisfies Record<AirstrikeUnitType, AirUnit>;
+
+export const AIR_INDEX_LAUNCH = 0; // Strikes launched
+export const AIR_INDEX_COMPLETE = 1; // Strikes that delivered their full attack
+export const AIR_INDEX_SHOT_DOWN = 2; // Own aircraft lost before completing
+export const AIR_INDEX_INTERCEPT = 3; // Enemy aircraft this player's SAMs shot down
+export const AIR_INDEX_TROOPS_KILLED = 4; // Troops killed (engine units)
+export const AIR_INDEX_LEVELS_DESTROYED = 5; // Structure levels removed
+export const AIR_INDEX_STRUCTURES_DESTROYED = 6; // Structures taken to level 0
 
 // Attacks
 export const ATTACK_INDEX_SENT = 0; // Outgoing attack troops
@@ -196,6 +220,8 @@ export const PlayerStatsSchema = z
     // so compact games index a smaller map). Last write wins: a player may
     // re-pick during the spawn phase.
     spawnTile: zb.uint().optional(),
+    // Appended (zbin field order). Airstrike stats keyed by strike type.
+    air: z.partialRecord(AirUnitSchema, AtLeastOneNumberSchema).optional(),
   })
   .optional();
 export type PlayerStats = z.infer<typeof PlayerStatsSchema>;

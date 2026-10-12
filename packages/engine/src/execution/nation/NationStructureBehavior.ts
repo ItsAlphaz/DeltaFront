@@ -25,6 +25,7 @@ import type {
 import { ConstructionExecution } from "../ConstructionExecution";
 import { UpgradeStructureExecution } from "../UpgradeStructureExecution";
 import { nearestTileDist, nearestTileDistCapped } from "../Util";
+import { STRUCTURE_LEVEL_GOLD_VALUE } from "./NationAirBehavior";
 import { randTerritoryTileArray } from "./NationUtils";
 
 /**
@@ -46,6 +47,25 @@ const SAM_RATIO_BY_DIFFICULTY: Record<Difficulty, number> = {
   [Difficulty.Impossible]: 0.3,
 };
 
+/** Airports per city, by difficulty (Easy nations build none). */
+const AIRPORT_RATIO_BY_DIFFICULTY: Record<Difficulty, number> = {
+  [Difficulty.Easy]: 0,
+  [Difficulty.Medium]: 0.1,
+  [Difficulty.Hard]: 0.15,
+  [Difficulty.Impossible]: 0.2,
+};
+
+/** Most airports a nation will build, by difficulty. */
+const MAX_AIRPORTS_BY_DIFFICULTY: Record<Difficulty, number> = {
+  [Difficulty.Easy]: 0,
+  [Difficulty.Medium]: 1,
+  [Difficulty.Hard]: 2,
+  [Difficulty.Impossible]: 3,
+};
+
+/** A further airport must reach at least this many enemy structures no airport reaches yet. */
+const MIN_NEWLY_COVERED_STRUCTURES = 3;
+
 /**
  * Returns structure ratios relative to city count, adjusted by difficulty.
  * Cities are always prioritized and built first.
@@ -66,6 +86,10 @@ function getStructureRatios(
     },
     [UnitType.MissileSilo]: {
       ratioPerCity: 0.2,
+      perceivedCostIncreasePerOwned: 1,
+    },
+    [UnitType.Airport]: {
+      ratioPerCity: AIRPORT_RATIO_BY_DIFFICULTY[difficulty],
       perceivedCostIncreasePerOwned: 1,
     },
   };
@@ -538,6 +562,7 @@ export class NationStructureBehavior {
       UnitType.Factory,
       UnitType.SAMLauncher,
       UnitType.MissileSilo,
+      UnitType.Airport,
     ];
 
     const nukesEnabled =
@@ -553,6 +578,14 @@ export class NationStructureBehavior {
 
       // Skip ports if no coastal tiles
       if (structureType === UnitType.Port && !hasCoastalTiles) {
+        continue;
+      }
+
+      // An airport only exists to launch airstrikes
+      if (
+        structureType === UnitType.Airport &&
+        config.isUnitDisabled(UnitType.Airstrike)
+      ) {
         continue;
       }
 
@@ -652,14 +685,59 @@ export class NationStructureBehavior {
       return false;
     }
 
+    if (
+      type === UnitType.Airport &&
+      owned >= MAX_AIRPORTS_BY_DIFFICULTY[difficulty]
+    ) {
+      return false;
+    }
+
     // First missile silo uses a higher ratio so nations can start nuking earlier
     if (type === UnitType.MissileSilo && owned === 0) {
       ratio = FIRST_MISSILE_SILO_RATIO;
     }
 
     const targetCount = Math.floor(cityCount * ratio);
+    if (owned >= targetCount) return false;
 
-    return owned < targetCount;
+    // An airport must also have something to reach (the costliest check, last).
+    return type !== UnitType.Airport || this.airportWouldAddCoverage();
+  }
+
+  /** Enemy structures (not tribes') that are not ours, an ally's or a teammate's. */
+  private hostileStructures(): Unit[] {
+    const out: Unit[] = [];
+    for (const p of this.game.players()) {
+      if (
+        p === this.player ||
+        p.type() === PlayerType.Bot ||
+        this.player.isFriendly(p, true)
+      ) {
+        continue;
+      }
+      out.push(...p.units(Structures.types));
+    }
+    return out;
+  }
+
+  /**
+   * Whether another airport would reach something new: the first one needs
+   * any enemy structure in range of the territory, a later one at least
+   * MIN_NEWLY_COVERED_STRUCTURES that no airport reaches yet.
+   */
+  private airportWouldAddCoverage(): boolean {
+    const hostile = this.hostileStructures();
+    if (hostile.length === 0) return false;
+    const airports = this.player.units(UnitType.Airport);
+    if (airports.length === 0) return true;
+    const range = this.game.config().airportRange();
+    const range2 = range * range;
+    const uncovered = hostile.filter((u) =>
+      airports.every(
+        (a) => this.game.euclideanDistSquared(a.tile(), u.tile()) > range2,
+      ),
+    );
+    return uncovered.length >= MIN_NEWLY_COVERED_STRUCTURES;
   }
 
   private cost(type: UnitType): Gold {
@@ -922,6 +1000,8 @@ export class NationStructureBehavior {
       bestTile = t;
       bestValue = v;
     }
+    // Never an airport that reaches nothing.
+    if (type === UnitType.Airport && bestValue <= 0) return null;
     return bestTile;
   }
 
@@ -980,6 +1060,8 @@ export class NationStructureBehavior {
         return this.portValue();
       case UnitType.SAMLauncher:
         return this.samLauncherValue();
+      case UnitType.Airport:
+        return this.airportValue();
       default:
         throw new Error(`Value function not implemented for ${type}`);
     }
@@ -1017,6 +1099,43 @@ export class NationStructureBehavior {
       const d = nearestTileDist(game, otherTiles, tile);
       if (d !== Infinity) w += Math.min(d, structureSpacing);
 
+      return w;
+    };
+  }
+
+  /**
+   * Value function for airports: the enemy structures a spot would put in
+   * range (weighted by what a strike there is worth), a safe distance from the
+   * border, and little overlap with the airports we already have. Zero when
+   * nothing hostile is in range.
+   */
+  private airportValue(): (tile: TileRef) => number {
+    const game = this.game;
+    const range = game.config().airportRange();
+    const range2 = range * range;
+    const hostile = this.hostileStructures();
+    const own = this.player.units(UnitType.Airport);
+    const borderTiles = this.player.borderTiles();
+    const { borderSpacing } = this.spacingConstants();
+    return (tile) => {
+      let covered = 0;
+      for (const u of hostile) {
+        if (game.euclideanDistSquared(tile, u.tile()) > range2) continue;
+        covered +=
+          ((STRUCTURE_LEVEL_GOLD_VALUE[u.type()] ?? 0) * u.level()) / 100_000;
+      }
+      if (covered === 0) return 0;
+      let w = covered * 10;
+      if (borderTiles.size > 0) {
+        w += Math.min(
+          nearestTileDistCapped(game, borderTiles, tile, borderSpacing),
+          borderSpacing,
+        );
+      }
+      const half2 = (range / 2) * (range / 2);
+      if (own.some((a) => game.euclideanDistSquared(a.tile(), tile) <= half2)) {
+        w *= 0.25;
+      }
       return w;
     };
   }

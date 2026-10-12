@@ -1,3 +1,7 @@
+import {
+  AIRPORT_RANGE_TILES,
+  AIRPORT_REARM_TICKS,
+} from "@openfront/engine-lib/configuration/Config";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
@@ -1119,6 +1123,41 @@ export class HelpModal extends BaseModal {
                       class="py-3 border-b border-white/5 text-white/60 text-sm"
                     >
                       ${translateText("help_modal.build_sam_desc")}
+                    </td>
+                  </tr>
+                  <tr class="bg-white/5 hover:bg-white/10 transition-colors">
+                    <td class="py-3 ps-4 border-b border-white/5 font-medium">
+                      ${translateText("unit_type.airport")}
+                    </td>
+                    <td class="py-3 border-b border-white/5">
+                      <img
+                        src=${assetUrl("images/AirportIconWhite.svg")}
+                        class="w-8 h-8 scale-75 origin-left"
+                      />
+                    </td>
+                    <td
+                      class="py-3 border-b border-white/5 text-white/60 text-sm"
+                    >
+                      ${translateText("help_modal.build_airport_desc", {
+                        range: AIRPORT_RANGE_TILES,
+                        seconds: AIRPORT_REARM_TICKS / 10,
+                      })}
+                    </td>
+                  </tr>
+                  <tr class="bg-white/5 hover:bg-white/10 transition-colors">
+                    <td class="py-3 ps-4 border-b border-white/5 font-medium">
+                      ${translateText("unit_type.airstrike")}
+                    </td>
+                    <td class="py-3 border-b border-white/5">
+                      <img
+                        src=${assetUrl("images/AirstrikeIconWhite.svg")}
+                        class="w-8 h-8 scale-75 origin-left"
+                      />
+                    </td>
+                    <td
+                      class="py-3 border-b border-white/5 text-white/60 text-sm"
+                    >
+                      ${translateText("help_modal.build_airstrike_desc")}
                     </td>
                   </tr>
                   <tr class="bg-white/5 hover:bg-white/10 transition-colors">

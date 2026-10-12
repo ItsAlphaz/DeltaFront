@@ -144,6 +144,26 @@ export interface DeadUnitFx {
 }
 
 /**
+ * An airstrike's effect landing: a bomb impact, rocket release or impact, or
+ * one burst of a strafing run. Positioned by the simulation, so the effect is
+ * exactly where the damage was dealt.
+ */
+export interface AirstrikeImpactFx {
+  /** AirstrikeImpactPhase. */
+  phase: number;
+  /** The strike's unit type string ("Bombing Run", ...). */
+  strikeType: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  /** Blast radius, or corridor half-width (tiles). */
+  radius: number;
+  /** Ticks since the event occurred (0 = this frame, >0 = seeked past it). */
+  tickAge?: number;
+}
+
+/**
  * Max palette colors a shockwave instance can carry (vertex-attribute budget);
  * a longer cosmetic palette is truncated.
  */
@@ -247,6 +267,30 @@ export interface GhostPreviewData {
   rangeRadius: number;
   /** True if placing here would carry a penalty (e.g. nuking an ally → traitor). */
   rangeWarning: boolean;
+  /** A Strafing Run's damage corridor, drawn instead of the range circle. */
+  corridor?: CorridorPreview | null;
+  /** Translated reason an airstrike cannot be launched here, shown over the cursor. */
+  reason?: string;
+}
+
+/** The corridor of an aimed Strafing Run (see engine-lib airstrike geometry). */
+export interface CorridorPreview {
+  /** Origin tile (the launching airport) and unit direction of the flight line. */
+  sx: number;
+  sy: number;
+  ux: number;
+  uy: number;
+  /** Along-track window, in tiles from the origin. */
+  sStart: number;
+  sEnd: number;
+  halfWidth: number;
+  /** Damage bursts (alternately shaded segments). */
+  segments: number;
+  /** Bounding box in tiles (inclusive). */
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
 }
 
 /** Nuke trajectory preview data — Bezier control points + color thresholds. */

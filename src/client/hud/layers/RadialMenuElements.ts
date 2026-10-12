@@ -1,5 +1,6 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
+  AirstrikeUnitType,
   AllPlayers,
   BuildableAttacks,
   bulkCost,
@@ -12,13 +13,25 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { Emoji, flattenedEmojiTable } from "@openfront/engine-api/Schemas";
-import { Config } from "@openfront/engine-lib/configuration/Config";
+import {
+  AIRPORT_RANGE_TILES,
+  Config,
+} from "@openfront/engine-lib/configuration/Config";
 import { renderNumber } from "@openfront/engine-lib/Format";
 import { findClosestBy } from "@openfront/engine-lib/Util";
 import { assetUrl } from "@openfront/shared/AssetUrls";
+import {
+  airstrikeBlockReason,
+  airstrikeReasonText,
+} from "../../controllers/AirstrikeTargeting";
 import { UIState } from "../../UIState";
 import { translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
+import {
+  bombingRunIcon,
+  rocketStrikeIcon,
+  strafingRunIcon,
+} from "../HotbarIcons";
 import { BuildItemDisplay, BuildMenu, flattenedBuildTable } from "./BuildMenu";
 import { ChatIntegration } from "./ChatIntegration";
 import { EmojiTable } from "./EmojiTable";
@@ -412,6 +425,116 @@ function getAllEnabledUnits(
   return units;
 }
 
+/** The three strikes the Airstrike item offers, with their translation keys and icons. */
+const STRIKE_SUBMENU: ReadonlyArray<{
+  type: AirstrikeUnitType;
+  key: "bombing_run" | "rocket_strike" | "strafing_run";
+  icon: string;
+}> = [
+  { type: UnitType.BombingRun, key: "bombing_run", icon: bombingRunIcon },
+  { type: UnitType.RocketStrike, key: "rocket_strike", icon: rocketStrikeIcon },
+  { type: UnitType.StrafingRun, key: "strafing_run", icon: strafingRunIcon },
+];
+
+/**
+ * The Airstrike item of the radial menu. Right-clicking a target and choosing
+ * it opens the three strikes as a submenu: the target is already chosen, and
+ * picking a strike sends the launch. (Touch uses this flow: the keyboard
+ * menu of the build ghost is for mouse and keyboard.)
+ */
+function createAirstrikeElement(
+  params: MenuElementParams,
+  item: BuildItemDisplay,
+  elementIdPrefix: string,
+): MenuElement {
+  const buildable = (p: MenuElementParams, type: UnitType) =>
+    p.playerActions.buildableUnits.find((bu) => bu.type === type);
+  const reason = (p: MenuElementParams, type: AirstrikeUnitType) => {
+    const b = buildable(p, type);
+    const why = airstrikeBlockReason(
+      p.game,
+      p.myPlayer,
+      type,
+      p.tile,
+      b !== undefined && b.canBuild !== false,
+      b?.cost ?? 0n,
+    );
+    return why === null
+      ? null
+      : airstrikeReasonText(p.game, p.myPlayer, why, p.tile);
+  };
+  const range = (p: MenuElementParams) => p.game.config().airportRange();
+  // Why the item is greyed out: the first reason among the enabled strikes.
+  const itemReason = !params.buildMenu.canBuildOrUpgrade(item)
+    ? STRIKE_SUBMENU.filter(
+        ({ type }) => !params.game.config().isUnitDisabled(type),
+      )
+        .map(({ type }) => reason(params, type))
+        .find((r) => r !== null)
+    : null;
+
+  return {
+    id: `${elementIdPrefix}_${item.unitType}`,
+    name: "airstrike",
+    disabled: (p) => !p.buildMenu.canBuildOrUpgrade(item),
+    color: COLORS.attack,
+    icon: item.icon,
+    tooltipItems: [
+      { text: translateText(item.key ?? ""), className: "title" },
+      {
+        text: translateText(item.description ?? ""),
+        className: "description",
+      },
+      {
+        text: `${renderNumber(params.buildMenu.cost(item))} ${translateText("player_panel.gold")}`,
+        className: "cost",
+      },
+      ...(itemReason
+        ? [{ text: itemReason, className: "description" } as TooltipItem]
+        : []),
+    ],
+    subMenu: (p) =>
+      STRIKE_SUBMENU.filter(
+        ({ type }) => !p.game.config().isUnitDisabled(type),
+      ).map(({ type, key, icon }) => {
+        const b = buildable(p, type);
+        const why = reason(p, type);
+        return {
+          id: `${elementIdPrefix}_${type}`,
+          name: key,
+          icon,
+          color: COLORS.attack,
+          disabled: (q: MenuElementParams) => reason(q, type) !== null,
+          tooltipItems: [
+            { text: translateText(`unit_type.${key}`), className: "title" },
+            {
+              text: translateText(`build_menu.desc.${key}`, {
+                range: range(p),
+              }),
+              className: "description",
+            },
+            {
+              text: `${renderNumber(b?.cost ?? 0n)} ${translateText("player_panel.gold")}`,
+              className: "cost",
+            },
+            ...(why === null
+              ? []
+              : [{ text: why, className: "description" } as TooltipItem]),
+          ],
+          action: (q: MenuElementParams) => {
+            if (reason(q, type) !== null) return;
+            q.eventBus.emit(new BuildUnitIntentEvent(type, q.tile));
+            q.closeMenu();
+          },
+        };
+      }),
+    action: () => {
+      // Never reached for an enabled item (it always has a submenu); a click on a
+      // disabled one is ignored by the radial menu.
+    },
+  };
+}
+
 function createMenuElements(
   params: MenuElementParams,
   filterType: "attack" | "build",
@@ -431,6 +554,9 @@ function createMenuElements(
           : !BuildableAttacks.has(item.unitType)),
     )
     .map((item: BuildItemDisplay) => {
+      if (item.unitType === UnitType.Airstrike) {
+        return createAirstrikeElement(params, item, elementIdPrefix);
+      }
       return {
         id: `${elementIdPrefix}_${item.unitType}`,
         name: item.key
@@ -448,7 +574,12 @@ function createMenuElements(
         tooltipItems: [
           { text: translateText(item.key ?? ""), className: "title" },
           {
-            text: translateText(item.description ?? ""),
+            text:
+              item.unitType === UnitType.Airport
+                ? translateText(item.description ?? "", {
+                    range: AIRPORT_RANGE_TILES,
+                  })
+                : translateText(item.description ?? ""),
             className: "description",
           },
           {

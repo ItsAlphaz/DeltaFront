@@ -6,7 +6,11 @@ import {
   samThreatensNukePreview,
   shouldPreserveGhostAfterBuild,
 } from "../../../src/client/controllers/BuildPreviewController";
-import { MouseUpEvent } from "../../../src/client/InputHandler";
+import {
+  CloseAirstrikeMenuEvent,
+  MouseUpEvent,
+  ShowAirstrikeMenuEvent,
+} from "../../../src/client/InputHandler";
 import { BuildUnitIntentEvent } from "../../../src/client/Transport";
 
 describe("BuildPreviewController ghost preservation (locked nuke / Enter confirm)", () => {
@@ -17,6 +21,13 @@ describe("BuildPreviewController ghost preservation (locked nuke / Enter confirm
 
     test("returns true for HydrogenBomb so ghost is not cleared after placement", () => {
       expect(shouldPreserveGhostAfterBuild(UnitType.HydrogenBomb)).toBe(true);
+    });
+
+    test("returns true for every strike type so aiming continues after a launch", () => {
+      expect(shouldPreserveGhostAfterBuild(UnitType.Airstrike)).toBe(true);
+      expect(shouldPreserveGhostAfterBuild(UnitType.BombingRun)).toBe(true);
+      expect(shouldPreserveGhostAfterBuild(UnitType.RocketStrike)).toBe(true);
+      expect(shouldPreserveGhostAfterBuild(UnitType.StrafingRun)).toBe(true);
     });
 
     test("returns false for City so ghost is cleared after placement", () => {
@@ -149,5 +160,110 @@ describe("BuildPreviewController confirm with the pointer off the map", () => {
       | BuildUnitIntentEvent
       | undefined;
     expect(intent?.tile).toBe(43);
+  });
+});
+
+describe("BuildPreviewController Airstrike click flow", () => {
+  function makeAirstrikeController(canBuild: boolean | number) {
+    const width = 10;
+    const game = {
+      isValidCoord: (x: number, y: number) =>
+        x >= 0 && y >= 0 && x < width && y < width,
+      ref: (x: number, y: number) => y * width + x,
+      myPlayer: () => ({ gold: () => 100n, smallID: () => 1 }),
+    };
+    const transformHandler = {
+      screenToWorldCoordinates: () => ({ x: 3, y: 4 }),
+    };
+    const view = {
+      updateGhostPreview: vi.fn(),
+      updateNukeTrajectory: vi.fn(),
+      triggerBlockedFlash: vi.fn(),
+    };
+    const uiState = {
+      ghostStructure: UnitType.Airstrike,
+      airstrikeTarget: null as number | null,
+      airstrikeType: UnitType.BombingRun,
+    };
+    const eventBus = new EventBus();
+    const emitted: unknown[] = [];
+    vi.spyOn(eventBus, "emit").mockImplementation((e) => {
+      emitted.push(e);
+    });
+    const controller = new BuildPreviewController(
+      game as any,
+      eventBus,
+      uiState as any,
+      transformHandler as any,
+      view as any,
+      { nukeAllianceSafetyDuration: () => 0 } as any,
+    );
+    (controller as any).ghostUnit = {
+      buildableUnit: { type: UnitType.Airstrike, canBuild, canUpgrade: false },
+    };
+    return { controller, emitted, uiState, view };
+  }
+
+  test("a valid target opens the type menu and sends no intent", () => {
+    const { controller, emitted, uiState } = makeAirstrikeController(1);
+    (controller as any).requestConfirmStructure(new MouseUpEvent(120, 90));
+
+    const show = emitted.find((e) => e instanceof ShowAirstrikeMenuEvent) as
+      | ShowAirstrikeMenuEvent
+      | undefined;
+    expect(show).toMatchObject({ tile: 43, x: 120, y: 90 });
+    expect(uiState.airstrikeTarget).toBe(43);
+    expect(emitted.some((e) => e instanceof BuildUnitIntentEvent)).toBe(false);
+    // Still aiming: the ghost is kept.
+    expect(uiState.ghostStructure).toBe(UnitType.Airstrike);
+  });
+
+  test("an invalid target flashes the blocked marker and opens nothing", () => {
+    const { controller, emitted, uiState, view } =
+      makeAirstrikeController(false);
+    // The click waits for the engine's answer for this tile...
+    (controller as any).requestConfirmStructure(new MouseUpEvent(0, 0));
+    expect((controller as any).pendingConfirm).not.toBeNull();
+    expect(view.triggerBlockedFlash).not.toHaveBeenCalled();
+    // ...which says no, so the click is answered with the blocked marker.
+    (controller as any).createStructure(new MouseUpEvent(0, 0));
+
+    expect(view.triggerBlockedFlash).toHaveBeenCalledWith(3.5, 4.5);
+    expect(emitted.some((e) => e instanceof ShowAirstrikeMenuEvent)).toBe(
+      false,
+    );
+    expect(emitted.some((e) => e instanceof BuildUnitIntentEvent)).toBe(false);
+    expect(uiState.airstrikeTarget).toBeNull();
+    expect(uiState.ghostStructure).toBe(UnitType.Airstrike);
+  });
+
+  test("a map click while the menu is open closes it and launches nothing", () => {
+    const { controller, emitted, uiState } = makeAirstrikeController(1);
+    uiState.airstrikeTarget = 43;
+    (controller as any).requestConfirmStructure(new MouseUpEvent(0, 0));
+
+    const close = emitted.find((e) => e instanceof CloseAirstrikeMenuEvent) as
+      | CloseAirstrikeMenuEvent
+      | undefined;
+    expect(close?.reason).toBe("map_click");
+    expect(uiState.airstrikeTarget).toBeNull();
+    expect(emitted.some((e) => e instanceof ShowAirstrikeMenuEvent)).toBe(
+      false,
+    );
+    expect(emitted.some((e) => e instanceof BuildUnitIntentEvent)).toBe(false);
+    expect(uiState.ghostStructure).toBe(UnitType.Airstrike);
+  });
+
+  test("dropping the ghost while the menu is open closes the menu", () => {
+    const { controller, emitted, uiState } = makeAirstrikeController(1);
+    uiState.airstrikeTarget = 43;
+    (controller as any).removeGhostStructure();
+
+    const close = emitted.find((e) => e instanceof CloseAirstrikeMenuEvent) as
+      | CloseAirstrikeMenuEvent
+      | undefined;
+    expect(close?.reason).toBe("ghost_changed");
+    expect(uiState.airstrikeTarget).toBeNull();
+    expect(uiState.ghostStructure).toBeNull();
   });
 });

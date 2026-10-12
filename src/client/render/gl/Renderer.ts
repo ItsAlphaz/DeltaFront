@@ -14,6 +14,7 @@ import type { Config } from "@openfront/engine-lib/configuration/Config";
 import { translateText } from "../../Utils";
 import type { SpiralRibbon } from "../frame/SpiralTrails";
 import type {
+  AirstrikeImpactFx,
   AttackRingInput,
   BonusEvent,
   ConquestFx,
@@ -35,6 +36,7 @@ import { BarPass } from "./passes/BarPass";
 import { BorderComputePass } from "./passes/BorderComputePass";
 import { BorderStampPass } from "./passes/BorderStampPass";
 import { CoordinateGridPass } from "./passes/CoordinateGridPass";
+import { CorridorPreviewPass } from "./passes/CorridorPreviewPass";
 import { CrosshairPass } from "./passes/CrosshairPass";
 import { DefenseCoveragePass } from "./passes/DefenseCoveragePass";
 import { FalloutBloomPass } from "./passes/FalloutBloomPass";
@@ -139,6 +141,7 @@ export class GPURenderer {
   private namePass: NamePass;
   private fxPass: FxPass;
   private rangeCirclePass: RangeCirclePass;
+  private corridorPass: CorridorPreviewPass;
   private samRadiusPass: SAMRadiusPass;
   private airportRadiusPass: SAMRadiusPass;
   private crosshairPass: CrosshairPass;
@@ -561,12 +564,14 @@ export class GPURenderer {
 
     // --- Range circle (ghost preview radius) ---
     this.rangeCirclePass = new RangeCirclePass(gl);
+    this.corridorPass = new CorridorPreviewPass(gl);
 
     // --- SAM radius overlay (dashed green circles during build mode) ---
     this.samRadiusPass = new SAMRadiusPass(gl, mapW, this.settings);
     this.samRadiusPass.setPaletteData(paletteData);
     this.airportRadiusPass = new SAMRadiusPass(gl, mapW, this.settings, {
       unitType: "Airport",
+      settingsKey: "airportRadius",
       range: () => config.airportRange(),
       selfOnly: true,
     });
@@ -1058,6 +1063,10 @@ export class GPURenderer {
     this.worldTextPass.setAttackTroopLabels(labels);
   }
 
+  applyAirstrikeImpacts(events: AirstrikeImpactFx[]): void {
+    if (events.length > 0) this.fxPass.applyAirstrikeImpacts(events);
+  }
+
   applyBonusEvents(events: BonusEvent[]): void {
     if (events.length === 0) return;
     // In live game, filter to local player only. In replay (localPlayerID=0), show all.
@@ -1080,16 +1089,18 @@ export class GPURenderer {
     this.structurePass.updateGhostPreview(data);
     this.railroadPass.updateGhostPreview(data);
     this.rangeCirclePass.updateGhostPreview(data);
+    this.corridorPass.updateGhostPreview(data);
     this.crosshairPass.updateGhostPreview(data);
     // The multiplier badge (x5) rides on the cost label but must show even
     // when there is no cost line — e.g. infinite gold (cost 0) or the
     // cursor-cost-label setting turned off.
     const topText =
-      data?.multiplier && data.multiplier > 1
+      data?.reason ??
+      (data?.multiplier && data.multiplier > 1
         ? translateText("build_menu.upgrade_amount", {
             amount: data.multiplier.toString(),
           })
-        : undefined;
+        : undefined);
     const showCost = data !== null && data.showCost && data.cost > 0;
     this.worldTextPass.setGhostCostLabel(
       data && (showCost || topText !== undefined)
@@ -1393,9 +1404,10 @@ export class GPURenderer {
     if (pe.railroad) this.railroadPass.draw(cam, zoom);
     if (pe.unit) this.unitPass.drawGround(cam);
     if (pe.falloutBloom) this.bloomPass.draw(cam, this.frameTick);
-    this.samRadiusPass.draw(cam);
-    this.airportRadiusPass.draw(cam);
+    this.samRadiusPass.draw(cam, zoom);
+    this.airportRadiusPass.draw(cam, zoom);
     this.rangeCirclePass.draw(cam);
+    this.corridorPass.draw(cam);
     this.nukeTrajectoryPass.draw(cam);
     this.crosshairPass.draw(cam);
     if (pe.structure) this.structurePass.draw(cam, zoom);
@@ -1533,6 +1545,7 @@ export class GPURenderer {
     this.smallPlayerGlowPass.dispose();
     this.railroadPass.dispose();
     this.rangeCirclePass.dispose();
+    this.corridorPass.dispose();
     this.samRadiusPass.dispose();
     this.airportRadiusPass.dispose();
     this.crosshairPass.dispose();

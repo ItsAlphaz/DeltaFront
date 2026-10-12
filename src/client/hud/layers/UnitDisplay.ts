@@ -282,7 +282,9 @@ export class UnitDisplay extends LitElement implements Controller {
                   )}${` [${displayHotkey}]`}
                 </div>
                 <div class="p-2">
-                  ${translateText("build_menu.desc." + structureKey)}
+                  ${translateText("build_menu.desc." + structureKey, {
+                    range: this.game.config().airportRange(),
+                  })}
                 </div>
                 ${unitType === UnitType.Warship
                   ? html`<div

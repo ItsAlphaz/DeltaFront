@@ -41,6 +41,7 @@ import {
   UnitPredicate,
 } from "@openfront/engine-api/game/ReadViews";
 import { AllPlayersStats, ClientID } from "@openfront/engine-api/Schemas";
+import type { AirstrikeBlockReason } from "@openfront/engine-lib/airstrike/AirstrikeRules";
 import { MotionPlanRecord } from "@openfront/engine-lib/game/MotionPlans";
 import type { EngineConfig } from "../configuration/EngineConfig";
 import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
@@ -114,8 +115,22 @@ export interface UnitParamsMap {
 
   [UnitType.Airport]: Record<string, never>;
 
-  [UnitType.Airstrike]: {
+  // The selector the player picks before a strike type: never instantiated.
+  [UnitType.Airstrike]: Record<string, never>;
+
+  [UnitType.BombingRun]: {
     targetTile?: number;
+    trajectory: TrajectoryTile[];
+  };
+
+  [UnitType.RocketStrike]: {
+    targetTile?: number;
+    trajectory: TrajectoryTile[];
+  };
+
+  [UnitType.StrafingRun]: {
+    targetTile?: number;
+    trajectory: TrajectoryTile[];
   };
 }
 
@@ -409,6 +424,12 @@ export interface Player extends PlayerLike {
     targetTile: TileRef,
     validTiles?: TileRef[] | null,
   ): TileRef | false;
+  /** The airport that would launch an airstrike at `tile`, or why none can. */
+  airstrikeAirport(
+    tile: TileRef,
+  ):
+    | { airport: TileRef; reason: null }
+    | { airport: null; reason: AirstrikeBlockReason };
   buildUnit<T extends UnitType>(
     type: T,
     spawnTile: TileRef,
@@ -622,6 +643,7 @@ export interface Game extends GameLike {
     message: string,
     type: MessageType,
     playerID: PlayerID | null,
+    params?: Record<string, string | number>,
   ): void;
 
   displayChat(

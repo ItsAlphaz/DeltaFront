@@ -1,5 +1,9 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { GameType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import {
+  AirstrikeTypes,
+  GameType,
+  UnitType,
+} from "@openfront/engine-api/game/GameTypes";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   zInt,
@@ -18,6 +22,17 @@ import type {
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
 import { SAMMissileExecution } from "./SAMMissileExecution";
+
+/**
+ * Everything a SAM can shoot at: nukes, and the aircraft of airstrikes. Planes
+ * carry a trajectory like a nuke, so they go through the same interception math.
+ */
+const SAM_TARGET_TYPES: readonly UnitType[] = [
+  UnitType.AtomBomb,
+  UnitType.HydrogenBomb,
+  UnitType.MIRVWarhead,
+  ...AirstrikeTypes.types,
+];
 
 type Target = {
   unit: Unit;
@@ -40,7 +55,7 @@ type CachedInterception = {
 /**
  * Smart SAM targeting system preshoting nukes so its range is strictly enforced
  */
-class SAMTargetingSystem {
+export class SAMTargetingSystem {
   // Cached interception states indexed by nuke ID to avoid per-tick recomputation.
   private readonly precomputedNukes: Map<number, CachedInterception> =
     new Map();
@@ -224,7 +239,12 @@ class SAMTargetingSystem {
 
     // Hydro unit type bonus
     // 70,000 offset balances the distance bonus between Hydro at 100 and Atom at 30
-    const typeBonus = unit.type() === UnitType.HydrogenBomb ? 70_001 : 0;
+    // Aircraft rank below every nuke that is due at the same time.
+    const typeBonus = AirstrikeTypes.has(unit.type())
+      ? -150_000
+      : unit.type() === UnitType.HydrogenBomb
+        ? 70_001
+        : 0;
 
     // Distance bonus: Closer to silo higher score (-1,000 pts per unit distance)
     // due to manhattanDist, distToSilo can exceed 150 diagonally, 200000 starting point.
@@ -255,7 +275,7 @@ class SAMTargetingSystem {
     const nukes = this.mg.nearbyUnits(
       samTile,
       detectionRange,
-      [UnitType.AtomBomb, UnitType.HydrogenBomb, UnitType.MIRVWarhead],
+      SAM_TARGET_TYPES,
       this.isTargetableNearbyUnit,
     );
 
@@ -371,18 +391,14 @@ export class SAMLauncherExecution implements Execution {
 
     this.pseudoRandom ??= new PseudoRandom(this.sam.id());
 
-    // No nuke in flight anywhere: nothing to target, skip the grid query. Every SAM ran it every
+    // Nothing targetable in flight anywhere: skip the grid query. Every SAM ran it every
     // tick (~7 % of a long headless game with 150 launchers). Exact: with no nukes the query is
     // empty and the targeting loop a no-op; the only side effect skipped is pruning cache entries
     // of nukes that no longer exist, which the next real call prunes before anything could read
     // them (unit ids are unique). unitCount(type) is memoised per unit-list version — one shared
     // walk a tick, not one a launcher — and unlike units(type) a hit allocates nothing. A nuke's
     // level is always 1, so a zero count is exactly an empty list.
-    if (
-      this.mg.unitCount(UnitType.AtomBomb) === 0 &&
-      this.mg.unitCount(UnitType.HydrogenBomb) === 0 &&
-      this.mg.unitCount(UnitType.MIRVWarhead) === 0
-    ) {
+    if (SAM_TARGET_TYPES.every((type) => this.mg.unitCount(type) === 0)) {
       return;
     }
     // target is already filtered to exclude nukes targeted by other SAMs
@@ -393,6 +409,14 @@ export class SAMLauncherExecution implements Execution {
       }
       this.sam.launch();
       target.unit.setTargetedBySAM(true);
+      // Nukes are always hit. Each shot at an aircraft is an independent roll
+      // from this SAM's own seeded generator (part of its snapshot), so every
+      // client agrees and several SAMs compound. The roll is drawn only for
+      // aircraft: the draw sequence of nuke interception is unchanged.
+      const willHit = AirstrikeTypes.has(target.unit.type())
+        ? this.pseudoRandom.nextInt(0, 100) <
+          this.mg.config().airstrikeSpec(target.unit.type()).samHitPercent
+        : true;
       this.mg.addExecution(
         new SAMMissileExecution(
           this.sam.tile(),
@@ -400,6 +424,7 @@ export class SAMLauncherExecution implements Execution {
           this.sam,
           target.unit,
           target.tile,
+          willHit,
         ),
       );
     }

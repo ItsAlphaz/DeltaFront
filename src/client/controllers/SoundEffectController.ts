@@ -3,7 +3,10 @@ import {
   PlayerType,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import {
+  AirstrikeImpactPhase,
+  GameUpdateType,
+} from "@openfront/engine-api/game/GameUpdates";
 import { EventBus } from "@openfront/shared/EventBus";
 import { Controller } from "../Controller";
 import { PlaySoundEffectEvent, SoundEffect } from "../sound/Sounds";
@@ -36,6 +39,15 @@ const STATION_CAPABLE_TYPES = new Set<UnitType>([
   UnitType.Port,
 ]);
 
+// Airstrike and SAM cues, each collapsed to one per interval so a busy sky
+// (many strikes, a strafing run's four bursts) does not stack the same sound.
+const AIRSTRIKE_LAUNCH_SOUND_INTERVAL_TICKS = 5;
+const AIRSTRIKE_FLYBY_SOUND_INTERVAL_TICKS = 10;
+const AIRSTRIKE_IMPACT_SOUND_INTERVAL_TICKS = 3;
+const AIRSTRIKE_STRAFE_SOUND_INTERVAL_TICKS = 5;
+const SAM_LAUNCH_SOUND_INTERVAL_TICKS = 5;
+const SAM_RESULT_SOUND_INTERVAL_TICKS = 3;
+
 const NUKE_INBOUND_MESSAGES = new Set<MessageType>([
   MessageType.NUKE_INBOUND,
   MessageType.HYDROGEN_BOMB_INBOUND,
@@ -51,6 +63,8 @@ export class SoundEffectController implements Controller {
   // one when first seen (e.g. joining mid-game) stay silent.
   private hadTrainStation = new Map<number, boolean>();
   private lastTrainStationSweepTick = -Infinity;
+  // Last tick each throttled airstrike/SAM cue played.
+  private lastCueTick = new Map<string, number>();
 
   constructor(
     private readonly game: GameView,
@@ -88,6 +102,7 @@ export class SoundEffectController implements Controller {
 
     const myPlayer = this.game.myPlayer();
     if (myPlayer === null) return;
+    this.handleAirstrikeUpdates(updates, myPlayer);
     for (const c of updates[GameUpdateType.ConquestEvent] ?? []) {
       if (c.conquerorId === myPlayer.id()) {
         // Battle cue for conquering a real player; the ka-ching payout
@@ -101,6 +116,13 @@ export class SoundEffectController implements Controller {
 
     for (const u of updates[GameUpdateType.UnitIncoming] ?? []) {
       if (u.playerID !== myPlayer.smallID()) continue;
+      if (u.messageType === MessageType.AIRSTRIKE_INBOUND) {
+        this.emitThrottled(
+          "airstrike-flyby",
+          AIRSTRIKE_FLYBY_SOUND_INTERVAL_TICKS,
+        );
+        continue;
+      }
       if (!NUKE_INBOUND_MESSAGES.has(u.messageType)) continue;
       const tick = this.game.ticks();
       if (
@@ -145,6 +167,64 @@ export class SoundEffectController implements Controller {
     this.emit("atom-hit");
   }
 
+  /** Plays `name` unless it already played within `interval` ticks. */
+  private emitThrottled(name: SoundEffect, interval: number): void {
+    const tick = this.game.ticks();
+    if (tick - (this.lastCueTick.get(name) ?? -Infinity) < interval) return;
+    this.lastCueTick.set(name, tick);
+    this.emit(name);
+  }
+
+  /** Airstrike impacts and SAM results, for the player who struck or was struck. */
+  private handleAirstrikeUpdates(
+    updates: NonNullable<ReturnType<GameView["updatesSinceLastTick"]>>,
+    me: { smallID(): number },
+  ): void {
+    const impacts = updates[GameUpdateType.AirstrikeImpact] ?? [];
+    const messages = updates[GameUpdateType.DisplayEvent] ?? [];
+    if (impacts.length === 0 && messages.length === 0) return;
+    const mySmallID = me.smallID();
+    for (const a of impacts) {
+      if (a.attackerID !== mySmallID && !a.affected.includes(mySmallID)) {
+        continue;
+      }
+      switch (a.phase) {
+        case AirstrikeImpactPhase.BombImpact:
+          this.emitThrottled(
+            "airstrike-bomb",
+            AIRSTRIKE_IMPACT_SOUND_INTERVAL_TICKS,
+          );
+          break;
+        case AirstrikeImpactPhase.RocketRelease:
+          this.emitThrottled(
+            "airstrike-rocket",
+            AIRSTRIKE_IMPACT_SOUND_INTERVAL_TICKS,
+          );
+          break;
+        case AirstrikeImpactPhase.RocketImpact:
+          this.emitThrottled(
+            "airstrike-rocket-hit",
+            AIRSTRIKE_IMPACT_SOUND_INTERVAL_TICKS,
+          );
+          break;
+        case AirstrikeImpactPhase.StrafeBurst:
+          this.emitThrottled(
+            "airstrike-strafe",
+            AIRSTRIKE_STRAFE_SOUND_INTERVAL_TICKS,
+          );
+          break;
+      }
+    }
+    for (const m of messages) {
+      if (m.playerID !== mySmallID) continue;
+      if (m.message === "events_display.missile_intercepted") {
+        this.emitThrottled("sam-intercept", SAM_RESULT_SOUND_INTERVAL_TICKS);
+      } else if (m.message === "events_display.aircraft_shot_down") {
+        this.emitThrottled("aircraft-down", SAM_RESULT_SOUND_INTERVAL_TICKS);
+      }
+    }
+  }
+
   private onCreated(unit: UnitView): void {
     const myPlayer = this.game.myPlayer();
     switch (unit.type()) {
@@ -178,6 +258,26 @@ export class SoundEffectController implements Controller {
       case UnitType.Airport:
         if (unit.owner() === myPlayer) this.emit("sam-built");
         break;
+      case UnitType.BombingRun:
+      case UnitType.RocketStrike:
+      case UnitType.StrafingRun:
+        if (unit.owner() === myPlayer) {
+          this.emitThrottled(
+            "airstrike-launch",
+            AIRSTRIKE_LAUNCH_SOUND_INTERVAL_TICKS,
+          );
+        }
+        break;
+      case UnitType.SAMMissile: {
+        // A SAM firing: mine, or at one of my aircraft or nukes.
+        const targetId = unit.targetUnitId();
+        const target =
+          targetId === undefined ? undefined : this.game.unit(targetId);
+        if (unit.owner() === myPlayer || target?.owner() === myPlayer) {
+          this.emitThrottled("sam-launch", SAM_LAUNCH_SOUND_INTERVAL_TICKS);
+        }
+        break;
+      }
       case UnitType.Factory:
         if (unit.owner() === myPlayer) this.emit("build-factory");
         break;

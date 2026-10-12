@@ -115,6 +115,7 @@ export enum GameUpdateType {
   SpawnPhaseEnd,
   GamePaused,
   DonateEvent,
+  AirstrikeImpact,
 }
 
 export type GameUpdate =
@@ -140,7 +141,8 @@ export type GameUpdate =
   | EmbargoUpdate
   | SpawnPhaseEndUpdate
   | GamePausedUpdate
-  | DonateEventUpdate;
+  | DonateEventUpdate
+  | AirstrikeImpactUpdate;
 
 export interface BonusEventUpdate {
   type: GameUpdateType.BonusEvent;
@@ -183,6 +185,30 @@ export interface DonateEventUpdate {
   senderId: PlayerID;
   recipientId: PlayerID;
   amount: bigint;
+}
+
+/** The moment an airstrike's effect lands; positioned in simulation time. */
+export enum AirstrikeImpactPhase {
+  BombImpact = 0,
+  RocketRelease = 1,
+  RocketImpact = 2,
+  StrafeBurst = 3,
+}
+
+export interface AirstrikeImpactUpdate {
+  type: GameUpdateType.AirstrikeImpact;
+  strikeType: UnitType;
+  /** smallID of the attacker. */
+  attackerID: number;
+  phase: AirstrikeImpactPhase;
+  /** Release point, burst segment start or impact centre. */
+  from: TileRef;
+  /** Impact centre or burst segment end. */
+  to: TileRef;
+  /** Blast radius, or corridor half-width. */
+  radius: number;
+  /** smallIDs of the players that lost troops or structure levels. */
+  affected: number[];
 }
 
 export interface UnitUpdate {
@@ -371,6 +397,8 @@ export interface UnitIncomingUpdate {
   message: string;
   messageType: MessageType;
   playerID: number;
+  /** Translation params when `message` is a translation key. */
+  params?: Record<string, string | number>;
 }
 
 export interface EmbargoUpdate {

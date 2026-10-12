@@ -211,6 +211,12 @@ export enum UnitType {
   // and tactical). Appended last so existing enum values keep their order.
   Airport = "Airport",
   Airstrike = "Airstrike",
+  // Airstrikes V2: Airstrike is now only the selector the player picks before
+  // choosing a strike type. These three are both the purchasable strike and
+  // the aircraft unit that flies it. Appended last (positional wire order).
+  BombingRun = "Bombing Run",
+  RocketStrike = "Rocket Strike",
+  StrafingRun = "Strafing Run",
 }
 
 export enum TrainType {
@@ -244,6 +250,14 @@ export const Structures = unitTypeGroup([
   UnitType.Airport,
 ] as const);
 
+/** The concrete airstrikes (the Airstrike selector is not one of them). */
+export const AirstrikeTypes = unitTypeGroup([
+  UnitType.BombingRun,
+  UnitType.RocketStrike,
+  UnitType.StrafingRun,
+] as const);
+export type AirstrikeUnitType = (typeof AirstrikeTypes.types)[number];
+
 export const BuildMenus = unitTypeGroup([
   ...Structures.types,
   ...BuildableAttacks.types,
@@ -252,6 +266,7 @@ export const BuildMenus = unitTypeGroup([
 export const PlayerBuildable = unitTypeGroup([
   ...BuildMenus.types,
   UnitType.TransportShip,
+  ...AirstrikeTypes.types,
 ] as const);
 
 export type PlayerBuildableUnitType = (typeof PlayerBuildable.types)[number];
@@ -459,6 +474,7 @@ export enum MessageType {
   RENEW_ALLIANCE,
   AIRSTRIKE_INBOUND,
   AIRSTRIKE_HIT,
+  AIRSTRIKE_RESULT,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -496,6 +512,7 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.CHAT]: MessageCategory.CHAT,
   [MessageType.AIRSTRIKE_INBOUND]: MessageCategory.ATTACK,
   [MessageType.AIRSTRIKE_HIT]: MessageCategory.ATTACK,
+  [MessageType.AIRSTRIKE_RESULT]: MessageCategory.ATTACK,
 } as const;
 
 /**

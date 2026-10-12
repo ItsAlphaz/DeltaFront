@@ -28,7 +28,8 @@
  *   Col 9: Train Engine (5×5)
  *   Col 10: Train Carriage (5×5)
  *   Col 11: Train Carriage Loaded (5×5)
- *   Col 12: Airstrike plane (11×11, F-16 top view, nose up)
+ *   Col 12: Aircraft (11×11, F-16 top view, nose up) — one sprite for all
+ *           three airstrike types, rotated to the heading on the GPU
  *
  * Data flow:
  *   FrameSnapshot.units → filter by typeToAtlasIdx → instance VBO → GPU
@@ -39,9 +40,9 @@ import type { Config } from "@openfront/engine-lib/configuration/Config";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import type { RendererConfig, UnitState } from "../../types";
 import {
+  AIRCRAFT_TYPES,
   SMOOTHED_NUKE_TYPES,
   TrainType,
-  UT_AIRSTRIKE,
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,
   UT_MIRV,
@@ -89,13 +90,16 @@ const UNIT_ORDER = [
   "TrainEngine",
   "TrainCarriage",
   "TrainCarriageLoaded",
-  UT_AIRSTRIKE,
+  "Aircraft",
 ] as const;
 
 const ATLAS_COLS = UNIT_ORDER.length;
 
 /** Atlas column of the hydrogen bomb — drives the GPU glow halo. */
 const HYDROGEN_BOMB_COL = UNIT_ORDER.indexOf(UT_HYDROGEN_BOMB);
+
+/** Atlas column of the fighter sprite shared by all airstrike aircraft. */
+const AIRCRAFT_COL = UNIT_ORDER.indexOf("Aircraft");
 
 /** Atlas column of the warship — gates the warship cosmetic effect. */
 const WARSHIP_COL = UNIT_ORDER.indexOf(UT_WARSHIP);
@@ -153,7 +157,7 @@ const MISSILE_TYPES: ReadonlySet<string> = new Set([
   UT_SAM_MISSILE,
   UT_SHELL,
   UT_MIRV_WARHEAD,
-  UT_AIRSTRIKE,
+  ...AIRCRAFT_TYPES,
 ]);
 
 /** Values per smoothing segment in the flat `smoothSegs` array:
@@ -300,6 +304,10 @@ export class UnitPass {
       );
       if (col >= 0) {
         this.typeToAtlasCol.set(header.unitTypes[i], col);
+      }
+      // Every airstrike aircraft shares the one fighter sprite.
+      if (AIRCRAFT_TYPES.has(header.unitTypes[i])) {
+        this.typeToAtlasCol.set(header.unitTypes[i], AIRCRAFT_COL);
       }
     }
 
@@ -544,7 +552,7 @@ export class UnitPass {
       const y = (unit.pos - x) / this.mapW;
 
       if (isMissile) {
-        const isPlane = unit.unitType === UT_AIRSTRIKE;
+        const isPlane = AIRCRAFT_TYPES.has(unit.unitType);
         if (
           (SMOOTHED_NUKE_TYPES.has(unit.unitType) || isPlane) &&
           unit.lastPos !== unit.pos
@@ -590,19 +598,20 @@ export class UnitPass {
     }
   }
 
-  /** Heading byte for a plane sprite drawn nose-up: it flies straight at
-   *  its target tile, so point it there (or along its last step on arrival). */
+  /** Heading byte for a plane sprite drawn nose-up: along its last step,
+   *  so a strafing run keeps its course on past the target; before it has
+   *  moved, towards its target tile. */
   private planeHeading(unit: UnitState, x: number, y: number): number {
     let dx = 0;
     let dy = 0;
-    if (unit.targetTile !== null && unit.targetTile !== unit.pos) {
-      const tx = unit.targetTile % this.mapW;
-      dx = tx - x;
-      dy = (unit.targetTile - tx) / this.mapW - y;
-    } else if (unit.lastPos !== unit.pos) {
+    if (unit.lastPos !== unit.pos) {
       const lx = unit.lastPos % this.mapW;
       dx = x - lx;
       dy = y - (unit.lastPos - lx) / this.mapW;
+    } else if (unit.targetTile !== null && unit.targetTile !== unit.pos) {
+      const tx = unit.targetTile % this.mapW;
+      dx = tx - x;
+      dy = (unit.targetTile - tx) / this.mapW - y;
     }
     return planeHeadingByte(dx, dy);
   }

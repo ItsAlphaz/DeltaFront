@@ -42,6 +42,17 @@ interface GameEvent {
   unitView?: UnitView;
 }
 
+/** Messages whose `unit` param is a unit_type.* key to translate before formatting. */
+const UNIT_PARAM_MESSAGES: ReadonlySet<string> = new Set([
+  "events_display.missile_intercepted",
+  "events_display.unit_destroyed",
+  "events_display.airstrike_hit",
+  "events_display.airstrike_buildings_hit",
+  "events_display.airstrike_result",
+  "events_display.aircraft_shot_down",
+  "events_display.sam_missed",
+]);
+
 const TIER_1_TYPES: ReadonlySet<MessageType> = new Set([
   MessageType.NUKE_INBOUND,
   MessageType.HYDROGEN_BOMB_INBOUND,
@@ -259,8 +270,7 @@ export class EventsDisplay extends LitElement implements Controller {
   ): Record<string, string | number> {
     let params = event.params ?? {};
     if (
-      (event.message === "events_display.missile_intercepted" ||
-        event.message === "events_display.unit_destroyed") &&
+      UNIT_PARAM_MESSAGES.has(event.message) &&
       typeof params.unit === "string" &&
       params.unit.startsWith("unit_type.")
     ) {
@@ -275,6 +285,18 @@ export class EventsDisplay extends LitElement implements Controller {
       return params;
     }
     return { ...params, name: subject.displayName() };
+  }
+
+  private resolveIncomingParams(
+    params: Record<string, string | number> | undefined,
+  ): Record<string, string | number> {
+    if (
+      typeof params?.unit === "string" &&
+      params.unit.startsWith("unit_type.")
+    ) {
+      return { ...params, unit: translateText(params.unit) };
+    }
+    return params ?? {};
   }
 
   onDisplayMessageEvent(event: DisplayMessageUpdate) {
@@ -596,8 +618,13 @@ export class EventsDisplay extends LitElement implements Controller {
 
     const unitView = this.game.unit(event.unitID);
 
+    // Airstrike warnings carry a translation key and params; the nuke
+    // warnings still carry their finished text.
+    const description = event.message.startsWith("events_display.")
+      ? translateText(event.message, this.resolveIncomingParams(event.params))
+      : event.message;
     this.addEvent({
-      description: event.message,
+      description,
       type: event.messageType,
       unsafeDescription: false,
       highlight: true,

@@ -8,9 +8,11 @@
 import type { Config } from "@openfront/engine-lib/configuration/Config";
 import type { RendererConfig, UnitState } from "../../types";
 import {
+  AIRCRAFT_TYPES,
   SMOOTHED_NUKE_TYPES,
   UT_AIRPORT,
   UT_ATOM_BOMB,
+  UT_BOMBING_RUN,
   UT_CITY,
   UT_DEFENSE_POST,
   UT_FACTORY,
@@ -19,7 +21,9 @@ import {
   UT_MIRV_WARHEAD,
   UT_MISSILE_SILO,
   UT_PORT,
+  UT_ROCKET_STRIKE,
   UT_SAM_LAUNCHER,
+  UT_STRAFING_RUN,
   UT_TRADE_SHIP,
   UT_TRAIN,
   UT_TRANSPORT,
@@ -51,6 +55,10 @@ const LIGHT_CONFIGS: Record<string, LightConfig> = {
   [UT_SAM_LAUNCHER]: { r: 0.8, g: 0.85, b: 1.0, radius: 18, intensity: 1.2 },
   [UT_MISSILE_SILO]: { r: 1.0, g: 0.4, b: 0.2, radius: 18, intensity: 1.2 },
   [UT_AIRPORT]: { r: 0.8, g: 0.85, b: 1.0, radius: 18, intensity: 1.2 },
+  // The three airstrike aircraft share one fighter-jet light.
+  [UT_BOMBING_RUN]: { r: 1.0, g: 0.9, b: 0.7, radius: 8, intensity: 1.6 },
+  [UT_ROCKET_STRIKE]: { r: 1.0, g: 0.9, b: 0.7, radius: 8, intensity: 1.6 },
+  [UT_STRAFING_RUN]: { r: 1.0, g: 0.9, b: 0.7, radius: 8, intensity: 1.6 },
   [UT_TRANSPORT]: { r: 0.9, g: 0.8, b: 0.6, radius: 6, intensity: 2.7 },
   [UT_TRADE_SHIP]: { r: 0.9, g: 0.8, b: 0.6, radius: 6, intensity: 2.7 },
   [UT_WARSHIP]: { r: 0.9, g: 0.85, b: 0.7, radius: 10, intensity: 2.8 },
@@ -199,7 +207,11 @@ export class PointLightPass {
 
       const x = unit.pos % this.mapW;
       const y = (unit.pos - x) / this.mapW;
-      if (SMOOTHED_NUKE_TYPES.has(unit.unitType) && unit.lastPos !== unit.pos) {
+      if (
+        (SMOOTHED_NUKE_TYPES.has(unit.unitType) ||
+          AIRCRAFT_TYPES.has(unit.unitType)) &&
+        unit.lastPos !== unit.pos
+      ) {
         const lx = unit.lastPos % this.mapW;
         const ly = (unit.lastPos - lx) / this.mapW;
         this.smoothSegs.push(count, lx, ly, x, y);

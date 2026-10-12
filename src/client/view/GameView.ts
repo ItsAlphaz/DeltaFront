@@ -190,6 +190,7 @@ export class GameView implements GameLike {
         deadUnits: [],
         conquestEvents: [],
         bonusEvents: [],
+        airstrikeImpacts: [],
       },
       changedTiles: null,
       railroadDirty: false,
@@ -590,6 +591,7 @@ export class GameView implements GameLike {
     ev.deadUnits.length = 0;
     ev.conquestEvents.length = 0;
     ev.bonusEvents.length = 0;
+    ev.airstrikeImpacts.length = 0;
 
     for (const u of gu.updates[GameUpdateType.Unit] ?? []) {
       if (u.isActive) continue;
@@ -611,6 +613,17 @@ export class GameView implements GameLike {
         x: loc.x,
         y: loc.y,
         gold: Number(c.gold),
+      });
+    }
+    for (const a of gu.updates[GameUpdateType.AirstrikeImpact] ?? []) {
+      ev.airstrikeImpacts.push({
+        phase: a.phase,
+        strikeType: a.strikeType,
+        fromX: this._map.x(a.from),
+        fromY: this._map.y(a.from),
+        toX: this._map.x(a.to),
+        toY: this._map.y(a.to),
+        radius: a.radius,
       });
     }
     for (const b of gu.updates[GameUpdateType.BonusEvent] ?? []) {

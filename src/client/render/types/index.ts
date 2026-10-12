@@ -6,10 +6,12 @@ export {
   TrainType,
 } from "./Renderer";
 export type {
+  AirstrikeImpactFx,
   AllianceData,
   AttackData,
   AttackRingInput,
   ConquestFx,
+  CorridorPreview,
   DeadUnitFx,
   EmojiData,
   GhostPreviewData,
@@ -33,6 +35,8 @@ export type { BonusEvent, FrameEvents } from "./FrameEvents";
 
 // Unit type string constants and derived sets
 export {
+  AIRCRAFT_TYPES,
+  AIRSTRIKE_TELEGRAPH_RADII,
   ALL_UNIT_TYPES,
   NUKE_MAGNITUDES,
   NUKE_TYPES,
@@ -42,6 +46,7 @@ export {
   UT_AIRPORT,
   UT_AIRSTRIKE,
   UT_ATOM_BOMB,
+  UT_BOMBING_RUN,
   UT_CITY,
   UT_DEFENSE_POST,
   UT_FACTORY,
@@ -50,9 +55,11 @@ export {
   UT_MIRV_WARHEAD,
   UT_MISSILE_SILO,
   UT_PORT,
+  UT_ROCKET_STRIKE,
   UT_SAM_LAUNCHER,
   UT_SAM_MISSILE,
   UT_SHELL,
+  UT_STRAFING_RUN,
   UT_TRADE_SHIP,
   UT_TRAIN,
   UT_TRANSPORT,

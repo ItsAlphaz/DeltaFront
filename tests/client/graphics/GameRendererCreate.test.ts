@@ -18,6 +18,7 @@ const HUD_TAGS = [
   "game-starting-modal",
   "emoji-table",
   "build-menu",
+  "airstrike-type-menu",
   "game-left-sidebar",
   "control-panel",
   "events-display",
@@ -46,7 +47,7 @@ const HUD_TAGS = [
 
 describe("createRenderer", () => {
   // Serve detached elements from the spy so createRenderer finds each HUD
-  // component without connecting (and rendering) 27 components in jsdom.
+  // component without connecting (and rendering) 28 components in jsdom.
   const elements = new Map<string, HTMLElement>();
 
   beforeEach(() => {

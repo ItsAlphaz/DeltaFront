@@ -140,8 +140,14 @@ export class ConstructionExecution implements Execution {
       case UnitType.MIRV:
         this.mg.addExecution(new MirvExecution(player, this.tile));
         break;
-      case UnitType.Airstrike:
-        this.mg.addExecution(new AirstrikeExecution(player, this.tile));
+      // The Airstrike selector is never bought: only a concrete strike type
+      // reaches here, and anything else falls to the default warning below.
+      case UnitType.BombingRun:
+      case UnitType.RocketStrike:
+      case UnitType.StrafingRun:
+        this.mg.addExecution(
+          new AirstrikeExecution(player, this.tile, this.constructionType),
+        );
         break;
       case UnitType.Warship:
         this.mg.addExecution(

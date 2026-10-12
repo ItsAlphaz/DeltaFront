@@ -21,7 +21,12 @@ export const UT_SAM_MISSILE = "SAMMissile" as const;
 export const UT_SHELL = "Shell" as const;
 export const UT_MIRV_WARHEAD = "MIRV Warhead" as const;
 export const UT_TRAIN = "Train" as const;
+/** The Airstrike selector: only ever a build ghost, never a unit in the world. */
 export const UT_AIRSTRIKE = "Airstrike" as const;
+// The aircraft of the three airstrikes (one unit type per strike).
+export const UT_BOMBING_RUN = "Bombing Run" as const;
+export const UT_ROCKET_STRIKE = "Rocket Strike" as const;
+export const UT_STRAFING_RUN = "Strafing Run" as const;
 
 // Structures
 export const UT_CITY = "City" as const;
@@ -45,6 +50,20 @@ export const STRUCTURE_TYPES: ReadonlySet<string> = new Set([
   UT_MISSILE_SILO,
   UT_AIRPORT,
 ]);
+
+/** Every airstrike aircraft: one fighter sprite, rotated to its heading. */
+export const AIRCRAFT_TYPES: ReadonlySet<string> = new Set([
+  UT_BOMBING_RUN,
+  UT_ROCKET_STRIKE,
+  UT_STRAFING_RUN,
+]);
+
+/** Radius (tiles) of the ring shown over a strike's target, matching
+ *  Config.airstrikeSpec(type).telegraphRadius. Strafing runs show none. */
+export const AIRSTRIKE_TELEGRAPH_RADII: Readonly<Record<string, number>> = {
+  [UT_BOMBING_RUN]: 10,
+  [UT_ROCKET_STRIKE]: 4,
+};
 
 export const NUKE_TYPES: ReadonlySet<string> = new Set([
   UT_ATOM_BOMB,
@@ -103,5 +122,7 @@ export const ALL_UNIT_TYPES = [
   UT_MISSILE_SILO,
   UT_TRAIN,
   UT_AIRPORT,
-  UT_AIRSTRIKE,
+  UT_BOMBING_RUN,
+  UT_ROCKET_STRIKE,
+  UT_STRAFING_RUN,
 ] as const;

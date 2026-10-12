@@ -133,3 +133,12 @@ Guild icon by Trimanggolo Mulyo – https://thenounproject.com/icon/guild-826614
 
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/Flag)
 Licensed under [CC BY-SA 3.0 DE](https://creativecommons.org/licenses/by-sa/3.0/de/deed.en)
+
+## Airstrike audio
+
+The airstrike sound effects `airstrike-launch`, `airstrike-flyby`, `airstrike-bomb`,
+`airstrike-strafe` and `aircraft-down` (`resources/sounds/effects/`) are **placeholders**:
+original noise-based audio synthesized for DeltaFront with ffmpeg, free to replace with
+final assets under the same file names. The rocket and SAM cues reuse the existing
+`sam-shoot.mp3` and `sam-hit.mp3` from OpenFront, licensed CC BY-SA 4.0 (see
+`LICENSE-ASSETS`).

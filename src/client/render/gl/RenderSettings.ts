@@ -44,6 +44,19 @@ export interface ThemeSettings {
   spawnHighlightColor: string;
 }
 
+/** Look of a dashed range ring (SAM coverage, airport strike range). */
+export type RadiusRingSettings = {
+  strokeWidth: number; // ring half-width in world units
+  dashLen: number; // dash length in world units
+  gapLen: number; // gap length in world units
+  rotationSpeed: number; // world units per second
+  alpha: number; // base opacity (0–1)
+  outlineWidth: number; // outline border width in world units
+  outlineSoftness: number; // smoothstep range (0 = hard, higher = softer)
+  fillAlpha: number; // opacity of the faint disc inside the ring (0 = none)
+  minStrokePx: number; // keep the ring at least this many screen px wide (0 = off)
+};
+
 export interface RenderSettings {
   theme: ThemeSettings;
   passEnabled: {
@@ -307,6 +320,14 @@ export interface RenderSettings {
     nukeShockwaveRadiusFactor: number;
     samShockwaveDurationMs: number;
     samShockwaveRadius: number;
+    /** Airstrike effects outlive the simulation event: lingering smoke, fire
+     *  and dust, and a short shockwave ring. Visual only. */
+    airstrikeSmokeLifetimeMs: number;
+    airstrikeFireLifetimeMs: number;
+    airstrikeDustLifetimeMs: number;
+    airstrikeTrailLifetimeMs: number;
+    airstrikeShockwaveDurationMs: number;
+    airstrikeShockwaveRadiusFactor: number;
     debrisLifetimeMs: number;
     debrisFadeIn: number; // 0–1 fraction of lifetime
     debrisFadeOut: number; // 0–1 fraction of lifetime (start of fade)
@@ -368,15 +389,9 @@ export interface RenderSettings {
     duration: number; // ms — total animation lifetime
     converge: number; // 0–1 — fraction of radius consumed during animation
   };
-  samRadius: {
-    strokeWidth: number; // ring half-width in world units
-    dashLen: number; // dash length in world units
-    gapLen: number; // gap length in world units
-    rotationSpeed: number; // world units per second
-    alpha: number; // base opacity (0–1)
-    outlineWidth: number; // outline border width in world units
-    outlineSoftness: number; // smoothstep range (0 = hard, higher = softer)
-  };
+  samRadius: RadiusRingSettings;
+  /** The local player's airport strike ranges: far larger rings than a SAM's. */
+  airportRadius: RadiusRingSettings;
   bonusPopup: {
     scale: number;
     lifetimeMs: number;

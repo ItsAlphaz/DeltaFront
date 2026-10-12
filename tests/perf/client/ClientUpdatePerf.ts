@@ -190,6 +190,7 @@ function createGlStub() {
     updateStructures: noop("updateStructures"),
     applyDeadUnits: noop("applyDeadUnits"),
     applyConquestEvents: noop("applyConquestEvents"),
+    applyAirstrikeImpacts: noop("applyAirstrikeImpacts"),
     applyBonusEvents: noop("applyBonusEvents"),
     updateAttackRings: noop("updateAttackRings"),
     updateNukeTelegraphs: noop("updateNukeTelegraphs"),

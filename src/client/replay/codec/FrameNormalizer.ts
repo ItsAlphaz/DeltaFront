@@ -81,6 +81,8 @@ export const UPDATE_TYPE_ROUTING: Record<
   SpawnPhaseEnd: "events",
   GamePaused: "misc",
   DonateEvent: "misc",
+  // Stored with the other misc updates; replays do not play impact FX yet.
+  AirstrikeImpact: "misc",
 };
 
 /**

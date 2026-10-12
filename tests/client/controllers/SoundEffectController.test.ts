@@ -3,7 +3,10 @@ import {
   PlayerType,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import {
+  AirstrikeImpactPhase,
+  GameUpdateType,
+} from "@openfront/engine-api/game/GameUpdates";
 import { EventBus } from "@openfront/shared/EventBus";
 import { SoundEffectController } from "../../../src/client/controllers/SoundEffectController";
 import { PlaySoundEffectEvent } from "../../../src/client/sound/Sounds";
@@ -294,6 +297,174 @@ describe("SoundEffectController", () => {
       hasTrainStation: () => true,
     };
     tickWithUnits(city);
+    expect(played).toEqual([]);
+  });
+});
+
+describe("SoundEffectController: airstrikes and SAMs", () => {
+  let eventBus: EventBus;
+  let played: string[];
+  let tick: number;
+  let units: Map<number, any>;
+  let game: any;
+  let me: any;
+  let other: any;
+  let controller: SoundEffectController;
+  let updates: Record<number, unknown[]>;
+
+  const me_ = { smallID: () => 7 };
+  const other_ = { smallID: () => 9 };
+
+  function unit(id: number, type: UnitType, owner: object, extra: object = {}) {
+    return {
+      id: () => id,
+      type: () => type,
+      isActive: () => true,
+      reachedTarget: () => false,
+      createdAt: () => tick,
+      owner: () => owner,
+      hasTrainStation: () => false,
+      targetUnitId: () => undefined,
+      ...extra,
+    };
+  }
+
+  function step(
+    extra: Record<number, unknown[]> = {},
+    ...us: ReturnType<typeof unit>[]
+  ) {
+    tick++;
+    units = new Map(us.map((u) => [u.id(), u]));
+    updates = {
+      [GameUpdateType.Unit]: us.map((u) => ({ id: u.id() })),
+      ...extra,
+    };
+    controller.tick();
+  }
+
+  beforeEach(() => {
+    eventBus = new EventBus();
+    played = [];
+    eventBus.on(PlaySoundEffectEvent, (e) => played.push(e.effect));
+    tick = 100;
+    units = new Map();
+    updates = {};
+    me = me_;
+    other = other_;
+    game = {
+      ticks: () => tick,
+      unit: (id: number) => units.get(id),
+      myPlayer: () => me,
+      updatesSinceLastTick: () => updates,
+    };
+    controller = new SoundEffectController(game, eventBus);
+  });
+
+  it("plays the launch cue for my own strike, not an enemy's", () => {
+    step({}, unit(1, UnitType.BombingRun, me));
+    expect(played).toEqual(["airstrike-launch"]);
+    played.length = 0;
+    tick += 20;
+    step({}, unit(2, UnitType.RocketStrike, other));
+    expect(played).toEqual([]);
+  });
+
+  it("collapses simultaneous launches into one cue", () => {
+    step(
+      {},
+      unit(1, UnitType.BombingRun, me),
+      unit(2, UnitType.StrafingRun, me),
+    );
+    expect(played).toEqual(["airstrike-launch"]);
+  });
+
+  it("warns with the flyby cue when an airstrike is inbound on me, once per interval", () => {
+    const inbound = (playerID: number) => ({
+      playerID,
+      messageType: MessageType.AIRSTRIKE_INBOUND,
+    });
+    step({ [GameUpdateType.UnitIncoming]: [inbound(7), inbound(7)] });
+    expect(played).toEqual(["airstrike-flyby"]);
+    played.length = 0;
+    step({ [GameUpdateType.UnitIncoming]: [inbound(9)] }); // someone else's warning
+    expect(played).toEqual([]);
+  });
+
+  const impact = (
+    phase: AirstrikeImpactPhase,
+    attackerID: number,
+    affected: number[],
+  ) => ({
+    phase,
+    attackerID,
+    affected,
+  });
+
+  it.each([
+    [AirstrikeImpactPhase.BombImpact, "airstrike-bomb"],
+    [AirstrikeImpactPhase.RocketRelease, "airstrike-rocket"],
+    [AirstrikeImpactPhase.RocketImpact, "airstrike-rocket-hit"],
+    [AirstrikeImpactPhase.StrafeBurst, "airstrike-strafe"],
+  ] as const)("phase %i plays %s when I am hit", (phase, cue) => {
+    step({ [GameUpdateType.AirstrikeImpact]: [impact(phase, 9, [7])] });
+    expect(played).toEqual([cue]);
+  });
+
+  it("plays impact sounds for my own strikes too", () => {
+    step({
+      [GameUpdateType.AirstrikeImpact]: [
+        impact(AirstrikeImpactPhase.BombImpact, 7, [9]),
+      ],
+    });
+    expect(played).toEqual(["airstrike-bomb"]);
+  });
+
+  it("stays silent for impacts that do not involve me", () => {
+    step({
+      [GameUpdateType.AirstrikeImpact]: [
+        impact(AirstrikeImpactPhase.BombImpact, 9, [11]),
+      ],
+    });
+    expect(played).toEqual([]);
+  });
+
+  it("two bursts of a strafing run in one tick make one sound", () => {
+    step({
+      [GameUpdateType.AirstrikeImpact]: [
+        impact(AirstrikeImpactPhase.StrafeBurst, 9, [7]),
+        impact(AirstrikeImpactPhase.StrafeBurst, 9, [7]),
+      ],
+    });
+    expect(played).toEqual(["airstrike-strafe"]);
+  });
+
+  it("plays the SAM cues: launch (mine, or at mine), intercept and aircraft down", () => {
+    step({}, unit(1, UnitType.SAMMissile, me));
+    expect(played).toEqual(["sam-launch"]);
+    played.length = 0;
+    tick += 20;
+    const myPlane = unit(5, UnitType.BombingRun, me);
+    units.set(5, myPlane);
+    step(
+      {},
+      unit(2, UnitType.SAMMissile, other, { targetUnitId: () => 5 }),
+      myPlane,
+    );
+    expect(played).toContain("sam-launch");
+    played.length = 0;
+    tick += 20;
+    step({
+      [GameUpdateType.DisplayEvent]: [
+        { playerID: 7, message: "events_display.missile_intercepted" },
+        { playerID: 7, message: "events_display.aircraft_shot_down" },
+        { playerID: 9, message: "events_display.aircraft_shot_down" },
+      ],
+    });
+    expect(played).toEqual(["sam-intercept", "aircraft-down"]);
+  });
+
+  it("stays silent for a SAM that is neither mine nor shooting at mine", () => {
+    step({}, unit(3, UnitType.SAMMissile, other));
     expect(played).toEqual([]);
   });
 });

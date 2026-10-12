@@ -1,3 +1,4 @@
+import { UnitType } from "@openfront/engine-api/game/GameTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EventBus } from "@openfront/shared/EventBus";
@@ -40,6 +41,8 @@ describe("keybind capture over a live game", () => {
         ghostStructure: null,
         rocketDirectionUp: true,
         upgradeMultiplier: 1,
+        airstrikeTarget: null,
+        airstrikeType: UnitType.BombingRun,
       },
       document.createElement("canvas"),
       eventBus,

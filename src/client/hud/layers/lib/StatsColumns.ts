@@ -4,6 +4,7 @@ import type { ColumnId, StatsTableKind } from "../../../StatsConstants";
 import { formatPercentage, translateText } from "../../../Utils";
 import type { GameView, PlayerView } from "../../../view";
 import {
+  airportIcon,
   allianceIcon,
   cityIcon,
   claimIcon,
@@ -280,6 +281,7 @@ export const COLUMN_DEFS: readonly ColumnDef[] = [
     missileSiloIcon,
   ),
   unitColumn("sams", "leaderboard.sams", UnitType.SAMLauncher, samLauncherIcon),
+  unitColumn("airports", "leaderboard.airports", UnitType.Airport, airportIcon),
   unitColumn("warships", "leaderboard.warships", UnitType.Warship, warshipIcon),
   defineColumn({
     id: "allies",

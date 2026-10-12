@@ -9,6 +9,7 @@
 
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
+  AirstrikeTypes,
   BuildableUnit,
   bulkCost,
   PlayerBuildableUnitType,
@@ -16,19 +17,27 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import {
+  corridorBounds,
+  strafingCorridor,
+} from "@openfront/engine-lib/airstrike/AirstrikeGeometry";
+import type { AirstrikeSpec } from "@openfront/engine-lib/configuration/Config";
+import {
   listNukeBreakAlliance,
   wouldNukeBreakAlliance,
 } from "@openfront/engine-lib/execution/NukeAlliance";
 import { EventBus } from "@openfront/shared/EventBus";
 import { Controller } from "../Controller";
 import {
+  AirstrikeBlockedEvent,
+  CloseAirstrikeMenuEvent,
   ConfirmGhostStructureEvent,
   MouseMoveEvent,
   MouseUpEvent,
+  ShowAirstrikeMenuEvent,
 } from "../InputHandler";
 import { buildNukeTrajectory, MapRenderer } from "../render/gl";
 import type { SAMInfo } from "../render/gl/utils/NukeTrajectory";
-import type { GhostPreviewData } from "../render/types";
+import type { CorridorPreview, GhostPreviewData } from "../render/types";
 import { TransformHandler } from "../TransformHandler";
 import {
   BuildUnitIntentEvent,
@@ -37,13 +46,18 @@ import {
 import { UIState } from "../UIState";
 import { UserSettings } from "../UserSettings";
 import { GameView } from "../view";
+import {
+  airstrikeBlockReason,
+  airstrikeReasonText,
+} from "./AirstrikeTargeting";
 
 /** True for nuke types (AtomBomb, HydrogenBomb) and airstrikes: ghost is preserved after placement so user can place multiple or keep selection (Enter/key confirm). */
 export function shouldPreserveGhostAfterBuild(unitType: UnitType): boolean {
   return (
     unitType === UnitType.AtomBomb ||
     unitType === UnitType.HydrogenBomb ||
-    unitType === UnitType.Airstrike
+    unitType === UnitType.Airstrike ||
+    AirstrikeTypes.has(unitType)
   );
 }
 
@@ -112,6 +126,12 @@ export class BuildPreviewController implements Controller {
   init() {
     this.eventBus.on(MouseMoveEvent, (e) => this.moveGhost(e));
     this.eventBus.on(MouseUpEvent, (e) => this.requestConfirmStructure(e));
+    this.eventBus.on(AirstrikeBlockedEvent, (e) =>
+      this.view.triggerBlockedFlash(
+        this.game.x(e.tile) + 0.5,
+        this.game.y(e.tile) + 0.5,
+      ),
+    );
     this.eventBus.on(ConfirmGhostStructureEvent, () =>
       this.requestConfirmStructure(
         new MouseUpEvent(this.mousePos.x, this.mousePos.y),
@@ -218,7 +238,12 @@ export class BuildPreviewController implements Controller {
       this.mousePos.x,
       this.mousePos.y,
     );
-    if (this.game.isValidCoord(tile.x, tile.y)) {
+    const lockedTarget = this.lockedAirstrikeTarget();
+    if (lockedTarget !== null) {
+      // The strike-type menu is open: the aim stays on the chosen target.
+      tileRef = lockedTarget;
+      trajectoryTileRef = lockedTarget;
+    } else if (this.game.isValidCoord(tile.x, tile.y)) {
       tileRef = this.game.ref(tile.x, tile.y);
       trajectoryTileRef = tileRef;
       // Impassable terrain is a void — treat hovering over it the same as
@@ -260,9 +285,14 @@ export class BuildPreviewController implements Controller {
       }
     }
 
+    // The Airstrike ghost is the selector: validity and cost are those of the
+    // strike type currently selected.
+    const ghostType = this.ghostUnit.buildableUnit.type;
+    const queryType =
+      ghostType === UnitType.Airstrike ? this.uiState.airstrikeType : ghostType;
     this.game
       ?.myPlayer()
-      ?.buildables(tileRef, [this.ghostUnit?.buildableUnit.type])
+      ?.buildables(tileRef, [queryType])
       .then((buildables) => {
         if (!this.ghostUnit) {
           this.pendingConfirm = null;
@@ -270,9 +300,7 @@ export class BuildPreviewController implements Controller {
           return;
         }
 
-        const unit = buildables.find(
-          (u) => u.type === this.ghostUnit!.buildableUnit.type,
-        );
+        const unit = buildables.find((u) => u.type === queryType);
         if (!unit) {
           Object.assign(this.ghostUnit.buildableUnit, {
             canBuild: false,
@@ -283,15 +311,19 @@ export class BuildPreviewController implements Controller {
           return;
         }
 
-        this.ghostUnit.buildableUnit = unit;
+        // Keep the ghost's own type (the selector) when a strike type was queried.
+        this.ghostUnit.buildableUnit =
+          unit.type === ghostType ? unit : { ...unit, type: ghostType };
 
         if (this.pendingConfirm !== null) {
           const ev = this.pendingConfirm;
           this.pendingConfirm = null;
-          if (this.isGhostReadyForConfirm()) {
+          // An Airstrike always answers a click: it opens the menu, or says why not.
+          if (
+            this.isGhostReadyForConfirm() ||
+            ghostType === UnitType.Airstrike
+          ) {
             this.createStructure(ev);
-          } else if (unit.type === UnitType.Airstrike) {
-            this.rejectAirstrike(ev);
           }
         }
 
@@ -457,6 +489,7 @@ export class BuildPreviewController implements Controller {
     // Range circle: SAM placement preview shows targetable radius; nuke
     // previews show the outer blast radius at the target tile.
     let rangeRadius = 0;
+    let corridor: CorridorPreview | null = null;
     switch (u.type) {
       case UnitType.SAMLauncher: {
         const level = this.resolveGhostRangeLevel(u) ?? 1;
@@ -474,14 +507,21 @@ export class BuildPreviewController implements Controller {
         rangeRadius = this.game.config().defensePostRange();
         break;
       // The airport ghost shows the area it will cover; the airstrike ghost
-      // shows the strike area at the target (the player's airport ranges are
-      // drawn alongside by the renderer's airport radius pass).
+      // shows the selected strike's area at the target (the player's airport
+      // ranges are drawn alongside by the renderer's airport radius pass).
       case UnitType.Airport:
         rangeRadius = this.game.config().airportRange();
         break;
-      case UnitType.Airstrike:
-        rangeRadius = this.game.config().airstrikeRadius();
+      case UnitType.Airstrike: {
+        const strike = this.uiState.airstrikeType;
+        const spec = this.game.config().airstrikeSpec(strike);
+        if (strike === UnitType.StrafingRun) {
+          corridor = this.strafingPreview(u, tileRef, spec);
+        } else {
+          rangeRadius = spec.radius;
+        }
         break;
+      }
     }
     let radiusTileX = this.game.x(placementTile);
     let radiusTileY = this.game.y(placementTile);
@@ -506,11 +546,27 @@ export class BuildPreviewController implements Controller {
     if (isNuke) {
       canAfford &&= myPlayer.readyMissileCount() >= multiplier;
     }
+    // Why a strike cannot be launched here (shown over the cursor).
+    let reason: string | undefined;
+    if (u.type === UnitType.Airstrike && u.canBuild === false) {
+      const why = airstrikeBlockReason(
+        this.game,
+        myPlayer,
+        this.uiState.airstrikeType,
+        tileRef,
+        false,
+        u.cost,
+      );
+      if (why !== null) {
+        reason = airstrikeReasonText(this.game, myPlayer, why, tileRef);
+      }
+    }
     return {
       ghostType: u.type,
       tileX: this.game.x(placementTile),
       tileY: this.game.y(placementTile),
-      snapToPlacement: placementTile !== tileRef,
+      snapToPlacement:
+        placementTile !== tileRef || this.lockedAirstrikeTarget() !== null,
       radiusTileX,
       radiusTileY,
       canBuild: u.canBuild !== false,
@@ -524,12 +580,48 @@ export class BuildPreviewController implements Controller {
       ownerID: myPlayer.smallID(),
       upgradeTargetTile,
       rangeRadius,
-      // Airstrikes: red strike circle over a target they can't hit (out of
+      corridor,
+      reason,
+      // Airstrikes: red strike area over a target they can't hit (out of
       // every armed airport's range, not hostile land, or no airport ready).
       rangeWarning:
         targetingAlly ||
         (u.type === UnitType.Airstrike && u.canBuild === false),
     };
+  }
+
+  /** The aimed tile while the strike-type menu is open (else null). */
+  private lockedAirstrikeTarget(): TileRef | null {
+    return this.ghostUnit?.buildableUnit.type === UnitType.Airstrike
+      ? this.uiState.airstrikeTarget
+      : null;
+  }
+
+  /**
+   * The corridor of a Strafing Run aimed at `target`, flown from the airport
+   * that would launch it (or, when none can, the nearest of the player's own).
+   */
+  private strafingPreview(
+    u: BuildableUnit,
+    target: TileRef,
+    spec: AirstrikeSpec,
+  ): CorridorPreview | null {
+    const myPlayer = this.game.myPlayer();
+    let origin: TileRef | null = u.canBuild !== false ? u.canBuild : null;
+    if (origin === null && myPlayer) {
+      let best = Infinity;
+      for (const airport of myPlayer.units(UnitType.Airport)) {
+        if (!airport.isActive()) continue;
+        const d = this.game.euclideanDistSquared(airport.tile(), target);
+        if (d < best) {
+          best = d;
+          origin = airport.tile();
+        }
+      }
+    }
+    if (origin === null) return null;
+    const c = strafingCorridor(this.game, origin, target, spec);
+    return { ...c, segments: c.bursts, ...corridorBounds(this.game, c) };
   }
 
   private isGhostReadyForConfirm(): boolean {
@@ -540,6 +632,11 @@ export class BuildPreviewController implements Controller {
 
   private requestConfirmStructure(e: MouseUpEvent): void {
     if (!this.ghostUnit && !this.uiState.ghostStructure) return;
+    if (this.lockedAirstrikeTarget() !== null) {
+      // The menu is open: a click on the map just closes it (no launch).
+      this.closeAirstrikeMenu("map_click");
+      return;
+    }
     if (this.isGhostReadyForConfirm()) {
       this.createStructure(e);
     } else {
@@ -549,6 +646,10 @@ export class BuildPreviewController implements Controller {
 
   private createStructure(e: MouseUpEvent) {
     if (!this.ghostUnit) return;
+    if (this.ghostUnit.buildableUnit.type === UnitType.Airstrike) {
+      this.confirmAirstrike(e);
+      return;
+    }
     if (
       this.ghostUnit.buildableUnit.canBuild === false &&
       this.ghostUnit.buildableUnit.canUpgrade === false
@@ -594,11 +695,34 @@ export class BuildPreviewController implements Controller {
       if (!shouldPreserveGhostAfterBuild(unitType)) {
         this.removeGhostStructure();
       }
-    } else if (this.ghostUnit.buildableUnit.type === UnitType.Airstrike) {
-      this.rejectAirstrike(e);
     } else {
       this.removeGhostStructure();
     }
+  }
+
+  /**
+   * A click with the Airstrike ghost: a valid target opens the strike-type
+   * menu (nothing is launched yet); an invalid one flashes the blocked X and
+   * stays in aiming mode.
+   */
+  private confirmAirstrike(e: MouseUpEvent): void {
+    if (!this.ghostUnit) return;
+    const tile = this.transformHandler.screenToWorldCoordinates(e.x, e.y);
+    if (!this.game.isValidCoord(tile.x, tile.y)) return;
+    if (this.ghostUnit.buildableUnit.canBuild === false) {
+      this.rejectAirstrike(e);
+      return;
+    }
+    const target = this.game.ref(tile.x, tile.y);
+    this.uiState.airstrikeTarget = target;
+    this.eventBus.emit(new ShowAirstrikeMenuEvent(target, e.x, e.y));
+  }
+
+  private closeAirstrikeMenu(
+    reason: ConstructorParameters<typeof CloseAirstrikeMenuEvent>[0],
+  ): void {
+    this.uiState.airstrikeTarget = null;
+    this.eventBus.emit(new CloseAirstrikeMenuEvent(reason));
   }
 
   /**
@@ -689,6 +813,9 @@ export class BuildPreviewController implements Controller {
   }
 
   private clearGhostStructure() {
+    if (this.uiState.airstrikeTarget !== null) {
+      this.closeAirstrikeMenu("ghost_changed");
+    }
     this.pendingConfirm = null;
     this.ghostUnit = null;
     this.lastGhostData = null;

@@ -1,7 +1,18 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { PlayerType, TerraNullius } from "@openfront/engine-api/game/GameTypes";
+import {
+  AirstrikeUnitType,
+  PlayerType,
+  TerraNullius,
+} from "@openfront/engine-api/game/GameTypes";
 import { AllPlayersStats, ClientID } from "@openfront/engine-api/Schemas";
 import {
+  AIR_INDEX_COMPLETE,
+  AIR_INDEX_INTERCEPT,
+  AIR_INDEX_LAUNCH,
+  AIR_INDEX_LEVELS_DESTROYED,
+  AIR_INDEX_SHOT_DOWN,
+  AIR_INDEX_STRUCTURES_DESTROYED,
+  AIR_INDEX_TROOPS_KILLED,
   ALLIANCE_INDEX_BROKEN_BY_OTHER,
   ALLIANCE_INDEX_EXPIRED,
   ALLIANCE_INDEX_FORMED,
@@ -46,6 +57,7 @@ import {
   TILE_INDEX_DRAWDOWN_PEAK,
   TILE_INDEX_DRAWDOWN_TROUGH,
   TILE_INDEX_PEAK,
+  unitTypeToAirUnit,
   unitTypeToBoatUnit,
   unitTypeToBombUnit,
   unitTypeToOtherUnit,
@@ -155,6 +167,21 @@ export class StatsImpl implements Stats {
     p.bombs[type] ??= [0n];
     while (p.bombs[type].length <= index) p.bombs[type].push(0n);
     p.bombs[type][index] += _bigint(value);
+  }
+
+  private _addAir(
+    player: Player,
+    strikeType: AirstrikeUnitType,
+    index: number,
+    value: BigIntLike,
+  ): void {
+    const type = unitTypeToAirUnit[strikeType];
+    const p = this._makePlayerStats(player);
+    if (p === undefined) return;
+    p.air ??= { [type]: [0n] };
+    p.air[type] ??= [0n];
+    while (p.air[type].length <= index) p.air[type].push(0n);
+    p.air[type][index] += _bigint(value);
   }
 
   private _addGold(player: Player, index: number, value: BigIntLike) {
@@ -349,6 +376,40 @@ export class StatsImpl implements Stats {
 
   bombIntercept(player: Player, type: NukeType, count: BigIntLike): void {
     this._addBomb(player, type, BOMB_INDEX_INTERCEPT, count);
+  }
+
+  airLaunch(player: Player, type: AirstrikeUnitType): void {
+    this._addAir(player, type, AIR_INDEX_LAUNCH, 1);
+  }
+
+  airComplete(player: Player, type: AirstrikeUnitType): void {
+    this._addAir(player, type, AIR_INDEX_COMPLETE, 1);
+  }
+
+  airShotDown(player: Player, type: AirstrikeUnitType): void {
+    this._addAir(player, type, AIR_INDEX_SHOT_DOWN, 1);
+  }
+
+  airIntercept(player: Player, type: AirstrikeUnitType): void {
+    this._addAir(player, type, AIR_INDEX_INTERCEPT, 1);
+  }
+
+  airTroopsKilled(
+    player: Player,
+    type: AirstrikeUnitType,
+    troops: BigIntLike,
+  ): void {
+    this._addAir(player, type, AIR_INDEX_TROOPS_KILLED, troops);
+  }
+
+  airStructureDamage(
+    player: Player,
+    type: AirstrikeUnitType,
+    levels: number,
+    destroyed: number,
+  ): void {
+    this._addAir(player, type, AIR_INDEX_LEVELS_DESTROYED, levels);
+    this._addAir(player, type, AIR_INDEX_STRUCTURES_DESTROYED, destroyed);
   }
 
   goldWork(player: Player, gold: BigIntLike): void {

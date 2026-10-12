@@ -148,6 +148,24 @@
   "account_settings_modal": {
     "title": "Account Settings"
   },
+  "airstrike_menu": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "hint": "↑↓ or 1–3 to choose · Enter to launch · Esc to cancel",
+    "launch": "Launch",
+    "reason": {
+      "airport_building": "Your airport is still being built",
+      "airport_rearming": "Airport rearming ({seconds}s)",
+      "disabled": "Disabled in this game",
+      "invalid_terrain": "Can’t strike here",
+      "no_airport": "Build an airport first",
+      "not_enough_gold": "Not enough gold",
+      "not_hostile": "Choose enemy territory",
+      "out_of_range": "Out of range of your airports",
+      "spawn_immunity": "Spawn protection is active"
+    },
+    "title": "Airstrike type"
+  },
   "ban_notice": {
     "appeal": "If you believe this is a mistake, contact us on Discord.",
     "category": {
@@ -171,9 +189,10 @@
   },
   "build_menu": {
     "desc": {
-      "airport": "Launches airstrikes at enemy land within its range",
-      "airstrike": "Kills troops in a small area within range of your Airport",
+      "airport": "Launches airstrikes within {range} tiles",
+      "airstrike": "Choose a target, then a strike type",
       "atom_bomb": "Small explosion",
+      "bombing_run": "Strong area damage. Can destroy buildings.",
       "city": "Increases max population",
       "defense_post": "Increases defenses of nearby borders",
       "factory": "Creates railroads and spawns trains",
@@ -181,7 +200,9 @@
       "mirv": "Huge explosion, only targets selected player",
       "missile_silo": "Used to launch nukes",
       "port": "Sends trade ships to generate gold",
+      "rocket_strike": "Precise strike. Strong against structures.",
       "sam_launcher": "Defends against incoming nukes",
+      "strafing_run": "Line attack. Strong against troops.",
       "warship": "Captures trade ships, destroys ships and boats"
     },
     "not_enough_money": "Not enough money",
@@ -801,7 +822,11 @@
   "events_display": {
     "about_to_expire": "Your alliance with {name} is about to expire!",
     "accept_alliance": "Accept",
-    "airstrike_hit": "{name} - airstrike killed {troops} of your troops",
+    "aircraft_shot_down": "Your {unit} was shot down",
+    "airstrike_buildings_hit": "Buildings damaged by {name}’s {unit}: {count}",
+    "airstrike_hit": "{name}’s {unit} killed {troops} of your troops",
+    "airstrike_inbound": "{name} - {unit} inbound",
+    "airstrike_result": "{unit}: {troops} troops killed, {count} building levels destroyed",
     "alliance_accepted": "accepted",
     "alliance_expired": "Your alliance with {name} expired",
     "alliance_nukes_destroyed_incoming": "{count, plural, one {# nuke launched by {name} was destroyed due to the alliance} other {# nukes launched by {name} were destroyed due to the alliance}}",
@@ -832,6 +857,7 @@
     "renew_alliance": "Request to renew",
     "request_alliance": "{name} requests an alliance!",
     "retreating": "retreating",
+    "sam_missed": "SAM missed {unit}",
     "sent_emoji": "Sent {name}: {emoji}",
     "sent_emoji_all": "Sent everyone: {emoji}",
     "sent_gold_to_player": "Sent {gold} gold to {name}",
@@ -1112,6 +1138,8 @@
     "ally_donate": "Donate some of your troops to your ally. Used when they're low on troops and are being attacked, or when they need that extra power to crush an enemy.",
     "ally_donate_gold": "Donate some of your gold to your ally. Used when they're low on gold and need it for buildings, or when your team member is saving for that MIRV.",
     "bomb_direction": "Atom / Hydrogen bomb arc direction",
+    "build_airport_desc": "Launches airstrikes at enemy land within {range} tiles. Rearms {seconds} seconds after each strike.",
+    "build_airstrike_desc": "Pick enemy land in range of an airport, then choose Bombing Run, Rocket Strike or Strafing Run. SAMs can shoot planes down.",
     "build_atom_desc": "Small explosive bomb that destroys territory, buildings, ships and boats. Spawns from the nearest Missile Silo and lands in the area you first clicked to build it.",
     "build_city_desc": "Increases your max population. Useful when you can't expand your territory or you're about to hit your population limit.",
     "build_defense_desc": "Increases defenses around nearby borders, which show a checkered pattern. Attacks from enemies are slower and have more casualties.",
@@ -1299,6 +1327,7 @@
     "svg": "uk_us_flag"
   },
   "leaderboard": {
+    "airports": "Airports",
     "allies": "Allies",
     "betrayals": "Betrayals",
     "cities": "Cities",
@@ -1734,6 +1763,7 @@
     "view": "View Profile"
   },
   "player_stats_table": {
+    "air_stats": "Airstrikes",
     "arrived": "Arrived",
     "attack_stats": "Attack Statistics",
     "betrayals": "Betrayals",
@@ -1742,6 +1772,7 @@
     "built": "Built",
     "cancelled": "Cancelled",
     "captured": "Captured",
+    "completed": "Completed",
     "destroyed": "Destroyed",
     "diplomacy_stats": "Diplomacy",
     "gold_stats": "Gold Statistics",
@@ -1749,15 +1780,18 @@
     "intercepted": "Intercepted",
     "landed": "Landed",
     "launched": "Launched",
+    "levels_destroyed": "Levels destroyed",
     "lost": "Lost",
     "nuke_stats": "Nuke Statistics",
     "piracy": "Piracy",
     "sent": "Sent",
     "ship_arrivals": "Ship Arrivals",
     "ship_type": "Ship Type",
+    "shot_down": "Shot down",
     "trade": "Trade",
     "trains": "Trains",
     "trains_external": "Others' Trains",
+    "troops_killed": "Troops killed",
     "unit": {
       "mirvw": "MIRV Warhead",
       "trade": "Trade Ship",
@@ -2334,6 +2368,7 @@
     "airstrike": "Airstrike",
     "atom_bomb": "Atom Bomb",
     "boat": "Boat",
+    "bombing_run": "Bombing Run",
     "city": "City",
     "defense_post": "Defense Post",
     "factory": "Factory",
@@ -2341,7 +2376,9 @@
     "mirv": "MIRV",
     "missile_silo": "Missile Silo",
     "port": "Port",
+    "rocket_strike": "Rocket Strike",
     "sam_launcher": "SAM Launcher",
+    "strafing_run": "Strafing Run",
     "warship": "Warship"
   },
   "update_available": {

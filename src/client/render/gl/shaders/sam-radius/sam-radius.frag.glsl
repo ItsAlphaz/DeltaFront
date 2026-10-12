@@ -16,6 +16,7 @@ uniform float uRotationSpeed;  // rotation (world units/sec)
 uniform float uAlpha;          // base opacity
 uniform float uOutlineWidth;   // outline border width (world units)
 uniform float uOutlineSoftness; // smoothstep range (0 = hard edge)
+uniform float uFillAlpha;      // faint disc inside the ring (0 = none)
 
 out vec4 fragColor;
 
@@ -29,7 +30,19 @@ void main() {
   float ringAlpha = smoothstep(vRadius - uStrokeWidth - 0.5, vRadius - uStrokeWidth, dist)
                   * (1.0 - smoothstep(vRadius + uStrokeWidth, vRadius + uStrokeWidth + 0.5, dist));
 
-  if (ringAlpha < 0.01) discard;
+  // vSpin carries a "draw the fill" flag (+2) on one instance per circle.
+  bool drawFill = vSpin >= 1.5;
+  float spin = drawFill ? vSpin - 2.0 : vSpin;
+
+  if (ringAlpha < 0.01) {
+    // Inside the ring: the faint coverage fill, once per circle.
+    float fillMask = 1.0 - smoothstep(vRadius - uStrokeWidth - 0.5, vRadius - uStrokeWidth, dist);
+    if (drawFill && uFillAlpha > 0.0 && fillMask > 0.01) {
+      fragColor = vec4(vColor.rgb, uFillAlpha * vColor.a * fillMask);
+      return;
+    }
+    discard;
+  }
 
   // Arc clipping
   float angle = atan(vLocal.y, vLocal.x);
@@ -42,7 +55,7 @@ void main() {
   // Dash pattern along circumference
   float arcPos = angle * vRadius;
   float period = uDashLen + uGapLen;
-  float dashPhase = mod(arcPos + uTime * uRotationSpeed * vSpin, period);
+  float dashPhase = mod(arcPos + uTime * uRotationSpeed * spin, period);
   float dashAlpha = 1.0 - smoothstep(uDashLen - 0.5, uDashLen + 0.5, dashPhase);
 
   float alpha = ringAlpha * dashAlpha * uAlpha * vColor.a;

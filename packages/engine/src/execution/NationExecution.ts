@@ -32,6 +32,7 @@ import type {
   SnapshotReader,
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
+import { NationAirBehavior } from "./nation/NationAirBehavior";
 import { NationAllianceBehavior } from "./nation/NationAllianceBehavior";
 import { NationEmojiBehavior } from "./nation/NationEmojiBehavior";
 import { NationMIRVBehavior } from "./nation/NationMIRVBehavior";
@@ -52,6 +53,7 @@ export class NationExecution implements Execution {
   private allianceBehavior!: NationAllianceBehavior;
   private warshipBehavior!: NationWarshipBehavior;
   private nukeBehavior!: NationNukeBehavior;
+  private airBehavior!: NationAirBehavior;
   private structureBehavior!: NationStructureBehavior;
   private mg: Game;
   private player: Player | null = null;
@@ -226,6 +228,7 @@ export class NationExecution implements Execution {
     this.attackBehavior.maybeAttack();
     this.warshipBehavior.counterWarshipInfestation();
     this.nukeBehavior.maybeSendNuke();
+    this.airBehavior.maybeLaunchAirstrike();
   }
 
   private initializeBehaviors(): void {
@@ -270,6 +273,14 @@ export class NationExecution implements Execution {
       this.mg,
       this.player,
       this.attackBehavior,
+      this.emojiBehavior,
+    );
+    this.airBehavior = new NationAirBehavior(
+      this.random,
+      this.mg,
+      this.player,
+      this.attackBehavior,
+      this.nukeBehavior,
       this.emojiBehavior,
     );
     this.structureBehavior = new NationStructureBehavior(
@@ -417,6 +428,7 @@ export class NationExecution implements Execution {
             warship: this.warshipBehavior.snapshot(w),
             attack: this.attackBehavior.snapshot(w),
             nuke: this.nukeBehavior.snapshot(w),
+            air: this.airBehavior.snapshot(w),
             structure: this.structureBehavior.snapshot(w),
           }
         : null,
@@ -459,6 +471,7 @@ export class NationExecution implements Execution {
     const warship = shell(NationWarshipBehavior);
     const attack = shell(AiAttackBehavior);
     const nuke = shell(NationNukeBehavior);
+    const air = shell(NationAirBehavior);
     const structure = shell(NationStructureBehavior);
     emoji.restoreSnapshot(b.emoji, r, random, player);
     mirv.restoreSnapshot(b.mirv, r, random, player, emoji);
@@ -474,6 +487,7 @@ export class NationExecution implements Execution {
       warship,
     );
     nuke.restoreSnapshot(b.nuke, r, random, player, attack, emoji);
+    air.restoreSnapshot(b.air, r, random, player, attack, nuke, emoji);
     structure.restoreSnapshot(b.structure, r, random, player);
     this.emojiBehavior = emoji;
     this.mirvBehavior = mirv;
@@ -481,6 +495,7 @@ export class NationExecution implements Execution {
     this.warshipBehavior = warship;
     this.attackBehavior = attack;
     this.nukeBehavior = nuke;
+    this.airBehavior = air;
     this.structureBehavior = structure;
   }
 }
@@ -510,6 +525,7 @@ const NationStateSchema = z.object({
       warship: VersionedSchema,
       attack: VersionedSchema,
       nuke: VersionedSchema,
+      air: VersionedSchema,
       structure: VersionedSchema,
     })
     .nullable(),
@@ -518,7 +534,27 @@ type NationState = z.infer<typeof NationStateSchema>;
 
 export const NationExecutionSnapshot = execSnapshotType({
   name: "Nation",
-  version: 1,
+  version: 2,
   schema: NationStateSchema,
+  migrations: {
+    // v1 predates airstrikes: a nation had no air behavior, so start it fresh.
+    1: (d) =>
+      d.behaviors === null
+        ? d
+        : {
+            ...d,
+            behaviors: {
+              ...d.behaviors,
+              air: {
+                v: 1,
+                d: {
+                  lastStrikeTick: null,
+                  recentStrikes: [],
+                  strikesLaunched: 0,
+                },
+              },
+            },
+          },
+  },
   cls: () => NationExecution,
 });

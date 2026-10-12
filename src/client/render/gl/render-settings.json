@@ -248,6 +248,12 @@
     "nukeShockwaveRadiusFactor": 1.5,
     "samShockwaveDurationMs": 800,
     "samShockwaveRadius": 40,
+    "airstrikeSmokeLifetimeMs": 3500,
+    "airstrikeFireLifetimeMs": 2500,
+    "airstrikeDustLifetimeMs": 1500,
+    "airstrikeTrailLifetimeMs": 1200,
+    "airstrikeShockwaveDurationMs": 900,
+    "airstrikeShockwaveRadiusFactor": 1.6,
     "debrisLifetimeMs": 6000,
     "debrisFadeIn": 0.1,
     "debrisFadeOut": 0.8,
@@ -314,7 +320,20 @@
     "rotationSpeed": 14,
     "alpha": 0.8,
     "outlineWidth": 0.4,
-    "outlineSoftness": 0.15
+    "outlineSoftness": 0.15,
+    "fillAlpha": 0,
+    "minStrokePx": 0
+  },
+  "airportRadius": {
+    "strokeWidth": 3,
+    "dashLen": 36,
+    "gapLen": 18,
+    "rotationSpeed": 10,
+    "alpha": 0.9,
+    "outlineWidth": 0.4,
+    "outlineSoftness": 0.15,
+    "fillAlpha": 0.05,
+    "minStrokePx": 2
   },
   "bonusPopup": {
     "scale": 6,

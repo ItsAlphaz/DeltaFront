@@ -22,6 +22,7 @@ export const COLUMN_IDS = [
   "factories",
   "silos",
   "sams",
+  "airports",
   "warships",
   // Diplomacy.
   "allies",

@@ -1,4 +1,5 @@
 import type {
+  AirstrikeImpactFx,
   AttackRingInput,
   BonusEvent,
   ConquestFx,
@@ -38,6 +39,7 @@ export interface FrameUploadTarget {
   applyDeadUnits(deadUnits: DeadUnitFx[]): void;
   applyConquestEvents(events: ConquestFx[]): void;
   applyBonusEvents(events: BonusEvent[]): void;
+  applyAirstrikeImpacts(events: AirstrikeImpactFx[]): void;
   updateAttackRings(rings: AttackRingInput[]): void;
   updateNukeTelegraphs(data: NukeTelegraphData[]): void;
   updateNames(
@@ -105,6 +107,9 @@ export function uploadFrameData(
   }
   if (frame.events.bonusEvents.length > 0) {
     view.applyBonusEvents(frame.events.bonusEvents);
+  }
+  if (frame.events.airstrikeImpacts.length > 0) {
+    view.applyAirstrikeImpacts(frame.events.airstrikeImpacts);
   }
 
   // --- Attack rings + nuke telegraphs ---

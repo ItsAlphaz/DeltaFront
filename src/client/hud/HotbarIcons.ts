@@ -2,6 +2,9 @@ import { assetUrl } from "@openfront/shared/AssetUrls";
 
 export const airportIcon = assetUrl("images/AirportIconWhite.svg");
 export const airstrikeIcon = assetUrl("images/AirstrikeIconWhite.svg");
+export const bombingRunIcon = assetUrl("images/BombingRunIconWhite.svg");
+export const rocketStrikeIcon = assetUrl("images/RocketStrikeIconWhite.svg");
+export const strafingRunIcon = assetUrl("images/StrafingRunIconWhite.svg");
 export const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
 export const cityIcon = assetUrl("images/CityIconWhite.svg");
 export const factoryIcon = assetUrl("images/FactoryIconWhite.svg");

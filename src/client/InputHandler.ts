@@ -109,6 +109,35 @@ export class ToggleStructureEvent implements GameEvent {
 
 export class ConfirmGhostStructureEvent implements GameEvent {}
 
+/** Open the strike-type menu for an Airstrike aimed at `tile` (screen x/y place it). */
+export class ShowAirstrikeMenuEvent implements GameEvent {
+  constructor(
+    public readonly tile: TileRef,
+    public readonly x: number,
+    public readonly y: number,
+  ) {}
+}
+
+/** A launch the menu refused (the target went invalid): flash the blocked X there. */
+export class AirstrikeBlockedEvent implements GameEvent {
+  constructor(public readonly tile: TileRef) {}
+}
+
+/** Close the strike-type menu and return to aiming. */
+export class CloseAirstrikeMenuEvent implements GameEvent {
+  constructor(
+    public readonly reason:
+      | "escape"
+      | "cancel"
+      | "outside"
+      | "map_click"
+      | "right_click"
+      | "ghost_changed"
+      | "launched"
+      | "invalid",
+  ) {}
+}
+
 export class SwapRocketDirectionEvent implements GameEvent {
   constructor(public readonly rocketDirectionUp: boolean) {}
 }
@@ -787,6 +816,12 @@ export class InputHandler {
 
         if (e.code === "Escape") {
           e.preventDefault();
+          // The strike-type menu is the topmost thing: Escape closes only it
+          // and returns to aiming (the Airstrike ghost stays).
+          if (this.uiState.airstrikeTarget !== null) {
+            this.closeAirstrikeMenu("escape");
+            return;
+          }
           let closedUI = false;
 
           if (this.uiState.ghostStructure !== null) {
@@ -812,7 +847,9 @@ export class InputHandler {
 
         if (
           (e.code === "Enter" || e.code === "NumpadEnter") &&
-          this.uiState.ghostStructure !== null
+          this.uiState.ghostStructure !== null &&
+          // With the strike-type menu open, Enter belongs to the menu.
+          this.uiState.airstrikeTarget === null
         ) {
           e.preventDefault();
           this.eventBus.emit(new ConfirmGhostStructureEvent());
@@ -1329,6 +1366,11 @@ export class InputHandler {
     if (this.gameView.inSpawnPhase()) {
       return;
     }
+    // Right-click on the open strike-type menu's backdrop cancels it only.
+    if (this.uiState.airstrikeTarget !== null) {
+      this.closeAirstrikeMenu("right_click");
+      return;
+    }
     if (this.uiState.ghostStructure !== null) {
       this.setGhostStructure(null);
       return;
@@ -1342,7 +1384,20 @@ export class InputHandler {
     this.eventBus.emit(new ContextMenuEvent(event.clientX, event.clientY));
   }
 
+  private closeAirstrikeMenu(
+    reason: ConstructorParameters<typeof CloseAirstrikeMenuEvent>[0],
+  ) {
+    this.uiState.airstrikeTarget = null;
+    this.eventBus.emit(new CloseAirstrikeMenuEvent(reason));
+  }
+
   private setGhostStructure(ghostStructure: PlayerBuildableUnitType | null) {
+    if (
+      this.uiState.airstrikeTarget !== null &&
+      ghostStructure !== UnitType.Airstrike
+    ) {
+      this.closeAirstrikeMenu("ghost_changed");
+    }
     if (
       this.uiState.ghostStructure === ghostStructure &&
       ghostStructure !== null
@@ -1498,7 +1553,12 @@ export class InputHandler {
 
   private canUseBuildKeybinds(): boolean {
     const myPlayer = this.gameView.myPlayer?.();
-    return !this.gameView.inSpawnPhase() && myPlayer?.isAlive() === true;
+    return (
+      !this.gameView.inSpawnPhase() &&
+      myPlayer?.isAlive() === true &&
+      // While the strike-type menu is open the build keys do nothing.
+      this.uiState.airstrikeTarget === null
+    );
   }
 
   private getPinchDistance(): number {

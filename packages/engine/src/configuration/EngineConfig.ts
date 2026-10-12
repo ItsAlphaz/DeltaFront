@@ -1,4 +1,5 @@
 import {
+  AirstrikeTypes,
   Difficulty,
   Gold,
   PlayerInfo,
@@ -339,11 +340,31 @@ export class EngineConfig extends Config {
         return this.costWrapper(() => 1_000_000, UnitType.MissileSilo);
       case UnitType.Airport:
         return this.costWrapper(
-          (numUnits: number) => Math.min(1_500_000, (numUnits + 1) * 500_000),
+          (numUnits: number) =>
+            Math.min(2_000_000, 1_000_000 + numUnits * 500_000),
           UnitType.Airport,
         );
+      case UnitType.BombingRun:
+        return this.costWrapper(() => 400_000, UnitType.BombingRun);
+      case UnitType.RocketStrike:
+        return this.costWrapper(() => 350_000, UnitType.RocketStrike);
+      case UnitType.StrafingRun:
+        return this.costWrapper(() => 250_000, UnitType.StrafingRun);
       case UnitType.Airstrike:
-        return this.costWrapper(() => 300_000, UnitType.Airstrike);
+        // The selector is never bought itself: it reports the cheapest
+        // strike the game allows, which is what the UI shows and gates on.
+        return (game: Game, player: Player, extraUnits?: number) => {
+          let cheapest: bigint | null = null;
+          for (const strike of AirstrikeTypes.types) {
+            if (this.isUnitDisabled(strike)) continue;
+            const cost = this.unitInfo(strike).cost(game, player, extraUnits);
+            if (cheapest === null || cost < cheapest) cheapest = cost;
+          }
+          return (
+            cheapest ??
+            this.unitInfo(UnitType.BombingRun).cost(game, player, extraUnits)
+          );
+        };
       case UnitType.DefensePost:
         return this.costWrapper(
           (numUnits: number) => Math.min(250_000, (numUnits + 1) * 50_000),
@@ -666,28 +687,6 @@ export class EngineConfig extends Config {
         return 22;
     }
     throw new Error(`Unknown nuke type: ${unitType}`);
-  }
-
-  /** Tiles an airstrike plane flies per tick (nukes fly 10). */
-  airstrikeSpeed(): number {
-    return 4;
-  }
-
-  /**
-   * Troops an airstrike kills from a player that owns `tilesHit` of the
-   * `tilesOwned` tiles in the strike area: twice their share of territory
-   * hit, capped at 20% of their troops. Integer math keeps it deterministic.
-   */
-  airstrikeTroopLoss(
-    troops: number,
-    tilesHit: number,
-    tilesOwned: number,
-  ): number {
-    if (troops <= 0 || tilesHit <= 0) return 0;
-    const owned = Math.max(1, tilesOwned);
-    // Loss fraction in basis points (1/10000).
-    const bps = Math.min(2_000, Math.floor((20_000 * tilesHit) / owned));
-    return Math.floor((troops * bps) / 10_000);
   }
 
   mirvNormalizeTargetTicks(): number {

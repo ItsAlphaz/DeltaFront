@@ -33,6 +33,10 @@ import {
 } from "@openfront/engine-api/game/GameUpdates";
 import { ReadonlyTileSet } from "@openfront/engine-api/game/ReadViews";
 import { ClientID } from "@openfront/engine-api/Schemas";
+import {
+  AirstrikeBlockReason,
+  pickAirstrikeAirport,
+} from "@openfront/engine-lib/airstrike/AirstrikeRules";
 import { andFN, manhattanDistFN } from "@openfront/engine-lib/game/GameMapImpl";
 import { TileSet } from "@openfront/engine-lib/game/TileSet";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
@@ -1614,6 +1618,9 @@ export class PlayerImpl implements Player {
       case UnitType.Train:
         return this.landBasedUnitSpawn(targetTile);
       case UnitType.Airstrike:
+      case UnitType.BombingRun:
+      case UnitType.RocketStrike:
+      case UnitType.StrafingRun:
         return this.airstrikeSpawn(targetTile);
       case UnitType.MissileSilo:
       case UnitType.DefensePost:
@@ -1680,39 +1687,43 @@ export class PlayerImpl implements Player {
   }
 
   /**
-   * Airstrikes hit land held by a non-friendly player within range of one of
-   * this player's armed Airports; returns the nearest such Airport's tile.
+   * Airstrikes hit land held by a hostile player within range of one of this
+   * player's finished, rearmed Airports; returns the nearest such Airport's
+   * tile. The same rule serves every strike type and the Airstrike selector.
    */
   airstrikeSpawn(tile: TileRef): TileRef | false {
+    return this.airstrikeAirport(tile).airport ?? false;
+  }
+
+  /** `airstrikeSpawn`, with the reason when no strike can be launched at `tile`. */
+  airstrikeAirport(
+    tile: TileRef,
+  ):
+    | { airport: TileRef; reason: null }
+    | { airport: null; reason: AirstrikeBlockReason } {
     const mg = this.mg;
     if (mg.isSpawnImmunityActive()) {
-      return false;
+      return { airport: null, reason: "spawn_immunity" };
     }
     if (!mg.isLand(tile) || mg.isImpassable(tile)) {
-      return false;
+      return { airport: null, reason: "invalid_terrain" };
     }
     const owner = mg.owner(tile);
-    if (!owner.isPlayer() || owner === this || this.isFriendly(owner)) {
-      return false;
+    // Disconnected allies and teammates are never targets either.
+    if (!owner.isPlayer() || owner === this || this.isFriendly(owner, true)) {
+      return { airport: null, reason: "not_hostile" };
     }
-    const range2 = mg.config().airportRange() ** 2;
-    let best: Unit | null = null;
-    let bestDist = Infinity;
-    for (const airport of this.units(UnitType.Airport)) {
-      if (
-        !airport.isActive() ||
-        airport.isUnderConstruction() ||
-        airport.isInCooldown()
-      ) {
-        continue;
-      }
-      const d2 = mg.euclideanDistSquared(airport.tile(), tile);
-      if (d2 <= range2 && d2 < bestDist) {
-        best = airport;
-        bestDist = d2;
-      }
-    }
-    return best?.tile() ?? false;
+    return pickAirstrikeAirport(
+      mg,
+      tile,
+      this.units(UnitType.Airport).map((a) => ({
+        tile: a.tile(),
+        active: a.isActive(),
+        underConstruction: a.isUnderConstruction(),
+        inCooldown: a.isInCooldown(),
+      })),
+      mg.config().airportRange(),
+    );
   }
 
   portSpawn(tile: TileRef, validTiles: TileRef[] | null): TileRef | false {

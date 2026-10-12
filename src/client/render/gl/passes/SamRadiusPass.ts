@@ -55,13 +55,20 @@ type Interval = [number, number];
 /** Which structures this pass draws, and their range by level. */
 export interface RadiusSource {
   unitType: string;
+  /** Which ring look (RenderSettings key) the circles use. */
+  settingsKey: "samRadius" | "airportRadius";
   range: (level: number) => number;
   /** Draw only the local player's structures. */
   selfOnly: boolean;
 }
 
+/** Added to a circle's `spin` on its first arc instance: only that instance
+ *  draws the faint fill, so a circle split into arcs is not filled twice. */
+const FILL_FLAG = 2;
+
 const SAM_SOURCE: RadiusSource = {
   unitType: UT_SAM_LAUNCHER,
+  settingsKey: "samRadius",
   range: samRange,
   selfOnly: false,
 };
@@ -177,6 +184,7 @@ export class SAMRadiusPass {
   private uAlpha: WebGLUniformLocation;
   private uOutlineWidth: WebGLUniformLocation;
   private uOutlineSoftness: WebGLUniformLocation;
+  private uFillAlpha: WebGLUniformLocation;
 
   private settings: RenderSettings;
   private instanceCount = 0;
@@ -228,6 +236,7 @@ export class SAMRadiusPass {
       this.program,
       "uOutlineSoftness",
     )!;
+    this.uFillAlpha = gl.getUniformLocation(this.program, "uFillAlpha")!;
 
     // VAO
     this.vao = gl.createVertexArray()!;
@@ -540,7 +549,7 @@ export class SAMRadiusPass {
           data[off + 6] = c.alpha;
           data[off + 7] = arcStart;
           data[off + 8] = arcEnd;
-          data[off + 9] = c.spin;
+          data[off + 9] = c.spin + (j === 0 ? FILL_FLAG : 0);
           count++;
         }
       }
@@ -565,7 +574,8 @@ export class SAMRadiusPass {
     this.visible = visible;
   }
 
-  draw(cameraMatrix: Float32Array): void {
+  /** `zoom` = screen pixels per world tile; keeps wide, zoomed-out rings visible. */
+  draw(cameraMatrix: Float32Array, zoom = 1): void {
     if (!this.visible || this.instanceCount === 0) return;
 
     const now = performance.now();
@@ -584,19 +594,23 @@ export class SAMRadiusPass {
 
     const gl = this.gl;
     const time = (performance.now() - this.startTime) / 1000;
-    const s = this.settings.samRadius;
+    const s = this.settings[this.source.settingsKey];
 
     gl.useProgram(this.program);
     gl.uniformMatrix3fv(this.uCamera, false, cameraMatrix);
     gl.uniform1f(this.uTime, time);
     gl.uniform1f(this.uOutline, this.colorMode === "owner" ? 1.0 : 0.0);
-    gl.uniform1f(this.uStrokeWidth, s.strokeWidth);
+    gl.uniform1f(
+      this.uStrokeWidth,
+      Math.max(s.strokeWidth, s.minStrokePx / Math.max(zoom, 1e-6)),
+    );
     gl.uniform1f(this.uDashLen, s.dashLen);
     gl.uniform1f(this.uGapLen, s.gapLen);
     gl.uniform1f(this.uRotationSpeed, s.rotationSpeed);
     gl.uniform1f(this.uAlpha, s.alpha);
     gl.uniform1f(this.uOutlineWidth, s.outlineWidth);
     gl.uniform1f(this.uOutlineSoftness, s.outlineSoftness);
+    gl.uniform1f(this.uFillAlpha, s.fillAlpha);
 
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.instanceCount);
