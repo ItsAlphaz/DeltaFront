@@ -104,9 +104,9 @@ function lobbyCardButton(): HTMLButtonElement | null {
   return selector.querySelector("button.group");
 }
 
-/** The UPCOMING heading, which is itself the link to the lobby browser. */
+/** "See all" beside the UPCOMING heading: the link to the lobby browser. */
 function upcomingHeadingButton(): HTMLButtonElement | null {
-  return selector.querySelector("h2 button");
+  return selector.querySelector("button[data-see-all]");
 }
 
 async function setUsernameValid(isValid: boolean): Promise<void> {
@@ -327,13 +327,13 @@ describe("the public lobby card (validateAndJoin)", () => {
 });
 
 /**
- * The heading over the upcoming column replaced the Detailed View card, so it
+ * "See all" beside the UPCOMING heading replaced the Detailed View card, so it
  * is the homepage's only route to the lobby browser. openDetailedView's own
  * username check is a silent backstop -- it returns without telling anyone --
  * so the control has to carry the disabled state itself, as the card it
  * replaced did.
  */
-describe("the upcoming heading (the route to the lobby browser)", () => {
+describe("See all (the route to the lobby browser)", () => {
   beforeEach(async () => {
     await pushLobbies({ ffa: [publicLobby("game-1")] });
   });
@@ -350,7 +350,7 @@ describe("the upcoming heading (the route to the lobby browser)", () => {
     document.body.appendChild(fresh);
     await fresh.updateComplete;
 
-    const heading = fresh.querySelector("h2 button");
+    const heading = fresh.querySelector("button[data-see-all]");
     expect(heading).not.toBeNull();
     (heading as HTMLButtonElement).click();
 
@@ -382,47 +382,52 @@ describe("the upcoming heading (the route to the lobby browser)", () => {
 });
 
 /**
- * At sm+ the block is a placed grid, so the class strings are the layout.
- * These pin the three states where an unconditional placement collided or
- * left a track empty: loading, a snapshot with no FFA lobby, and a column
- * with only one of its two cards.
+ * The Upcoming row: FFA, then special, then team, with FFA the wide card on
+ * desktop and a full row of its own on tablet. These pin the states a fixed
+ * layout would get wrong: loading, a snapshot missing some lobbies, and the
+ * order the cards read in.
  */
-describe("grid placement", () => {
+describe("the Upcoming row", () => {
   const section = () => selector.querySelector("section")!;
-  const heroSlot = () =>
-    selector.querySelector(":scope > div > div.sm\\:col-start-1");
+  const cards = () =>
+    Array.from(section().querySelectorAll<HTMLButtonElement>("button.group"));
 
-  it("keeps the upcoming column beside the spinner while loading", () => {
-    expect(heroSlot()).not.toBeNull();
-    expect(section().className).toContain("sm:col-start-2");
-    expect(section().className).not.toContain("sm:col-span-2");
+  it("holds a spinner in place of the cards while loading", () => {
+    expect(section().querySelector(".animate-spin")).not.toBeNull();
+    expect(cards()).toHaveLength(0);
+    // See all stays reachable while the feed is still connecting.
+    expect(upcomingHeadingButton()).not.toBeNull();
   });
 
-  it("drops the hero slot and spans the row when there is no FFA lobby", async () => {
-    await pushLobbies({ team: [publicLobby("team-1")] });
-    expect(heroSlot()).toBeNull();
-    expect(section().className).toContain("sm:col-start-1 sm:col-span-2");
-  });
-
-  it("lets a lone card take both card rows", async () => {
+  it("reads FFA, special, team, whatever order the feed lists them in", async () => {
+    await setUsernameValid(true);
     await pushLobbies({
-      ffa: [publicLobby("ffa-1")],
       team: [publicLobby("t")],
+      special: [publicLobby("s")],
+      ffa: [publicLobby("ffa-1")],
     });
-    const card = section().querySelector("div.sm\\:min-h-0")!;
-    expect(card.className).toContain("sm:row-start-2 sm:row-span-2");
+    expect(cards()).toHaveLength(3);
+    for (const card of cards()) card.click();
+    const order = joinLobby.mock.calls.map((c) => c[0].detail.gameID);
+    expect(order).toEqual(["ffa-1", "s", "t"]);
   });
 
-  it("stacks two cards on their own rows", async () => {
+  it("makes FFA the wide card on desktop and a full row on tablet", async () => {
     await pushLobbies({
       ffa: [publicLobby("ffa-1")],
       team: [publicLobby("t")],
       special: [publicLobby("s")],
     });
-    const rows = Array.from(section().querySelectorAll("div.sm\\:min-h-0")).map(
-      (c) => c.className,
+    const grid = cards()[0].parentElement!.parentElement!;
+    expect(grid.className).toContain("lg:grid-cols-[1.4fr_1fr_1fr]");
+    expect(cards()[0].parentElement!.className).toContain(
+      "sm:col-span-2 lg:col-span-1",
     );
-    expect(rows.some((c) => c.includes("sm:row-start-3"))).toBe(true);
-    expect(rows.some((c) => c.includes("sm:row-span-2"))).toBe(false);
+  });
+
+  it("shows whatever lobbies there are, without a spinner, when FFA is missing", async () => {
+    await pushLobbies({ team: [publicLobby("team-1")] });
+    expect(cards()).toHaveLength(1);
+    expect(section().querySelector(".animate-spin")).toBeNull();
   });
 });

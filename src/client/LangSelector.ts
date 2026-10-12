@@ -411,11 +411,11 @@ export class LangSelector extends LitElement {
         id="lang-selector"
         title="Change Language"
         @click=${this.openModal}
-        class="border-none bg-none cursor-pointer p-0 flex items-center justify-center transition-transform duration-200 hover:scale-[1.1] active:scale-[0.9] opacity-60 hover:opacity-100 w-[40px] h-[40px] lg:w-[56px] lg:h-[56px]"
+        class="border-none bg-none cursor-pointer p-0 flex items-center justify-center transition-transform duration-200 hover:scale-[1.1] active:scale-[0.9] opacity-60 hover:opacity-100 w-[40px] h-[40px] lg:w-[44px] lg:h-[40px]"
       >
         <img
           id="lang-flag"
-          class="object-contain pointer-events-none transition-all w-[40px] h-[40px] lg:w-[48px] lg:h-[48px]"
+          class="object-contain pointer-events-none transition-all w-[40px] h-[40px] lg:w-[40px] lg:h-[32px]"
           src=${assetUrl(`flags/${currentLang.svg}.svg`)}
           alt="flag"
           draggable="false"

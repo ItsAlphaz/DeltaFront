@@ -36,16 +36,18 @@ export class Footer extends LitElement {
   render() {
     return html`
       <footer
-        class="[.in-game_&]:hidden bg-df-bg-secondary flex flex-col items-center justify-center gap-1 pt-1 pb-3 text-df-text-muted w-full border-t border-df-border shrink-0 relative z-50 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-0"
+        class="[.in-game_&]:hidden bg-df-bg-secondary flex flex-col items-center justify-center gap-1 pt-1 pb-3 text-df-text-muted w-full border-t border-df-border shrink-0 relative z-50 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-0 lg:min-h-12 lg:py-2"
       >
         <!-- Icons and legal links stay centred on the bar; on desktop they
              share it with the Steam promo, which gets its own grid column so
-             the two can never overlap however wide a translation runs. -->
+             the two can never overlap however wide a translation runs. Phones
+             stack them; desktop runs them as one compact row so the homepage
+             fits one screen. -->
         <div
-          class="flex w-full flex-col items-center gap-1 lg:col-start-2 lg:w-auto"
+          class="flex w-full flex-col items-center gap-1 lg:col-start-2 lg:w-auto lg:flex-row lg:flex-wrap lg:justify-center lg:gap-x-5 lg:gap-y-1"
         >
           <div
-            class="flex items-center justify-center gap-4 lg:gap-6 pt-2 w-full relative"
+            class="flex items-center justify-center gap-4 pt-2 w-full relative lg:w-auto lg:pt-0"
           >
             <a
               href=${BRAND.sourceRepoUrl}
@@ -56,7 +58,7 @@ export class Footer extends LitElement {
               <img
                 src=${assetUrl("icons/github-mark-white.svg")}
                 data-i18n-alt="main.github"
-                class="h-6 w-6 lg:h-7 lg:w-7 object-contain pointer-events-none"
+                class="h-6 w-6 lg:h-5 lg:w-5 object-contain pointer-events-none"
                 draggable="false"
               />
             </a>
@@ -68,7 +70,7 @@ export class Footer extends LitElement {
                   class=${SOCIAL_LINK}
                 >
                   <svg
-                    class="h-6 w-6 lg:h-7 lg:w-7 object-contain pointer-events-none"
+                    class="h-6 w-6 lg:h-5 lg:w-5 object-contain pointer-events-none"
                     viewBox="0 0 24 24"
                     fill="currentColor"
                     xmlns="http://www.w3.org/2000/svg"
@@ -87,7 +89,7 @@ export class Footer extends LitElement {
                   class=${SOCIAL_LINK}
                 >
                   <svg
-                    class="h-6 w-6 lg:h-7 lg:w-7 object-contain pointer-events-none"
+                    class="h-6 w-6 lg:h-5 lg:w-5 object-contain pointer-events-none"
                     viewBox="0 0 24 24"
                     fill="currentColor"
                   >
@@ -107,7 +109,7 @@ export class Footer extends LitElement {
                   <img
                     src=${assetUrl("icons/wiki-logo.svg")}
                     data-i18n-alt="main.wiki"
-                    class="h-6 w-6 lg:h-7 lg:w-7 object-contain pointer-events-none"
+                    class="h-6 w-6 lg:h-5 lg:w-5 object-contain pointer-events-none"
                     draggable="false"
                   />
                 </a>`
@@ -116,11 +118,13 @@ export class Footer extends LitElement {
           <!-- The nav bar shows the game version alone so it reads the same
                across web and Steam; the full string, shell version included,
                lives down here where a player can quote it in a bug report. -->
-          <div class="footer-version text-xs mt-1 lg:mt-2 text-center px-4">
+          <div
+            class="footer-version text-xs mt-1 text-center px-4 lg:mt-0 lg:px-0"
+          >
             ${this.versionLabel}
           </div>
           <div
-            class="text-xs mt-1 lg:mt-2 flex items-center justify-center gap-4 px-4"
+            class="text-xs mt-1 flex items-center justify-center gap-4 px-4 lg:mt-0 lg:px-0"
           >
             <a
               href="/terms-of-service.html"
@@ -137,7 +141,7 @@ export class Footer extends LitElement {
             ></a>
           </div>
           <!-- Origin notice (AGPL §7(c)): DeltaFront is a modified OpenFront. -->
-          <div class="text-[11px] text-center px-4">
+          <div class="text-[11px] text-center px-4 lg:px-0">
             <a
               href=${BRAND.upstreamCreditsUrl}
               target="_blank"
@@ -151,7 +155,7 @@ export class Footer extends LitElement {
         <!-- Phones keep the full store widget on the play page instead; there
              is no room for it here. -->
         <div
-          class="hidden lg:flex lg:col-start-3 lg:items-center lg:justify-end lg:pt-2 lg:pr-20"
+          class="hidden lg:flex lg:col-start-3 lg:items-center lg:justify-end lg:pr-20"
         >
           <steam-wishlist-button
             campaign="home_desktop"

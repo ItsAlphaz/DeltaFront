@@ -46,7 +46,6 @@ import { UsernameInput } from "./UsernameInput";
 import {
   calculateServerTimeOffset,
   getGameModeLabel,
-  getGamesPlayed,
   getSecondsUntilServerTimestamp,
   reloadForUpdate,
   renderDuration,
@@ -55,17 +54,13 @@ import {
 } from "./Utils";
 import { isReplayShellHost } from "./VersionedReplay";
 
+/** Solo: the one red call to action. */
 const PRIMARY_ACTION =
-  "bg-df-red hover:bg-df-red-bright active:bg-df-red/80 hover:scale-y-105 hover:scale-x-[1.01]";
+  "bg-df-red hover:bg-df-red-bright active:bg-df-red-dark text-xl lg:text-[1.625rem] tracking-[0.3em]";
+/** Create / Join (and Ranked when on): dark, with a red edge on hover/focus. */
 const SECONDARY_ACTION =
-  "bg-surface hover:brightness-[1.08] active:brightness-[0.95] hover:scale-105 hover:shadow-[var(--shadow-action-card-hover)]";
+  "bg-df-panel border border-df-border hover:border-df-red active:bg-df-bg-secondary text-sm lg:text-base tracking-[0.2em]";
 const DISABLED = "opacity-50 cursor-not-allowed pointer-events-none";
-/** Tutorial card: white beside Solo's red, dark text for contrast. */
-const TUTORIAL_ACTION =
-  "bg-df-text hover:bg-white active:bg-df-text-secondary !text-df-bg hover:scale-y-105 hover:scale-x-[1.01]";
-
-/** The Tutorial card shows beside Solo until the player has played this many games. */
-const TUTORIAL_CARD_MAX_GAMES = 5;
 
 /**
  * THE REACHABILITY RULE (OPE-439). Stated once, here; every other call site
@@ -652,128 +647,116 @@ export class GameModeSelector extends LitElement {
     const ffa = this.lobbies?.games?.["ffa"]?.[0];
     const teams = this.lobbies?.games?.["team"]?.[0];
     const special = this.lobbies?.games?.["special"]?.[0];
-    // The hero slot holds the spinner, then the FFA card; loaded without one
-    // it goes and the upcoming column takes the whole row.
-    const heroSlot = this.lobbies === null || ffa !== undefined;
-    // A lone secondary card takes both of the column's card rows.
-    const cardRows =
-      teams && special
-        ? { special: "sm:row-start-2", teams: "sm:row-start-3" }
-        : {
-            special: "sm:row-start-2 sm:row-span-2",
-            teams: "sm:row-start-2 sm:row-span-2",
-          };
-
-    // DOM is in phone order; sm+ places the same elements onto a grid and
-    // reading-flow keeps focus order following the rows (Chromium only).
     return html`
-      <div
-        class="flex flex-col gap-4 w-full px-4 pb-4 mx-auto sm:px-0 sm:pb-0 sm:grid sm:grid-cols-[2fr_1fr] sm:grid-rows-[auto_min(24rem,40vh)_auto_auto] desktop:sm:grid-rows-[auto_40vh_auto_auto] sm:[reading-flow:grid-rows]"
-      >
+      <div class="flex w-full flex-col lg:h-full lg:min-h-0">
         <ios-add-to-home-screen-banner
-          class="no-crazygames [&:empty]:hidden sm:col-span-2 sm:row-start-1"
+          class="no-crazygames [&:empty]:hidden mx-auto mb-3 w-full max-w-[480px] px-4 sm:px-0"
         ></ios-add-to-home-screen-banner>
 
-        <div class="flex gap-4 h-14 sm:col-span-2 sm:row-start-3">
-          <div class="flex-[2]">
+        <!-- Main actions: the centred 520px column under the name panel. -->
+        <div
+          class="mx-auto flex w-full max-w-[480px] shrink-0 flex-col gap-3 px-4 sm:px-0 lg:gap-(--df-gap-a)"
+        >
+          <div class="h-16 lg:h-(--df-solo)">
             ${this.renderSmallActionCard(
               translateText("main.solo"),
               this.openSinglePlayerModal,
               PRIMARY_ACTION,
             )}
           </div>
-          ${getGamesPlayed() < TUTORIAL_CARD_MAX_GAMES
-            ? html`<div class="flex-1">
-                ${this.renderSmallActionCard(
-                  translateText("main.tutorial"),
-                  this.startTutorial,
-                  TUTORIAL_ACTION,
-                )}
-              </div>`
-            : nothing}
-        </div>
-        <div
-          class="grid ${ACCOUNT_FEATURES.ranked
-            ? "grid-cols-3"
-            : "grid-cols-2"} gap-4 h-14 sm:col-span-2 sm:row-start-4"
-        >
-          ${this.renderSmallActionCard(
-            translateText("main.create"),
-            this.openHostLobby,
-            SECONDARY_ACTION,
-            undefined,
-            true,
-          )}
-          ${ACCOUNT_FEATURES.ranked
-            ? this.renderSmallActionCard(
-                translateText("mode_selector.ranked_title"),
-                this.openRankedMenu,
-                SECONDARY_ACTION,
-                undefined,
-                true,
-                // Ranked admits trusted accounts only. A trusted viewer gets
-                // the green open lock; anyone else meets the red locks and the
-                // trust popup inside the ranked modal. Small, so it clears the
-                // label on narrow (mobile) buttons.
-                this.viewerTrusted
-                  ? trustLockIcon(true, {
-                      tooltipTitle: translateText(
-                        "mode_selector.ranked_trust_tooltip_title",
-                      ),
-                      position: "top-1 right-1",
-                      small: true,
-                    })
-                  : nothing,
-              )
-            : nothing}
-          ${this.renderSmallActionCard(
-            translateText("main.join"),
-            this.openJoinLobby,
-            SECONDARY_ACTION,
-            this.hostedLobbyCount(),
-            true,
-          )}
+          <div
+            class="grid ${ACCOUNT_FEATURES.ranked
+              ? "grid-cols-3"
+              : "grid-cols-1 min-[400px]:grid-cols-2"} gap-3 lg:gap-(--df-gap-a) [&>*]:h-14 lg:[&>*]:h-(--df-row)"
+          >
+            ${this.renderSmallActionCard(
+              translateText("main.create"),
+              this.openHostLobby,
+              SECONDARY_ACTION,
+              undefined,
+              true,
+            )}
+            ${ACCOUNT_FEATURES.ranked
+              ? this.renderSmallActionCard(
+                  translateText("mode_selector.ranked_title"),
+                  this.openRankedMenu,
+                  SECONDARY_ACTION,
+                  undefined,
+                  true,
+                  // Ranked admits trusted accounts only. A trusted viewer gets
+                  // the green open lock; anyone else meets the red locks and
+                  // the trust popup inside the ranked modal. Small, so it
+                  // clears the label on narrow (mobile) buttons.
+                  this.viewerTrusted
+                    ? trustLockIcon(true, {
+                        tooltipTitle: translateText(
+                          "mode_selector.ranked_trust_tooltip_title",
+                        ),
+                        position: "top-1 right-1",
+                        small: true,
+                      })
+                    : nothing,
+                )
+              : nothing}
+            ${this.renderSmallActionCard(
+              translateText("main.join"),
+              this.openJoinLobby,
+              SECONDARY_ACTION,
+              this.hostedLobbyCount(),
+              true,
+            )}
+          </div>
         </div>
 
-        ${heroSlot
-          ? html`<div class="min-w-0 sm:col-start-1 sm:row-start-2">
-              ${ffa
-                ? this.renderLobbyCard(ffa, getGameModeLabel(ffa.gameConfig!))
-                : this.offlineForLobbies()
+        <!-- Upcoming: heading row, then the scheduled public lobbies in one
+             row (FFA wider). Tablet puts FFA on its own row above the other
+             two; phones stack them. -->
+        <section
+          class="mt-8 flex min-w-0 flex-col gap-2 px-4 sm:px-0 lg:mt-(--df-gap-up) lg:flex-1 lg:min-h-0"
+        >
+          ${this.renderUpcomingHeading()}
+          ${this.lobbies === null
+            ? html`<div class="h-44 lg:h-auto lg:flex-1 lg:min-h-[110px]">
+                ${this.offlineForLobbies()
                   ? this.renderLobbiesUnavailable()
                   : html`<div
-                      class="flex items-center justify-center h-44 sm:h-full"
+                      class="flex h-full items-center justify-center rounded-sm border border-df-border bg-df-panel/60"
                     >
                       <span
-                        class="size-24 rounded-full border-[6px] border-df-red/30 border-t-df-red animate-spin"
+                        class="size-12 rounded-full border-4 border-df-red/30 border-t-df-red animate-spin"
                       ></span>
                     </div>`}
-            </div>`
-          : nothing}
-
-        <!-- Always rendered: the heading is the only way into the lobby browser. -->
-        <section
-          class="flex flex-col gap-4 min-w-0 sm:grid sm:grid-rows-[auto_1fr_1fr] sm:row-start-2 sm:min-h-0 sm:[reading-flow:grid-rows] ${heroSlot
-            ? "sm:col-start-2"
-            : "sm:col-start-1 sm:col-span-2"}"
-        >
-          ${teams
-            ? html`<div class="min-w-0 sm:min-h-0 ${cardRows.teams}">
-                ${this.renderLobbyCard(
-                  teams,
-                  getGameModeLabel(teams.gameConfig!),
-                )}
               </div>`
-            : nothing}
-          ${special
-            ? html`<div class="min-w-0 sm:min-h-0 ${cardRows.special}">
-                ${this.renderLobbyCard(
-                  special,
-                  getGameModeLabel(special.gameConfig!),
-                )}
-              </div>`
-            : nothing}
-          ${this.renderUpcomingHeading()}
+            : html`<div
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:flex-1 lg:min-h-[110px] lg:grid-cols-[1.4fr_1fr_1fr] lg:grid-rows-[minmax(0,1fr)]"
+              >
+                ${ffa
+                  ? html`<div
+                      class="min-w-0 lg:min-h-0 sm:col-span-2 lg:col-span-1"
+                    >
+                      ${this.renderLobbyCard(
+                        ffa,
+                        getGameModeLabel(ffa.gameConfig!),
+                      )}
+                    </div>`
+                  : nothing}
+                ${special
+                  ? html`<div class="min-w-0 lg:min-h-0">
+                      ${this.renderLobbyCard(
+                        special,
+                        getGameModeLabel(special.gameConfig!),
+                      )}
+                    </div>`
+                  : nothing}
+                ${teams
+                  ? html`<div class="min-w-0 lg:min-h-0">
+                      ${this.renderLobbyCard(
+                        teams,
+                        getGameModeLabel(teams.gameConfig!),
+                      )}
+                    </div>`
+                  : nothing}
+              </div>`}
         </section>
 
         ${this.showTrustRequired
@@ -853,12 +836,6 @@ export class GameModeSelector extends LitElement {
     );
   };
 
-  // Handled in Main, which also serves the help page's tutorial button.
-  private startTutorial = () => {
-    if (!this.validateUsername()) return;
-    document.dispatchEvent(new CustomEvent("start-tutorial"));
-  };
-
   private openHostLobby = () => {
     if (this.blockedFromApiAction()) return;
     if (!this.validateUsername()) return;
@@ -887,45 +864,48 @@ export class GameModeSelector extends LitElement {
    * replaces did: openDetailedView's own check is a silent backstop that
    * assumes its control already looks disabled.
    */
-  /** Heading over the upcoming column; also the link to the lobby browser. */
+  /**
+   * Heading over the Upcoming row, with "See all" as the way into the lobby
+   * browser. Dims and stops responding on an invalid username, as the
+   * Detailed View button it replaced did: openDetailedView's own check is a
+   * silent backstop that assumes its control already looks disabled.
+   */
   private renderUpcomingHeading() {
     const count = this.advertisedLobbyCount();
     return html`
-      <h2 class="min-w-0 sm:row-start-1">
+      <div class="flex min-w-0 shrink-0 items-center justify-between gap-3">
+        <h2
+          class="truncate font-display font-bold text-base lg:text-lg uppercase tracking-[0.2em] text-df-text-secondary"
+        >
+          ${translateText("public_lobby.upcoming")}
+        </h2>
         <button
+          data-see-all
           @click=${this.openDetailedView}
           ?disabled=${!this.inputValid}
-          class="group/upcoming flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.04] py-1.5 pl-2.5 pr-1.5 transition-colors hover:border-df-red/50 hover:bg-df-red/15 ${this
+          class="flex shrink-0 items-center gap-1 rounded-sm bg-df-border py-1 pl-3 pr-2 font-display text-xs lg:text-sm uppercase tracking-[0.1em] text-df-text transition-colors hover:bg-df-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-df-red ${this
             .inputValid
             ? ""
             : DISABLED}"
         >
-          <span
-            class="truncate text-sm font-bold uppercase tracking-widest text-white/70 group-hover/upcoming:text-white"
-            >${translateText("public_lobby.upcoming")}</span
+          ${count > 0
+            ? translateText("public_lobby.see_all", { count })
+            : nothing}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            class="size-4"
+            aria-hidden="true"
           >
-          <span
-            class="flex shrink-0 items-center gap-0.5 rounded-sm bg-white/10 py-0.5 pl-2 pr-1 text-xs font-bold uppercase tracking-wider text-df-text group-hover/upcoming:bg-df-red"
-          >
-            ${count > 0
-              ? translateText("public_lobby.see_all", { count })
-              : nothing}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              class="size-4"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </span>
+            <path
+              fill-rule="evenodd"
+              d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+              clip-rule="evenodd"
+            />
+          </svg>
         </button>
-      </h2>
+      </div>
     `;
   }
 
@@ -961,7 +941,7 @@ export class GameModeSelector extends LitElement {
         @click=${onClick}
         ?disabled=${!this.inputValid}
         aria-disabled=${blocked}
-        class="relative flex items-center justify-center w-full h-full rounded-lg ${bgClass} transition-all duration-200 font-display text-sm lg:text-base font-bold text-white uppercase tracking-widest text-center ${!this
+        class="relative flex items-center justify-center w-full h-full rounded-sm ${bgClass} transition-colors duration-150 font-display text-white uppercase text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-df-text ${!this
           .inputValid
           ? DISABLED
           : blocked
@@ -989,14 +969,12 @@ export class GameModeSelector extends LitElement {
       : undefined;
 
     let timeDisplay: string;
-    let timeDisplayUppercase = false;
     if (timeRemaining === undefined) {
       timeDisplay = renderDuration(this.defaultLobbyTime);
     } else if (timeRemaining > 0) {
       timeDisplay = renderDuration(timeRemaining);
     } else {
       timeDisplay = translateText("public_lobby.starting_game");
-      timeDisplayUppercase = true;
     }
 
     // Gated, not disabled: `disabled` (which the option below sets, together
@@ -1011,7 +989,7 @@ export class GameModeSelector extends LitElement {
       lobby,
       subtitle: titleContent,
       timeDisplay,
-      timeDisplayUppercase,
+      heightClass: "h-44 lg:h-full",
       disabled: !this.inputValid,
       blocked: shouldBlockSocketSourcedAction(
         this.desktopUpdateState,

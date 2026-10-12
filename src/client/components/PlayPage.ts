@@ -17,9 +17,14 @@ export class PlayPage extends LitElement {
 
   render() {
     return html`
+      <!-- Desktop: fills the space between header and footer and sizes every
+           section from the viewport height (.df-home in styles.css), so the
+           whole homepage fits one screen. Spare height centres the stack,
+           keeping the space above the logo equal to the space below the cards
+           (the bottom padding tops up main-layout's half-height bottom pad). -->
       <div
         id="page-play"
-        class="flex flex-col gap-2 w-full px-0 lg:px-4 min-h-0"
+        class="df-home flex flex-col w-full min-h-0 lg:flex-1 lg:justify-center lg:pb-[clamp(0.375rem,0.75vw,0.75rem)]"
       >
         <token-login class="absolute"></token-login>
         <rewards-modal class="absolute"></rewards-modal>
@@ -80,47 +85,58 @@ export class PlayPage extends LitElement {
           </div>
         </div>
 
-        <!-- Top strip: news + identity on the left, Streaming Now on the right. The 2fr/1fr
-             split only exists while the panel is live (.streaming-live via has-[]) —
-             otherwise the left column takes the full row. -->
-        <div
-          class="w-full pb-4 lg:pb-0 flex flex-col gap-4 sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:grid lg:grid-cols-1 lg:has-[.streaming-live]:grid-cols-[2fr_1fr] lg:gap-4 lg:items-stretch"
-        >
-          <!-- Mobile: spacer for fixed top bar -->
+        <!-- Mobile: spacer for the fixed top bar, then the news card. Desktop
+             shows news as a strip above the header (index.html). -->
+        <div class="lg:hidden h-[calc(env(safe-area-inset-top)+56px)]"></div>
+        <news-box class="lg:hidden"></news-box>
+
+        <!-- Hero (desktop): the wordmark and the build's version, centred. The
+             version is stamped into .game-version-display at boot
+             (renderNavVersion), as it is in the nav drawer. -->
+        <div class="hidden lg:flex flex-col items-center shrink-0">
+          <img
+            src=${assetUrl("images/branding/deltafront-logo.png")}
+            alt="DeltaFront"
+            class="pixelated block h-(--df-logo) w-auto"
+            draggable="false"
+          />
           <div
-            class="lg:hidden h-[calc(env(safe-area-inset-top)+56px)] -mb-4"
+            class="game-version-display mt-0.5 text-(length:--df-version) leading-none tracking-[0.2em] text-df-text-muted"
+            translate="no"
           ></div>
-
-          <!-- Left column: news banner + identity row, stacked tight. -->
-          <div class="flex flex-col gap-2 min-w-0">
-            <news-box></news-box>
-
-            <!-- Identity row: username over the currently selected cosmetic background. -->
-            <div
-              class="relative bg-df-panel border-y border-df-border overflow-visible flex items-center sm:min-h-[60px] sm:flex-1 sm:z-20 sm:border sm:rounded-sm"
-            >
-              <!-- Selected skin/pattern fills the bubble like the player's territory in game. -->
-              <cosmetic-background
-                class="absolute inset-0 z-0 overflow-hidden sm:rounded-sm pointer-events-none"
-              ></cosmetic-background>
-              <div
-                class="relative z-10 flex h-full w-full min-w-0 items-center bg-df-panel/80 p-1 sm:rounded-sm"
-              >
-                <username-input
-                  class="flex-1 min-w-0 h-10 sm:h-[50px]"
-                ></username-input>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right column: Streaming Now (desktop only), stretched to the left column's
-               full height so the top strip has no dead space. -->
-          <streaming-now
-            class="hidden lg:flex lg:h-full lg:flex-col w-full min-w-0"
-          ></streaming-now>
         </div>
 
-        <game-mode-selector></game-mode-selector>
+        <!-- Identity panel: the player's name over their selected cosmetic
+             background, in the centred 480px control column. -->
+        <div
+          class="mx-auto w-full max-w-[480px] shrink-0 px-4 pt-4 sm:px-0 lg:pt-0 lg:mt-(--df-gap)"
+        >
+          <div
+            class="relative flex h-16 lg:h-(--df-name) items-center overflow-visible rounded-sm border border-df-border bg-df-panel"
+          >
+            <!-- Selected skin/pattern fills the panel like the player's territory in game. -->
+            <cosmetic-background
+              class="absolute inset-0 z-0 overflow-hidden rounded-sm pointer-events-none"
+            ></cosmetic-background>
+            <div
+              class="relative z-10 flex h-full w-full min-w-0 items-center bg-df-panel/80 p-1"
+            >
+              <username-input class="flex-1 min-w-0 h-full"></username-input>
+            </div>
+          </div>
+        </div>
+
+        <!-- Takes the remaining height (the cards grow into it) but never more
+           than its controls plus the cards' cap, so leftover space centres
+           the page instead of stretching the cards. -->
+        <game-mode-selector
+          class="block mt-3 lg:mt-(--df-gap-a) lg:flex lg:flex-col lg:flex-1 lg:min-h-0 lg:max-h-[calc(var(--df-solo)+var(--df-gap-a)+var(--df-row)+var(--df-gap-up)+36px+var(--df-cards-max))]"
+        ></game-mode-selector>
+
+        <!-- Streaming Now: kept mounted but hidden; the one-screen desktop
+             homepage has no room for it, and its feed needs the account
+             backend (off). -->
+        <streaming-now class="hidden"></streaming-now>
 
         <!-- Desktop gets the compact footer button instead. -->
         <steam-wishlist

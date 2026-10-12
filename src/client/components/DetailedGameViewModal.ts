@@ -466,7 +466,6 @@ export class DetailedGameViewModal extends BaseModal {
       lobby,
       subtitle: getGameModeLabel(config),
       timeDisplay: this.timeDisplay(lobby, startAt),
-      timeDisplayUppercase: startAt === undefined,
       heightClass: "h-full",
       // Gated, not disabled: `disabled` also sets pointer-events-none and would
       // swallow the click that's supposed to make the update bar wiggle. join()

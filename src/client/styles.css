@@ -18,14 +18,17 @@
      every var(--color-df-*) reads from here. */
   --color-df-bg: #090909;
   --color-df-bg-secondary: #111111;
-  --color-df-panel: #161616;
+  --color-df-panel: #1a1a1a;
   --color-df-red: #e31b23;
   --color-df-red-dark: #a80f16;
   --color-df-red-bright: #ff252d;
   --color-df-text: #f5f5f5;
-  --color-df-text-secondary: #b8b8b8;
-  --color-df-text-muted: #777777;
-  --color-df-border: #292929;
+  --color-df-text-secondary: #a7a7a7;
+  --color-df-text-muted: #707070;
+  --color-df-border: #2b2b2b;
+  /* Page backdrop: dark field with a faint 32px square grid. */
+  --color-df-page: #131313;
+  --color-df-grid: #1b1b1b;
 
   /* In-game troop bar (ControlPanel). Its own tokens so the bar can stay
      high-contrast without moving the brand reds used everywhere else:
@@ -933,17 +936,56 @@ unit-display .tutorial-highlight::after {
   background: #ef4444;
 }
 
-/* Menu backdrop: flat black with a faint tactical grid and a thin red front
-   line along the top. Pure CSS, so nothing is scaled or blurred. */
+/* Menu backdrop: a dark field with a faint 1px square grid every 32px,
+   anchored to the page origin. Pure CSS, so nothing is scaled or blurred. */
 .df-backdrop {
-  background-color: var(--color-df-bg);
+  background-color: var(--color-df-page);
   background-image:
-    linear-gradient(var(--color-df-red), var(--color-df-red)),
-    linear-gradient(to right, rgb(255 255 255 / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.03) 1px, transparent 1px);
-  background-size:
-    100% 2px,
-    32px 32px,
-    32px 32px;
-  background-repeat: no-repeat, repeat, repeat;
+    linear-gradient(to right, var(--color-df-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-df-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Desktop homepage sizing. Every section scales with the viewport height
+   (clamped at both ends) so header, play page and footer share one screen;
+   the Upcoming cards take whatever height is left, up to --df-cards-max, and
+   any space beyond that centres the whole stack. Used by PlayPage and
+   GameModeSelector through lg:*-(--df-*) utilities. */
+.df-home {
+  --df-logo: clamp(56px, 10.5dvh, 140px);
+  --df-version: clamp(15px, 2.3dvh, 24px);
+  --df-gap: clamp(12px, 2.8dvh, 40px);
+  --df-name: clamp(44px, 7dvh, 70px);
+  --df-gap-a: clamp(8px, 1.3dvh, 12px);
+  --df-solo: clamp(48px, 7.8dvh, 76px);
+  --df-row: clamp(40px, 6.2dvh, 60px);
+  --df-gap-up: clamp(16px, 3.4dvh, 48px);
+  --df-cards-max: clamp(180px, 30dvh, 360px);
+}
+
+/* The desktop homepage fits one screen: no document scroll. Windows shorter
+   than 620px keep normal scrolling rather than clip the page. */
+@media (min-width: 1024px) and (min-height: 620px) {
+  body:not(.page-open):not(.in-game) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  body:not(.page-open):not(.in-game) .df-home-shell {
+    height: 100dvh;
+    min-height: 0;
+  }
+}
+
+/* Lobby-card tags: the homepage cards shrink with the viewport height, so
+   short windows show fewer tags (they are sorted most descriptive first)
+   rather than let them run into the card's title bar. */
+@media (max-height: 779px) {
+  .df-card-tags > :nth-child(n + 3) {
+    display: none;
+  }
+}
+@media (max-height: 699px) {
+  .df-card-tags > :nth-child(n + 2) {
+    display: none;
+  }
 }

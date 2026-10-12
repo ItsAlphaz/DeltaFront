@@ -45,7 +45,7 @@ export class NavUtilityIcons extends LitElement {
     const box = this.size === "mobile" ? "w-9 h-9" : "w-10 h-10";
     return (
       `nav-menu-item flex items-center justify-center ${box} rounded-full ` +
-      "text-white/70 hover:text-df-red cursor-pointer transition-colors " +
+      "text-white/80 hover:text-df-red-bright cursor-pointer transition-colors " +
       "[&.active]:text-df-red"
     );
   }
@@ -112,7 +112,9 @@ export class NavUtilityIcons extends LitElement {
   render(): TemplateResult {
     const currentPage = window.currentPageId;
     return html`
-      <div class="flex items-center gap-1">
+      <div
+        class="flex items-center ${this.size === "desktop" ? "gap-2" : "gap-1"}"
+      >
         <div class="relative">
           <button
             class="${this.buttonClass()} ${currentPage === "page-news"

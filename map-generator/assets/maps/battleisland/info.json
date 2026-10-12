@@ -1,0 +1,89 @@
+{
+  "id": "BattleIsland",
+  "name": "Battle Island",
+  "translation_key": "map.battleisland",
+  "categories": ["fictional"],
+  "multiplayer_frequency": 0,
+  "nations": [
+    {
+      "coordinates": [430, 456],
+      "flag": "",
+      "name": "Parkhaven"
+    },
+    {
+      "coordinates": [850, 340],
+      "flag": "",
+      "name": "Freehold"
+    },
+    {
+      "coordinates": [1054, 516],
+      "flag": "",
+      "name": "Redvine"
+    },
+    {
+      "coordinates": [1300, 450],
+      "flag": "",
+      "name": "Whisperwood"
+    },
+    {
+      "coordinates": [1430, 660],
+      "flag": "",
+      "name": "Pinecrest"
+    },
+    {
+      "coordinates": [930, 710],
+      "flag": "",
+      "name": "Ashfield"
+    },
+    {
+      "coordinates": [1190, 840],
+      "flag": "",
+      "name": "Marketon"
+    },
+    {
+      "coordinates": [370, 990],
+      "flag": "",
+      "name": "Oilbrook"
+    },
+    {
+      "coordinates": [900, 1000],
+      "flag": "",
+      "name": "Saltwell"
+    },
+    {
+      "coordinates": [960, 1200],
+      "flag": "",
+      "name": "Harvestfield"
+    },
+    {
+      "coordinates": [1320, 1250],
+      "flag": "",
+      "name": "Mirefen"
+    },
+    {
+      "coordinates": [570, 1390],
+      "flag": "",
+      "name": "Millworks"
+    },
+    {
+      "coordinates": [224, 800],
+      "flag": "",
+      "name": "Highcliff"
+    },
+    {
+      "coordinates": [320, 250],
+      "flag": "",
+      "name": "Northwatch"
+    },
+    {
+      "coordinates": [560, 840],
+      "flag": "",
+      "name": "Riverbend"
+    },
+    {
+      "coordinates": [1400, 1040],
+      "flag": "",
+      "name": "Eastreach"
+    }
+  ]
+}

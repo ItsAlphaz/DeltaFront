@@ -118,14 +118,12 @@ function formatClaimDate(date: Date): string {
 
 // Shared by the input and the verified chip, which swap places: any drift in
 // box or text metrics shows up as the name jumping on toggle.
-const NAME_BOX =
-  "min-w-0 flex-1 h-full max-h-[44px] rounded-lg bg-transparent px-2 sm:px-3";
+const NAME_BOX = "min-w-0 flex-1 h-full rounded-sm bg-transparent px-2 sm:px-3";
 // `line-height: normal` because that is what an <input> uses for its editor
 // box; the span only lands on the same pixel when it sizes from font metrics
 // too. Any fixed leading drifts a pixel under some fonts.
 const NAME_TEXT =
-  "text-xl/[normal] sm:text-2xl/[normal] font-medium tracking-wider " +
-  "[text-shadow:0_1px_2px_rgba(0,0,0,0.9)]";
+  "text-xl/[normal] sm:text-[1.875rem]/[normal] font-medium tracking-wide";
 
 @customElement("username-input")
 export class UsernameInput extends LitElement {
@@ -1092,7 +1090,7 @@ export class UsernameInput extends LitElement {
         minlength="${MIN_USERNAME_LENGTH}"
         maxlength="${MAX_USERNAME_LENGTH}"
         aria-label=${translateText("username.enter_username")}
-        class="text-left text-white placeholder-white/50 transition-colors text-ellipsis hover:bg-white/5 focus:bg-white/5 focus:outline-none focus:ring-2 focus:ring-df-red/60 ${NAME_BOX} ${NAME_TEXT}"
+        class="text-center text-white placeholder-white/50 transition-colors text-ellipsis hover:bg-white/5 focus:bg-white/5 focus:outline-none focus:ring-2 focus:ring-df-red/60 ${NAME_BOX} ${NAME_TEXT}"
       />
     `;
   }

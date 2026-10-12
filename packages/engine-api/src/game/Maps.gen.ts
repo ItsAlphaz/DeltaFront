@@ -20,6 +20,7 @@ export enum GameMapType {
   Balkans = "Balkans", // map-generator/assets/maps/balkans/info.json
   Balkhash = "Balkhash", // map-generator/assets/maps/balkhash/info.json
   Baltics = "Baltics", // map-generator/assets/maps/baltics/info.json
+  BattleIsland = "Battle Island", // map-generator/assets/maps/battleisland/info.json
   BeringSea = "Bering Sea", // map-generator/assets/maps/beringsea/info.json
   BeringStrait = "Bering Strait", // map-generator/assets/maps/beringstrait/info.json
   BetweenTwoSeas = "Between Two Seas", // map-generator/assets/maps/betweentwoseas/info.json
@@ -456,6 +457,17 @@ export const maps: readonly MapInfo[] = [
     specialFrequency: -1,
     defaultNationCount: 35,
     themes: ["europe"],
+  },
+  {
+    id: "BattleIsland",
+    type: GameMapType.BattleIsland,
+    translationKey: "map.battleisland",
+    categories: ["fictional"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 16,
   },
   {
     id: "BeringSea",

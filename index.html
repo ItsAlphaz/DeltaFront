@@ -272,15 +272,19 @@
 
     <!-- MAIN CONTENT AREA -->
     <div
-      class="in-[.in-game]:hidden flex-1 basis-full min-w-0 min-h-dvh in-[.page-open]:min-h-0 in-[.page-open]:overflow-hidden relative pt-[var(--top-ad-pad,0px)] in-[.page-open]:pt-[var(--top-ad-height,0px)] transition-[margin] duration-500 ease-out will-change-[margin-left] flex flex-col"
+      class="df-home-shell in-[.in-game]:hidden flex-1 basis-full min-w-0 min-h-dvh in-[.page-open]:min-h-0 in-[.page-open]:overflow-hidden relative pt-[var(--top-ad-pad,0px)] in-[.page-open]:pt-[var(--top-ad-height,0px)] transition-[margin] duration-500 ease-out will-change-[margin-left] flex flex-col"
     >
-      <!-- Desktop Top Bar (sticky so it stays visible while the page scrolls,
-           offset below the header ad when one is showing; static while an
-           inline page is open, when the content area is padded below the ad
-           instead and nothing scrolls) -->
-      <desktop-nav-bar
-        class="sticky top-[var(--top-ad-height,0px)] z-[60] in-[.page-open]:static"
-      ></desktop-nav-bar>
+      <!-- Desktop news strip: a slim bar across the top of the homepage, above
+           the header. Phones show the same items as a card inside the play
+           page instead (the fixed mobile top bar would cover a strip here). -->
+      <news-box
+        variant="strip"
+        class="hidden lg:block lg:in-[.page-open]:hidden"
+      ></news-box>
+
+      <!-- Desktop top bar: a minimal header that sits on the page grid and
+           scrolls with the page. -->
+      <desktop-nav-bar class="relative z-[60]"></desktop-nav-bar>
 
       <div
         id="turnstile-container"

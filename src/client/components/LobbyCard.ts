@@ -140,9 +140,8 @@ export interface LobbyCardOptions {
   lobby: PublicGameInfo;
   /** Bottom-bar subtitle: the game mode, e.g. "FFA" or "5 teams of 20". */
   subtitle: string | TemplateResult;
-  /** Right-hand pill: countdown, "Starting…", or a status word. */
+  /** Right-hand pill: countdown, "Starting…", or a status word (uppercase, like every card label). */
   timeDisplay: string;
-  timeDisplayUppercase?: boolean;
   onClick: () => void;
   disabled?: boolean;
   /**
@@ -153,7 +152,7 @@ export interface LobbyCardOptions {
   blocked?: boolean;
   /** Only matters for a trusted-only lobby, which shows an open or closed lock. */
   viewerTrusted?: boolean;
-  /** Card height; defaults to the homepage's fill-the-grid-cell sizing. */
+  /** Card height; defaults to the homepage's Upcoming-row sizing. */
   heightClass?: string;
 }
 
@@ -163,10 +162,13 @@ export interface LobbyCardOptions {
  * line box and renders short and low.
  */
 const PILL =
-  "rounded-sm bg-df-bg/85 border-l-2 border-df-red px-2 py-1 text-xs font-bold tracking-widest text-df-text";
+  "rounded-sm bg-df-bg/90 border-l-[3px] border-df-red px-2.5 py-1 font-bold text-[13px] leading-[1.35] tracking-[0.12em] text-df-text";
+/** Modifier tags read in the pixel face; the countdown stays in the sans, where "5S" can't pass for "SS". */
+const TAG_PILL = `${PILL} font-display`;
+const TIMER_PILL = `${PILL} font-sans shrink-0 tabular-nums`;
 // No backdrop-filter anywhere in the card: under a transformed ancestor
 // Chrome clips it with a separate mask and the map leaks at the corners.
-const BADGE = "rounded bg-black/70";
+const BADGE = "rounded-sm bg-df-bg/80";
 /** A player's listed lobby, so it can't pass for a scheduled public game. */
 const CUSTOM_PILL =
   "rounded bg-orange-500 px-2 py-1 text-xs font-bold tracking-widest text-white";
@@ -186,12 +188,11 @@ export function lobbyCard({
   lobby,
   subtitle,
   timeDisplay,
-  timeDisplayUppercase = false,
   onClick,
   disabled = false,
   blocked = false,
   viewerTrusted = false,
-  heightClass = "h-44 sm:h-full",
+  heightClass = "h-44 lg:h-[220px]",
 }: LobbyCardOptions): TemplateResult {
   const mapType = lobby.gameConfig!.gameMap as GameMapType;
   const mapName = getMapName(lobby.gameConfig?.gameMap);
@@ -232,7 +233,7 @@ export function lobbyCard({
       @click=${onClick}
       ?disabled=${disabled}
       aria-disabled=${blocked}
-      class="group @container relative block w-full ${heightClass} overflow-hidden rounded-2xl bg-surface text-left uppercase text-white transition-shadow duration-200 hover:shadow-[var(--shadow-lobby-card-hover)] ${state}"
+      class="group @container relative block w-full ${heightClass} overflow-hidden rounded-sm bg-df-panel text-left uppercase text-white transition-shadow duration-200 hover:shadow-[var(--shadow-lobby-card-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-df-red ${state}"
     >
       <img
         src=${terrainMapFileLoader.getMapData(mapType).webpPath}
@@ -242,57 +243,61 @@ export function lobbyCard({
       />
 
       <div
-        class="absolute inset-x-2 top-2 flex items-start justify-between gap-2"
+        class="absolute inset-x-3 top-3 flex items-start justify-between gap-2"
       >
-        <div class="flex min-w-0 flex-col items-start gap-1">
+        <div class="df-card-tags flex min-w-0 flex-col items-start gap-1">
           ${custom
             ? html`<span class=${CUSTOM_PILL}
                 >${translateText("public_lobby.custom")}</span
               >`
             : nothing}
-          ${modifiers.map((label) => html`<span class=${PILL}>${label}</span>`)}
+          ${modifiers.map(
+            (label) => html`<span class=${TAG_PILL}>${label}</span>`,
+          )}
         </div>
-        <span
-          class="${PILL} shrink-0 tabular-nums ${timeDisplayUppercase
-            ? ""
-            : "normal-case"}"
-          >${timeDisplay}</span
-        >
+        <span class=${TIMER_PILL}>${timeDisplay}</span>
       </div>
 
+      <!-- Title bar: map and mode on the left; the custom-lobby info, the
+           trust lock and the player count in a row on the right. -->
       <div
-        class="absolute inset-x-0 bottom-0 flex flex-col bg-black/65 px-3 py-2 ${trustedOnly &&
-        custom
-          ? "pr-20"
-          : trustedOnly || custom
-            ? "pr-10"
-            : ""}"
+        class="absolute inset-x-0 bottom-0 flex min-h-[clamp(52px,7.5dvh,67px)] items-center gap-3 bg-df-panel/90 px-4 py-2"
       >
-        <span
-          class="${BADGE} absolute bottom-full right-2 mb-1 flex items-center gap-1 px-2 py-0.5 text-xs font-bold tabular-nums tracking-widest"
-        >
-          ${playerCount}
-          <svg
-            class="size-4"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          ${title
+            ? html`<p
+                class="truncate text-[clamp(1rem,2.4dvh,1.25rem)] font-bold leading-tight tracking-[0.06em]"
+              >
+                ${title}
+              </p>`
+            : nothing}
+          <h3
+            class="text-[13px] leading-tight tracking-[0.1em] text-df-text-secondary"
           >
-            <path
-              d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"
-            />
-          </svg>
-        </span>
-        ${trustedOnly ? trustLockIcon(viewerTrusted) : nothing}
-        ${custom ? customInfoIcon(lobby, trustedOnly) : nothing}
-        ${title
-          ? html`<p
-              class="text-sm font-bold leading-tight tracking-wider @[20rem]:text-base"
+            ${subtitleLine}
+          </h3>
+        </div>
+        <div class="flex shrink-0 items-center gap-1.5">
+          ${custom ? customInfoIcon(lobby, trustedOnly, true) : nothing}
+          ${trustedOnly
+            ? trustLockIcon(viewerTrusted, { inline: true })
+            : nothing}
+          <span
+            class="${BADGE} flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] font-bold leading-none tabular-nums tracking-[0.08em]"
+          >
+            ${playerCount}
+            <svg
+              class="size-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
             >
-              ${title}
-            </p>`
-          : nothing}
-        <h3 class="text-xs tracking-wider text-white/70">${subtitleLine}</h3>
+              <path
+                d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"
+              />
+            </svg>
+          </span>
+        </div>
       </div>
     </button>
   `;
@@ -306,6 +311,7 @@ export function lobbyCard({
 function customInfoIcon(
   lobby: PublicGameInfo,
   besideLock: boolean,
+  inline = false,
 ): TemplateResult {
   const c = lobby.gameConfig;
   const enabled = translateText("common.enabled");
@@ -341,9 +347,9 @@ function customInfoIcon(
   const show = (e: Event) =>
     showFloatingTooltip(e.currentTarget as HTMLElement, tooltip);
   return html`<span
-    class="${BADGE} absolute bottom-2 ${besideLock
-      ? "right-11"
-      : "right-2"} flex items-center px-1.5 py-1 text-orange-400"
+    class="${BADGE} ${inline
+      ? "relative"
+      : `absolute bottom-2 ${besideLock ? "right-11" : "right-2"}`} flex items-center px-1.5 py-1 text-orange-400"
     aria-label=${title}
     data-custom-info
     @mouseenter=${show}
@@ -371,7 +377,15 @@ export function trustLockIcon(
     tooltipTitle = translateText("public_lobby.trusted_tooltip_title"),
     position = "bottom-2 right-2",
     small = false,
-  }: { tooltipTitle?: string; position?: string; small?: boolean } = {},
+    // In flow (e.g. a lobby card's title-bar row) rather than pinned to a
+    // corner of the nearest positioned ancestor.
+    inline = false,
+  }: {
+    tooltipTitle?: string;
+    position?: string;
+    small?: boolean;
+    inline?: boolean;
+  } = {},
 ): TemplateResult {
   const label = translateText(
     viewerTrusted
@@ -379,7 +393,9 @@ export function trustLockIcon(
       : "public_lobby.trusted_locked",
   );
   return html`<span
-    class="${BADGE} group/trust absolute ${position} flex items-center ${small
+    class="${BADGE} group/trust ${inline
+      ? "relative"
+      : `absolute ${position}`} flex items-center ${small
       ? "px-1 py-0.5"
       : "px-1.5 py-1"} ${viewerTrusted ? "text-green-400" : "text-red-400"}"
     aria-label=${label}

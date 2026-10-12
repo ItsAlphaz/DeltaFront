@@ -14,6 +14,10 @@ Licensed under the [SIL Open Font License 1.1](resources/fonts/pixelify-sans/OFL
 
 ## Map Data
 
+### Battle Island (fan map)
+
+The Battle Island map (`map-generator/assets/maps/battleisland`, `resources/maps/battleisland`) is traced from a Fortnite Chapter 1 map image. The original artwork and Fortnite location names are © Epic Games, Inc.; the map uses neutral names and is **not** covered by this repository's CC BY-SA 4.0 asset license. It is kept out of the public lobby rotation and should not be distributed publicly without Epic's permission.
+
 ### OpenStreetMap
 
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)  
