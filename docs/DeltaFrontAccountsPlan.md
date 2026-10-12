@@ -1707,3 +1707,21 @@ Work milestone by milestone. Do not enable a flag in production before M7. Follo
     - **CHANGE:** `magic_link_tokens`, the provider adapter, `/auth/magic-link`, `/auth/login/token` through `completeSignIn`, rate limits.
     - **TEST:** M8 tests (section 19).
 44. Privacy-policy update for email. Set `AUTH_PROVIDERS.email = true`.
+
+---
+
+## Appendix: M1 as built
+
+Where the implementation differs from, or settles, the text above. Later milestones should treat this as authoritative for M1.
+
+- **`/join_verify` (Turnstile and name screening) is in M1**, not M7: the owner's M1 scope includes production admission. M7 keeps the hardening around it.
+- **`sid` claim.** Access tokens carry an extra `sid` (the refresh-token family). `/users/@me` refuses a token whose family is revoked, so logout, revoke-all and bans end a token's use immediately instead of after 15 minutes. The client and game server ignore the claim. The game server's `/users/@me` lookup is what turns this into a refused join.
+- **Refresh race window.** Refresh tokens are stored only as hashes, so the "return the successor's token" idea in 7.3 is not possible. A replaced token presented within 10 s by the same user agent and address gets a fresh access token and **no** `Set-Cookie`; the winning tab's cookie stays. Anything else presenting a replaced token revokes the whole family.
+- **An unknown or revoked cookie gets 401** and the cookie is cleared; only a request with **no** cookie mints a guest. (The next refresh after a 401 mints one.)
+- **Callback state is bound to the browser** with a short-lived `df_oauth` cookie as well as the stored state, so a callback URL cannot be replayed into another browser.
+- **Discovery.** A check-in must carry a commit-shaped `version` (the local dev build's `DEV` is refused with 400, so a dev server does not register). A letter belongs to the first host that claims it (409 otherwise), and the worker count cannot change while games are live. New servers start `open`; the state is changed only with `admin server:state`.
+- **Game archive (`POST`/`GET /game/:id`)** stores the record and nothing else; readers get it with every `persistentID` removed. Stats, rewards and the clan threshold read it in M2.
+- **Rate limits** are in memory in `src/account-api/limits.ts` (guest creation 10/hour/address, sign-in starts 30/min, refreshes 120/min), not `express-rate-limit`, because guest creation must count only requests that actually create a guest.
+- **Client changes beyond the plan's list:** the "Link Steam Account" row is also hidden when Steam is not an offered method, and the friends and progression API modules make no requests while their features are off.
+- **Known M2-bound rough edges:** the account modal's Stats and Games tabs show "no stats yet" and "game history unavailable" (their endpoints, `/player/:id` and `/public/player/:id/games`, answer 404), and the "Share Profile" button is visible.
+- **Moved:** `censorPlayer` and its matcher now live in `packages/shared/src/Censor.ts` (re-exported from `src/server/Censor.ts`), so the API screens names exactly as the game server does.

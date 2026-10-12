@@ -3,6 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── Mocks (mirrors tests/client/clan/ClanModalTestUtils.ts factories) ──────
 
+// These tests cover the inherited UI with every sign-in method on (the "full
+// product", like tests/setup.ts does for the feature flags). What DeltaFront
+// ships (Discord and Google only) is pinned in tests/client/AuthProviderGating.test.ts.
+vi.mock("@openfront/shared/AccountFeatures", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@openfront/shared/AccountFeatures")
+  >()),
+  AUTH_PROVIDERS: { discord: true, google: true, email: true, steam: true },
+}));
+
 vi.mock("../../src/client/Api", () => ({
   getUserMe: vi.fn(async () => false as const),
   invalidateUserMe: vi.fn(),

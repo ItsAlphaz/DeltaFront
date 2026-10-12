@@ -140,7 +140,9 @@ export class MapPlaylist {
     // "Trusted" is a tier only the account backend can grant. Without
     // accounts nobody could ever join such a lobby, so none is scheduled.
     const trusted =
-      ACCOUNT_FEATURES.accounts && this.scheduled % TRUSTED_PUBLIC_EVERY === 0;
+      ACCOUNT_FEATURES.accounts &&
+      ACCOUNT_FEATURES.trustedLobbies &&
+      this.scheduled % TRUSTED_PUBLIC_EVERY === 0;
     const config = await this.rollConfig(type, trusted);
     if (trusted) {
       config.trusted = true;

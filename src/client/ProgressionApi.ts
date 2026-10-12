@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import {
   type GameXpResponse,
   GameXpResponseSchema,
@@ -40,6 +41,7 @@ export async function fetchMyGameXp(
   gameId: string,
   signal?: AbortSignal,
 ): Promise<GameXpFetchResult> {
+  if (!ACCOUNT_FEATURES.progression) return { status: "unavailable" };
   try {
     const authorization = await getAuthHeader();
     if (authorization === "") return { status: "unavailable" };
@@ -125,6 +127,7 @@ export async function pollGameXp(
 export async function fetchPublicPlayerProgress(
   publicId: string,
 ): Promise<PublicProgress | false> {
+  if (!ACCOUNT_FEATURES.progression) return false;
   try {
     const res = await fetch(
       `${getApiBase()}/public/player/${encodeURIComponent(publicId)}/progress`,
@@ -171,6 +174,7 @@ export type PrestigeResult =
 export async function prestigeMe(
   idempotencyKey: string,
 ): Promise<PrestigeResult> {
+  if (!ACCOUNT_FEATURES.progression) return { ok: false, reason: "failed" };
   try {
     const authorization = await getAuthHeader();
     if (authorization === "") return { ok: false, reason: "signed_out" };
@@ -216,6 +220,7 @@ let progressionConfig: {
 // on at all (404 when it is off). Memoised for as long as the server says it
 // stays fresh; a failure is not, so a later caller can try again.
 export function fetchProgressionConfig(): Promise<ProgressionConfig | false> {
+  if (!ACCOUNT_FEATURES.progression) return Promise.resolve(false);
   if (
     progressionConfig !== null &&
     Date.now() - progressionConfig.at < PROGRESSION_CONFIG_TTL_MS

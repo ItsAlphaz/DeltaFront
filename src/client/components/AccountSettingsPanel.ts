@@ -1,3 +1,4 @@
+import { AUTH_PROVIDERS } from "@openfront/shared/AccountFeatures";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -132,20 +133,26 @@ export class AccountSettingsPanel extends LitElement {
   // a magic link to a plain email (the backend associates a not-yet-registered
   // email with the current session — the "new-association" path), or linking a
   // Google account.
-  private renderEmailBinding(): TemplateResult {
+  private renderEmailBinding(): TemplateResult | typeof nothing {
+    // Only the sign-in methods this deployment offers (AUTH_PROVIDERS).
+    const offerEmail = AUTH_PROVIDERS.email;
+    const offerGoogle = AUTH_PROVIDERS.google && !this.user?.google;
+    if (!offerEmail && !offerGoogle) return nothing;
     return html`
       <div class="mt-4 space-y-3">
-        ${this.renderEmailField()}
-        <div class="flex items-center gap-4 py-1">
-          <div class="h-px bg-white/10 flex-1"></div>
-          <span
-            class="text-[10px] uppercase tracking-widest text-white/30 font-bold"
-          >
-            ${translateText("account_modal.or")}
-          </span>
-          <div class="h-px bg-white/10 flex-1"></div>
-        </div>
-        ${this.user?.google
+        ${offerEmail ? this.renderEmailField() : nothing}
+        ${offerEmail && offerGoogle
+          ? html`<div class="flex items-center gap-4 py-1">
+              <div class="h-px bg-white/10 flex-1"></div>
+              <span
+                class="text-[10px] uppercase tracking-widest text-white/30 font-bold"
+              >
+                ${translateText("account_modal.or")}
+              </span>
+              <div class="h-px bg-white/10 flex-1"></div>
+            </div>`
+          : nothing}
+        ${!offerGoogle
           ? nothing
           : googleLinkButton(
               this.handleLinkGoogle,

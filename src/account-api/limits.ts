@@ -1,0 +1,76 @@
+/**
+ * Abuse limits (docs/DeltaFrontAccountsPlan.md section 14.3). In memory, which
+ * is right for one API instance; a second instance would need a shared store.
+ */
+
+export interface RateLimit {
+  max: number;
+  windowMs: number;
+}
+
+/** The defaults. Overridable per limiter so tests and dev can loosen them. */
+export const RATE_LIMITS = Object.freeze({
+  /** New guest accounts: 10 an hour per client address. */
+  guestCreation: { max: 10, windowMs: 60 * 60 * 1000 },
+  /** Starting a Discord or Google sign-in. */
+  oauthStart: { max: 30, windowMs: 60 * 1000 },
+  /** Refreshes that present a cookie: generous, they are the normal heartbeat. */
+  refresh: { max: 120, windowMs: 60 * 1000 },
+} as const satisfies Record<string, RateLimit>);
+
+export type RateLimitName = keyof typeof RATE_LIMITS;
+
+export interface LimitResult {
+  allowed: boolean;
+  /** Seconds until the window resets, when not allowed. */
+  retryAfterSeconds: number;
+}
+
+/** A fixed-window counter per key. */
+export class RateLimiter {
+  private readonly hits = new Map<string, { count: number; resetAt: number }>();
+
+  constructor(
+    private readonly limit: RateLimit,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  /** Counts one hit for `key` and says whether it is within the limit. */
+  hit(key: string): LimitResult {
+    const now = this.now();
+    if (this.hits.size > 10_000) this.sweep(now);
+    let entry = this.hits.get(key);
+    if (entry === undefined || entry.resetAt <= now) {
+      entry = { count: 0, resetAt: now + this.limit.windowMs };
+      this.hits.set(key, entry);
+    }
+    entry.count += 1;
+    if (entry.count > this.limit.max) {
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+      };
+    }
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  private sweep(now: number): void {
+    for (const [key, entry] of this.hits)
+      if (entry.resetAt <= now) this.hits.delete(key);
+  }
+}
+
+export type Limiters = Record<RateLimitName, RateLimiter>;
+
+export function createLimiters(
+  overrides: Partial<Record<RateLimitName, RateLimit>> = {},
+  now: () => number = Date.now,
+): Limiters {
+  const make = (name: RateLimitName) =>
+    new RateLimiter(overrides[name] ?? RATE_LIMITS[name], now);
+  return {
+    guestCreation: make("guestCreation"),
+    oauthStart: make("oauthStart"),
+    refresh: make("refresh"),
+  };
+}

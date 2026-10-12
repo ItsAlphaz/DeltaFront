@@ -1,4 +1,8 @@
 import {
+  ACCOUNT_FEATURES,
+  AUTH_PROVIDERS,
+} from "@openfront/shared/AccountFeatures";
+import {
   PlayerStatsTree,
   PrestigeResponse,
   UserMeResponse,
@@ -192,7 +196,15 @@ export class AccountModal extends BaseModal {
         { key: "account", label: translateText("account_modal.tab_account") },
         { key: "stats", label: translateText("account_modal.tab_stats") },
         { key: "games", label: translateText("account_modal.tab_games") },
-        { key: "friends", label: translateText("account_modal.tab_friends") },
+        // Friends need the friends backend (a later milestone).
+        ...(ACCOUNT_FEATURES.friends
+          ? [
+              {
+                key: "friends",
+                label: translateText("account_modal.tab_friends"),
+              },
+            ]
+          : []),
       ],
     };
   }
@@ -698,7 +710,8 @@ export class AccountModal extends BaseModal {
   // Not shown inside the desktop shell: a shell player already holds this
   // identity through the native Steam ticket.
   private renderSteamLink(): TemplateResult {
-    if (isDesktopShell()) return html``;
+    // Also hidden wherever Steam is not an offered sign-in method (AUTH_PROVIDERS).
+    if (isDesktopShell() || !AUTH_PROVIDERS.steam) return html``;
     const steam = this.userMeResponse?.user?.steam;
     if (steam) {
       // The attached account is NAMED, not merely reported as linked: a wrong
@@ -867,47 +880,53 @@ export class AccountModal extends BaseModal {
           ${this.renderLoginError()}
 
           <div class="space-y-6">
-            <!-- Discord Login Button -->
-            <button
-              @click="${this.handleDiscordLogin}"
-              class="w-full px-6 py-4 text-white bg-[#5865F2] hover:bg-[#4752C4] border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#5865F2] transition-colors duration-200 flex items-center justify-center gap-3 group relative overflow-hidden shadow-lg hover:shadow-[#5865F2]/20"
-            >
-              <img
-                src=${assetUrl("images/DiscordLogo.svg")}
-                alt="Discord"
-                class="w-6 h-6 relative z-10"
-              />
-              <span class="font-bold relative z-10 tracking-wide"
-                >${viaBrowser
-                  ? translateText("account_modal.desktop_login_discord")
-                  : translateText("main.login_discord") ||
-                    translateText("account_modal.link_discord")}</span
-              >
-            </button>
-
-            <!-- Google Login Button (Google brand guidelines: white surface,
+            ${AUTH_PROVIDERS.discord
+              ? html`
+                  <button
+                    @click="${this.handleDiscordLogin}"
+                    class="w-full px-6 py-4 text-white bg-[#5865F2] hover:bg-[#4752C4] border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#5865F2] transition-colors duration-200 flex items-center justify-center gap-3 group relative overflow-hidden shadow-lg hover:shadow-[#5865F2]/20"
+                  >
+                    <img
+                      src=${assetUrl("images/DiscordLogo.svg")}
+                      alt="Discord"
+                      class="w-6 h-6 relative z-10"
+                    />
+                    <span class="font-bold relative z-10 tracking-wide"
+                      >${viaBrowser
+                        ? translateText("account_modal.desktop_login_discord")
+                        : translateText("main.login_discord") ||
+                          translateText("account_modal.link_discord")}</span
+                    >
+                  </button>
+                `
+              : nothing}
+            ${AUTH_PROVIDERS.google
+              ? html`
+                  <!-- Google Login Button (Google brand guidelines: white surface,
                  dark text, the multicolor "G" mark) -->
-            <button
-              @click="${this.handleGoogleLogin}"
-              class="w-full px-6 py-4 text-[#1f1f1f] bg-white hover:bg-[#f7f8f8] border border-[#dadce0] rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4285F4] transition-colors duration-200 flex items-center justify-center gap-3 group relative overflow-hidden shadow-lg"
-            >
-              <img
-                src=${assetUrl("images/GoogleLogo.svg")}
-                alt=${translateText("account_modal.google_alt")}
-                class="w-6 h-6 relative z-10"
-              />
-              <span class="font-bold relative z-10 tracking-wide"
-                >${viaBrowser
-                  ? translateText("account_modal.desktop_login_google")
-                  : translateText("main.login_google")}</span
-              >
-            </button>
+                  <button
+                    @click="${this.handleGoogleLogin}"
+                    class="w-full px-6 py-4 text-[#1f1f1f] bg-white hover:bg-[#f7f8f8] border border-[#dadce0] rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4285F4] transition-colors duration-200 flex items-center justify-center gap-3 group relative overflow-hidden shadow-lg"
+                  >
+                    <img
+                      src=${assetUrl("images/GoogleLogo.svg")}
+                      alt=${translateText("account_modal.google_alt")}
+                      class="w-6 h-6 relative z-10"
+                    />
+                    <span class="font-bold relative z-10 tracking-wide"
+                      >${viaBrowser
+                        ? translateText("account_modal.desktop_login_google")
+                        : translateText("main.login_google")}</span
+                    >
+                  </button>
+                `
+              : nothing}
 
             <!-- Sign in through Steam. Hidden inside the desktop shell: the
                  player is already signed in there through the native Steam
                  ticket, so the button would be a no-op that looks like an
                  option. -->
-            ${viaBrowser
+            ${viaBrowser || !AUTH_PROVIDERS.steam
               ? nothing
               : html`<button
                   @click="${this.handleSteamLogin}"
@@ -918,20 +937,23 @@ export class AccountModal extends BaseModal {
                     >${translateText("main.login_steam")}</span
                   >
                 </button>`}
+            ${AUTH_PROVIDERS.email
+              ? html`
+                  <!-- Divider -->
+                  <div class="flex items-center gap-4 py-2">
+                    <div class="h-px bg-white/10 flex-1"></div>
+                    <span
+                      class="text-[10px] uppercase tracking-widest text-white/30 font-bold"
+                    >
+                      ${translateText("account_modal.or")}
+                    </span>
+                    <div class="h-px bg-white/10 flex-1"></div>
+                  </div>
 
-            <!-- Divider -->
-            <div class="flex items-center gap-4 py-2">
-              <div class="h-px bg-white/10 flex-1"></div>
-              <span
-                class="text-[10px] uppercase tracking-widest text-white/30 font-bold"
-              >
-                ${translateText("account_modal.or")}
-              </span>
-              <div class="h-px bg-white/10 flex-1"></div>
-            </div>
-
-            <!-- Email Recovery -->
-            <div class="space-y-3">${this.renderEmailField()}</div>
+                  <!-- Email Recovery -->
+                  <div class="space-y-3">${this.renderEmailField()}</div>
+                `
+              : nothing}
           </div>
 
           <!-- Not on Steam: the Steam ticket re-creates the session on reload. -->

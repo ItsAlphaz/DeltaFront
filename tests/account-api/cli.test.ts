@@ -88,19 +88,27 @@ describe("npm run account-api:migrate", () => {
 });
 
 describe("npm run admin", () => {
-  it("prints that no commands exist yet", async () => {
-    const { code, stdout } = await run("src/account-api/admin/cli.ts", [], {});
-    expect(code).toBe(0);
-    expect(stdout).toContain("No commands are available yet");
+  it("prints the commands without needing a database", async () => {
+    for (const args of [[], ["help"], ["--help"]]) {
+      const { code, stdout } = await run(
+        "src/account-api/admin/cli.ts",
+        args,
+        {},
+      );
+      expect(code).toBe(0);
+      expect(stdout).toContain("user:ban <publicId>");
+      expect(stdout).toContain("server:key:create <name>");
+    }
   }, 60_000);
 
-  it("rejects an unknown command", async () => {
+  it("a real command needs DATABASE_URL, and says so without a stack trace", async () => {
     const { code, stderr } = await run(
       "src/account-api/admin/cli.ts",
-      ["user:ban"],
+      ["user:find", "x"],
       {},
     );
-    expect(code).toBe(2);
-    expect(stderr).toContain('unknown command "user:ban"');
+    expect(code).toBe(1);
+    expect(stderr).toContain("DATABASE_URL is required");
+    expect(stderr).not.toMatch(/\n\s+at /);
   }, 60_000);
 });

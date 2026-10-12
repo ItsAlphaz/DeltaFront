@@ -416,6 +416,11 @@ describe("fetchProgressionConfig", () => {
     vi.useFakeTimers();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.resetModules();
+    // A reset module graph has a fresh feature object, which tests/setup.ts
+    // (it turns the features on for the original one) never touched.
+    const { ACCOUNT_FEATURES: fresh } =
+      await import("@openfront/shared/AccountFeatures");
+    fresh.progression = true;
     ({ fetchProgressionConfig: fetchConfig } =
       await import("../../src/client/ProgressionApi"));
   });

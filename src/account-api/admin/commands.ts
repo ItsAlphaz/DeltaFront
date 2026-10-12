@@ -1,0 +1,405 @@
+import { randomBytes } from "node:crypto";
+import type { Pool } from "pg";
+import { withTransaction } from "../db/tx";
+import { sha256 } from "../http";
+import { revokeAllForUser } from "../repo/sessions";
+import type { Db } from "../repo/users";
+
+/**
+ * The admin commands (docs/DeltaFrontAccountsPlan.md section 15). Run on the
+ * API host with `npm run admin -- <command>`; there is deliberately no HTTP
+ * admin surface. Every change is one transaction that also writes
+ * `admin_audit_log`, and anything destructive needs `--yes`.
+ */
+
+export interface AdminIo {
+  out(line: string): void;
+  err(line: string): void;
+  /** Environment for `--from-env`. */
+  env: Record<string, string | undefined>;
+  /** Who is running this, for the audit log. */
+  actor: string;
+}
+
+export class AdminUsageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AdminUsageError";
+  }
+}
+
+const SERVER_STATES = ["open", "draining", "fenced"] as const;
+const ROLES = ["admin", "mod", "flagged", "none"] as const;
+const MIN_KEY_LENGTH = 16;
+
+interface Parsed {
+  positional: string[];
+  flags: Map<string, string | true>;
+}
+
+function parse(args: string[]): Parsed {
+  const positional: string[] = [];
+  const flags = new Map<string, string | true>();
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith("--")) {
+      const name = a.slice(2);
+      const next = args[i + 1];
+      if (next !== undefined && !next.startsWith("--") && name !== "yes") {
+        flags.set(name, next);
+        i++;
+      } else {
+        flags.set(name, true);
+      }
+    } else {
+      positional.push(a);
+    }
+  }
+  return { positional, flags };
+}
+
+const flag = (p: Parsed, name: string): string | undefined => {
+  const v = p.flags.get(name);
+  return typeof v === "string" ? v : undefined;
+};
+
+function need(p: Parsed, index: number, what: string): string {
+  const v = p.positional[index];
+  if (v === undefined || v === "") throw new AdminUsageError(`missing ${what}`);
+  return v;
+}
+
+function requireYes(p: Parsed, what: string): void {
+  if (p.flags.get("yes") !== true) {
+    throw new AdminUsageError(
+      `${what} is destructive: repeat the command with --yes to confirm`,
+    );
+  }
+}
+
+export const ADMIN_COMMANDS = [
+  "user:find <publicId|uuid|email|providerId>",
+  "user:show <publicId>",
+  "user:ban <publicId> --category <name> [--reason <text>] [--days <n>] --yes",
+  "user:unban <publicId>",
+  "user:revoke-sessions <publicId> --yes",
+  "user:role <publicId> <admin|mod|flagged|none> --yes",
+  "server:key:create <name> [--from-env <VAR>]",
+  "server:key:list",
+  "server:key:revoke <id> --yes",
+  "server:state <site> <letter> <open|draining|fenced> --yes",
+] as const;
+
+async function audit(
+  db: Db,
+  io: AdminIo,
+  action: string,
+  targetType: string,
+  targetId: string,
+  details: Record<string, unknown> = {},
+): Promise<void> {
+  await db.query(
+    "INSERT INTO admin_audit_log (actor, action, target_type, target_id, details) VALUES ($1, $2, $3, $4, $5)",
+    [io.actor, action, targetType, targetId, details],
+  );
+}
+
+async function userByPublicId(
+  db: Db,
+  publicId: string,
+): Promise<{ id: string; public_id: string }> {
+  const { rows } = await db.query<{ id: string; public_id: string }>(
+    "SELECT id, public_id FROM users WHERE public_id = $1",
+    [publicId],
+  );
+  if (rows.length === 0)
+    throw new AdminUsageError(`no user with public id ${publicId}`);
+  return rows[0];
+}
+
+/** Runs one command; returns the process exit code. */
+export async function runAdminCommand(
+  pool: Pick<Pool, "connect" | "query">,
+  argv: string[],
+  io: AdminIo,
+): Promise<number> {
+  const [command, ...rest] = argv;
+  if (command === undefined || command === "help" || command === "--help") {
+    io.out("DeltaFront account admin\n\nCommands:");
+    for (const c of ADMIN_COMMANDS) io.out(`  ${c}`);
+    return 0;
+  }
+  const p = parse(rest);
+  try {
+    switch (command) {
+      case "user:find": {
+        const q = need(p, 0, "search text");
+        const { rows } = await pool.query<{
+          public_id: string;
+          kind: string;
+          created_at: Date;
+          providers: string | null;
+        }>(
+          `SELECT DISTINCT u.public_id, u.kind, u.created_at,
+                  (SELECT string_agg(i2.provider, ',' ORDER BY i2.id) FROM auth_identities i2 WHERE i2.user_id = u.id) AS providers
+             FROM users u LEFT JOIN auth_identities i ON i.user_id = u.id
+            WHERE u.public_id = $1 OR u.id::text = $1 OR i.provider_user_id = $1 OR i.email = $1
+            ORDER BY u.created_at DESC LIMIT 20`,
+          [q],
+        );
+        if (rows.length === 0) io.out("no matching users");
+        for (const r of rows) {
+          io.out(
+            `${r.public_id}  ${r.kind}  ${r.created_at.toISOString()}  ${r.providers ?? "-"}`,
+          );
+        }
+        return 0;
+      }
+      case "user:show": {
+        const user = await userByPublicId(pool, need(p, 0, "public id"));
+        const [u, ids, sessions, bans] = await Promise.all([
+          pool.query(
+            "SELECT id, public_id, kind, role, created_at, last_seen_at, deletion_requested_at FROM users WHERE id = $1",
+            [user.id],
+          ),
+          pool.query(
+            "SELECT provider, provider_user_id, email, email_verified, created_at FROM auth_identities WHERE user_id = $1 ORDER BY id",
+            [user.id],
+          ),
+          pool.query(
+            "SELECT count(*)::int AS n FROM refresh_sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()",
+            [user.id],
+          ),
+          pool.query(
+            "SELECT category, reason, created_at, expires_at, revoked_at FROM bans WHERE user_id = $1 ORDER BY created_at DESC",
+            [user.id],
+          ),
+        ]);
+        const row = u.rows[0];
+        io.out(`public id:   ${row.public_id}`);
+        io.out(`id:          ${row.id}`);
+        io.out(
+          `kind:        ${row.kind}${row.role ? `  role: ${row.role}` : ""}`,
+        );
+        io.out(
+          `created:     ${row.created_at.toISOString()}   last seen: ${row.last_seen_at.toISOString()}`,
+        );
+        if (row.deletion_requested_at)
+          io.out(
+            `deletion requested: ${row.deletion_requested_at.toISOString()}`,
+          );
+        io.out(`live sessions: ${sessions.rows[0].n}`);
+        io.out(`identities:`);
+        for (const i of ids.rows)
+          io.out(
+            `  ${i.provider}  ${i.provider_user_id}  ${i.email ?? "-"}${i.email_verified ? " (verified)" : ""}`,
+          );
+        if (ids.rows.length === 0) io.out("  (none: guest)");
+        io.out(`bans:`);
+        for (const b of bans.rows) {
+          const state = b.revoked_at
+            ? "revoked"
+            : b.expires_at && b.expires_at < new Date()
+              ? "expired"
+              : "ACTIVE";
+          io.out(
+            `  ${state}  ${b.category}  ${b.reason ?? "-"}  ${b.created_at.toISOString()}`,
+          );
+        }
+        if (bans.rows.length === 0) io.out("  (none)");
+        return 0;
+      }
+      case "user:ban": {
+        requireYes(p, "banning a user");
+        const publicId = need(p, 0, "public id");
+        const category = flag(p, "category");
+        if (category === undefined || category.trim() === "")
+          throw new AdminUsageError("--category is required");
+        const days = flag(p, "days");
+        if (days !== undefined && !/^[1-9]\d{0,4}$/.test(days))
+          throw new AdminUsageError("--days must be a positive whole number");
+        await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          await db.query(
+            `INSERT INTO bans (user_id, category, reason, expires_at)
+             VALUES ($1, $2, $3, CASE WHEN $4::int IS NULL THEN NULL ELSE now() + ($4::int || ' days')::interval END)`,
+            [user.id, category.trim(), flag(p, "reason") ?? null, days ?? null],
+          );
+          // Signing out everywhere makes the ban take effect on the next request.
+          const revoked = await revokeAllForUser(db, user.id, "banned");
+          await audit(db, io, "user:ban", "user", publicId, {
+            category,
+            reason: flag(p, "reason") ?? null,
+            days: days ?? null,
+            sessionsRevoked: revoked,
+          });
+        });
+        io.out(`banned ${publicId}; their sessions were revoked`);
+        return 0;
+      }
+      case "user:unban": {
+        const publicId = need(p, 0, "public id");
+        const count = await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          const r = await db.query(
+            "UPDATE bans SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
+            [user.id],
+          );
+          await audit(db, io, "user:unban", "user", publicId, {
+            bansRevoked: r.rowCount,
+          });
+          return r.rowCount ?? 0;
+        });
+        io.out(`${count} ban(s) lifted for ${publicId}`);
+        return 0;
+      }
+      case "user:revoke-sessions": {
+        requireYes(p, "revoking all sessions");
+        const publicId = need(p, 0, "public id");
+        const count = await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          const n = await revokeAllForUser(db, user.id, "admin_revoke");
+          await audit(db, io, "user:revoke-sessions", "user", publicId, {
+            sessionsRevoked: n,
+          });
+          return n;
+        });
+        io.out(`${count} session(s) revoked for ${publicId}`);
+        return 0;
+      }
+      case "user:role": {
+        requireYes(p, "changing a role");
+        const publicId = need(p, 0, "public id");
+        const role = need(p, 1, "role");
+        if (!(ROLES as readonly string[]).includes(role))
+          throw new AdminUsageError(`role must be one of: ${ROLES.join(", ")}`);
+        await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          await db.query("UPDATE users SET role = $2 WHERE id = $1", [
+            user.id,
+            role === "none" ? null : role,
+          ]);
+          await audit(db, io, "user:role", "user", publicId, { role });
+        });
+        io.out(`role of ${publicId} is now ${role}`);
+        return 0;
+      }
+      case "server:key:create": {
+        const name = need(p, 0, "key name");
+        const fromEnv = flag(p, "from-env");
+        let key: string;
+        if (fromEnv !== undefined) {
+          const value = io.env[fromEnv];
+          if (value === undefined || value.length < MIN_KEY_LENGTH) {
+            throw new AdminUsageError(
+              `${fromEnv} must be set to a key of at least ${MIN_KEY_LENGTH} characters`,
+            );
+          }
+          key = value;
+        } else {
+          key = `dfk_${randomBytes(32).toString("base64url")}`;
+        }
+        const created = await withTransaction(pool, async (db) => {
+          const existing = await db.query(
+            "SELECT id FROM server_api_keys WHERE key_hash = $1 AND revoked_at IS NULL",
+            [sha256(key)],
+          );
+          if (existing.rows.length > 0) return null;
+          const { rows } = await db.query<{ id: string }>(
+            "INSERT INTO server_api_keys (name, key_hash) VALUES ($1, $2) RETURNING id",
+            [name, sha256(key)],
+          );
+          await audit(db, io, "server:key:create", "server_key", rows[0].id, {
+            name,
+            fromEnv: fromEnv ?? null,
+          });
+          return rows[0].id;
+        });
+        if (created === null) {
+          io.out("that key is already registered (nothing changed)");
+        } else if (fromEnv !== undefined) {
+          io.out(`registered key #${created} "${name}" from ${fromEnv}`);
+        } else {
+          io.out(
+            `key #${created} "${name}" created. It is shown once and cannot be recovered:`,
+          );
+          io.out(key);
+          io.out("Give it to the game server as API_KEY.");
+        }
+        return 0;
+      }
+      case "server:key:list": {
+        const { rows } = await pool.query<{
+          id: string;
+          name: string;
+          created_at: Date;
+          revoked_at: Date | null;
+        }>(
+          "SELECT id, name, created_at, revoked_at FROM server_api_keys ORDER BY id",
+        );
+        if (rows.length === 0) io.out("no server keys");
+        for (const r of rows)
+          io.out(
+            `#${r.id}  ${r.name}  ${r.created_at.toISOString()}  ${r.revoked_at ? `revoked ${r.revoked_at.toISOString()}` : "active"}`,
+          );
+        return 0;
+      }
+      case "server:key:revoke": {
+        requireYes(p, "revoking a server key");
+        const id = need(p, 0, "key id");
+        if (!/^\d+$/.test(id))
+          throw new AdminUsageError("key id must be a number");
+        await withTransaction(pool, async (db) => {
+          const r = await db.query(
+            "UPDATE server_api_keys SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
+            [id],
+          );
+          if ((r.rowCount ?? 0) === 0)
+            throw new AdminUsageError(`no active key #${id}`);
+          await audit(db, io, "server:key:revoke", "server_key", id);
+        });
+        io.out(`key #${id} revoked`);
+        return 0;
+      }
+      case "server:state": {
+        requireYes(p, "changing a server's state");
+        const site = need(p, 0, "site");
+        const letter = need(p, 1, "letter");
+        const state = need(p, 2, "state");
+        if (!(SERVER_STATES as readonly string[]).includes(state))
+          throw new AdminUsageError(
+            `state must be one of: ${SERVER_STATES.join(", ")}`,
+          );
+        await withTransaction(pool, async (db) => {
+          const r = await db.query(
+            "UPDATE game_servers SET state = $3 WHERE site = $1 AND letter = $2",
+            [site, letter, state],
+          );
+          if ((r.rowCount ?? 0) === 0)
+            throw new AdminUsageError(
+              `no server ${letter} registered under ${site}`,
+            );
+          await audit(
+            db,
+            io,
+            "server:state",
+            "game_server",
+            `${site}/${letter}`,
+            { state },
+          );
+        });
+        io.out(`server ${letter} of ${site} is now ${state}`);
+        return 0;
+      }
+      default:
+        io.err(`unknown command "${command}" (run "npm run admin -- help")`);
+        return 2;
+    }
+  } catch (error) {
+    if (error instanceof AdminUsageError) {
+      io.err(error.message);
+      return 2;
+    }
+    throw error;
+  }
+}

@@ -28,6 +28,7 @@ const prodWithAccounts = (extra: Record<string, string | undefined> = {}) => ({
   DATABASE_URL: DB,
   DF_ACCOUNT_FEATURES: "accounts",
   JWT_PRIVATE_KEY_PATH: "/run/secrets/jwt.pem",
+  TURNSTILE_SECRET_KEY: "turnstile-secret-value",
   DISCORD_CLIENT_ID: "discord-id",
   DISCORD_CLIENT_SECRET: "discord-secret-value",
   GOOGLE_CLIENT_ID: "google-id",
@@ -369,6 +370,33 @@ describe("loadConfig: secrets required by enabled features", () => {
     );
   });
 
+  it("accounts in production requires the Turnstile secret too (players are verified at join)", () => {
+    expect(
+      issuesOf(prodWithAccounts({ TURNSTILE_SECRET_KEY: undefined })).join(),
+    ).toMatch(
+      /TURNSTILE_SECRET_KEY is required when the accounts feature is enabled/,
+    );
+  });
+
+  it("in dev the Turnstile secret is optional (the check is then skipped, with a warning from the service)", () => {
+    expect(
+      loadConfig(dev({ DF_ACCOUNT_FEATURES: "accounts" })).turnstileSecret,
+    ).toBeNull();
+    expect(loadConfig(dev({ TURNSTILE_SECRET_KEY: "s" })).turnstileSecret).toBe(
+      "s",
+    );
+  });
+
+  it("TRUST_PROXY_HOPS is 0 to 5 and defaults to trusting no forwarded header", () => {
+    expect(loadConfig(dev()).trustProxyHops).toBe(0);
+    expect(loadConfig(dev({ TRUST_PROXY_HOPS: "1" })).trustProxyHops).toBe(1);
+    for (const bad of ["6", "-1", "1.5", "x", "true"]) {
+      expect(issuesOf(dev({ TRUST_PROXY_HOPS: bad })).join(), bad).toMatch(
+        /TRUST_PROXY_HOPS must be an integer from 0 to 5/,
+      );
+    }
+  });
+
   it("each missing production secret is reported on its own", () => {
     expect(
       issuesOf(prodWithAccounts({ JWT_PRIVATE_KEY_PATH: undefined })),
@@ -467,6 +495,8 @@ describe("describeConfig", () => {
       domain: "example.com",
       database: { host: "db.internal:5432/deltafront", poolMax: 10 },
       features: ["accounts"],
+      turnstile: "set",
+      trustProxyHops: 0,
       jwt: { privateKey: "set", previousPublicKey: "unset" },
       oauth: { discord: "set", google: "set" },
     });

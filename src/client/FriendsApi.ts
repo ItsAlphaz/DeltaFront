@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import {
   type FriendRequestsResponse,
   FriendRequestsResponseSchema,
@@ -32,6 +33,7 @@ export type FriendActionError =
 export async function fetchFriendRequests(): Promise<
   FriendRequestsResponse | false
 > {
+  if (!ACCOUNT_FEATURES.friends) return false;
   try {
     const res = await friendsFetch("/friends/requests");
     if (!res.ok) return false;
@@ -51,6 +53,7 @@ export async function fetchFriends(
   page: number,
   limit: number,
 ): Promise<FriendsListResponse | false> {
+  if (!ACCOUNT_FEATURES.friends) return false;
   try {
     const url = new URL(`${getApiBase()}/friends`);
     url.searchParams.set("page", String(page));
@@ -77,6 +80,7 @@ export async function fetchFriends(
 export async function sendFriendRequest(
   publicId: string,
 ): Promise<SendFriendRequestResponse | FriendActionError> {
+  if (!ACCOUNT_FEATURES.friends) return "request_failed";
   try {
     const res = await friendsFetch(
       `/friends/requests/${encodeURIComponent(publicId)}`,
@@ -98,6 +102,7 @@ export async function sendFriendRequest(
 export async function acceptFriendRequest(
   publicId: string,
 ): Promise<true | FriendActionError> {
+  if (!ACCOUNT_FEATURES.friends) return "request_failed";
   try {
     const res = await friendsFetch(
       `/friends/requests/${encodeURIComponent(publicId)}/accept`,
@@ -115,6 +120,7 @@ export async function acceptFriendRequest(
 export async function deleteFriendRequest(
   publicId: string,
 ): Promise<true | FriendActionError> {
+  if (!ACCOUNT_FEATURES.friends) return "request_failed";
   try {
     const res = await friendsFetch(
       `/friends/requests/${encodeURIComponent(publicId)}`,
@@ -132,6 +138,7 @@ export async function deleteFriendRequest(
 export async function removeFriend(
   publicId: string,
 ): Promise<true | FriendActionError> {
+  if (!ACCOUNT_FEATURES.friends) return "request_failed";
   try {
     const res = await friendsFetch(`/friends/${encodeURIComponent(publicId)}`, {
       method: "DELETE",

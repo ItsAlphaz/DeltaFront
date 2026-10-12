@@ -1,22 +1,45 @@
 // Loaded first so .env is in process.env before anything reads it.
 import "dotenv/config";
 
-/**
- * The admin command line (plan section 15): ban, wallet and item grants, clan
- * and game fixes, server keys. Run over SSH on the API host as
- * `npm run admin -- <command>`.
- *
- * M0 is the entry point only. The commands arrive with the milestones whose
- * data they touch, starting with `user:*` and `server:key:*` in M1.
- */
-const [command] = process.argv.slice(2);
+import os from "node:os";
+import { ConfigError, loadDatabaseConfig } from "../config";
+import { createPool } from "../db/pool";
+import { createLogger } from "../logger";
+import { runAdminCommand } from "./commands";
 
-if (command === undefined || command === "--help" || command === "help") {
-  console.log(
-    "DeltaFront account admin\n\nNo commands are available yet (they arrive in milestone M1).",
-  );
-  process.exit(0);
+/**
+ * The admin command line (plan section 15), run on the API host as
+ * `npm run admin -- <command>`. Needs only DATABASE_URL.
+ */
+async function main(): Promise<number> {
+  const argv = process.argv.slice(2);
+  // Help needs no database.
+  if (argv.length === 0 || argv[0] === "help" || argv[0] === "--help") {
+    return runAdminCommand(null as never, argv, io);
+  }
+  const pool = createPool(loadDatabaseConfig(), createLogger("error"));
+  try {
+    return await runAdminCommand(pool, argv, io);
+  } finally {
+    await pool.end();
+  }
 }
 
-console.error(`unknown command "${command}" (no commands are available yet)`);
-process.exit(2);
+const io = {
+  out: (line: string) => console.log(line),
+  err: (line: string) => console.error(line),
+  env: process.env,
+  actor: process.env.SUDO_USER ?? process.env.USER ?? os.userInfo().username,
+};
+
+main().then(
+  (code) => process.exit(code),
+  (error) => {
+    console.error(
+      error instanceof ConfigError
+        ? error.message
+        : `admin command failed: ${String(error)}`,
+    );
+    process.exit(1);
+  },
+);

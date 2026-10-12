@@ -45,6 +45,14 @@ export interface AccountApiConfig {
   allowedOrigins: string[];
   database: DatabaseConfig;
   logLevel: "error" | "warn" | "info" | "debug";
+  /**
+   * How many reverse proxies sit in front of the API (nginx = 1). Decides
+   * which X-Forwarded-For entry is the client address for rate limits and for
+   * the IP the game server's Turnstile check forwards. 0 trusts no header.
+   */
+  trustProxyHops: number;
+  /** Cloudflare Turnstile secret for /join_verify; null skips the check (dev only). */
+  turnstileSecret: string | null;
   features: AccountFeatures;
   jwt: {
     privateKeyPath: string | null;
@@ -278,6 +286,16 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     issues.push("LOG_LEVEL must be one of: error, warn, info, debug");
   }
 
+  // TRUST_PROXY_HOPS
+  let trustProxyHops = 0;
+  const rawHops = trimmed(env, "TRUST_PROXY_HOPS");
+  if (rawHops !== undefined) {
+    if (/^[0-5]$/.test(rawHops)) trustProxyHops = Number(rawHops);
+    else issues.push("TRUST_PROXY_HOPS must be an integer from 0 to 5");
+  }
+
+  const turnstileSecret = trimmed(env, "TURNSTILE_SECRET_KEY") ?? null;
+
   // Signing keys and sign-in providers
   const jwt = {
     privateKeyPath: trimmed(env, "JWT_PRIVATE_KEY_PATH") ?? null,
@@ -299,6 +317,11 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     if (jwt.privateKeyPath === null) {
       issues.push(
         "JWT_PRIVATE_KEY_PATH is required when the accounts feature is enabled",
+      );
+    }
+    if (turnstileSecret === null) {
+      issues.push(
+        "TURNSTILE_SECRET_KEY is required when the accounts feature is enabled (players are verified with Cloudflare Turnstile at join)",
       );
     }
     for (const [provider, creds, label] of [
@@ -334,6 +357,8 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     allowedOrigins,
     database,
     logLevel: logLevel.data,
+    trustProxyHops,
+    turnstileSecret,
     features,
     jwt,
     oauth,
@@ -363,6 +388,8 @@ export function describeConfig(
     allowedOrigins: config.allowedOrigins,
     database: { host: databaseHost, poolMax: config.database.poolMax },
     logLevel: config.logLevel,
+    trustProxyHops: config.trustProxyHops,
+    turnstile: config.turnstileSecret === null ? "unset" : "set",
     features: ACCOUNT_FEATURE_NAMES.filter((name) => config.features[name]),
     jwt: {
       privateKey: config.jwt.privateKeyPath === null ? "unset" : "set",

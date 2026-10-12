@@ -1,33 +1,73 @@
+import { usesAccountApi } from "@openfront/shared/AccountFeatures";
 import express, { type Express } from "express";
 import type { AccountApiConfig } from "./config";
+import { cors } from "./http";
 import type { Logger } from "./logger";
+import { authRouter } from "./routes/auth";
+import { clusterRouter } from "./routes/cluster";
+import type { AppDeps } from "./routes/common";
+import { feedsRouter } from "./routes/feeds";
+import { gameRouter } from "./routes/game";
+import { joinVerifyRouter } from "./routes/joinVerify";
+import { usersRouter } from "./routes/users";
 
 /**
- * The HTTP application. M0 is the skeleton only: a liveness check and JSON
- * error handling. The endpoints the existing client expects from
- * api.<DOMAIN> (docs/DeltaFrontAccountsPlan.md section 4) arrive with the
- * milestones that own them, starting with M1.
+ * The HTTP application.
+ *
+ * What is served follows the feature flags (docs/DeltaFrontAccountsPlan.md
+ * section 17), so a deployment never exposes an endpoint for a feature that is
+ * off:
+ *  - `accounts`: sign-in, sessions, /users/@me, the signing-key set and the
+ *    game server's join verification;
+ *  - any feature: server discovery (check-in and the server list), the game
+ *    archive and the news feeds, which the client and game server use as soon
+ *    as they talk to the API at all.
+ * With every flag off only /health answers (milestone M0's skeleton).
  */
 export function createApp(deps: {
   config: AccountApiConfig;
   log: Logger;
-  /** Registers routes. They go before the 404 and the error handler. */
+  /** The wired-up backend; absent when no feature needs one. */
+  backend?: AppDeps;
+  /** Registers extra routes. They go before the 404 and the error handler. */
   mount?: (app: Express) => void;
 }): Express {
-  const { log } = deps;
+  const { config, log, backend } = deps;
   const app = express();
   app.disable("x-powered-by");
+  // The API's JSON is dynamic and uncacheable; automatic ETags add nothing.
+  app.set("etag", false);
+  if (config.trustProxyHops > 0) app.set("trust proxy", config.trustProxyHops);
 
   app.use((_req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     next();
   });
+  app.use(cors(config.allowedOrigins));
 
   // Liveness only: the process is up. It deliberately says nothing about the
   // database or the configuration.
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });
+
+  if (backend !== undefined) {
+    if (config.features.accounts) {
+      app.get("/.well-known/jwks.json", (_req, res) => {
+        // Public keys only. The game server reads keys[0], the current key.
+        res.setHeader("Cache-Control", "public, max-age=300");
+        res.json(backend.keys.jwks());
+      });
+      app.use(authRouter(backend));
+      app.use(usersRouter(backend));
+      app.use(joinVerifyRouter(backend));
+    }
+    if (usesAccountApi(config.features)) {
+      app.use(clusterRouter(backend));
+      app.use(gameRouter(backend));
+      app.use(feedsRouter());
+    }
+  }
 
   deps.mount?.(app);
 

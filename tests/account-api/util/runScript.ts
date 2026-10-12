@@ -30,10 +30,32 @@ function childFor(
   args: string[],
   env: Record<string, string>,
 ): ChildProcess {
-  return spawn(TSX, [path.join(ROOT, script), ...args], {
-    cwd: workDir,
-    env: { PATH: process.env.PATH ?? "", HOME: workDir, ...env },
-  });
+  // The empty working directory keeps a developer's .env out of the run, so
+  // the repo's tsconfig (path aliases such as resources/*) is named explicitly.
+  return spawn(
+    TSX,
+    [
+      "--tsconfig",
+      path.join(ROOT, "tsconfig.json"),
+      path.join(ROOT, script),
+      ...args,
+    ],
+    {
+      cwd: workDir,
+      env: {
+        PATH: process.env.PATH ?? "",
+        HOME: workDir,
+        // Lets a verification run preload instrumentation into the child.
+        ...(process.env.NODE_OPTIONS
+          ? { NODE_OPTIONS: process.env.NODE_OPTIONS }
+          : {}),
+        ...(process.env.NETLOG_FILE
+          ? { NETLOG_FILE: process.env.NETLOG_FILE }
+          : {}),
+        ...env,
+      },
+    },
+  );
 }
 
 export interface RunResult {

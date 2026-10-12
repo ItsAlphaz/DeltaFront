@@ -42,6 +42,19 @@ describe("MapPlaylist trusted-only public games", () => {
     }
   });
 
+  // `accounts` alone is not enough: the trusted rotation has its own flag, so
+  // sign-in can ship before there are enough trusted players to fill those lobbies.
+  it("schedules no trusted-only games unless trustedLobbies is on too", async () => {
+    ACCOUNT_FEATURES.accounts = true;
+    ACCOUNT_FEATURES.trustedLobbies = false;
+    const playlist = new MapPlaylist();
+    const types = ["ffa", "team", "special"] as const;
+    for (let i = 0; i < 28; i++) {
+      const config = await playlist.gameConfig(types[i % 3]);
+      expect(config.trusted).toBeUndefined();
+    }
+  });
+
   it("counts per playlist instance, starting open", async () => {
     const a = new MapPlaylist();
     const b = new MapPlaylist();

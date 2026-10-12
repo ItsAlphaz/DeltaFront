@@ -2,6 +2,16 @@ import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountSettingsPanel } from "../../../src/client/components/AccountSettingsPanel";
 
+// These tests cover the inherited UI with every sign-in method on (the "full
+// product", like tests/setup.ts does for the feature flags). What DeltaFront
+// ships (Discord and Google only) is pinned in tests/client/AuthProviderGating.test.ts.
+vi.mock("@openfront/shared/AccountFeatures", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@openfront/shared/AccountFeatures")
+  >()),
+  AUTH_PROVIDERS: { discord: true, google: true, email: true, steam: true },
+}));
+
 type UserMePlayer = UserMeResponse["player"];
 type UserMeUser = UserMeResponse["user"];
 

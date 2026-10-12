@@ -40,3 +40,6 @@ map-generator/map-generator.exe
 *.pem
 *.key
 /secrets/
+
+# Account API dev signing key (generated on first dev run)
+/.account-api-dev/

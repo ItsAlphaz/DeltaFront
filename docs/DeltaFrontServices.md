@@ -45,18 +45,36 @@ Enabling a flag in production is the public launch of that feature, so it waits 
 
 ### The account API (`src/account-api`)
 
-A separate Node service that will answer the `api.<DOMAIN>` contracts the client already speaks. **Milestone M0 is the foundation only**: configuration, the PostgreSQL schema and migration runner, the constants, and a `/health` endpoint. It serves no account endpoints yet, so it is not started by `npm run dev` and no flag should be enabled against it.
+A separate Node service that answers the `api.<DOMAIN>` contracts the client and game server already speak. **Milestone M1 (core sign-in, production admission, server discovery)** is implemented; profiles, stats, Credits, leaderboards, the store, clans and email sign-in are later milestones and are not served.
+
+What it serves follows the feature flags, so nothing is exposed for a feature that is off:
+
+| Needs            | Endpoints                                                                                                                                                                                                                                                   |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| always           | `GET /health`                                                                                                                                                                                                                                               |
+| `accounts`       | `POST /auth/refresh` (also mints guests), `POST /auth/logout`, `POST /auth/revoke`, `GET /auth/login/{discord,google}`, `GET /auth/callback/{discord,google}`, `GET /auth/link/google`, `GET /users/@me`, `GET /.well-known/jwks.json`, `POST /join_verify` |
+| any feature flag | `POST /cluster/checkin`, `GET /cluster.json?site=`, `POST`/`GET /game/:id` (archive, store only), `GET /news.json`, `GET /streams.json`                                                                                                                     |
 
 ```bash
 npm run account-api:migrate           # apply pending migrations (needs DATABASE_URL)
 npm run account-api:migrate -- status # what is applied and what is pending
 npm run start:account-api             # start the service
-npm run admin                         # admin command line (no commands until M1)
+npm run admin -- help                 # admin commands (users, bans, server keys, server states)
 npm run test:account-api              # database tests; needs DATABASE_URL_TEST
+
+# Local development with accounts on (guest + Discord + Google), needs PostgreSQL:
+export DATABASE_URL=postgres://user:password@localhost:5432/deltafront_dev
+npm run account-api:dev-setup # migrate, and register the dev game-server key
+npm run dev:accounts          # client + game server + account API (DF_ACCOUNT_FEATURES=accounts)
 ```
 
 - It needs **PostgreSQL**. There is no fallback database, and the service refuses to start if the database is unreachable or has pending migrations (it never migrates implicitly: run the migrate command as a deploy step first).
-- Configuration is read from the environment (a `.env` file works). See [`example.env`](../example.env) for every variable; nothing secret is committed. `GAME_ENV` has no default, and outside `dev` the service fails at startup, listing every problem, if something it needs is missing: the domain and origins, and, when `accounts` is enabled, the signing key and Discord and Google credentials.
+- Configuration is read from the environment (a `.env` file works). See [`example.env`](../example.env) for every variable; nothing secret is committed. `GAME_ENV` has no default, and outside `dev` the service fails at startup, listing every problem, if something it needs is missing: the domain and origins, and, when `accounts` is enabled, the signing key, the Turnstile secret and Discord and Google credentials.
+- **Signing key.** Access tokens are Ed25519 JWTs. Generate the key once with `openssl genpkey -algorithm ed25519 -out jwt.pem` (keep it out of the repo, mode 600) and point `JWT_PRIVATE_KEY_PATH` at it. Only the public half is published, at `/.well-known/jwks.json`. In `dev` with no key configured the service creates one in `.account-api-dev/` (gitignored) and reuses it.
+- **Provider apps.** Register `https://api.<DOMAIN>/auth/callback/discord` (Discord, scopes `identify email`) and `https://api.<DOMAIN>/auth/callback/google` (Google, scopes `openid email profile`) as the redirect URIs; locally that is `http://localhost:8787/auth/callback/...`.
+- **Game servers authenticate with `API_KEY`.** Create one per server with `npm run admin -- server:key:create <name>` (shown once; only its hash is stored) and give it to the game server as `API_KEY`. With any account feature on, the game server refuses to start without it, and refuses the dev placeholder key outside dev.
+- **Server discovery.** A deployed game server needs `SUBDOMAIN`/`GAME_HOST`, `INSTANCE_LETTER` and a commit-shaped `GIT_COMMIT` to check in (the local dev build uses `DEV`, so a dev server does not register and schedules its own lobbies). New servers start `open`; `npm run admin -- server:state <site> <letter> open|draining|fenced --yes` is the operator's switch.
+- **Behind a reverse proxy** set `TRUST_PROXY_HOPS` (nginx = 1), or every player appears to come from the proxy's address and shares one rate limit.
 - The owner-defined numbers (Credits rewards, the daily cap, clan creation rules) live in [`src/account-api/domain/constants.ts`](../src/account-api/domain/constants.ts) and nowhere else.
 - Migrations are forward-only files in `src/account-api/migrations/`. Applied files are never edited (their checksums are verified); change the schema with a new file.
 
@@ -68,7 +86,7 @@ npm run test:account-api              # database tests; needs DATABASE_URL_TEST
 | News and streams feeds                                                                                                                                               | `Api.ts` (`getNews`, `getStreams`)        | **Works independently** (bundled fallback; the API is not asked unless a flag is on)                                                                                                           |
 | Server list `/cluster.json`                                                                                                                                          | `ServerList.ts`                           | **Works independently** (skipped without a backend; the page's own server is used)                                                                                                             |
 | Ranked, clans, leaderboards, store, inventory, cosmetics, subscriptions, sign-in, profiles                                                                           | feature flags above                       | **Safe to disable** now (done); **needs a DeltaFront replacement backend** to bring back                                                                                                       |
-| Production player admission                                                                                                                                          | `src/server/jwt.ts` (`verifyClientToken`) | **Needs a DeltaFront replacement backend, or a deliberate policy change** (see below)                                                                                                          |
+| Production player admission                                                                                                                                          | `src/server/jwt.ts` (`verifyClientToken`) | **Provided by the DeltaFront account API** (M1): guest, Discord and Google sessions; see above                                                                                                 |
 | Public-lobby scheduling on a deployed host                                                                                                                           | `Master.ts` (`checkinBody`, `registers`)  | **Needs a DeltaFront replacement backend, or a standalone mode** (see below)                                                                                                                   |
 | Trusted-only public lobbies                                                                                                                                          | `MapPlaylist.ts`                          | **Safe to disable** (done: none scheduled without `accounts`)                                                                                                                                  |
 | Tutorial video                                                                                                                                                       | `BRAND.tutorialVideoUrl`                  | **Still hardcoded to OpenFront's YouTube video**; replace or set `""`                                                                                                                          |
@@ -84,9 +102,10 @@ npm run test:account-api              # database tests; needs DATABASE_URL_TEST
 | Grafana Faro, OpenTelemetry                                                                                                                                          | `FARO_COLLECTOR_URL`, `OTEL_*`            | **Off unless you set the env vars**                                                                                                                                                            |
 | Deploy tooling (`deploy.sh`, `update.sh`, `setup.sh`, `.github/workflows/*`, `Dockerfile` staging timer)                                                             | repo root                                 | **OpenFront-specific ops**, not shipped to players. Adapt or replace for your hosting                                                                                                          |
 
-## Two decisions before a public deployment
+## Production deployment notes
 
-A server run with `GAME_ENV=prod` (or any non-dev environment) behaves differently from local dev. Neither of these is changed here because both are policy choices:
+A server run with `GAME_ENV=prod` (or any non-dev environment) behaves differently from local dev:
 
-1. **Who may join.** `verifyClientToken` rejects anonymous player IDs outside dev ("persistent ID not allowed in production"), so every player needs a JWT from an issuer at `api.<DOMAIN>` (`/.well-known/jwks.json`). With no backend, nobody can join a production server. Options: build the minimum issuer, or add an explicit, opt-in "anonymous players" mode (this gives up account-based identity and the bot protection that `/join_verify` provides).
-2. **Public lobbies on a deployed host.** A host that has a `SUBDOMAIN` registers with the API (`POST /cluster/checkin`) and "schedules nothing until the API calls it open". Without that endpoint a deployed host has no public lobbies (private lobbies and solo still work). Local dev has no `SUBDOMAIN` and schedules its own.
+1. **Who may join.** `verifyClientToken` rejects anonymous player IDs outside dev ("persistent ID not allowed in production"), so every player needs a JWT from the account API (`/.well-known/jwks.json`). A guest is a real account the API created, not an arbitrary client id. Every first join also needs a Cloudflare Turnstile token, which the API verifies (`POST /join_verify`).
+2. **Public lobbies on a deployed host.** A host that has a `SUBDOMAIN` registers with the API (`POST /cluster/checkin`) and schedules nothing until the API answers `open`. A server the operator has set to `draining` or `fenced` stops adding lobbies.
+3. **Turning it on is the public launch.** Nothing here is enabled in production until `DF_ACCOUNT_FEATURES` names `accounts`, which also waits for the final Terms of Service and Privacy Policy (see `docs/DeltaFrontAccountsPlan.md`, M7). The Docker build does not pass `DF_ACCOUNT_FEATURES` to the client build yet, so production client bundles stay feature-free until the deploy pipeline does.
