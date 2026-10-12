@@ -634,6 +634,7 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.ALLIANCE_BROKEN:
     case MessageType.UNIT_DESTROYED:
     case MessageType.NUKE_DETONATED:
+    case MessageType.AIRSTRIKE_HIT:
       return severityColors["fail"];
     case MessageType.ATTACK_CANCELLED:
     case MessageType.ATTACK_REQUEST:
@@ -647,6 +648,7 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.ALLIANCE_EXPIRED:
     case MessageType.NAVAL_INVASION_INBOUND:
     case MessageType.RENEW_ALLIANCE:
+    case MessageType.AIRSTRIKE_INBOUND:
       return severityColors["warn"];
     case MessageType.CHAT:
     case MessageType.ALLIANCE_REQUEST:

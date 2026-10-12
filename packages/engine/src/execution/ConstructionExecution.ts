@@ -14,6 +14,7 @@ import type {
   SnapshotReader,
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
+import { AirstrikeExecution } from "./AirstrikeExecution";
 import { CityExecution } from "./CityExecution";
 import { DefensePostExecution } from "./DefensePostExecution";
 import { FactoryExecution } from "./FactoryExecution";
@@ -139,6 +140,9 @@ export class ConstructionExecution implements Execution {
       case UnitType.MIRV:
         this.mg.addExecution(new MirvExecution(player, this.tile));
         break;
+      case UnitType.Airstrike:
+        this.mg.addExecution(new AirstrikeExecution(player, this.tile));
+        break;
       case UnitType.Warship:
         this.mg.addExecution(
           new WarshipExecution({ owner: player, patrolTile: this.tile }),
@@ -148,6 +152,8 @@ export class ConstructionExecution implements Execution {
         this.mg.addExecution(new PortExecution(this.structure!));
         break;
       case UnitType.MissileSilo:
+      case UnitType.Airport:
+        // Airports rearm through the same missile timer as silos.
         this.mg.addExecution(new MissileSiloExecution(this.structure!));
         break;
       case UnitType.DefensePost:
@@ -180,6 +186,7 @@ export class ConstructionExecution implements Execution {
       case UnitType.SAMLauncher:
       case UnitType.City:
       case UnitType.Factory:
+      case UnitType.Airport:
         return true;
       default:
         return false;

@@ -38,9 +38,13 @@ import { UIState } from "../UIState";
 import { UserSettings } from "../UserSettings";
 import { GameView } from "../view";
 
-/** True for nuke types (AtomBomb, HydrogenBomb): ghost is preserved after placement so user can place multiple or keep selection (Enter/key confirm). */
+/** True for nuke types (AtomBomb, HydrogenBomb) and airstrikes: ghost is preserved after placement so user can place multiple or keep selection (Enter/key confirm). */
 export function shouldPreserveGhostAfterBuild(unitType: UnitType): boolean {
-  return unitType === UnitType.AtomBomb || unitType === UnitType.HydrogenBomb;
+  return (
+    unitType === UnitType.AtomBomb ||
+    unitType === UnitType.HydrogenBomb ||
+    unitType === UnitType.Airstrike
+  );
 }
 
 // tSamIntercept value used to flag an untargetable (impassable) destination:
@@ -286,6 +290,8 @@ export class BuildPreviewController implements Controller {
           this.pendingConfirm = null;
           if (this.isGhostReadyForConfirm()) {
             this.createStructure(ev);
+          } else if (unit.type === UnitType.Airstrike) {
+            this.rejectAirstrike(ev);
           }
         }
 
@@ -467,6 +473,15 @@ export class BuildPreviewController implements Controller {
       case UnitType.DefensePost:
         rangeRadius = this.game.config().defensePostRange();
         break;
+      // The airport ghost shows the area it will cover; the airstrike ghost
+      // shows the strike area at the target (the player's airport ranges are
+      // drawn alongside by the renderer's airport radius pass).
+      case UnitType.Airport:
+        rangeRadius = this.game.config().airportRange();
+        break;
+      case UnitType.Airstrike:
+        rangeRadius = this.game.config().airstrikeRadius();
+        break;
     }
     let radiusTileX = this.game.x(placementTile);
     let radiusTileY = this.game.y(placementTile);
@@ -509,7 +524,11 @@ export class BuildPreviewController implements Controller {
       ownerID: myPlayer.smallID(),
       upgradeTargetTile,
       rangeRadius,
-      rangeWarning: targetingAlly,
+      // Airstrikes: red strike circle over a target they can't hit (out of
+      // every armed airport's range, not hostile land, or no airport ready).
+      rangeWarning:
+        targetingAlly ||
+        (u.type === UnitType.Airstrike && u.canBuild === false),
     };
   }
 
@@ -575,9 +594,21 @@ export class BuildPreviewController implements Controller {
       if (!shouldPreserveGhostAfterBuild(unitType)) {
         this.removeGhostStructure();
       }
+    } else if (this.ghostUnit.buildableUnit.type === UnitType.Airstrike) {
+      this.rejectAirstrike(e);
     } else {
       this.removeGhostStructure();
     }
+  }
+
+  /**
+   * An airstrike click on a target it can't hit: flash the blocked X there
+   * and stay in targeting mode so the player can pick another target.
+   */
+  private rejectAirstrike(e: MouseUpEvent): void {
+    const tile = this.transformHandler.screenToWorldCoordinates(e.x, e.y);
+    if (!this.game.isValidCoord(tile.x, tile.y)) return;
+    this.view.triggerBlockedFlash(tile.x + 0.5, tile.y + 0.5);
   }
 
   private shouldBlockRecentAllyNuke(

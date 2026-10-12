@@ -10,6 +10,7 @@ import type { Config } from "@openfront/engine-lib/configuration/Config";
 import type { ConquestFx, DeadUnitFx, RendererConfig } from "../../../types";
 import {
   STRUCTURE_TYPES,
+  UT_AIRSTRIKE,
   UT_SHELL,
   UT_TRAIN,
   UT_WARSHIP,
@@ -368,6 +369,11 @@ export class FxSpritePass {
       return;
     }
 
+    if (typeName === UT_AIRSTRIKE && unit.reachedTarget) {
+      this.spawnAirstrikeSprites(x, y, now);
+      return;
+    }
+
     if (typeName === UT_SHELL && unit.reachedTarget) {
       this.pushFx(x, y, FX_MINI_EXPLOSION, now);
       return;
@@ -380,6 +386,23 @@ export class FxSpritePass {
 
     if (STRUCTURE_TYPES.has(typeName)) {
       this.pushFx(x, y, FX_BUILDING_EXPLOSION, now);
+    }
+  }
+
+  /** Bomb run: a blast at the target plus a ring of small blasts spread
+   *  over the strike radius. */
+  private spawnAirstrikeSprites(x: number, y: number, now: number): void {
+    this.pushFx(x, y, FX_UNIT_EXPLOSION, now);
+    const spread = this.config.airstrikeRadius() * 0.6;
+    const bombs = 6;
+    for (let i = 0; i < bombs; i++) {
+      const angle = (i / bombs) * Math.PI * 2 + 0.4;
+      this.pushFx(
+        Math.round(x + Math.cos(angle) * spread),
+        Math.round(y + Math.sin(angle) * spread),
+        FX_MINI_EXPLOSION,
+        now,
+      );
     }
   }
 

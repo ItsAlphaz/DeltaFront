@@ -171,6 +171,16 @@ export class Config {
   SiloCooldown(): number {
     return 90;
   }
+  /** Ticks an Airport needs to rearm after launching an airstrike. */
+  AirportCooldown(): number {
+    return 150;
+  }
+  /** Ticks a missile-timer structure (silo, airport) needs to rearm. */
+  launcherCooldown(type: UnitType): number {
+    return type === UnitType.Airport
+      ? this.AirportCooldown()
+      : this.SiloCooldown();
+  }
 
   defensePostRange(): number {
     return 30;
@@ -240,6 +250,9 @@ export class Config {
           upgradable: true,
         };
         break;
+      case UnitType.Airport:
+        info = { constructionDuration: this.instantBuild() ? 0 : 10 * 10 };
+        break;
       case UnitType.City:
       case UnitType.Factory:
         info = {
@@ -255,6 +268,7 @@ export class Config {
       case UnitType.MIRVWarhead:
       case UnitType.TradeShip:
       case UnitType.Train:
+      case UnitType.Airstrike:
         info = {};
         break;
       default:
@@ -418,6 +432,16 @@ export class Config {
 
   structureMinDist(): number {
     return 15;
+  }
+
+  /** Euclidean radius, in tiles, around an Airport that its planes can strike. */
+  airportRange(): number {
+    return 100;
+  }
+
+  /** Euclidean radius, in tiles, of the area an airstrike hits. */
+  airstrikeRadius(): number {
+    return 12;
   }
 
   /** Max-health boost per veterancy level, as an integer percent of base max

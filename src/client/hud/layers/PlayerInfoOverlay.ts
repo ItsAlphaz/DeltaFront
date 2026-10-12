@@ -59,6 +59,7 @@ const cityIcon = assetUrl("images/CityIconWhite.svg");
 const factoryIcon = assetUrl("images/FactoryIconWhite.svg");
 const goldCoinIcon = assetUrl("images/GoldCoinIcon.svg");
 const missileSiloIcon = assetUrl("images/MissileSiloIconWhite.svg");
+const airportIcon = assetUrl("images/AirportIconWhite.svg");
 const portIcon = assetUrl("images/PortIcon.svg");
 const samLauncherIcon = assetUrl("images/SamLauncherIconWhite.svg");
 const soldierIcon = assetUrl("images/SoldierIcon.svg");
@@ -732,6 +733,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
               samLauncherIcon,
             )}
             ${this.displayUnitCount(player, UnitType.Warship, warshipIcon)}
+            ${this.displayUnitCount(player, UnitType.Airport, airportIcon)}
           </div>
         </div>
         ${myPlayer && this.showShortcutButtons()

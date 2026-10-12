@@ -2,8 +2,9 @@
  * UnitPass — GPU-rendered mobile unit sprites.
  *
  * Renders all mobile (non-structure) units: boats, nukes, shells, SAM
- * missiles, and MIRV warheads. All unit types are rotationally symmetric
- * — no rotation needed. Sprites are tiny grayscale PNGs colorized on the
+ * missiles, MIRV warheads and airstrike planes. Every unit type is
+ * rotationally symmetric except the airstrike plane, which is drawn nose-up
+ * and rotated on the GPU to its heading. Sprites are tiny grayscale PNGs colorized on the
  * GPU using the standard 3-band gray replacement (180/130/70). MIRV
  * Warhead uses a programmatic 3×3 white square (colorized to border
  * color); Shell is a single white pixel.
@@ -13,7 +14,8 @@
  *   Ground/sea (boats, trains) → rendered below structures
  *   Missiles (nukes, shells, SAM, MIRV warheads) → rendered above structures
  *
- * Atlas layout (12 columns × 13px cells, pre-built by generate-sprite-atlases.mjs):
+ * Atlas layout (13 columns × 13px cells, pre-built by generate-sprite-atlases.mjs;
+ * col 12 was appended by hand from resources/sprites/airstrike.png):
  *   Col 0: Transport (5×5)
  *   Col 1: Trade Ship (5×5)
  *   Col 2: Warship (11×11)
@@ -26,6 +28,7 @@
  *   Col 9: Train Engine (5×5)
  *   Col 10: Train Carriage (5×5)
  *   Col 11: Train Carriage Loaded (5×5)
+ *   Col 12: Airstrike plane (11×11, F-16 top view, nose up)
  *
  * Data flow:
  *   FrameSnapshot.units → filter by typeToAtlasIdx → instance VBO → GPU
@@ -38,6 +41,7 @@ import type { RendererConfig, UnitState } from "../../types";
 import {
   SMOOTHED_NUKE_TYPES,
   TrainType,
+  UT_AIRSTRIKE,
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,
   UT_MIRV,
@@ -85,6 +89,7 @@ const UNIT_ORDER = [
   "TrainEngine",
   "TrainCarriage",
   "TrainCarriageLoaded",
+  UT_AIRSTRIKE,
 ] as const;
 
 const ATLAS_COLS = UNIT_ORDER.length;
@@ -109,7 +114,8 @@ const TRAIN_FIRST_COL = UNIT_ORDER.indexOf("TrainEngine");
  *   uint8 atlasIdx         —  1 byte  (atlas column 0–11)
  *   uint8 flags            —  1 byte  (0 = normal, 1 = flicker, 2 = angry, 3 = trade-friendly, 4 = retreating, 5 = flicker-untargetable)
  *   uint8 flickerHash      —  1 byte  (per-instance flicker phase offset)
- *   1 byte padding         — aligns to 4-byte boundary
+ *   uint8 heading          —  1 byte  (sprite rotation, 256 steps per turn;
+ *                                      0 = unrotated, used by planes only)
  */
 const FLOATS_PER_INSTANCE = 4;
 const BYTES_PER_INSTANCE = FLOATS_PER_INSTANCE * 4;
@@ -147,6 +153,7 @@ const MISSILE_TYPES: ReadonlySet<string> = new Set([
   UT_SAM_MISSILE,
   UT_SHELL,
   UT_MIRV_WARHEAD,
+  UT_AIRSTRIKE,
 ]);
 
 /** Values per smoothing segment in the flat `smoothSegs` array:
@@ -161,6 +168,15 @@ const SMOOTH_SEG_STRIDE = 5;
 export function flickerHashByte(x: number, y: number): number {
   const f = x * 0.1731 + y * 0.3179;
   return ((f - Math.floor(f)) * 255) | 0;
+}
+
+/** Rotation byte (256 steps per turn) that turns a nose-up sprite to face
+ *  world direction (dx, dy), y pointing down. (0, 0) leaves it unrotated. */
+export function planeHeadingByte(dx: number, dy: number): number {
+  if (dx === 0 && dy === 0) return 0;
+  // Nose-up is direction (0, -1): rotate by atan2(dy, dx) + 90°.
+  const turns = (Math.atan2(dy, dx) + Math.PI / 2) / (2 * Math.PI);
+  return Math.round((turns - Math.floor(turns)) * 256) & 255;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,9 +202,9 @@ function createUnitVao(
   gl.vertexAttribPointer(1, 3, gl.FLOAT, false, BYTES_PER_INSTANCE, 0);
   gl.vertexAttribDivisor(1, 1);
 
-  // Attribute 2: per-instance (atlasIdx, flags, flickerHash) — 3 uint8s at offset 12, converted to float
+  // Attribute 2: per-instance (atlasIdx, flags, flickerHash, heading) — 4 uint8s at offset 12, converted to float
   gl.enableVertexAttribArray(2);
-  gl.vertexAttribPointer(2, 3, gl.UNSIGNED_BYTE, false, BYTES_PER_INSTANCE, 12);
+  gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, false, BYTES_PER_INSTANCE, 12);
   gl.vertexAttribDivisor(2, 1);
 
   gl.bindVertexArray(null);
@@ -420,6 +436,7 @@ export class UnitPass {
     this.groundBuf.uint8[byteOff + 12] = atlasIdx;
     this.groundBuf.uint8[byteOff + 13] = flags;
     this.groundBuf.uint8[byteOff + 14] = flickerHashByte(x, y);
+    this.groundBuf.uint8[byteOff + 15] = 0;
     this.groundCount++;
   }
 
@@ -429,6 +446,7 @@ export class UnitPass {
     ownerID: number,
     atlasIdx: number,
     flags: number,
+    heading = 0,
   ): void {
     this.missileBuf.ensureCapacity(this.missileCount + 1);
     const off = this.missileCount * FLOATS_PER_INSTANCE;
@@ -439,6 +457,7 @@ export class UnitPass {
     this.missileBuf.uint8[byteOff + 12] = atlasIdx;
     this.missileBuf.uint8[byteOff + 13] = flags;
     this.missileBuf.uint8[byteOff + 14] = flickerHashByte(x, y);
+    this.missileBuf.uint8[byteOff + 15] = heading;
     this.missileCount++;
   }
 
@@ -525,15 +544,17 @@ export class UnitPass {
       const y = (unit.pos - x) / this.mapW;
 
       if (isMissile) {
+        const isPlane = unit.unitType === UT_AIRSTRIKE;
         if (
-          SMOOTHED_NUKE_TYPES.has(unit.unitType) &&
+          (SMOOTHED_NUKE_TYPES.has(unit.unitType) || isPlane) &&
           unit.lastPos !== unit.pos
         ) {
           const lx = unit.lastPos % this.mapW;
           const ly = (unit.lastPos - lx) / this.mapW;
           this.smoothSegs.push(this.missileCount, lx, ly, x, y);
         }
-        this.emitMissile(x, y, unit.ownerID, atlasIdx, flags);
+        const heading = isPlane ? this.planeHeading(unit, x, y) : 0;
+        this.emitMissile(x, y, unit.ownerID, atlasIdx, flags, heading);
 
         // Shells emit a second instance at lastPos (2-pixel trail effect)
         if (unit.unitType === UT_SHELL && unit.lastPos !== unit.pos) {
@@ -567,6 +588,23 @@ export class UnitPass {
         this.missileCount * FLOATS_PER_INSTANCE,
       );
     }
+  }
+
+  /** Heading byte for a plane sprite drawn nose-up: it flies straight at
+   *  its target tile, so point it there (or along its last step on arrival). */
+  private planeHeading(unit: UnitState, x: number, y: number): number {
+    let dx = 0;
+    let dy = 0;
+    if (unit.targetTile !== null && unit.targetTile !== unit.pos) {
+      const tx = unit.targetTile % this.mapW;
+      dx = tx - x;
+      dy = (unit.targetTile - tx) / this.mapW - y;
+    } else if (unit.lastPos !== unit.pos) {
+      const lx = unit.lastPos % this.mapW;
+      dx = x - lx;
+      dy = y - (unit.lastPos - lx) / this.mapW;
+    }
+    return planeHeadingByte(dx, dy);
   }
 
   setAltView(active: boolean): void {

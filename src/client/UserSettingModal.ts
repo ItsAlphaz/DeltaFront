@@ -1365,6 +1365,26 @@ export class UserSettingModal extends BaseModal {
         @change=${this.handleKeybindChange}
       ></setting-keybind>
 
+      <setting-keybind
+        action="buildAirport"
+        label=${translateText("user_setting.build_airport")}
+        description=${translateText("user_setting.build_airport_desc")}
+        defaultKey=${this.defaultKeybinds.buildAirport}
+        .value=${this.getKeyValue("buildAirport")}
+        .display=${this.getKeyChar("buildAirport")}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
+
+      <setting-keybind
+        action="buildAirstrike"
+        label=${translateText("user_setting.build_airstrike")}
+        description=${translateText("user_setting.build_airstrike_desc")}
+        defaultKey=${this.defaultKeybinds.buildAirstrike}
+        .value=${this.getKeyValue("buildAirstrike")}
+        .display=${this.getKeyChar("buildAirstrike")}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
+
       <h2
         class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >

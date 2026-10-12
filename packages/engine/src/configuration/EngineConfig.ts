@@ -337,6 +337,13 @@ export class EngineConfig extends Config {
         };
       case UnitType.MissileSilo:
         return this.costWrapper(() => 1_000_000, UnitType.MissileSilo);
+      case UnitType.Airport:
+        return this.costWrapper(
+          (numUnits: number) => Math.min(1_500_000, (numUnits + 1) * 500_000),
+          UnitType.Airport,
+        );
+      case UnitType.Airstrike:
+        return this.costWrapper(() => 300_000, UnitType.Airstrike);
       case UnitType.DefensePost:
         return this.costWrapper(
           (numUnits: number) => Math.min(250_000, (numUnits + 1) * 50_000),
@@ -659,6 +666,28 @@ export class EngineConfig extends Config {
         return 22;
     }
     throw new Error(`Unknown nuke type: ${unitType}`);
+  }
+
+  /** Tiles an airstrike plane flies per tick (nukes fly 10). */
+  airstrikeSpeed(): number {
+    return 4;
+  }
+
+  /**
+   * Troops an airstrike kills from a player that owns `tilesHit` of the
+   * `tilesOwned` tiles in the strike area: twice their share of territory
+   * hit, capped at 20% of their troops. Integer math keeps it deterministic.
+   */
+  airstrikeTroopLoss(
+    troops: number,
+    tilesHit: number,
+    tilesOwned: number,
+  ): number {
+    if (troops <= 0 || tilesHit <= 0) return 0;
+    const owned = Math.max(1, tilesOwned);
+    // Loss fraction in basis points (1/10000).
+    const bps = Math.min(2_000, Math.floor((20_000 * tilesHit) / owned));
+    return Math.floor((troops * bps) / 10_000);
   }
 
   mirvNormalizeTargetTicks(): number {

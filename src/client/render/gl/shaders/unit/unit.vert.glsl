@@ -5,7 +5,7 @@ layout(location = 0) in vec2 aPos;
 
 // Per-instance attributes
 layout(location = 1) in vec3 aInstPos;   // x, y, ownerID
-layout(location = 2) in vec3 aInstFlags; // atlasIdx, flags, flickerHash (uint8→float)
+layout(location = 2) in vec4 aInstFlags; // atlasIdx, flags, flickerHash, heading (uint8→float)
 
 uniform mat3  uCamera;
 
@@ -45,8 +45,15 @@ void main() {
   // Units scale with the map like territory tiles do.
   float halfSize = uUnitSize * 0.5 * scale;
 
+  // Heading: 256 steps per turn, 0 = unrotated (all but airstrike planes).
+  float angle = aInstFlags.w * (6.28318530718 / 256.0);
+  float c = cos(angle);
+  float s = sin(angle);
+  vec2 offset = (aPos - 0.5) * halfSize * 2.0;
+  offset = vec2(offset.x * c - offset.y * s, offset.x * s + offset.y * c);
+
   vec2 center = vec2(worldX + 0.5, worldY + 0.5);
-  vec2 worldPos = center + (aPos - 0.5) * halfSize * 2.0;
+  vec2 worldPos = center + offset;
   vWorldPos = worldPos;
 
   vec3 clip = uCamera * vec3(worldPos, 1.0);

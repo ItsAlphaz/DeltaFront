@@ -26,6 +26,8 @@ import {
 } from "../../Transport";
 import { UIState } from "../../UIState";
 import { GameView } from "../../view";
+const airportIcon = assetUrl("images/AirportIconWhite.svg");
+const airstrikeIcon = assetUrl("images/AirstrikeIconWhite.svg");
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
 const cityIcon = assetUrl("images/CityIconWhite.svg");
 const factoryIcon = assetUrl("images/FactoryIconWhite.svg");
@@ -70,6 +72,13 @@ export const buildTable: BuildItemDisplay[][] = [
       countable: false,
     },
     {
+      unitType: UnitType.Airstrike,
+      icon: airstrikeIcon,
+      description: "build_menu.desc.airstrike",
+      key: "unit_type.airstrike",
+      countable: false,
+    },
+    {
       unitType: UnitType.Warship,
       icon: warshipIcon,
       description: "build_menu.desc.warship",
@@ -88,6 +97,13 @@ export const buildTable: BuildItemDisplay[][] = [
       icon: missileSiloIcon,
       description: "build_menu.desc.missile_silo",
       key: "unit_type.missile_silo",
+      countable: true,
+    },
+    {
+      unitType: UnitType.Airport,
+      icon: airportIcon,
+      description: "build_menu.desc.airport",
+      key: "unit_type.airport",
       countable: true,
     },
     {

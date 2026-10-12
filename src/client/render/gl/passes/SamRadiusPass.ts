@@ -11,6 +11,9 @@
  *   self  → green  (0, 1, 0)
  *   ally  → yellow (1, 1, 0)
  *   enemy → red    (1, 0, 0)
+ *
+ * The same pass also draws Airport strike ranges (a second instance built
+ * with AIRPORT-style RadiusSource: the local player's airports only).
  */
 
 import type { UnitState } from "../../types";
@@ -48,6 +51,20 @@ interface SAMCircle {
 }
 
 type Interval = [number, number];
+
+/** Which structures this pass draws, and their range by level. */
+export interface RadiusSource {
+  unitType: string;
+  range: (level: number) => number;
+  /** Draw only the local player's structures. */
+  selfOnly: boolean;
+}
+
+const SAM_SOURCE: RadiusSource = {
+  unitType: UT_SAM_LAUNCHER,
+  range: samRange,
+  selfOnly: false,
+};
 
 function compareIntervalStart(a: Interval, b: Interval): number {
   return a[0] - b[0];
@@ -188,6 +205,7 @@ export class SAMRadiusPass {
     gl: WebGL2RenderingContext,
     mapW: number,
     settings: RenderSettings,
+    private readonly source: RadiusSource = SAM_SOURCE,
   ) {
     this.gl = gl;
     this.mapW = mapW;
@@ -347,6 +365,14 @@ export class SAMRadiusPass {
         : COLOR_ENEMY;
   }
 
+  private isDrawn(u: UnitState): boolean {
+    return (
+      u.unitType === this.source.unitType &&
+      u.isActive &&
+      (!this.source.selfOnly || u.ownerID === this.localPlayerID)
+    );
+  }
+
   private collectSAMCircles(
     structures: Map<number, UnitState>,
     continuousTick: number,
@@ -356,7 +382,7 @@ export class SAMRadiusPass {
     this.dirtyGroups.clear();
 
     for (const u of structures.values()) {
-      if (u.unitType !== UT_SAM_LAUNCHER || !u.isActive) continue;
+      if (!this.isDrawn(u)) continue;
       const isFriendly =
         u.ownerID === this.localPlayerID || this.allies.has(u.ownerID);
       const bg = this.getSAMBaseGroup(u, isFriendly);
@@ -373,7 +399,7 @@ export class SAMRadiusPass {
     this.hasUpgradingSAM = this.dirtyGroups.size > 0;
 
     for (const u of structures.values()) {
-      if (u.unitType !== UT_SAM_LAUNCHER || !u.isActive) continue;
+      if (!this.isDrawn(u)) continue;
       const isFriendly =
         u.ownerID === this.localPlayerID || this.allies.has(u.ownerID);
       const bg = this.getSAMBaseGroup(u, isFriendly);
@@ -418,7 +444,7 @@ export class SAMRadiusPass {
     ) {
       const elapsed = continuousTick - startTick;
       const progress = Math.max(0, Math.min(1, elapsed / duration));
-      const targetRadius = samRange(u.samUpgradeTargetLevel ?? 0);
+      const targetRadius = this.source.range(u.samUpgradeTargetLevel ?? 0);
       const startRange = u.samUpgradeStartRange ?? 0;
       const currentRadius = startRange + (targetRadius - startRange) * progress;
 
@@ -451,7 +477,7 @@ export class SAMRadiusPass {
       circles.push({
         x,
         y,
-        radius: samRange(u.level),
+        radius: this.source.range(u.level),
         r: color[0],
         g: color[1],
         b: color[2],
@@ -464,7 +490,7 @@ export class SAMRadiusPass {
         circles.push({
           x,
           y,
-          radius: samRange(u.level),
+          radius: this.source.range(u.level),
           r: color[0],
           g: color[1],
           b: color[2],

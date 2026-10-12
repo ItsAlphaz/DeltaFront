@@ -1613,11 +1613,14 @@ export class PlayerImpl implements Player {
         return this.tradeShipSpawn(targetTile);
       case UnitType.Train:
         return this.landBasedUnitSpawn(targetTile);
+      case UnitType.Airstrike:
+        return this.airstrikeSpawn(targetTile);
       case UnitType.MissileSilo:
       case UnitType.DefensePost:
       case UnitType.SAMLauncher:
       case UnitType.City:
       case UnitType.Factory:
+      case UnitType.Airport:
         return this.landBasedStructureSpawn(targetTile, validTiles);
       default:
         assertNever(unitType);
@@ -1674,6 +1677,42 @@ export class PlayerImpl implements Player {
         mg.manhattanDist(a.tile(), tile) - mg.manhattanDist(b.tile(), tile),
     );
     return readySilos[0]?.tile() ?? false;
+  }
+
+  /**
+   * Airstrikes hit land held by a non-friendly player within range of one of
+   * this player's armed Airports; returns the nearest such Airport's tile.
+   */
+  airstrikeSpawn(tile: TileRef): TileRef | false {
+    const mg = this.mg;
+    if (mg.isSpawnImmunityActive()) {
+      return false;
+    }
+    if (!mg.isLand(tile) || mg.isImpassable(tile)) {
+      return false;
+    }
+    const owner = mg.owner(tile);
+    if (!owner.isPlayer() || owner === this || this.isFriendly(owner)) {
+      return false;
+    }
+    const range2 = mg.config().airportRange() ** 2;
+    let best: Unit | null = null;
+    let bestDist = Infinity;
+    for (const airport of this.units(UnitType.Airport)) {
+      if (
+        !airport.isActive() ||
+        airport.isUnderConstruction() ||
+        airport.isInCooldown()
+      ) {
+        continue;
+      }
+      const d2 = mg.euclideanDistSquared(airport.tile(), tile);
+      if (d2 <= range2 && d2 < bestDist) {
+        best = airport;
+        bestDist = d2;
+      }
+    }
+    return best?.tile() ?? false;
   }
 
   portSpawn(tile: TileRef, validTiles: TileRef[] | null): TileRef | false {

@@ -3,6 +3,7 @@ import { assetUrl } from "@openfront/shared/AssetUrls";
 import { Colord } from "colord";
 import { Theme } from "../theme/ThemeProvider";
 import { UnitView } from "../view";
+const airstrikeSprite = assetUrl("sprites/airstrike.png");
 const atomBombSprite = assetUrl("sprites/atombomb.png");
 const hydrogenBombSprite = assetUrl("sprites/hydrogenbomb.png");
 const mirvSprite = assetUrl("sprites/mirv2.png");
@@ -31,6 +32,7 @@ const SPRITE_CONFIG: Partial<Record<UnitType | TrainTypeSprite, string>> = {
   [UnitType.HydrogenBomb]: hydrogenBombSprite,
   [UnitType.TradeShip]: tradeShipSprite,
   [UnitType.MIRV]: mirvSprite,
+  [UnitType.Airstrike]: airstrikeSprite,
   [TrainTypeSprite.Engine]: trainEngineSprite,
   [TrainTypeSprite.Carriage]: trainCarriageSprite,
   [TrainTypeSprite.LoadedCarriage]: trainLoadedCarriageSprite,

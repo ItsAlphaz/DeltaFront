@@ -16,6 +16,8 @@ import { UserSettings } from "../../UserSettings";
 import { translateText } from "../../Utils";
 import { GameView } from "../../view";
 import {
+  airportIcon,
+  airstrikeIcon,
   atomBombIcon,
   cityIcon,
   defensePostIcon,
@@ -44,6 +46,7 @@ export class UnitDisplay extends LitElement implements Controller {
   private _port = 0;
   private _defensePost = 0;
   private _samLauncher = 0;
+  private _airport = 0;
   private allDisabled = false;
   private _hoveredUnit: PlayerBuildableUnitType | null = null;
   private tutorialHighlight: PlayerBuildableUnitType | null = null;
@@ -106,6 +109,11 @@ export class UnitDisplay extends LitElement implements Controller {
           this.cost(item) <= (player?.gold() ?? 0n) &&
           (player?.units(UnitType.Port).length ?? 0) > 0
         );
+      case UnitType.Airstrike:
+        return (
+          this.cost(item) <= (player?.gold() ?? 0n) &&
+          (player?.units(UnitType.Airport).length ?? 0) > 0
+        );
       default:
         return this.cost(item) <= (player?.gold() ?? 0n);
     }
@@ -124,6 +132,7 @@ export class UnitDisplay extends LitElement implements Controller {
     this._samLauncher = player.totalUnitLevels(UnitType.SAMLauncher);
     this._factories = player.totalUnitLevels(UnitType.Factory);
     this._warships = player.totalUnitLevels(UnitType.Warship);
+    this._airport = player.totalUnitLevels(UnitType.Airport);
     this.requestUpdate();
   }
 
@@ -213,6 +222,20 @@ export class UnitDisplay extends LitElement implements Controller {
             UnitType.MIRV,
             "mirv",
             this.keybinds["buildMIRV"]?.key ?? "0",
+          )}
+          ${this.renderUnitItem(
+            airportIcon,
+            this._airport,
+            UnitType.Airport,
+            "airport",
+            this.keybinds["buildAirport"]?.key ?? "H",
+          )}
+          ${this.renderUnitItem(
+            airstrikeIcon,
+            null,
+            UnitType.Airstrike,
+            "airstrike",
+            this.keybinds["buildAirstrike"]?.key ?? "J",
           )}
         </div>
       </div>
@@ -305,6 +328,11 @@ export class UnitDisplay extends LitElement implements Controller {
                 break;
               case UnitType.Warship:
                 this.eventBus?.emit(new ToggleStructureEvent([UnitType.Port]));
+                break;
+              case UnitType.Airstrike:
+                this.eventBus?.emit(
+                  new ToggleStructureEvent([UnitType.Airport]),
+                );
                 break;
               default:
                 this.eventBus?.emit(new ToggleStructureEvent([unitType]));

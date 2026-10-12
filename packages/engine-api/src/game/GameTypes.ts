@@ -206,6 +206,11 @@ export enum UnitType {
   MIRVWarhead = "MIRV Warhead",
   Train = "Train",
   Factory = "Factory",
+  // DeltaFront airstrikes: an Airport launches Airstrike planes at enemy
+  // land within its range (like a Missile Silo launching nukes, but local
+  // and tactical). Appended last so existing enum values keep their order.
+  Airport = "Airport",
+  Airstrike = "Airstrike",
 }
 
 export enum TrainType {
@@ -226,6 +231,7 @@ export const BuildableAttacks = unitTypeGroup([
   UnitType.HydrogenBomb,
   UnitType.MIRV,
   UnitType.Warship,
+  UnitType.Airstrike,
 ] as const);
 
 export const Structures = unitTypeGroup([
@@ -235,6 +241,7 @@ export const Structures = unitTypeGroup([
   UnitType.MissileSilo,
   UnitType.Port,
   UnitType.Factory,
+  UnitType.Airport,
 ] as const);
 
 export const BuildMenus = unitTypeGroup([
@@ -450,6 +457,8 @@ export enum MessageType {
   DONATION_RECEIVED,
   CHAT,
   RENEW_ALLIANCE,
+  AIRSTRIKE_INBOUND,
+  AIRSTRIKE_HIT,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -485,6 +494,8 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.DONATION_SENT]: MessageCategory.TRADE,
   [MessageType.DONATION_RECEIVED]: MessageCategory.TRADE,
   [MessageType.CHAT]: MessageCategory.CHAT,
+  [MessageType.AIRSTRIKE_INBOUND]: MessageCategory.ATTACK,
+  [MessageType.AIRSTRIKE_HIT]: MessageCategory.ATTACK,
 } as const;
 
 /**

@@ -162,6 +162,8 @@ export function scriptedTurn(game: Game): Turn {
       ? (spawnIntent(game, p, tick) ?? queuedIntent(game, p, tick))
       : playIntent(game, p, rand);
     if (intent !== null) intents.push({ ...intent, clientID } as StampedIntent);
+    const air = game.inSpawnPhase() ? null : airIntent(game, p, tick);
+    if (air !== null) intents.push({ ...air, clientID } as StampedIntent);
   }
   if (tick === 21) {
     // From a client that is not in the game: becomes a NoOpExecution.
@@ -173,6 +175,35 @@ export function scriptedTurn(game: Game): Turn {
     });
   }
   return { turnNumber: tick, intents };
+}
+
+/**
+ * Airports and airstrikes on a fixed schedule (no PRNG draws, so the random
+ * script above plays out as before): the first human builds an Airport on its
+ * border, then strikes neighbouring land through the tick-700 snapshot window
+ * so a plane is caught in flight.
+ */
+function airIntent(game: Game, p: Player, tick: number): Intent | null {
+  if (p.clientID() !== SCRIPTED_HUMANS[0] || !p.isAlive()) return null;
+  const hasAirport = p.units(UnitType.Airport).length > 0;
+  if (!hasAirport && tick >= 300 && tick % 10 === 0) {
+    for (const t of p.borderTiles()) {
+      if (p.canBuild(UnitType.Airport, t) !== false) {
+        return { type: "build_unit", unit: UnitType.Airport, tile: t };
+      }
+    }
+    return null;
+  }
+  if (hasAirport && tick >= 690 && tick < 740 && tick % 5 === 0) {
+    for (const t of p.borderTiles()) {
+      for (const n of game.neighbors(t)) {
+        if (p.canBuild(UnitType.Airstrike, n) !== false) {
+          return { type: "build_unit", unit: UnitType.Airstrike, tile: n };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 // Rough land coordinates on the world test map (compact size, 1000x500).

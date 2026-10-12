@@ -102,6 +102,10 @@ const SAM_RADIUS_HIGHLIGHT_TYPES = new Set([
   "Hydrogen Bomb",
 ]);
 
+/** Ghost / build-button hover types that show the local player's airport
+ *  strike ranges (where an airstrike can land, or where a new airport adds cover). */
+const AIRPORT_RADIUS_TYPES = new Set(["Airport", "Airstrike"]);
+
 const GRID_VIEW_KEY = "renderer:grid_view_enabled";
 
 export class GPURenderer {
@@ -136,6 +140,7 @@ export class GPURenderer {
   private fxPass: FxPass;
   private rangeCirclePass: RangeCirclePass;
   private samRadiusPass: SAMRadiusPass;
+  private airportRadiusPass: SAMRadiusPass;
   private crosshairPass: CrosshairPass;
   private railroadPass: RailroadPass;
   private barPass: BarPass;
@@ -204,6 +209,8 @@ export class GPURenderer {
   // SAM radius visibility tracking (show if either source is true)
   private samGhostVisible = false;
   private samHighlightVisible = false;
+  private airportGhostVisible = false;
+  private airportHighlightVisible = false;
 
   // Warship selection — supports any number of selections.
   private selectedUnitIds: number[] = [];
@@ -558,6 +565,12 @@ export class GPURenderer {
     // --- SAM radius overlay (dashed green circles during build mode) ---
     this.samRadiusPass = new SAMRadiusPass(gl, mapW, this.settings);
     this.samRadiusPass.setPaletteData(paletteData);
+    this.airportRadiusPass = new SAMRadiusPass(gl, mapW, this.settings, {
+      unitType: "Airport",
+      range: () => config.airportRange(),
+      selfOnly: true,
+    });
+    this.airportRadiusPass.setPaletteData(paletteData);
 
     // --- Crosshair (warship placement) ---
     this.crosshairPass = new CrosshairPass(gl);
@@ -739,6 +752,7 @@ export class GPURenderer {
     );
     // SAM radius pass stores its own copy
     this.samRadiusPass.setPaletteData(this.paletteData);
+    this.airportRadiusPass.setPaletteData(this.paletteData);
     // Name pass caches per-player colors and bakes them into slot rows
     this.namePass.refreshPlayerColors(this.paletteData);
   }
@@ -910,6 +924,7 @@ export class GPURenderer {
     this.unitPass.setFrameTick(this.frameTick);
     this.unitPass.updateUnits(units, gameTick);
     this.samRadiusPass.setTick(gameTick);
+    this.airportRadiusPass.setTick(gameTick);
     this.barPass.updateBars(units, this.lastStructures, gameTick);
     this.pointLightPass.updateLights(units);
     this.heatManager.decayHeat();
@@ -934,6 +949,7 @@ export class GPURenderer {
         }
       }
       this.samRadiusPass.setAllies(friendly);
+      this.airportRadiusPass.setAllies(friendly);
       this.unitPass.setAllies(friendly);
     }
   }
@@ -953,6 +969,7 @@ export class GPURenderer {
     this.structurePass.updateStructures(units);
     this.structureLevelPass.updateStructures(units);
     this.samRadiusPass.updateStructures(units);
+    this.airportRadiusPass.updateStructures(units);
     this.unitPass.setStructures(units);
     const posts: { x: number; y: number; ownerID: number }[] = [];
     const w = this.mapW;
@@ -1091,6 +1108,11 @@ export class GPURenderer {
     this.samRadiusPass.setVisible(
       this.samGhostVisible || this.samHighlightVisible,
     );
+    this.airportGhostVisible =
+      data !== null && AIRPORT_RADIUS_TYPES.has(data.ghostType);
+    this.airportRadiusPass.setVisible(
+      this.airportGhostVisible || this.airportHighlightVisible,
+    );
   }
 
   updateNukeTrajectory(data: NukeTrajectoryData | null): void {
@@ -1133,12 +1155,18 @@ export class GPURenderer {
     this.samRadiusPass.setVisible(
       this.samGhostVisible || this.samHighlightVisible,
     );
+    this.airportHighlightVisible =
+      unitTypes !== null && unitTypes.some((t) => AIRPORT_RADIUS_TYPES.has(t));
+    this.airportRadiusPass.setVisible(
+      this.airportGhostVisible || this.airportHighlightVisible,
+    );
   }
 
   setLocalPlayerID(id: number): void {
     if (id === this.localPlayerID) return;
     this.localPlayerID = id;
     this.samRadiusPass.setLocalPlayer(id);
+    this.airportRadiusPass.setLocalPlayer(id);
     this.structurePass.setLocalPlayer(id);
     this.affiliationPalette.setLocalPlayer(id);
     this.unitPass.setLocalPlayer(id);
@@ -1366,6 +1394,7 @@ export class GPURenderer {
     if (pe.unit) this.unitPass.drawGround(cam);
     if (pe.falloutBloom) this.bloomPass.draw(cam, this.frameTick);
     this.samRadiusPass.draw(cam);
+    this.airportRadiusPass.draw(cam);
     this.rangeCirclePass.draw(cam);
     this.nukeTrajectoryPass.draw(cam);
     this.crosshairPass.draw(cam);
@@ -1505,6 +1534,7 @@ export class GPURenderer {
     this.railroadPass.dispose();
     this.rangeCirclePass.dispose();
     this.samRadiusPass.dispose();
+    this.airportRadiusPass.dispose();
     this.crosshairPass.dispose();
     this.structurePass.dispose();
     this.structureLevelPass.dispose();
