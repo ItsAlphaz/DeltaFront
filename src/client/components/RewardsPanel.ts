@@ -11,7 +11,7 @@ import { showInGameAlert } from "../InGameModal";
 import { levelRewardReasonKey } from "../Progression";
 import { translateText } from "../Utils";
 import "./baseComponents/Button";
-import "./CapIcon";
+import "./CreditsIcon";
 import "./PlutoniumIcon";
 
 // The new state of the rewards list after a claim. `currency` is the fresh
@@ -124,7 +124,7 @@ export class RewardsPanel extends LitElement {
         <div class="flex items-center gap-3 min-w-0">
           ${isHard
             ? html`<plutonium-icon .size=${20}></plutonium-icon>`
-            : html`<cap-icon .size=${20}></cap-icon>`}
+            : html`<credits-icon .size=${20}></credits-icon>`}
           <div class="flex flex-col min-w-0">
             <span
               class="text-sm font-bold ${isHard

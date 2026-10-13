@@ -13,8 +13,8 @@ import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { ResolvedCosmetic } from "../Cosmetics";
 import { translateText } from "../Utils";
-import "./CapIcon";
 import { cosmeticDisplayName } from "./CosmeticPresentation";
+import "./CreditsIcon";
 import "./EffectPreview";
 import { observeNear } from "./LazyVisibility";
 import { renderPatternPreview } from "./PatternPreview";
@@ -162,7 +162,10 @@ export class CosmeticPreview extends LitElement {
             class="block shrink-0"
             .size=${80}
           ></plutonium-icon>`
-        : html`<cap-icon class="block shrink-0" .size=${80}></cap-icon>`;
+        : html`<credits-icon
+            class="block shrink-0"
+            .size=${80}
+          ></credits-icon>`;
       const colorClass = isHard ? "text-green-400" : "text-amber-700";
       const currencyKey = isHard ? "cosmetics.hard" : "cosmetics.soft";
       return html`<div

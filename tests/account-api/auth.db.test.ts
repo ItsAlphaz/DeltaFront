@@ -147,15 +147,16 @@ describeDb("guest sessions", () => {
       subscription: null,
       achievements: { singleplayerMap: [], player: [] },
     });
+    // Milestone M2 adds the Credits balance and the (unset) username.
+    expect(me.player.currency).toEqual({ soft: 0, hard: 0 });
+    expect(me.player.username).toBeNull();
     // Nothing from later milestones.
     for (const key of [
-      "currency",
       "rewards",
       "progress",
       "clans",
       "clanRequests",
       "flares",
-      "username",
     ]) {
       expect(me.player, key).not.toHaveProperty(key);
     }

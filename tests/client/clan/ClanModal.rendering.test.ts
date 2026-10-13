@@ -308,7 +308,7 @@ describe("ClanModal — rendering", () => {
         makeClan({ softBalance: "0", hardBalance: "0" }),
       );
 
-      expect(display?.querySelector("cap-icon")).toBeTruthy();
+      expect(display?.querySelector("credits-icon")).toBeTruthy();
       expect(display?.querySelector("plutonium-icon")).toBeTruthy();
     });
 
@@ -318,7 +318,7 @@ describe("ClanModal — rendering", () => {
       const display = await openDetail(makeClan());
 
       expect(display).toBeTruthy();
-      expect(modal.querySelector("cap-icon")).toBeNull();
+      expect(modal.querySelector("credits-icon")).toBeNull();
       expect(modal.querySelector("plutonium-icon")).toBeNull();
       expect(modal.textContent).not.toContain("undefined");
     });
@@ -371,7 +371,7 @@ describe("ClanModal — rendering", () => {
         makeClan({ softBalance: "0", hardBalance: "0" }),
       );
 
-      expect(display?.querySelector("cap-icon")).toBeTruthy();
+      expect(display?.querySelector("credits-icon")).toBeTruthy();
       expect(display?.querySelector("plutonium-icon")).toBeTruthy();
     });
 
@@ -379,7 +379,7 @@ describe("ClanModal — rendering", () => {
       const display = await showMyClan(makeClan());
 
       expect(display).toBeTruthy();
-      expect(modal.querySelector("cap-icon")).toBeNull();
+      expect(modal.querySelector("credits-icon")).toBeNull();
       expect(modal.querySelector("plutonium-icon")).toBeNull();
       expect(modal.textContent).not.toContain("undefined");
     });

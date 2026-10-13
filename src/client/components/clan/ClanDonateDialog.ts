@@ -3,7 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { getUserMe } from "../../Api";
 import { type ClanCurrencyType, donateToClan } from "../../ClanApi";
 import { translateText } from "../../Utils";
-import "../CapIcon";
+import "../CreditsIcon";
 import { formatCurrencyAmount } from "../CurrencyDisplay";
 import "../PlutoniumIcon";
 
@@ -215,7 +215,7 @@ export class ClanDonateDialog extends LitElement {
         >
           ${type === "hard"
             ? html`<plutonium-icon .size=${14}></plutonium-icon>`
-            : html`<cap-icon .size=${16}></cap-icon>`}
+            : html`<credits-icon .size=${16}></credits-icon>`}
           ${this.currencyLabel(type)}
         </span>
         <span class="text-[11px] text-white/50">

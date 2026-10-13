@@ -1,24 +1,42 @@
 import { ID } from "@openfront/engine-api/Schemas";
 import { GameRecordSchema } from "@openfront/shared/WireSchemas";
 import express, { type Router } from "express";
-import { gunzipSync, gzipSync } from "node:zlib";
+import { gunzipSync } from "node:zlib";
 import { z } from "zod";
+import { ingestGameRecord, recordProblem } from "../domain/ingest";
 import type { AppDeps } from "./common";
 import { requireServerKey } from "./server";
 
 /**
- * The game archive, store only (milestone M1): finished games are kept so
- * replays work. Nothing is derived from them yet; stats, Credits and
- * leaderboards arrive in M2 and read what is stored here.
+ * The game archive and what it feeds (milestone M2). A finished game arrives
+ * from a game server (never a browser), is stored for replays, and is turned
+ * into stats and Credits in the same transaction (domain/ingest.ts). Readers
+ * get the record back with the players' account ids removed.
  */
 export function gameRouter(deps: AppDeps): Router {
-  const { pool } = deps;
+  const { pool, log } = deps;
   const router = express.Router();
+
+  // Result submission is server-to-server. Browsers always add an Origin
+  // header (and cannot remove it), and a game server never does, so a request
+  // that has one is refused before anything else is looked at.
+  const serverOnly = (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ): void => {
+    if (req.headers.origin !== undefined) {
+      res.status(403).json({ error: "browser_not_allowed" });
+      return;
+    }
+    next();
+  };
 
   router.post(
     "/game/:id",
-    express.json({ limit: "100mb" }),
+    serverOnly,
     requireServerKey(pool),
+    express.json({ limit: "100mb" }),
     async (req, res) => {
       const id = ID.safeParse(req.params.id);
       if (!id.success) {
@@ -33,50 +51,32 @@ export function gameRouter(deps: AppDeps): Router {
         });
         return;
       }
-      const { info, gitCommit } = parsed.data;
-      if (info.gameID !== id.data) {
+      if (parsed.data.info.gameID !== id.data) {
         res.status(400).json({ error: "game_id_mismatch" });
         return;
       }
-      const config = info.config as unknown as Record<string, unknown>;
-      const text = (v: unknown): string | null =>
-        v === undefined || v === null ? null : String(v);
-      const raw = JSON.stringify(req.body);
-      const inserted = await pool.query<{ id: string }>(
-        `INSERT INTO games
-         (game_code, source, type, mode, difficulty, map, player_teams, ranked_type, public_game_type,
-          started_at, ended_at, duration_s, human_players, winner, git_commit, server_letter, counts_for_stats)
-       VALUES ($1, 'server', $2, $3, $4, $5, $6, $7, $8, to_timestamp($9::double precision / 1000),
-               to_timestamp($10::double precision / 1000), $11, $12, $13, $14, $15, false)
-       ON CONFLICT (game_code) DO NOTHING
-       RETURNING id`,
-        [
-          id.data,
-          text(config.gameType),
-          text(config.gameMode),
-          text(config.difficulty),
-          text(config.gameMap),
-          text(config.playerTeams),
-          text(config.rankedType),
-          text(info.publicGameType),
-          info.start,
-          info.end,
-          Math.max(0, Math.floor(info.duration)),
-          info.players.length,
-          info.winner === undefined ? null : JSON.stringify(info.winner),
-          gitCommit,
-          id.data.charAt(0).toLowerCase(),
-        ],
-      );
-      // A repeat of an archived game is not an error (the server retries).
-      if (inserted.rows.length > 0) {
-        const gz = gzipSync(Buffer.from(raw, "utf8"));
-        await pool.query(
-          "INSERT INTO game_records (game_id, record_gz, bytes) VALUES ($1, $2, $3)",
-          [inserted.rows[0].id, gz, gz.length],
-        );
+      const problem = recordProblem(parsed.data, Date.now());
+      if (problem !== null) {
+        res.status(400).json({ error: "invalid_record", reason: problem });
+        return;
       }
-      res.json({ ok: true });
+      try {
+        const outcome = await ingestGameRecord(
+          pool,
+          parsed.data,
+          JSON.stringify(req.body),
+        );
+        if (outcome.duplicate)
+          log.info("game record repeated", { id: id.data });
+        res.json({ ok: true });
+      } catch (error) {
+        // Nothing was stored (one transaction), so the server can send it again.
+        log.error("game ingestion failed", {
+          id: id.data,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        res.status(500).json({ error: "ingest_failed" });
+      }
     },
   );
 
@@ -109,6 +109,23 @@ export function gameRouter(deps: AppDeps): Router {
     res.setHeader("Cache-Control", "public, max-age=300");
     res.json(record);
   });
+
+  // A body that is not JSON, or is too large, is the sender's mistake.
+  router.use(
+    (
+      err: unknown,
+      _req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      const status = (err as { status?: number }).status;
+      if (typeof status === "number" && status >= 400 && status < 500) {
+        res.status(status).json({ error: "invalid_body" });
+        return;
+      }
+      next(err);
+    },
+  );
 
   return router;
 }

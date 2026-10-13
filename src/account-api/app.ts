@@ -9,6 +9,7 @@ import type { AppDeps } from "./routes/common";
 import { feedsRouter } from "./routes/feeds";
 import { gameRouter } from "./routes/game";
 import { joinVerifyRouter } from "./routes/joinVerify";
+import { profileRouter } from "./routes/profile";
 import { usersRouter } from "./routes/users";
 
 /**
@@ -17,8 +18,9 @@ import { usersRouter } from "./routes/users";
  * What is served follows the feature flags (docs/DeltaFrontAccountsPlan.md
  * section 17), so a deployment never exposes an endpoint for a feature that is
  * off:
- *  - `accounts`: sign-in, sessions, /users/@me, the signing-key set and the
- *    game server's join verification;
+ *  - `accounts`: sign-in, sessions, /users/@me, usernames, player profiles
+ *    and game history, the signing-key set and the game server's join
+ *    verification;
  *  - any feature: server discovery (check-in and the server list), the game
  *    archive and the news feeds, which the client and game server use as soon
  *    as they talk to the API at all.
@@ -60,6 +62,7 @@ export function createApp(deps: {
       });
       app.use(authRouter(backend));
       app.use(usersRouter(backend));
+      app.use(profileRouter(backend));
       app.use(joinVerifyRouter(backend));
     }
     if (usesAccountApi(config.features)) {

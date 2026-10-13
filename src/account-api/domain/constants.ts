@@ -6,8 +6,8 @@
  * Changing a value changes future grants and checks only: past ledger rows and
  * clan memberships are never rewritten.
  *
- * M0 only defines the values. The logic that uses them arrives later:
- * Credits earning in M2, clan creation in M6.
+ * The Credits logic that uses ECONOMY is domain/economy.ts and
+ * domain/stats.ts (milestone M2); clan creation will use CLAN_RULES in M6.
  */
 
 function deepFreeze<T extends object>(value: T): Readonly<T> {
@@ -53,4 +53,38 @@ export const CLAN_RULES = deepFreeze({
   disbandedTagHoldDays: 90,
   /** Days between clan renames. */
   nameChangeCooldownDays: 30,
+} as const);
+
+/**
+ * How profiles, game history and the account lifecycle behave (docs plan
+ * sections 8 and 14). Not owner decisions like the two above, but kept here so
+ * every number a route or job depends on can be found in one file.
+ */
+export const ACCOUNT_RULES = deepFreeze({
+  /** Days between self-service username changes. */
+  usernameChangeCooldownDays: 7,
+  /** A game counts for stats and Credits only with at least this many account holders in it. */
+  countedGameMinAccountHolders: 2,
+  /** ...and only if it lasted at least this long (seconds). */
+  countedGameMinSeconds: 120,
+  /** Hours between asking to delete an account and the deletion running. */
+  deletionDelayHours: 24,
+  /** Days a guest with no games, purchases or clan must be unseen to be removed. */
+  guestIdleDays: 30,
+  /** Games per window of the "recent" win rate on a profile. */
+  recentWindowGames: 100,
+  /** How many of a player's newest games the recent windows are computed from. */
+  recentLookupRows: 1_000,
+  /** Games per page of a player's game history. */
+  historyPageSize: 20,
+  /**
+   * A record claiming to have ended more than this long after it arrives is
+   * malformed (clock skew between a game server and the API is minutes, not
+   * days). It also stops a forged `end` from picking the day a reward counts for.
+   */
+  maxFutureEndMs: 24 * 60 * 60 * 1000,
+  /** Largest value kept for any single game statistic (JavaScript's safe integer). */
+  maxStatValue: 9_007_199_254_740_991,
+  /** Largest Credits balance a wallet may reach; far above the cap can ever pay. */
+  maxWalletCredits: 9_007_199_254_740_991,
 } as const);

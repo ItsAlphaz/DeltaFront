@@ -16,6 +16,10 @@ export const RATE_LIMITS = Object.freeze({
   oauthStart: { max: 30, windowMs: 60 * 1000 },
   /** Refreshes that present a cookie: generous, they are the normal heartbeat. */
   refresh: { max: 120, windowMs: 60 * 1000 },
+  /** Public profile and game-history reads, per client address. */
+  publicRead: { max: 240, windowMs: 60 * 1000 },
+  /** Account deletion requests, per client address. */
+  accountDeletion: { max: 5, windowMs: 60 * 60 * 1000 },
 } as const satisfies Record<string, RateLimit>);
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -72,5 +76,7 @@ export function createLimiters(
     guestCreation: make("guestCreation"),
     oauthStart: make("oauthStart"),
     refresh: make("refresh"),
+    publicRead: make("publicRead"),
+    accountDeletion: make("accountDeletion"),
   };
 }

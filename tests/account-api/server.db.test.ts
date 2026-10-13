@@ -834,7 +834,7 @@ describeDb("join verification (the production admission gate)", () => {
   });
 });
 
-describeDb("the game archive (store only)", () => {
+describeDb("the game archive", () => {
   it("stores a finished game once, and answers a repeat without error", async () => {
     const h = await harness();
     const key = await createServerKey(h);
@@ -865,7 +865,7 @@ describeDb("the game archive (store only)", () => {
       (await h.db.pool.query("SELECT count(*)::int AS n FROM game_records"))
         .rows[0].n,
     ).toBe(1);
-    // Nothing is derived from it yet: stats, Credits and leaderboards are a later milestone.
+    // Its players have no accounts here, so nothing is derived from it.
     expect(
       (await h.db.pool.query("SELECT count(*)::int AS n FROM game_players"))
         .rows[0].n,

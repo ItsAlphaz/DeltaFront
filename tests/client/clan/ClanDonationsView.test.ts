@@ -137,10 +137,10 @@ describe("ClanDonationsView", () => {
     expect(rows[1].textContent).toContain("#0001");
     expect(rows[1].textContent).toContain("5");
     // Plutonium on the hard row only, caps on the soft row only.
-    expect(rows[0].querySelector("cap-icon")).not.toBeNull();
+    expect(rows[0].querySelector("credits-icon")).not.toBeNull();
     expect(rows[0].querySelector("plutonium-icon")).toBeNull();
     expect(rows[1].querySelector("plutonium-icon")).not.toBeNull();
-    expect(rows[1].querySelector("cap-icon")).toBeNull();
+    expect(rows[1].querySelector("credits-icon")).toBeNull();
   });
 
   it("labels a donor whose account was deleted instead of linking them", async () => {

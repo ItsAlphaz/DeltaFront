@@ -1,0 +1,242 @@
+import { GameType } from "@openfront/engine-api/game/GameTypes";
+import type { GameRecord } from "@openfront/shared/WireSchemas";
+import { gzipSync } from "node:zlib";
+import type { Pool, PoolClient } from "pg";
+import { withTransaction } from "../db/tx";
+import { ACCOUNT_RULES } from "./constants";
+import { applyGameReward, gameReward } from "./economy";
+import {
+  countsForStats,
+  isCompleted,
+  modeBucket,
+  resultFor,
+  statsToJson,
+  sumPlayerStats,
+  type GameResult,
+  type StatsJson,
+} from "./stats";
+
+/**
+ * Turns a finished game, as the game server submits it, into stored stats and
+ * Credits (docs/DeltaFrontAccountsPlan.md section 8.3). Everything happens in
+ * one transaction keyed on the game's code: a repeat of a game that was
+ * already ingested changes nothing, and a failure leaves nothing behind, so
+ * the same record can simply be sent again.
+ */
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface IngestOutcome {
+  /** The game was already stored; nothing was changed. */
+  duplicate: boolean;
+}
+
+/**
+ * Values the schema allows but a real game cannot have. Returns what is wrong,
+ * or null. The record is rejected whole: a server that sends one is broken.
+ */
+export function recordProblem(
+  record: Pick<GameRecord, "info">,
+  now: number,
+): string | null {
+  const { start, end, duration } = record.info;
+  if (!Number.isSafeInteger(start) || start < 0) return "invalid start time";
+  if (!Number.isSafeInteger(end) || end < start)
+    return "end time is before the start time";
+  if (end > now + ACCOUNT_RULES.maxFutureEndMs)
+    return "end time is in the future";
+  if (!Number.isFinite(duration) || duration > Number.MAX_SAFE_INTEGER)
+    return "invalid duration";
+  return null;
+}
+
+interface ResolvedPlayer {
+  userId: string;
+  clientID: string;
+  username: string;
+  clanTag: string | null;
+  stats: StatsJson;
+  result: GameResult;
+}
+
+/** The accounts among a record's players: live users whose id the record carries, each counted once. */
+async function resolvePlayers(
+  pool: Pick<Pool, "query">,
+  record: GameRecord,
+): Promise<ResolvedPlayer[]> {
+  const candidates = record.info.players.filter(
+    (p) => p.persistentID !== null && UUID.test(p.persistentID),
+  );
+  if (candidates.length === 0) return [];
+  const { rows } = await pool.query<{ id: string }>(
+    "SELECT id FROM users WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL",
+    [candidates.map((p) => (p.persistentID as string).toLowerCase())],
+  );
+  const live = new Set(rows.map((r) => r.id));
+  const seen = new Set<string>();
+  const resolved: ResolvedPlayer[] = [];
+  for (const player of candidates) {
+    const userId = (player.persistentID as string).toLowerCase();
+    if (!live.has(userId) || seen.has(userId)) continue;
+    seen.add(userId);
+    resolved.push({
+      userId,
+      clientID: player.clientID,
+      username: player.username,
+      clanTag: player.clanTag,
+      stats: statsToJson(player.stats),
+      result: resultFor(player.clientID, record.info.winner),
+    });
+  }
+  // A fixed order, so concurrent games that share players lock rows in the
+  // same sequence and never deadlock.
+  return resolved.sort((a, b) => (a.userId < b.userId ? -1 : 1));
+}
+
+async function addToAggregate(
+  tx: PoolClient,
+  userId: string,
+  gameType: string,
+  mode: string,
+  difficulty: string,
+  result: GameResult,
+  stats: StatsJson,
+): Promise<void> {
+  const key = [userId, gameType, mode, difficulty];
+  await tx.query(
+    `INSERT INTO player_stat_aggregates (user_id, game_type, mode, difficulty)
+     VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+    key,
+  );
+  const { rows } = await tx.query<{ stats: StatsJson }>(
+    `SELECT stats FROM player_stat_aggregates
+      WHERE user_id = $1 AND game_type = $2 AND mode = $3 AND difficulty = $4
+        FOR UPDATE`,
+    key,
+  );
+  await tx.query(
+    `UPDATE player_stat_aggregates
+        SET wins = wins + $5, losses = losses + $6, total = total + 1,
+            stats = $7::jsonb, updated_at = now()
+      WHERE user_id = $1 AND game_type = $2 AND mode = $3 AND difficulty = $4`,
+    [
+      ...key,
+      result === "victory" ? 1 : 0,
+      result === "defeat" ? 1 : 0,
+      JSON.stringify(sumPlayerStats(rows[0].stats, stats)),
+    ],
+  );
+}
+
+export async function ingestGameRecord(
+  pool: Pool,
+  record: GameRecord,
+  rawJson: string,
+): Promise<IngestOutcome> {
+  const { info, gitCommit } = record;
+  const config = info.config as unknown as Record<string, unknown>;
+  const text = (v: unknown): string | null =>
+    v === undefined || v === null ? null : String(v);
+  const type = text(config.gameType);
+  const mode = text(config.gameMode);
+  const difficulty = text(config.difficulty);
+  const playerTeams = text(config.playerTeams);
+  const rankedType = text(config.rankedType);
+  const durationSeconds = Math.max(0, Math.floor(info.duration));
+
+  const players = await resolvePlayers(pool, record);
+  const counted = countsForStats({
+    source: "server",
+    type: type ?? undefined,
+    rankedType,
+    durationSeconds,
+    accountHolders: players.length,
+  });
+  const endedAt = new Date(info.end);
+
+  return withTransaction(pool, async (tx) => {
+    const inserted = await tx.query<{ id: string }>(
+      `INSERT INTO games
+         (game_code, source, type, mode, difficulty, map, player_teams, ranked_type, public_game_type,
+          started_at, ended_at, duration_s, human_players, winner, git_commit, server_letter, counts_for_stats)
+       VALUES ($1, 'server', $2, $3, $4, $5, $6, $7, $8, to_timestamp($9::double precision / 1000),
+               to_timestamp($10::double precision / 1000), $11, $12, $13, $14, $15, $16)
+       ON CONFLICT (game_code) DO NOTHING
+       RETURNING id`,
+      [
+        info.gameID,
+        type,
+        mode,
+        difficulty,
+        text(config.gameMap),
+        playerTeams,
+        rankedType,
+        text(info.publicGameType),
+        info.start,
+        info.end,
+        Math.min(durationSeconds, 2_147_483_647),
+        info.players.length,
+        info.winner === undefined ? null : JSON.stringify(info.winner),
+        gitCommit,
+        info.gameID.charAt(0).toLowerCase(),
+        counted,
+      ],
+    );
+    // A repeat of a stored game (the server retried, or two submissions raced
+    // and this one lost) is not an error and changes nothing.
+    if (inserted.rows.length === 0) return { duplicate: true };
+    const gameId = inserted.rows[0].id;
+
+    const gz = gzipSync(Buffer.from(rawJson, "utf8"));
+    await tx.query(
+      "INSERT INTO game_records (game_id, record_gz, bytes) VALUES ($1, $2, $3)",
+      [gameId, gz, gz.length],
+    );
+
+    const aggregated =
+      type === GameType.Private || (counted && type === GameType.Public);
+    for (const player of players) {
+      const completed = isCompleted(record, player.clientID, counted);
+      if (aggregated && type !== null) {
+        await addToAggregate(
+          tx,
+          player.userId,
+          type,
+          modeBucket(mode, playerTeams),
+          difficulty ?? "",
+          player.result,
+          player.stats,
+        );
+      }
+      const earned = gameReward(completed, player.result === "victory");
+      const granted =
+        earned > 0
+          ? await applyGameReward(
+              tx,
+              player.userId,
+              info.gameID,
+              endedAt,
+              earned,
+            )
+          : 0;
+      await tx.query(
+        `INSERT INTO game_players
+           (game_id, client_id, user_id, username, clan_tag, result, completed, credits_awarded, stats)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+         ON CONFLICT (game_id, client_id) DO NOTHING`,
+        [
+          gameId,
+          player.clientID,
+          player.userId,
+          player.username,
+          player.clanTag,
+          player.result,
+          completed,
+          granted,
+          JSON.stringify(player.stats),
+        ],
+      );
+    }
+    return { duplicate: false };
+  });
+}

@@ -276,7 +276,7 @@ describe.each(Object.keys(PROVIDERS) as ProviderName[])(
           ).json(),
         );
         P.shape(me);
-        expect(me.player).not.toHaveProperty("currency");
+        expect(me.player.currency).toEqual({ soft: 0, hard: 0 });
       });
 
       it("upgrades a guest in place: same player, same session, nothing lost", async () => {

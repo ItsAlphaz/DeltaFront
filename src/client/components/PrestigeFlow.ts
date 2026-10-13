@@ -21,12 +21,12 @@ import {
 } from "../Progression";
 import { fetchProgressionConfig, prestigeMe } from "../ProgressionApi";
 import { translateText } from "../Utils";
-import "./CapIcon";
 import {
   ensureCeremonyStyles,
   prefersReducedMotion,
   renderHoneycomb,
 } from "./Ceremony";
+import "./CreditsIcon";
 import { describeFlareCosmetic, FlareCosmeticView } from "./FlareCosmetic";
 import "./LevelBadge";
 import { formatXp } from "./XpBar";
@@ -626,7 +626,7 @@ export class PrestigeFlow extends LitElement {
       },
       {
         key: "caps",
-        icon: html`<cap-icon .size=${48}></cap-icon>`,
+        icon: html`<credits-icon .size=${48}></credits-icon>`,
         label:
           caps === null
             ? translateText("prestige.gain_caps")

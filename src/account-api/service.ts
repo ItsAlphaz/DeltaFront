@@ -15,6 +15,7 @@ import type { AccountApiConfig } from "./config";
 import { describeConfig } from "./config";
 import { loadMigrationFiles, migrationStatus } from "./db/migrator";
 import { createPool } from "./db/pool";
+import { runMaintenance } from "./domain/lifecycle";
 import { createLimiters, type RateLimit, type RateLimitName } from "./limits";
 import type { Logger } from "./logger";
 import type { AppDeps } from "./routes/common";
@@ -59,6 +60,9 @@ export interface ServiceOverrides {
   turnstile?: Turnstile;
   limits?: Partial<Record<RateLimitName, RateLimit>>;
 }
+
+/** How often the deletion and guest-cleanup jobs run. */
+const MAINTENANCE_INTERVAL_MS = 10 * 60 * 1000;
 
 /** Where a dev run keeps its generated signing key (gitignored). */
 export const DEV_KEY_DIR = ".account-api-dev";
@@ -147,11 +151,23 @@ export async function startAccountApi(
         : config.port;
     log.info("account API listening", { port, config: describeConfig(config) });
 
+    // Deletions and idle-guest cleanup. Only a deployment with sign-in has
+    // anything to do; the timer never keeps the process alive.
+    let maintenance: NodeJS.Timeout | null = null;
+    if (backend !== undefined && config.features.accounts) {
+      maintenance = setInterval(
+        () => void runMaintenance(pool, log),
+        MAINTENANCE_INTERVAL_MS,
+      );
+      maintenance.unref();
+    }
+
     return {
       server,
       pool,
       port,
       close: async () => {
+        if (maintenance !== null) clearInterval(maintenance);
         await new Promise<void>((resolve) => server.close(() => resolve()));
         await pool.end();
       },

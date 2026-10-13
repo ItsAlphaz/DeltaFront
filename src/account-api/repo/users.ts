@@ -12,6 +12,9 @@ export interface UserRow {
   createdAt: Date;
   deletionRequestedAt: Date | null;
   deletedAt: Date | null;
+  usernameBase: string | null;
+  usernameDiscriminator: string | null;
+  nextUsernameChangeAt: Date | null;
 }
 
 // Letters and digits only (the users.public_id CHECK); 10 characters is ~60
@@ -21,7 +24,8 @@ const publicIdAlphabet = customAlphabet(
   10,
 );
 
-const COLUMNS = `id, public_id, kind, role, created_at, deletion_requested_at, deleted_at`;
+const COLUMNS = `id, public_id, kind, role, created_at, deletion_requested_at, deleted_at,
+  username_base::text AS username_base, username_discriminator, next_username_change_at`;
 
 interface RawUser {
   id: string;
@@ -31,6 +35,9 @@ interface RawUser {
   created_at: Date;
   deletion_requested_at: Date | null;
   deleted_at: Date | null;
+  username_base: string | null;
+  username_discriminator: string | null;
+  next_username_change_at: Date | null;
 }
 
 function toUser(row: RawUser): UserRow {
@@ -42,7 +49,22 @@ function toUser(row: RawUser): UserRow {
     createdAt: row.created_at,
     deletionRequestedAt: row.deletion_requested_at,
     deletedAt: row.deleted_at,
+    usernameBase: row.username_base,
+    usernameDiscriminator: row.username_discriminator,
+    nextUsernameChangeAt: row.next_username_change_at,
   };
+}
+
+/** The user with this public id, or null. */
+export async function getUserByPublicId(
+  db: Db,
+  publicId: string,
+): Promise<UserRow | null> {
+  const { rows } = await db.query<RawUser>(
+    `SELECT ${COLUMNS} FROM users WHERE public_id = $1`,
+    [publicId],
+  );
+  return rows.length === 0 ? null : toUser(rows[0]);
 }
 
 /** Creates a user and their (empty) wallet. */

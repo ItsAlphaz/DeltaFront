@@ -1,7 +1,8 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { translateText } from "../Utils";
-import "./CapIcon";
+import "./CreditsIcon";
 import "./PlutoniumIcon";
 
 // Player wallets arrive as numbers (CurrencyBalancesSchema coerces them), clan
@@ -45,7 +46,11 @@ export class CurrencyDisplay extends LitElement {
   }
 
   render() {
-    const hard = formatCurrencyAmount(this.hard);
+    // DeltaFront has one currency, Credits (the "soft" slot). The premium
+    // slot is shown only where payments exist.
+    const hard = ACCOUNT_FEATURES.payments
+      ? formatCurrencyAmount(this.hard)
+      : null;
     const soft = formatCurrencyAmount(this.soft);
     if (hard === null && soft === null) return html``;
 
@@ -57,8 +62,8 @@ export class CurrencyDisplay extends LitElement {
       ? "text-xs text-green-400/70"
       : "text-sm font-bold text-green-400";
     const softText = compact
-      ? "text-xs text-amber-600/80"
-      : "text-sm font-bold text-amber-700";
+      ? "text-xs text-df-text-secondary"
+      : "text-sm font-bold text-white";
 
     return html`
       <div class="${row}">
@@ -77,10 +82,10 @@ export class CurrencyDisplay extends LitElement {
               class="flex items-center gap-1.5"
               title=${translateText("cosmetics.soft")}
             >
-              <cap-icon
+              <credits-icon
                 .size=${compact ? 14 : 20}
                 style=${compact ? "" : "margin-top:3px"}
-              ></cap-icon>
+              ></credits-icon>
               <span class="${softText}">${soft}</span>
             </div>`}
       </div>

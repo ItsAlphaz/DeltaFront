@@ -4,8 +4,8 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { InsufficientCurrency, PurchaseResult } from "../Cosmetics";
 import { showInGameAlert } from "../InGameModal";
 import { translateText } from "../Utils";
-import "./CapIcon";
 import "./ConfirmDialog";
+import "./CreditsIcon";
 import "./InlineCheckout";
 import type { InlineCheckoutConfig } from "./InlineCheckout";
 import "./InsufficientCurrencyDialog";
@@ -398,7 +398,7 @@ export class PurchaseButton extends LitElement {
           this.requestCurrencyPurchase("soft");
         }}
       >
-        <cap-icon .size=${22} style="margin-top:3px"></cap-icon>
+        <credits-icon .size=${22} style="margin-top:3px"></credits-icon>
         ${this.priceSoft!.toLocaleString()}
       </button>
     `;
