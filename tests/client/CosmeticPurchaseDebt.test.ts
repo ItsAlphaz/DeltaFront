@@ -53,7 +53,10 @@ const pirateFlag: ResolvedCosmetic = {
 } as unknown as ResolvedCosmetic;
 
 function userWith(hard: number, soft: number) {
-  return { player: { currency: { hard, soft }, flares: [] } } as never;
+  return {
+    user: { discord: { id: "1", username: "u" } },
+    player: { currency: { hard, soft }, flares: [] },
+  } as never;
 }
 
 describe("purchaseCosmetic when the wallet is in debt", () => {

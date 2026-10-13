@@ -484,7 +484,11 @@ class Client {
         "change-username",
         { tag: "change-username-modal" },
       ],
-      [ACCOUNT_FEATURES.store, "subscription", { tag: "subscription-modal" }],
+      [
+        ACCOUNT_FEATURES.payments,
+        "subscription",
+        { tag: "subscription-modal" },
+      ],
       [
         ACCOUNT_FEATURES.accounts,
         "stats",
@@ -1439,7 +1443,7 @@ class Client {
     if (decodedHash.startsWith("#affiliate=")) {
       const affiliateCode = decodedHash.replace("#affiliate=", "");
       strip();
-      if (affiliateCode) {
+      if (affiliateCode && ACCOUNT_FEATURES.store) {
         loadModal("store-modal").then(
           () => this.storeModal?.open({ affiliateCode }),
           (err) => console.error("store-modal failed to load:", err),

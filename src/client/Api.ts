@@ -1217,6 +1217,8 @@ export async function fetchTribeStats(
 
 export type PurchaseWithCurrencyResult =
   | { ok: true }
+  // 403 LOGIN_REQUIRED: a guest account cannot buy. Nothing charged.
+  | { ok: false; code: "login_required" }
   // 400 "Insufficient balance": the balance moved since the client's
   // pre-check. Nothing charged.
   | { ok: false; code: "insufficient_balance" }
@@ -1277,6 +1279,10 @@ export async function purchaseWithCurrency(
       // is nothing to extract, and not touching it is the cheapest way to
       // keep a server body away from a log line.
       return { ok: false, code: "already_owned" };
+    }
+    if (response.status === 403) {
+      // A guest account: DeltaFront sells only to signed-in accounts.
+      return { ok: false, code: "login_required" };
     }
     if (!response.ok) {
       console.error(

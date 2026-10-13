@@ -71,7 +71,15 @@ const catalog = {
     },
   },
   flags: {},
-  crowns: {},
+  // One crown nobody can buy: the Crowns tab exists only for a catalog with crowns.
+  crowns: {
+    locked_crown: {
+      name: "locked_crown",
+      url: "/crowns/locked.svg",
+      product: null,
+      rarity: "common",
+    },
+  },
   skins: {},
   effects: {},
 } as unknown as Cosmetics;

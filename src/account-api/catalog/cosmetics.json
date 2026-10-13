@@ -15,6 +15,7 @@
   "patterns": {
     "delta_stripes": {
       "name": "delta_stripes",
+      "priceSoft": 300,
       "pattern": "ADEYzGYzmcxmM5k",
       "colorPalettes": [
         { "name": "ember", "isArchived": false },
@@ -25,6 +26,7 @@
     },
     "grid_check": {
       "name": "grid_check",
+      "priceSoft": 500,
       "pattern": "ADEY8PDw8A8PDw8",
       "colorPalettes": [{ "name": "ember", "isArchived": false }],
       "product": null,
@@ -34,12 +36,14 @@
   "flags": {
     "delta_mark": {
       "name": "delta_mark",
+      "priceSoft": 400,
       "url": "delta_mark.svg",
       "product": null,
       "rarity": "common"
     },
     "split_field": {
       "name": "split_field",
+      "priceSoft": 400,
       "url": "split_field.svg",
       "product": null,
       "rarity": "common"
@@ -49,6 +53,7 @@
     "transportShipTrail": {
       "red_wake": {
         "name": "red_wake",
+        "priceSoft": 600,
         "effectType": "transportShipTrail",
         "attributes": {
           "type": "gradient",

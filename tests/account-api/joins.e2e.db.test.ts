@@ -521,6 +521,16 @@ describeDb(
   () => {
     let h: Harness;
     let server: GameServer;
+    const shopperMock = createMockProviders({
+      buyer: {
+        discord: {
+          id: "e2e-buyer",
+          username: "buyer",
+          email: "buyer@example.com",
+          verified: true,
+        },
+      },
+    });
     const FREE_PATTERN: PlayerCosmeticRefs = {
       patternName: "delta_stripes",
       patternColorPaletteName: "ash",
@@ -563,13 +573,14 @@ describeDb(
       h = await startHarness({
         fixedPort: 8787,
         turnstile,
-        features: "accounts,inventory",
+        features: "accounts,inventory,store",
+        fetchFn: shopperMock.fetchFn,
         // These tests create many guests from one address.
         limits: { guestCreation: { max: 1000, windowMs: 60_000 } },
       });
       const key = await createServerKey(h, "e2e-cosmetics-key-0123456789ab");
       server = await startGameServer(key, {
-        DF_ACCOUNT_FEATURES: "accounts,inventory",
+        DF_ACCOUNT_FEATURES: "accounts,inventory,store",
       });
       // Until the server has loaded the catalog it deliberately strips every
       // cosmetic instead of checking it, so wait for the first load.
@@ -801,6 +812,41 @@ describeDb(
         a.ws.close();
         b.ws.close();
       }
+    }, 60_000);
+
+    it("accepts an item bought in the store, and refuses it before it was bought", async () => {
+      const login = await completeLogin(h, "discord", "buyer");
+      const jwt = (await (await refresh(h, login.jar)).json()).jwt as string;
+      const me = (await (
+        await call(h, "/users/@me", { bearer: jwt, origin: null })
+      ).json()) as { player: { publicId: string } };
+      expect(
+        await runAdminCommand(
+          h.db.pool,
+          ["wallet:grant", me.player.publicId, "1000", "--reason", "e2e"],
+          io,
+        ),
+      ).toBe(0);
+      const cosmetics: PlayerCosmeticRefs = { flag: "flag:split_field" };
+      const before = await createGame(jwt);
+      const refused = await join(before.gameID!, jwt, { cosmetics });
+      expect(refused.closed?.reason).toBe(REASON.CosmeticsForbidden);
+
+      const bought = await call(h, "/shop/purchase", {
+        method: "POST",
+        bearer: jwt,
+        origin: null,
+        json: {
+          cosmeticType: "flag",
+          cosmeticName: "split_field",
+          currencyType: "soft",
+        },
+      });
+      expect(bought.status).toBe(200);
+      const after = await createGame(jwt);
+      const admitted = await join(after.gameID!, jwt, { cosmetics });
+      expect(admitted.closed, server.output().slice(-1500)).toBeNull();
+      expect(admitted.messages).toBeGreaterThan(0);
     }, 60_000);
 
     it("never contacted an OpenFront host while loading the catalog or checking joins", () => {

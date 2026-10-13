@@ -72,12 +72,14 @@ export class ConfirmDialog extends LitElement {
 
   private renderOverlay() {
     const isDanger = this.variant === "danger";
-    const borderColor = isDanger ? "border-red-500/50" : "border-amber-500/50";
+    // Danger is red text on a red border; a warning is white on a neutral
+    // border with the red primary button (DeltaFront's palette has no amber).
+    const borderColor = isDanger ? "border-red-500/50" : "border-white/20";
     const cardBg = "bg-surface";
-    const textColor = isDanger ? "text-red-300" : "text-amber-300";
+    const textColor = isDanger ? "text-red-300" : "text-white/90";
     const btnClass = isDanger
       ? "bg-red-600 text-white hover:bg-red-700"
-      : "bg-amber-600 text-white hover:bg-amber-700";
+      : "bg-df-red text-white hover:bg-df-red-bright";
 
     return html`
       <div

@@ -222,7 +222,10 @@ export class EffectsGrid extends LitElement {
         this.matchesSearch(r),
     );
     if (this.mode === "purchase") {
-      return ofType.filter((r) => r.relationship === "purchasable");
+      // For sale, or already owned (shown as Owned rather than disappearing).
+      return ofType.filter(
+        (r) => r.relationship === "purchasable" || r.relationship === "owned",
+      );
     }
     return ofType.filter((r) => r.relationship === "owned");
   }

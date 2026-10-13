@@ -450,6 +450,23 @@ describe("StoreModal cosmetic browser", () => {
   });
 
   it("styles cosmetic sub-tabs like the modal's own tab bar", async () => {
+    // The Crowns tab exists only when the catalog has crowns; this one has a
+    // crown nobody can buy, so the tab is there and empty.
+    resolvedCatalog = [
+      ...resolvedCatalog,
+      {
+        type: "crown",
+        cosmetic: {
+          name: "gold",
+          url: "/c.svg",
+          product: null,
+          rarity: "common",
+        },
+        colorPalette: null,
+        relationship: "blocked",
+        key: "crown:gold",
+      } as unknown as ResolvedCosmetic,
+    ];
     const modal = await openStoreOnCosmetic("patterns");
     const subTab = [
       ...modal.querySelectorAll<HTMLButtonElement>("button"),
@@ -472,6 +489,23 @@ describe("StoreModal cosmetic browser", () => {
   });
 
   it("clears product tiles for an empty cosmetic category", async () => {
+    // The Crowns tab exists only when the catalog has crowns; this one has a
+    // crown nobody can buy, so the tab is there and empty.
+    resolvedCatalog = [
+      ...resolvedCatalog,
+      {
+        type: "crown",
+        cosmetic: {
+          name: "gold",
+          url: "/c.svg",
+          product: null,
+          rarity: "common",
+        },
+        colorPalette: null,
+        relationship: "blocked",
+        key: "crown:gold",
+      } as unknown as ResolvedCosmetic,
+    ];
     const modal = await openStoreOnCosmetic("patterns");
     const crownsTab = [
       ...modal.querySelectorAll<HTMLButtonElement>("button"),

@@ -103,4 +103,6 @@ export const ACCOUNT_RULES = deepFreeze({
   leaderboardIncludesGuests: true,
   /** Largest Credits balance a wallet may reach; far above the cap can ever pay. */
   maxWalletCredits: 9_007_199_254_740_991,
+  /** The most Credits one admin command may grant or deduct. */
+  adminMaxCreditsPerCommand: 1_000_000_000,
 } as const);

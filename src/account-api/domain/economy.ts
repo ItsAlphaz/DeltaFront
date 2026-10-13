@@ -1,10 +1,17 @@
-import type { PoolClient } from "pg";
+import type { Pool, PoolClient } from "pg";
+import type { Offer } from "../catalog/offer";
+import { withTransaction } from "../db/tx";
+import { grantFlare } from "../repo/inventory";
 import { ACCOUNT_RULES, ECONOMY } from "./constants";
 
 /**
- * Credits from gameplay (docs/DeltaFrontAccountsPlan.md section 9.5, decision
- * D1). The only code that credits a wallet in milestone M2, and it runs only
- * from game ingestion, with a trusted game server's record.
+ * Every change to a wallet lives in this file (docs/DeltaFrontAccountsPlan.md
+ * sections 9.4, 9.5 and 14.4, decision D1):
+ *  - game rewards, from game ingestion with a trusted game server's record
+ *    (milestone M2);
+ *  - purchases, which only debit (M5);
+ *  - the admin's grants and deductions (M5).
+ * No amount ever comes from a browser.
  */
 
 /** What a player's result is worth before the daily cap: nothing unless the game was completed. */
@@ -82,4 +89,118 @@ export async function applyGameReward(
     [userId, grant],
   );
   return grant;
+}
+
+export type PurchaseOutcome =
+  | { kind: "purchased"; balance: number; purchaseId: string }
+  /** The account already holds the item (or it is a free default). Nothing changed. */
+  | { kind: "owned" }
+  /** Not enough Credits. Nothing changed. */
+  | { kind: "insufficient"; balance: number };
+
+/**
+ * Buys `offer` for the account, in one transaction (plan section 9.4):
+ *
+ *  1. the wallet row is locked, so everything below runs one purchase at a time
+ *     per account: two clicks, or two tabs, cannot both pass the checks;
+ *  2. owned (or a free default) answers "owned" without touching anything;
+ *  3. too few Credits answers "insufficient" without touching anything;
+ *  4. otherwise the price is debited, the purchase and its ledger row are
+ *     written, and the flare is granted. A failure at any step rolls all of it
+ *     back: the account is never charged without the item, nor given it free.
+ *
+ * The offer's price came from the server's catalog (catalog/offer.ts), never
+ * from the request. `catalogVersion` is recorded with the purchase.
+ */
+export async function purchaseOffer(
+  pool: Pick<Pool, "connect">,
+  userId: string,
+  offer: Offer,
+  options: { catalogVersion: string; defaultFlares: readonly string[] },
+): Promise<PurchaseOutcome> {
+  return withTransaction(pool, async (tx) => {
+    await tx.query(
+      "INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+      [userId],
+    );
+    const wallet = await tx.query<{ credits: string }>(
+      "SELECT credits::text AS credits FROM wallets WHERE user_id = $1 FOR UPDATE",
+      [userId],
+    );
+    const balance = Number(wallet.rows[0].credits);
+
+    if (options.defaultFlares.includes(offer.flare)) return { kind: "owned" };
+    const held = await tx.query(
+      "SELECT 1 FROM user_flares WHERE user_id = $1 AND flare = $2 AND revoked_at IS NULL",
+      [userId, offer.flare],
+    );
+    if (held.rows.length > 0) return { kind: "owned" };
+    if (balance < offer.price) return { kind: "insufficient", balance };
+
+    const after = balance - offer.price;
+    await tx.query(
+      "UPDATE wallets SET credits = $2, updated_at = now() WHERE user_id = $1",
+      [userId, after],
+    );
+    const purchase = await tx.query<{ id: string }>(
+      `INSERT INTO purchases (user_id, kind, item_key, flares, price_credits, catalog_version)
+       VALUES ($1, 'cosmetic', $2, ARRAY[$2]::text[], $3, $4) RETURNING id::text AS id`,
+      [userId, offer.flare, offer.price, options.catalogVersion],
+    );
+    const purchaseId = purchase.rows[0].id;
+    await tx.query(
+      `INSERT INTO currency_ledger (user_id, delta, balance_after, reason, ref_type, ref_id)
+       VALUES ($1, $2, $3, 'purchase', 'purchase', $4)`,
+      [userId, -offer.price, after, purchaseId],
+    );
+    await grantFlare(tx, userId, offer.flare, {
+      source: "purchase",
+      purchaseId,
+    });
+    return { kind: "purchased", balance: after, purchaseId };
+  });
+}
+
+export type AdjustOutcome =
+  | { kind: "adjusted"; before: number; after: number; ledgerId: string }
+  | { kind: "insufficient"; balance: number }
+  | { kind: "too_much"; balance: number };
+
+/**
+ * An admin's grant (`delta > 0`) or deduction (`delta < 0`) of Credits, inside
+ * the caller's transaction (the admin command wraps it with its audit row,
+ * whose id is `auditId`). The wallet is locked; a deduction larger than the
+ * balance is refused rather than clamped, and a grant cannot pass the wallet
+ * maximum, so the balance can never leave 0..maxWalletCredits.
+ */
+export async function adjustWallet(
+  tx: PoolClient,
+  userId: string,
+  delta: number,
+  auditId: string,
+): Promise<AdjustOutcome> {
+  await tx.query(
+    "INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+    [userId],
+  );
+  const wallet = await tx.query<{ credits: string }>(
+    "SELECT credits::text AS credits FROM wallets WHERE user_id = $1 FOR UPDATE",
+    [userId],
+  );
+  const before = Number(wallet.rows[0].credits);
+  const after = before + delta;
+  if (after < 0) return { kind: "insufficient", balance: before };
+  if (after > ACCOUNT_RULES.maxWalletCredits) {
+    return { kind: "too_much", balance: before };
+  }
+  await tx.query(
+    "UPDATE wallets SET credits = $2, updated_at = now() WHERE user_id = $1",
+    [userId, after],
+  );
+  const ledger = await tx.query<{ id: string }>(
+    `INSERT INTO currency_ledger (user_id, delta, balance_after, reason, ref_type, ref_id)
+     VALUES ($1, $2, $3, $4, 'admin', $5) RETURNING id::text AS id`,
+    [userId, delta, after, delta > 0 ? "admin_grant" : "admin_revoke", auditId],
+  );
+  return { kind: "adjusted", before, after, ledgerId: ledger.rows[0].id };
 }

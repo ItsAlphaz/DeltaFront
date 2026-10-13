@@ -49,21 +49,27 @@ export async function flareRowsOf(db: Db, userId: string): Promise<FlareRow[]> {
 export type GrantResult = "granted" | "restored" | "already_owned";
 
 /**
- * Gives the account a flare. Granting what it already owns changes nothing; a
+ * Gives the account a flare, by the admin (the default) or as the result of a
+ * purchase (`purchaseId`). Granting what it already owns changes nothing; a
  * previously revoked flare comes back (one row per account and flare, ever).
  */
 export async function grantFlare(
   db: Db,
   userId: string,
   flare: string,
+  how: { source: "admin" } | { source: "purchase"; purchaseId: string } = {
+    source: "admin",
+  },
 ): Promise<GrantResult> {
+  const purchaseId = how.source === "purchase" ? how.purchaseId : null;
   const { rows } = await db.query<{ inserted: boolean }>(
-    `INSERT INTO user_flares (user_id, flare, source) VALUES ($1, $2, 'admin')
+    `INSERT INTO user_flares (user_id, flare, source, purchase_id)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (user_id, flare) DO UPDATE
-        SET revoked_at = NULL, granted_at = now(), source = 'admin'
+        SET revoked_at = NULL, granted_at = now(), source = $3, purchase_id = $4
       WHERE user_flares.revoked_at IS NOT NULL
      RETURNING (xmax = 0) AS inserted`,
-    [userId, flare],
+    [userId, flare, how.source, purchaseId],
   );
   if (rows.length === 0) return "already_owned";
   return rows[0].inserted ? "granted" : "restored";

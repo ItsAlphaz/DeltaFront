@@ -18,6 +18,8 @@ export const RATE_LIMITS = Object.freeze({
   refresh: { max: 120, windowMs: 60 * 1000 },
   /** Public profile and game-history reads, per client address. */
   publicRead: { max: 240, windowMs: 60 * 1000 },
+  /** Store purchases, per account (plan section 14.3). */
+  purchase: { max: 20, windowMs: 60 * 1000 },
   /** Account deletion requests, per client address. */
   accountDeletion: { max: 5, windowMs: 60 * 60 * 1000 },
 } as const satisfies Record<string, RateLimit>);
@@ -77,6 +79,7 @@ export function createLimiters(
     oauthStart: make("oauthStart"),
     refresh: make("refresh"),
     publicRead: make("publicRead"),
+    purchase: make("purchase"),
     accountDeletion: make("accountDeletion"),
   };
 }

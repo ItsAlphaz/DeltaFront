@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import {
   isGrantedSubscription,
   UserMeResponse,
@@ -70,6 +71,15 @@ interface StoreBrowserOptions {
   emptyClass?: string;
 }
 
+// Owned items of these kinds stay listed in the store, marked Owned.
+const OWNED_LISTED_TYPES: readonly ResolvedCosmetic["type"][] = [
+  "pattern",
+  "skin",
+  "flag",
+  "crown",
+  "effect",
+];
+
 @customElement("store-modal")
 export class StoreModal extends BaseModal {
   protected routerName = "store";
@@ -101,16 +111,34 @@ export class StoreModal extends BaseModal {
       // Affiliate mode: hide tabs, show only items associated with the code.
       return {};
     }
-    return {
-      tabs: [
-        { key: "packs", label: translateText("store.packs") },
-        { key: "subscriptions", label: translateText("store.subscriptions") },
-        { key: "bundles", label: translateText("store.bundles") },
-        { key: "cosmetics", label: translateText("store.cosmetics") },
-        { key: "effects", label: translateText("store.effects") },
-        { key: "tribes", label: translateText("store.tribes") },
-      ],
-    };
+    return { tabs: this.visibleTabs() };
+  }
+
+  /**
+   * Only the tabs whose feature exists (docs/DeltaFrontAccountsPlan.md 17.1):
+   * currency packs and subscriptions are real-money and need `payments`, custom
+   * tribe names need `tribes`, and bundles (priced in the premium currency, so
+   * `payments` too) appear only when the loaded catalog has some (DeltaFront's
+   * V1 catalog has none). That leaves Cosmetics and
+   * Effects, the two tabs that spend Credits.
+   */
+  private visibleTabs(): Array<{ key: string; label: string }> {
+    // Until the catalog has loaded the tab is kept (a deep link to it must
+    // survive the load); once loaded, a catalog without bundles drops it.
+    const hasBundles =
+      this.cosmetics === null ||
+      Object.keys(this.cosmetics.packs ?? {}).length > 0;
+    const tabs: Array<[boolean, string, string]> = [
+      [ACCOUNT_FEATURES.payments, "packs", "store.packs"],
+      [ACCOUNT_FEATURES.payments, "subscriptions", "store.subscriptions"],
+      [ACCOUNT_FEATURES.payments && hasBundles, "bundles", "store.bundles"],
+      [true, "cosmetics", "store.cosmetics"],
+      [true, "effects", "store.effects"],
+      [ACCOUNT_FEATURES.tribes, "tribes", "store.tribes"],
+    ];
+    return tabs
+      .filter(([shown]) => shown)
+      .map(([, key, label]) => ({ key, label: translateText(label) }));
   }
 
   connectedCallback() {
@@ -194,6 +222,26 @@ export class StoreModal extends BaseModal {
     });
   }
 
+  /**
+   * What the Cosmetics and Effects tabs list: everything for sale and
+   * everything the player already owns, so a bought (or free) item stays on
+   * its card with an "Owned" status instead of vanishing. The Default tile
+   * (no cosmetic) and anything blocked are left out.
+   */
+  private resolvedListed(): ResolvedCosmetic[] {
+    return resolveCosmetics(
+      this.cosmetics,
+      this.userMeResponse,
+      this.affiliateCode,
+    ).filter(
+      (resolved) =>
+        resolved.cosmetic !== null &&
+        (resolved.relationship === "purchasable" ||
+          (resolved.relationship === "owned" &&
+            OWNED_LISTED_TYPES.includes(resolved.type))),
+    );
+  }
+
   private resolvedPurchasables(): ResolvedCosmetic[] {
     return resolveCosmetics(
       this.cosmetics,
@@ -205,7 +253,7 @@ export class StoreModal extends BaseModal {
   private cosmeticsGroups(
     tab: CosmeticsSubTab,
   ): readonly (readonly ResolvedCosmetic[])[] {
-    const items = this.resolvedPurchasables();
+    const items = this.resolvedListed();
     if (tab === "flags") {
       return items
         .filter((resolved) => resolved.type === "flag")
@@ -240,7 +288,7 @@ export class StoreModal extends BaseModal {
       return this.cosmeticsGroups(this.cosmeticsSubTab);
     }
     if (tab === "effects") {
-      return this.resolvedPurchasables()
+      return this.resolvedListed()
         .filter((resolved) => resolved.type === "effect")
         .map((resolved) => [resolved]);
     }
@@ -330,6 +378,23 @@ export class StoreModal extends BaseModal {
     this.requestUpdate();
   }
 
+  /**
+   * Skins and Flags always; Crowns only when the catalog has any (DeltaFront's
+   * V1 catalog has none, and an empty tab is a dead end). A catalog that is
+   * still loading keeps the tab, like the bundles tab.
+   */
+  private cosmeticsSubTabs(): readonly CosmeticsSubTab[] {
+    const loaded = this.cosmetics !== null;
+    const hasCrowns = resolveCosmetics(
+      this.cosmetics,
+      this.userMeResponse,
+      this.affiliateCode,
+    ).some((resolved) => resolved.type === "crown");
+    return COSMETICS_SUB_TABS.filter(
+      (tab) => tab !== "crowns" || !loaded || hasCrowns,
+    );
+  }
+
   private setCosmeticsSubTab(tab: CosmeticsSubTab): void {
     this.cosmeticsSubTab = tab;
     this.selectVisible(this.cosmeticsGroups(tab));
@@ -355,7 +420,7 @@ export class StoreModal extends BaseModal {
       data-store-status
       class="mt-2 flex min-h-11 w-full items-center justify-center rounded-lg border px-2 py-1.5 text-center font-bold ${muted
         ? "border-white/15 bg-white/5 text-xs text-white/60"
-        : "border-emerald-500/40 bg-emerald-500/15 text-base text-emerald-300"}"
+        : "border-white/30 bg-white/10 text-base text-white"}"
       >${text}</span
     >`;
   }
@@ -366,6 +431,12 @@ export class StoreModal extends BaseModal {
   ): TemplateResult {
     if (active.type === "subscription" && active.relationship === "owned") {
       return this.renderStatus(translateText("store.subscribed"));
+    }
+    if (
+      active.relationship === "owned" &&
+      OWNED_LISTED_TYPES.includes(active.type)
+    ) {
+      return this.renderStatus(translateText("store.owned"));
     }
     if (active.type === "cosmeticPack") {
       if (active.relationship === "owned") {
@@ -531,7 +602,7 @@ export class StoreModal extends BaseModal {
       <div
         class="flex items-center justify-center gap-6 border-b border-white/10 px-4"
       >
-        ${COSMETICS_SUB_TABS.map((tab) => {
+        ${this.cosmeticsSubTabs().map((tab) => {
           const active = this.cosmeticsSubTab === tab;
           return html`<button
             class="-mb-px whitespace-nowrap border-b-2 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-colors ${active
@@ -561,7 +632,7 @@ export class StoreModal extends BaseModal {
       .focusedKey=${this.inspected?.key ?? null}
       .onPurchaseFocus=${(item: ResolvedCosmetic) => this.activate(item)}
       .renderPurchaseAction=${(item: ResolvedCosmetic) =>
-        this.renderPurchaseAction(item, false)}
+        this.renderCardAction(item, false)}
       .onVisiblePurchaseItemsChange=${(items: readonly ResolvedCosmetic[]) => {
         this.selectVisible(items.map((item) => [item]));
         this.requestUpdate();

@@ -289,12 +289,12 @@ export class HostLobbyModal extends BaseModal {
     });
   }
 
-  // Listing a lobby publicly is a subscription feature, so without the store
+  // Listing a lobby publicly is a subscription feature, so without payments
   // there is no way to qualify and the toggle would only lead to a dead-end
   // "subscribe" dialog. Dev skips the entitlement gate (see canListPublicly),
   // so the flow stays reachable for local testing.
   private canOfferPublicListing(): boolean {
-    return ACCOUNT_FEATURES.store || ClientEnv.env() === GameEnv.Dev;
+    return ACCOUNT_FEATURES.payments || ClientEnv.env() === GameEnv.Dev;
   }
 
   // Private/Public segmented toggle in the header. Shown to everyone;

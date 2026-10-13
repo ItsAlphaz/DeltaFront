@@ -390,8 +390,8 @@ export class PurchaseButton extends LitElement {
   private renderSoftButton() {
     return html`
       <button
-        class="purchase-sparkle-btn-soft relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-amber-700/20 text-amber-600 border border-amber-700/30 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center gap-2
-         hover:bg-amber-700 hover:border-amber-600 hover:text-white hover:shadow-[0_0_20px_rgba(217,119,6,0.6)]"
+        class="purchase-sparkle-btn-soft relative overflow-hidden w-full min-h-11 px-2 py-1.5 bg-df-red/20 text-df-red-bright border border-df-red/40 rounded-lg text-base font-bold cursor-pointer transition-all duration-200 flex items-center justify-center gap-2
+         hover:bg-df-red hover:border-df-red-bright hover:text-white hover:shadow-[0_0_20px_rgba(227,27,35,0.6)]"
         ?disabled=${this.busy}
         @click=${(e: Event) => {
           e.stopPropagation();

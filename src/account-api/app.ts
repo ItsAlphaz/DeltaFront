@@ -15,7 +15,7 @@ import { joinVerifyRouter } from "./routes/joinVerify";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { profileRouter } from "./routes/profile";
 import { serverLookupsRouter } from "./routes/server";
-import { storeRouter } from "./routes/store";
+import { shopRouter, storeRouter } from "./routes/store";
 import { usersRouter } from "./routes/users";
 
 /**
@@ -27,6 +27,7 @@ import { usersRouter } from "./routes/users";
  *  - `accounts`: sign-in, sessions, /users/@me, usernames, player profiles
  *    and game history, the signing-key set and the game server's join
  *    verification;
+ *  - `store` (with `accounts`): `POST /shop/purchase`, spending Credits;
  *  - `leaderboards`: the basic player leaderboard;
  *  - `inventory` (or `store`, or `clans`): the cosmetic catalog and its
  *    assets, and the lookups the game server's cosmetic checks need;
@@ -80,6 +81,10 @@ export function createApp(deps: {
     if (backend.catalog !== null && usesCosmeticCatalog(config.features)) {
       app.use(storeRouter(backend.catalog));
       app.use(serverLookupsRouter(backend.pool));
+      // Spending Credits needs sign-in as well as the catalog.
+      if (config.features.store && config.features.accounts) {
+        app.use(shopRouter({ ...backend, catalog: backend.catalog }));
+      }
     }
     if (usesAccountApi(config.features)) {
       app.use(clusterRouter(backend));

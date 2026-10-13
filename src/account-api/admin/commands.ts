@@ -3,6 +3,8 @@ import type { Pool } from "pg";
 import { hasFlareShape, isWildcardFlare } from "../catalog/flares";
 import { loadCatalog, type Catalog } from "../catalog/load";
 import { withTransaction } from "../db/tx";
+import { ACCOUNT_RULES } from "../domain/constants";
+import { adjustWallet } from "../domain/economy";
 import { sha256 } from "../http";
 import { flareRowsOf, grantFlare, revokeFlare } from "../repo/inventory";
 import { revokeAllForUser } from "../repo/sessions";
@@ -89,6 +91,9 @@ export const ADMIN_COMMANDS = [
   "user:unban <publicId>",
   "user:revoke-sessions <publicId> --yes",
   "user:role <publicId> <admin|mod|flagged|none> --yes",
+  "wallet:show <publicId>",
+  "wallet:grant <publicId> <credits> --reason <text>",
+  "wallet:revoke <publicId> <credits> --reason <text> --yes",
   "item:list <publicId>",
   "item:grant <publicId> <flare>",
   "item:revoke <publicId> <flare> --yes",
@@ -128,6 +133,33 @@ async function userByPublicId(
 /** The catalog the item commands check flares against. Asset URLs are not used here. */
 function catalogOf(io: AdminIo): Catalog {
   return io.catalog ?? loadCatalog({ publicOrigin: "http://localhost" });
+}
+
+/** A Credits amount: a whole number from 1 up to the per-command limit. */
+function creditsArg(p: Parsed, index: number): number {
+  const raw = need(p, index, "amount of Credits");
+  if (!/^[1-9]\d{0,15}$/.test(raw)) {
+    throw new AdminUsageError("the amount must be a positive whole number");
+  }
+  const amount = Number(raw);
+  if (amount > ACCOUNT_RULES.adminMaxCreditsPerCommand) {
+    throw new AdminUsageError(
+      `at most ${ACCOUNT_RULES.adminMaxCreditsPerCommand.toLocaleString("en-US")} Credits per command`,
+    );
+  }
+  return amount;
+}
+
+/** The mandatory note for a wallet change (it goes to the audit log). */
+function reasonArg(p: Parsed): string {
+  const reason = flag(p, "reason")?.trim();
+  if (reason === undefined || reason === "") {
+    throw new AdminUsageError("--reason <text> is required");
+  }
+  if (reason.length > 200) {
+    throw new AdminUsageError("--reason is at most 200 characters");
+  }
+  return reason;
 }
 
 /** A flare argument: shaped like one, and never a wildcard. */
@@ -317,6 +349,95 @@ export async function runAdminCommand(
           await audit(db, io, "user:role", "user", publicId, { role });
         });
         io.out(`role of ${publicId} is now ${role}`);
+        return 0;
+      }
+      case "wallet:show": {
+        const user = await userByPublicId(pool, need(p, 0, "public id"));
+        const [wallet, ledger] = await Promise.all([
+          pool.query<{ credits: string }>(
+            "SELECT credits::text AS credits FROM wallets WHERE user_id = $1",
+            [user.id],
+          ),
+          pool.query<{
+            delta: string;
+            balance_after: string;
+            reason: string;
+            ref_type: string | null;
+            ref_id: string | null;
+            created_at: Date;
+          }>(
+            `SELECT delta::text, balance_after::text, reason, ref_type, ref_id, created_at
+               FROM currency_ledger WHERE user_id = $1 ORDER BY id DESC LIMIT 20`,
+            [user.id],
+          ),
+        ]);
+        io.out(
+          `credits of ${user.public_id}: ${wallet.rows[0]?.credits ?? "0"}`,
+        );
+        io.out("last ledger rows (newest first):");
+        for (const r of ledger.rows) {
+          io.out(
+            `  ${r.created_at.toISOString()}  ${r.delta.padStart(8)}  -> ${r.balance_after.padStart(8)}  ${r.reason}${r.ref_type ? `  ${r.ref_type}:${r.ref_id}` : ""}`,
+          );
+        }
+        if (ledger.rows.length === 0) io.out("  (none)");
+        return 0;
+      }
+      case "wallet:grant":
+      case "wallet:revoke": {
+        const grant = command === "wallet:grant";
+        if (!grant) requireYes(p, "deducting Credits");
+        const publicId = need(p, 0, "public id");
+        const amount = creditsArg(p, 1);
+        const reason = reasonArg(p);
+        const outcome = await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          const { rows } = await db.query<{ deleted_at: Date | null }>(
+            // No row lock here: a purchase takes the wallet lock first and then
+            // needs this row (foreign keys), so an admin command that held the
+            // user row while waiting for the wallet would deadlock with it.
+            "SELECT deleted_at FROM users WHERE id = $1",
+            [user.id],
+          );
+          if (rows[0].deleted_at !== null) {
+            throw new AdminUsageError(`${publicId} is a deleted account`);
+          }
+          // The audit row first: its id is what the ledger row points back to.
+          const log = await db.query<{ id: string }>(
+            `INSERT INTO admin_audit_log (actor, action, target_type, target_id, details)
+             VALUES ($1, $2, 'user', $3, $4) RETURNING id::text AS id`,
+            [io.actor, command, publicId, { amount, reason }],
+          );
+          const result = await adjustWallet(
+            db,
+            user.id,
+            grant ? amount : -amount,
+            log.rows[0].id,
+          );
+          if (result.kind !== "adjusted") {
+            // Roll the audit row back too: nothing happened.
+            throw new AdminUsageError(
+              result.kind === "insufficient"
+                ? `${publicId} has only ${result.balance} Credits: cannot deduct ${amount}`
+                : `that would take the balance past the wallet maximum`,
+            );
+          }
+          await db.query(
+            "UPDATE admin_audit_log SET details = details || $2::jsonb WHERE id = $1",
+            [
+              log.rows[0].id,
+              {
+                before: result.before,
+                after: result.after,
+                ledgerId: result.ledgerId,
+              },
+            ],
+          );
+          return result;
+        });
+        io.out(
+          `${grant ? "granted" : "deducted"} ${amount} Credits ${grant ? "to" : "from"} ${publicId}: ${outcome.before} -> ${outcome.after}`,
+        );
         return 0;
       }
       case "item:list": {

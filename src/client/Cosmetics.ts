@@ -29,6 +29,7 @@ import {
   PlayerEffect,
   PlayerPattern,
 } from "@openfront/shared/WireSchemas";
+import { responseHasLinkedIdentity } from "./AccountIdentity";
 import {
   changeSubscriptionTier,
   getApiBase,
@@ -589,6 +590,12 @@ export async function purchaseCosmetic(
     await showInGameAlert(translateText("store.login_required"));
     return;
   }
+  // A guest account has Credits but no identity to keep what it buys; the
+  // server refuses it too (403 LOGIN_REQUIRED), so say so before asking.
+  if (!responseHasLinkedIdentity(userMe)) {
+    await showInGameAlert(translateText("store.login_required"));
+    return;
+  }
   const balance =
     method === "hard"
       ? (userMe.player.currency?.hard ?? 0)
@@ -695,6 +702,9 @@ export async function purchaseCosmetic(
         await showInGameAlert(
           translateText("store.pack_debt", { debt: result.debt }),
         );
+        return;
+      case "login_required":
+        await showInGameAlert(translateText("store.login_required"));
         return;
       case "already_owned":
         // Either a genuine double-buy or a retry of a purchase that did go

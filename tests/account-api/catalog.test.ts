@@ -26,6 +26,8 @@ import {
   parseCatalog,
   type Catalog,
 } from "../../src/account-api/catalog/load";
+import { findOffer } from "../../src/account-api/catalog/offer";
+import { ECONOMY } from "../../src/account-api/domain/constants";
 import { reportedFlares } from "../../src/account-api/repo/inventory";
 
 const ROOT = path.resolve(
@@ -681,5 +683,155 @@ describe("the pattern encoder (scripts/cosmetics/encode-pattern.ts)", () => {
 
   it("reads bitmap files, skipping blank lines and // comments", () => {
     expect(parseBitmap("// note\n##\n\n  .#  \r\n")).toEqual(["##", ".#"]);
+  });
+});
+
+describe("catalog prices (milestone M5)", () => {
+  const catalog = loadCatalog({ publicOrigin: ORIGIN });
+
+  it("sells every non-default item, at the plan's prices (docs plan 9.3), in Credits only", () => {
+    const wanted = {
+      "pattern:delta_stripes:ember": 300,
+      "pattern:grid_check:ember": 500,
+      "flag:delta_mark": 400,
+      "flag:split_field": 400,
+      "effect:red_wake": 600,
+    };
+    const offers: Record<string, number | undefined> = {
+      "pattern:delta_stripes:ember": findOffer(catalog, {
+        cosmeticType: "pattern",
+        cosmeticName: "delta_stripes",
+        colorPaletteName: "ember",
+      })?.price,
+      "pattern:grid_check:ember": findOffer(catalog, {
+        cosmeticType: "pattern",
+        cosmeticName: "grid_check",
+        colorPaletteName: "ember",
+      })?.price,
+      "flag:delta_mark": findOffer(catalog, {
+        cosmeticType: "flag",
+        cosmeticName: "delta_mark",
+      })?.price,
+      "flag:split_field": findOffer(catalog, {
+        cosmeticType: "flag",
+        cosmeticName: "split_field",
+      })?.price,
+      "effect:red_wake": findOffer(catalog, {
+        cosmeticType: "effect",
+        cosmeticName: "red_wake",
+      })?.price,
+    };
+    expect(offers).toEqual(wanted);
+    // Everything in the catalog is either bought with those prices or free by default.
+    const sellable = new Set(Object.keys(wanted));
+    for (const flare of catalog.validFlares) {
+      expect(
+        sellable.has(flare) || catalog.defaultFlares.includes(flare),
+        flare,
+      ).toBe(true);
+    }
+  });
+
+  it("prices are positive whole numbers, no item has a premium price or product, and the free item keeps its own palette free", () => {
+    for (const item of [
+      ...Object.values(source.patterns),
+      ...Object.values(source.flags),
+      ...Object.values<any>(source.effects).flatMap((byName: any) =>
+        Object.values(byName),
+      ),
+    ] as Array<Record<string, any>>) {
+      expect(
+        Number.isInteger(item.priceSoft) && item.priceSoft > 0,
+        item.name,
+      ).toBe(true);
+      expect(item.priceHard, item.name).toBeUndefined();
+      expect(item.product, item.name).toBeNull();
+    }
+    // The free palette is owned by everyone, so nobody is ever offered it for sale.
+    expect(catalog.defaultFlares).toEqual(["pattern:delta_stripes:ash"]);
+  });
+
+  it("keeps the prices within reach of play: the dearest item costs no more than two days of the daily Credits cap", () => {
+    const dearest = Math.max(
+      ...(Object.values(source.patterns) as any[]).map((p) => p.priceSoft),
+      ...(Object.values(source.flags) as any[]).map((p) => p.priceSoft),
+      source.effects.transportShipTrail.red_wake.priceSoft,
+    );
+    expect(dearest).toBeLessThanOrEqual(2 * ECONOMY.dailyGameplayCap);
+  });
+
+  it("findOffer: the request chooses what to buy, the catalog chooses the flare and the price", () => {
+    expect(
+      findOffer(catalog, { cosmeticType: "flag", cosmeticName: "delta_mark" }),
+    ).toEqual({ flare: "flag:delta_mark", price: 400 });
+    // extra fields on the request are not even part of its type
+    expect(
+      findOffer(
+        { ...catalog } as Catalog,
+        {
+          cosmeticType: "flag",
+          cosmeticName: "delta_mark",
+          price: 1,
+        } as never,
+      )?.price,
+    ).toBe(400);
+  });
+
+  it.each([
+    [{ cosmeticType: "flag", cosmeticName: "nope" }],
+    [{ cosmeticType: "flag", cosmeticName: "toString" }],
+    [{ cosmeticType: "flag", cosmeticName: "__proto__" }],
+    [{ cosmeticType: "flag", cosmeticName: "constructor" }],
+    [
+      {
+        cosmeticType: "flag",
+        cosmeticName: "delta_mark",
+        colorPaletteName: "ember",
+      },
+    ],
+    [{ cosmeticType: "pattern", cosmeticName: "grid_check" }],
+    [
+      {
+        cosmeticType: "pattern",
+        cosmeticName: "grid_check",
+        colorPaletteName: "ash",
+      },
+    ],
+    [
+      {
+        cosmeticType: "pattern",
+        cosmeticName: "grid_check",
+        colorPaletteName: "constructor",
+      },
+    ],
+    [{ cosmeticType: "effect", cosmeticName: "delta_mark" }],
+    [{ cosmeticType: "skin", cosmeticName: "delta_stripes" }],
+    [{ cosmeticType: "crown", cosmeticName: "delta_mark" }],
+  ])("findOffer sells nothing for %j", (request) => {
+    expect(findOffer(catalog, request as never)).toBeNull();
+  });
+
+  it("findOffer refuses an item with no price, a zero or negative price, and an archived palette", () => {
+    const priced = (price: unknown): Catalog =>
+      catalogWith((c) => {
+        c.flags.delta_mark.priceSoft = price;
+      }, realAssets());
+    expect(priced(250).cosmetics.flags.delta_mark.priceSoft).toBe(250);
+    const noPrice = catalogWith((c) => {
+      delete c.flags.delta_mark.priceSoft;
+    });
+    expect(
+      findOffer(noPrice, { cosmeticType: "flag", cosmeticName: "delta_mark" }),
+    ).toBeNull();
+    const archived = catalogWith((c) => {
+      c.patterns.grid_check.colorPalettes[0].isArchived = true;
+    });
+    expect(
+      findOffer(archived, {
+        cosmeticType: "pattern",
+        cosmeticName: "grid_check",
+        colorPaletteName: "ember",
+      }),
+    ).toBeNull();
   });
 });

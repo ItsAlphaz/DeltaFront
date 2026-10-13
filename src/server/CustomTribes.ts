@@ -28,9 +28,10 @@ export interface TribePoolPlayer {
 export async function fetchCustomTribes(
   players: TribePoolPlayer[],
 ): Promise<Tribe[]> {
-  // Purchased tribe names are a store feature; without one the pool is empty
-  // and the game starts with organic bot names, with no request made.
-  if (!ACCOUNT_FEATURES.store) return [];
+  // Purchased tribe names are the `tribes` feature (not part of the Credits
+  // store); without it the pool is empty and the game starts with organic bot
+  // names, with no request made.
+  if (!ACCOUNT_FEATURES.tribes) return [];
   const response = await fetch(`${ServerEnv.jwtIssuer()}/custom_tribes`, {
     method: "POST",
     signal: AbortSignal.timeout(1500),

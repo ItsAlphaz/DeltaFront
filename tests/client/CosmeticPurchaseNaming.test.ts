@@ -58,6 +58,7 @@ describe("purchaseCosmetic naming", () => {
   it("names the colour when the balance is short", async () => {
     installTranslations();
     vi.mocked(getUserMe).mockResolvedValue({
+      user: { discord: { id: "1", username: "u" } },
       player: { currency: { hard: 10, soft: 0 } },
     } as never);
 

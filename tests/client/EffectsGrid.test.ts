@@ -366,7 +366,9 @@ describe("EffectsGrid", () => {
     clickNukeType(grid, "hydro");
     await grid.updateComplete;
 
+    // For sale and already owned: an owned effect stays listed (as Owned).
     expect(onVisiblePurchaseItemsChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ key: "effect:nukeExplosion:owned_hydro" }),
       expect.objectContaining({ key: "effect:nukeExplosion:locked_hydro" }),
       expect.objectContaining({
         key: "effect:nukeExplosion:locked_hydro_alt",

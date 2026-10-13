@@ -511,7 +511,7 @@ describeDb("only the backend can change ownership", () => {
         /\b(grantFlare|revokeFlare)\b/,
       );
     }
-    // The only callers are the admin commands.
+    // The only callers are the admin commands and the store purchase.
     const callers = sources.filter((f) =>
       /\b(grantFlare|revokeFlare)\b/.test(
         fs.readFileSync(path.join(ROOT, f), "utf8"),
@@ -519,6 +519,7 @@ describeDb("only the backend can change ownership", () => {
     );
     expect(callers.sort()).toEqual([
       "src/account-api/admin/commands.ts",
+      "src/account-api/domain/economy.ts",
       "src/account-api/repo/inventory.ts",
     ]);
   });
