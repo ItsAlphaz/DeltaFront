@@ -222,6 +222,7 @@ describeDb("retention of stored game records and dead sessions", () => {
     expect(await runRetention(h.db.pool, new Date())).toEqual({
       records: 0,
       sessions: 0,
+      magicLinks: 0,
     });
   });
 

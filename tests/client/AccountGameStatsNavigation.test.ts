@@ -51,6 +51,7 @@ vi.mock("../../src/client/Auth", () => ({
   logOut: vi.fn(),
   reauthAfterCrazyGamesChange: vi.fn(),
   sendMagicLink: vi.fn(),
+  requestMagicLink: vi.fn(async () => ({ status: "sent" })),
 }));
 
 vi.mock("../../src/client/Cosmetics", () => ({

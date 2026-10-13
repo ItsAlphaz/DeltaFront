@@ -216,19 +216,76 @@ export function usesAccountApi(
   return Object.values(features).some(Boolean);
 }
 
+/** The environment variable that switches email magic-link sign-in on (`1` or `true`). */
+export const EMAIL_AUTH_ENV = "DF_EMAIL_AUTH";
+
+/**
+ * Reads a DF_EMAIL_AUTH value. Email sign-in is a separate switch from the
+ * feature flags (it also needs a mail provider, see src/account-api/auth/
+ * email.ts), and it fails towards off: only `1` and `true` (any case, padded
+ * with spaces) turn it on. `invalid` is anything else that was set, so a
+ * typo such as `yes` is reported by the servers instead of silently meaning
+ * "off" or "on".
+ */
+export function parseEmailAuthFlag(raw: unknown): {
+  enabled: boolean;
+  invalid: boolean;
+} {
+  if (raw === undefined || raw === null)
+    return { enabled: false, invalid: false };
+  if (typeof raw !== "string") return { enabled: false, invalid: true };
+  const value = raw.trim().toLowerCase();
+  if (value === "" || value === "0" || value === "false")
+    return { enabled: false, invalid: false };
+  if (value === "1" || value === "true")
+    return { enabled: true, invalid: false };
+  return { enabled: false, invalid: true };
+}
+
+/**
+ * The value the client build bakes in for `process.env.DF_EMAIL_AUTH`
+ * (vite.config.ts): `"1"` or `""`, never the raw text. A production build
+ * refuses a value that is neither on nor off.
+ */
+export function buildTimeEmailAuth(
+  raw: string | undefined,
+  production: boolean,
+): "1" | "" {
+  const { enabled, invalid } = parseEmailAuthFlag(raw);
+  if (invalid && production) {
+    throw new Error(
+      `${EMAIL_AUTH_ENV} must be 1, true, 0 or false (or unset). The build was stopped so the client does not ship with email sign-in silently off.`,
+    );
+  }
+  return enabled ? "1" : "";
+}
+
+/**
+ * Read as the bare expression `process.env.DF_EMAIL_AUTH` for the same reason
+ * as readEnvOverride: Vite replaces exactly that text in the client bundle.
+ */
+function readEmailAuthEnv(): string | undefined {
+  try {
+    return process.env.DF_EMAIL_AUTH;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * The sign-in methods the client offers and the API accepts. Separate from
  * the feature flags: `accounts` says sign-in exists at all, this says which
- * ways in. V1 is guest (always available, no entry here), Discord and Google;
- * email magic links arrive in milestone M8 and Steam is not planned.
- * See docs/DeltaFrontAccountsPlan.md, decision D3.
+ * ways in. Guest (always available, no entry here), Discord and Google are
+ * on; `email` (magic links, milestone M8) is on only when DF_EMAIL_AUTH says
+ * so, for the client build, the game server and the account API alike; Steam
+ * is not planned. See docs/DeltaFrontAccountsPlan.md, decision D3 and M8.
  */
 export const AUTH_PROVIDERS = Object.freeze({
   discord: true,
   google: true,
-  email: false,
+  email: parseEmailAuthFlag(readEmailAuthEnv()).enabled,
   steam: false,
-} as const);
+});
 
 export type AuthProviderName = keyof typeof AUTH_PROVIDERS;
 

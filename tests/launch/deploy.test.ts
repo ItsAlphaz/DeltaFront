@@ -94,7 +94,9 @@ describe("the reference environment files", () => {
       names.add(`${m[1]}_CLIENT_ID`);
       names.add(`${m[1]}_CLIENT_SECRET`);
     }
-    names.delete("ACCOUNT_FEATURES_ENV"); // a constant, not a variable
+    names.delete("ACCOUNT_FEATURES_ENV"); // constants, not variables
+    names.delete("EMAIL_AUTH_ENV");
+    names.add("DF_EMAIL_AUTH");
     names.add("DF_ACCOUNT_FEATURES");
     const documented = read("example.env") + read("deploy/env/api.env.example");
     const missing = [...names].filter(
@@ -258,6 +260,19 @@ describe("the nginx edge configuration", () => {
     expect(text.match(/client_max_body_size 100m/g)).toHaveLength(1);
     expect(text).toMatch(
       /location = \/ready \{\s*allow 127\.0\.0\.1;\s*allow ::1;\s*deny all;/,
+    );
+  });
+
+  it("logs the API without query strings, so a one-time code or sign-in token cannot reach an access log", () => {
+    const format = /log_format df_noquery '([^;]*)';/s.exec(text)![1];
+    expect(format).toContain("$uri");
+    expect(format).not.toContain("$request_uri");
+    expect(format).not.toMatch(
+      /\$request[^_]|\$args|\$query_string|\$http_referer|\$http_cookie/,
+    );
+    const apiBlock = text.slice(text.indexOf("server_name api.example.com;"));
+    expect(apiBlock).toMatch(
+      /access_log \/var\/log\/nginx\/deltafront-api\.access\.log df_noquery;/,
     );
   });
 

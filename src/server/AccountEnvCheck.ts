@@ -1,6 +1,7 @@
 import {
   ACCOUNT_FEATURE_NAMES,
   ACCOUNT_FEATURES,
+  AUTH_PROVIDERS,
   unfinishedFeatures,
   usesAccountApi,
   type AccountFeatures,
@@ -111,6 +112,8 @@ export function assertAccountBackendEnv(options: {
 export function assertBuildMatchesRuntime(options: {
   staticDir: string;
   features?: AccountFeatures;
+  /** Whether this server runs with email sign-in on (DF_EMAIL_AUTH); default: the process's own. */
+  emailAuth?: boolean;
   env: "dev" | "staging" | "prod";
   warn: (message: string) => void;
 }): void {
@@ -118,21 +121,32 @@ export function assertBuildMatchesRuntime(options: {
   const features = options.features ?? ACCOUNT_FEATURES;
   const runtime = ACCOUNT_FEATURE_NAMES.filter((n) => features[n]);
   let recorded: string[];
+  let recordedEmail: boolean;
   try {
-    recorded = fs
+    const lines = fs
       .readFileSync(
         path.join(options.staticDir, "account-features.txt"),
         "utf8",
       )
+      .split("\n");
+    recorded = (lines[0] ?? "")
       .trim()
       .split(",")
       .filter((t) => t !== "");
+    // A build from before email sign-in has no second line: that means off.
+    recordedEmail = lines.some((l) => l.trim() === "email-auth=on");
   } catch {
     const message =
       "static/account-features.txt is missing: the client was not built with `npm run build-prod`, so its feature flags cannot be checked against this server";
     if (options.env === "prod") throw new AccountEnvError(message);
     options.warn(message);
     return;
+  }
+  const runtimeEmail = options.emailAuth ?? AUTH_PROVIDERS.email;
+  if (recordedEmail !== runtimeEmail) {
+    throw new AccountEnvError(
+      `The client was built with email sign-in ${recordedEmail ? "on" : "off"} but this server runs with it ${runtimeEmail ? "on" : "off"} (DF_EMAIL_AUTH). Build and run with the same value (docker build --build-arg DF_EMAIL_AUTH=...).`,
+    );
   }
   const missing = runtime.filter((n) => !recorded.includes(n));
   const extra = recorded.filter((n) => !runtime.includes(n as never));

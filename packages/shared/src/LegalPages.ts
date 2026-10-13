@@ -54,6 +54,16 @@ const REQUIRED_TOPICS: Record<LegalPageKind, Array<[RegExp, string]>> = {
   ],
 };
 
+/** What a privacy policy must add once emailed sign-in links exist (milestone M8). */
+const EMAIL_TOPICS: Array<[RegExp, string]> = [
+  [/e-?mail address/, "the e-mail address used for sign-in links"],
+  [/(sign-?in|magic|login) links?/, "e-mailed sign-in links"],
+  [
+    /(e-?mail|mail) (delivery )?(provider|service|processor)|sent through|delivered by/,
+    "the e-mail delivery provider",
+  ],
+];
+
 const MIN_TEXT_LENGTH = 1500;
 
 function visibleText(html: string): string {
@@ -71,6 +81,8 @@ export function legalPageProblems(
   kind: LegalPageKind,
   html: string,
   now: Date = new Date(),
+  /** Email sign-in is on (DF_EMAIL_AUTH): the privacy policy must also cover it. */
+  options: { emailAuth?: boolean } = {},
 ): string[] {
   const problems: string[] = [];
   if (html.includes(LEGAL_PLACEHOLDER_MARKER)) {
@@ -110,6 +122,11 @@ export function legalPageProblems(
   const missing = REQUIRED_TOPICS[kind]
     .filter(([pattern]) => !pattern.test(lower))
     .map(([, topic]) => topic);
+  if (kind === "privacy" && options.emailAuth === true) {
+    for (const [pattern, topic] of EMAIL_TOPICS) {
+      if (!pattern.test(lower)) missing.push(topic);
+    }
+  }
   if (missing.length > 0)
     problems.push(`does not mention: ${missing.join(", ")}`);
   return problems;

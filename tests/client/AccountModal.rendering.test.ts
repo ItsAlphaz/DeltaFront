@@ -30,6 +30,7 @@ vi.mock("../../src/client/Auth", () => ({
   logOut: vi.fn(async () => true),
   reauthAfterCrazyGamesChange: vi.fn(async () => false),
   sendMagicLink: vi.fn(async () => true),
+  requestMagicLink: vi.fn(async () => ({ status: "sent" })),
   getAuthHeader: vi.fn(async () => "Bearer test-token"),
 }));
 

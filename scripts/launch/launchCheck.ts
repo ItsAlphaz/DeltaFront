@@ -3,6 +3,7 @@ import {
   describeRejectedToken,
   LAUNCH_FEATURES,
   LAUNCH_FEATURES_VALUE,
+  parseEmailAuthFlag,
   resolveAccountFeatures,
 } from "@openfront/shared/AccountFeatures";
 import {
@@ -11,6 +12,7 @@ import {
   type LegalPageKind,
 } from "@openfront/shared/LegalPages";
 import { createHash } from "node:crypto";
+import dns from "node:dns";
 import fs from "node:fs";
 import path from "node:path";
 import { Pool } from "pg";
@@ -20,6 +22,7 @@ import {
   ConfigError,
   describeConfig,
   loadConfig,
+  senderAddress,
   type AccountApiConfig,
 } from "../../src/account-api/config";
 import {
@@ -76,6 +79,8 @@ export interface LaunchCheckOptions {
   /** Accept GAME_ENV=staging (a rehearsal) instead of requiring prod. */
   allowStaging?: boolean;
   fetchFn?: typeof fetch;
+  /** DNS TXT lookup for the sender-domain check of `--probe` (default: the system resolver). */
+  resolveTxt?: (name: string) => Promise<string[][]>;
   /** The branding to judge; the real one unless a test supplies another. */
   brand?: Pick<typeof BRAND, "sourceRepoUrl" | "steamAppId" | "adsEnabled">;
 }
@@ -377,6 +382,107 @@ export async function runLaunchChecks(
     );
   }
 
+  // --------------------------------------------------------- email sign-in
+  const emailFlag = parseEmailAuthFlag(env.DF_EMAIL_AUTH);
+  const emailEnabled = emailFlag.enabled;
+  if (emailFlag.invalid) {
+    add(
+      result(
+        "email",
+        "email sign-in is configured",
+        "fail",
+        "DF_EMAIL_AUTH must be 1, true, 0 or false (or unset)",
+      ),
+    );
+  } else if (!emailEnabled) {
+    add(
+      result(
+        "email",
+        "email sign-in is off",
+        "pass",
+        "no mail provider is needed",
+      ),
+    );
+  } else if (config === null) {
+    add(
+      result(
+        "email",
+        "email sign-in is configured",
+        "skip",
+        "the configuration is invalid",
+      ),
+    );
+  } else {
+    const problems: string[] = [];
+    const e = config.email;
+    if (e.provider === null || e.provider === "dev") {
+      problems.push(
+        "EMAIL_PROVIDER is not a real provider (resend or postmark): the dev provider keeps links in memory and delivers nothing",
+      );
+    }
+    const sender = e.from === null ? null : senderAddress(e.from);
+    if (sender === null)
+      problems.push("EMAIL_FROM is not a valid sender address");
+    else if (
+      /@(example\.(com|org|net)|localhost|test|invalid|yourdomain|your-domain)\b/i.test(
+        sender,
+      )
+    ) {
+      problems.push(
+        "EMAIL_FROM is a placeholder domain: use an address on a domain you have verified with the provider",
+      );
+    }
+    if (e.apiKey === null) problems.push("EMAIL_API_KEY is not set");
+    else if (
+      /change_?me|your[-_ ]?key|placeholder|test[-_]?key|not[-_]?real|xxxx/i.test(
+        e.apiKey,
+      )
+    ) {
+      problems.push("EMAIL_API_KEY looks like a placeholder");
+    }
+    // The emailed link points at the origin the browser sent; it must be this site, over https.
+    const siteOrigin = `https://${config.domain}`;
+    if (!config.allowedOrigins.includes(siteOrigin)) {
+      problems.push(
+        `${siteOrigin} is not in ALLOWED_ORIGINS, so the sign-in link would be refused`,
+      );
+    }
+    const built = readBuiltEmailFlag(staticDir);
+    if (built !== null && !built) {
+      problems.push(
+        "the client in static/ was built with email sign-in off: rebuild with DF_EMAIL_AUTH=1 (docker build --build-arg DF_EMAIL_AUTH=1)",
+      );
+    }
+    add(
+      problems.length === 0
+        ? result(
+            "email",
+            "email sign-in is configured for production",
+            "warn",
+            `provider ${e.provider}, sender configured. This check cannot prove the provider delivers: send yourself a link from the real site and check it arrives in the inbox, not spam (docs/Deployment.md, "Email sign-in").`,
+          )
+        : result(
+            "email",
+            "email sign-in is configured for production",
+            "fail",
+            problems.join("\n"),
+          ),
+    );
+  }
+  if (!emailEnabled) {
+    const built = readBuiltEmailFlag(staticDir);
+    if (built === true) {
+      add(
+        result(
+          "email-build",
+          "the client matches the email setting",
+          "fail",
+          "the client in static/ offers email sign-in but DF_EMAIL_AUTH is off: the button would answer 404. Rebuild without it, or turn it on.",
+        ),
+      );
+    }
+  }
+
   // --------------------------------------------------------------- signing key
   if (config !== null && config.jwt.privateKeyPath !== null) {
     const keyPath = config.jwt.privateKeyPath;
@@ -491,7 +597,9 @@ export async function runLaunchChecks(
         problems.push(`${file} is missing`);
         continue;
       }
-      for (const p of legalPageProblems(kind, html))
+      for (const p of legalPageProblems(kind, html, new Date(), {
+        emailAuth: emailEnabled,
+      }))
         problems.push(`${file} ${p}`);
     }
     add(
@@ -591,6 +699,7 @@ export async function runLaunchChecks(
     addSecret("TURNSTILE_SECRET_KEY", env.TURNSTILE_SECRET_KEY);
     addSecret("DISCORD_CLIENT_SECRET", env.DISCORD_CLIENT_SECRET);
     addSecret("GOOGLE_CLIENT_SECRET", env.GOOGLE_CLIENT_SECRET);
+    addSecret("EMAIL_API_KEY", env.EMAIL_API_KEY);
     try {
       addSecret(
         "DATABASE_URL password",
@@ -671,6 +780,7 @@ export async function runLaunchChecks(
   // ------------------------------------------------------------------ probe
   if (options.probe && config !== null) {
     await probeChecks(config, options.fetchFn ?? fetch, add);
+    if (emailEnabled) await senderDomainChecks(config, options.resolveTxt, add);
   }
 
   const failed = results.filter((r) => r.status === "fail").length;
@@ -898,6 +1008,66 @@ async function probeChecks(
           "the site is served with CSP and HSTS",
           "fail",
           `https://${config.domain}/ answered ${site?.status ?? "nothing"}${csp === "" ? ", with no Content-Security-Policy" : ""}`,
+        ),
+  );
+}
+
+/** What the build recorded about email sign-in (static/account-features.txt line 2), or null if there is no build. */
+function readBuiltEmailFlag(staticDir: string): boolean | null {
+  try {
+    const lines = fs
+      .readFileSync(path.join(staticDir, "account-features.txt"), "utf8")
+      .split("\n");
+    return lines.some((l) => l.trim() === "email-auth=on");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether the sender's domain publishes the records that keep a login email
+ * out of spam: SPF and DMARC (DKIM's selector is the provider's, so it can
+ * only be checked in the provider's dashboard). Warnings: they depend on DNS
+ * the operator controls and on the provider.
+ */
+async function senderDomainChecks(
+  config: AccountApiConfig,
+  resolve: ((name: string) => Promise<string[][]>) | undefined,
+  add: (r: CheckResult) => void,
+): Promise<void> {
+  const lookup = resolve ?? ((name: string) => dns.promises.resolveTxt(name));
+  const domain =
+    config.email.from === null
+      ? null
+      : senderAddress(config.email.from)?.split("@")[1];
+  if (domain === undefined || domain === null) return;
+  const txt = async (name: string): Promise<string[]> => {
+    try {
+      return (await lookup(name)).map((parts) => parts.join(""));
+    } catch {
+      return [];
+    }
+  };
+  const spf = (await txt(domain)).some((r) =>
+    r.toLowerCase().startsWith("v=spf1"),
+  );
+  const dmarc = (await txt(`_dmarc.${domain}`)).some((r) =>
+    r.toLowerCase().startsWith("v=dmarc1"),
+  );
+  const missing = [spf ? "" : "SPF", dmarc ? "" : "DMARC"].filter(Boolean);
+  add(
+    missing.length === 0
+      ? result(
+          "email-dns",
+          `the sender domain publishes SPF and DMARC`,
+          "pass",
+          domain,
+        )
+      : result(
+          "email-dns",
+          "the sender domain publishes SPF and DMARC",
+          "warn",
+          `${domain} has no ${missing.join(" or ")} record: sign-in emails are likely to land in spam. Add what the provider tells you, and check DKIM in its dashboard.`,
         ),
   );
 }

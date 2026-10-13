@@ -7,6 +7,7 @@ import type { Server } from "node:http";
 import path from "node:path";
 import type { Pool } from "pg";
 import { createApp } from "./app";
+import { createMailer, type Mailer } from "./auth/email";
 import { createEphemeralKeyRing, loadKeyRing, type KeyRing } from "./auth/keys";
 import {
   createOAuthProviders,
@@ -65,6 +66,8 @@ export interface ServiceOverrides {
   fetchFn?: typeof fetch;
   oauthEndpoints?: Partial<Record<OAuthProviderId, OAuthEndpoints>>;
   turnstile?: Turnstile;
+  /** Replace the configured email delivery (tests). */
+  mailer?: Mailer;
   limits?: Partial<Record<RateLimitName, RateLimit>>;
   /** Read the cosmetic catalog from here instead of `src/account-api/catalog`. */
   catalogDir?: string;
@@ -106,6 +109,7 @@ export async function buildBackend(
       overrides.fetchFn,
       overrides.oauthEndpoints,
     ),
+    mailer: overrides.mailer ?? createMailer(config.email, overrides.fetchFn),
     // Checked once, here: a catalog with a mistake in it stops the API from
     // starting (CatalogError) instead of failing when a player opens a page.
     catalog: usesCosmeticCatalog(config.features)

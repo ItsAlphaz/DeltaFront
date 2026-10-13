@@ -43,6 +43,10 @@ ENV GIT_COMMIT="$GIT_COMMIT"
 # (static/account-features.txt, written by build-prod). Not a secret.
 ARG DF_ACCOUNT_FEATURES=""
 ENV DF_ACCOUNT_FEATURES="$DF_ACCOUNT_FEATURES"
+# Whether the sign-in screen offers email magic links (1 or 0; default off). Not
+# a secret; the game server checks it against the build like the feature list.
+ARG DF_EMAIL_AUTH=""
+ENV DF_EMAIL_AUTH="$DF_EMAIL_AUTH"
 RUN npm run build-prod
 
 # Production dependencies stage - separate from build
@@ -113,6 +117,8 @@ ENV GIT_COMMIT="$GIT_COMMIT"
 # server checks it against static/account-features.txt at start.
 ARG DF_ACCOUNT_FEATURES=""
 ENV DF_ACCOUNT_FEATURES="$DF_ACCOUNT_FEATURES"
+ARG DF_EMAIL_AUTH=""
+ENV DF_EMAIL_AUTH="$DF_EMAIL_AUTH"
 
 RUN <<'EOF' tee /usr/local/bin/start.sh
 #!/bin/sh

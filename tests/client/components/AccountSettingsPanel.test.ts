@@ -31,6 +31,7 @@ vi.mock("../../../src/client/Auth", () => ({
   clearLocalSession: vi.fn(),
   linkGoogle: vi.fn(async () => true),
   sendMagicLink: vi.fn(async () => true),
+  requestMagicLink: vi.fn(async () => ({ status: "sent" })),
 }));
 
 function makePlayer(overrides: Partial<UserMePlayer> = {}): UserMePlayer {

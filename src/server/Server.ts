@@ -3,6 +3,7 @@
 // it is imported, and the client build reads the same .env through Vite.
 import "dotenv/config";
 
+import { AUTH_PROVIDERS } from "@openfront/shared/AccountFeatures";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import cluster from "cluster";
 import * as dotenv from "dotenv";
@@ -43,6 +44,7 @@ async function main() {
       staticDir,
       env: ServerEnv.gameEnvName() as "dev" | "staging" | "prod",
       allowPlaceholders: process.env.ALLOW_PLACEHOLDER_LEGAL_PAGES === "1",
+      emailAuth: AUTH_PROVIDERS.email,
       warn: (message) => console.warn(message),
     });
   }

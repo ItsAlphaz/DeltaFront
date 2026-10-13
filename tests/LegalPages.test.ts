@@ -104,6 +104,32 @@ describe("the legal-page launch gate", () => {
     );
   });
 
+  it("once email sign-in is on, the privacy policy must also cover the address, the links and the delivery provider", () => {
+    const page = finishedPage("privacy");
+    expect(
+      legalPageProblems("privacy", page, new Date(), { emailAuth: false }),
+    ).toEqual([]);
+    const missing = legalPageProblems("privacy", page, new Date(), {
+      emailAuth: true,
+    }).join("\n");
+    expect(missing).toMatch(
+      /does not mention: .*the e-mail address used for sign-in links, e-mailed sign-in links, the e-mail delivery provider/,
+    );
+    const covered = page.replace(
+      "<h1>privacy</h1>",
+      "<h1>privacy</h1><p>If you sign in by email we keep your e-mail address, and e-mail you sign-in links through our mail delivery provider.</p>",
+    );
+    expect(
+      legalPageProblems("privacy", covered, new Date(), { emailAuth: true }),
+    ).toEqual([]);
+    // the terms page is unaffected
+    expect(
+      legalPageProblems("terms", finishedPage("terms"), new Date(), {
+        emailAuth: true,
+      }),
+    ).toEqual([]);
+  });
+
   it("the pages shipped in this repository are either detected placeholders or pass the gate", () => {
     for (const [kind, file] of Object.entries(LEGAL_PAGE_FILES)) {
       const html = fs.readFileSync(path.join(PUBLIC, file), "utf8");

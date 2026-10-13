@@ -36,6 +36,10 @@ export const RATE_LIMITS = Object.freeze({
   clanCreate: { max: CLAN_RULES.createsPerDay, windowMs: DAY_MS },
   /** Calls from game servers with a valid key (join verification, check-in, archive), per client address. */
   serverCall: { max: 1200, windowMs: 60 * 1000 },
+  /** Emailed sign-in links requested (M8), per client address; the per-email limit is in the database. */
+  magicLinkRequest: { max: 10, windowMs: 60 * 60 * 1000 },
+  /** Emailed sign-in links used (M8), per client address. */
+  magicLinkConsume: { max: 10, windowMs: 60 * 1000 },
   /** Wrong or missing server keys, per client address: a guess budget, not a request budget. */
   serverKeyFailure: { max: 30, windowMs: 60 * 1000 },
 } as const satisfies Record<string, RateLimit>);
@@ -118,6 +122,8 @@ export function createLimiters(
     oauthCallback: make("oauthCallback"),
     usernameChange: make("usernameChange"),
     clanCreate: make("clanCreate"),
+    magicLinkRequest: make("magicLinkRequest"),
+    magicLinkConsume: make("magicLinkConsume"),
     serverCall: make("serverCall"),
     serverKeyFailure: make("serverKeyFailure"),
   };

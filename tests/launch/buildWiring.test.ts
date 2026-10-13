@@ -108,6 +108,31 @@ describe("what the client build bakes in", () => {
     expect(pkg.scripts["launch:check"]).toBe("tsx scripts/launch/cli.ts");
   });
 
+  it("the build records email sign-in on line two, and the Dockerfile takes it as a build argument", () => {
+    const script = fs.readFileSync(
+      path.join(ROOT, "scripts/writeBuildFeatures.ts"),
+      "utf8",
+    );
+    expect(script).toContain(
+      "buildTimeEmailAuth(process.env.DF_EMAIL_AUTH, true)",
+    );
+    expect(script).toMatch(/email-auth=\$\{emailAuth \? "on" : "off"\}/);
+    const dockerfile = fs.readFileSync(path.join(ROOT, "Dockerfile"), "utf8");
+    const buildStage = dockerfile.slice(
+      dockerfile.indexOf("AS build"),
+      dockerfile.indexOf("AS prod-deps"),
+    );
+    expect(buildStage.indexOf("ARG DF_EMAIL_AUTH")).toBeGreaterThan(-1);
+    expect(buildStage.indexOf("ARG DF_EMAIL_AUTH")).toBeLessThan(
+      buildStage.indexOf("RUN npm run build-prod"),
+    );
+    expect(dockerfile.slice(dockerfile.lastIndexOf("FROM base"))).toMatch(
+      /ARG DF_EMAIL_AUTH/,
+    );
+    // never a secret as a build argument
+    expect(dockerfile).not.toMatch(/ARG EMAIL_API_KEY|ARG EMAIL_/);
+  });
+
   it("the production Docker build takes the flags as a build argument and carries them to runtime", () => {
     const dockerfile = fs.readFileSync(path.join(ROOT, "Dockerfile"), "utf8");
     const buildStage = dockerfile.slice(
@@ -181,6 +206,33 @@ describe("the server refuses a client built with different features", () => {
     const warnings: string[] = [];
     check(staticWith(null), "accounts", "staging", warnings);
     expect(warnings).toHaveLength(1);
+  });
+
+  it("refuses a client built with email sign-in on against a server with it off, and the reverse; an old build means off", () => {
+    const on = "accounts\nemail-auth=on\n";
+    const off = "accounts\nemail-auth=off\n";
+    const run = (
+      content: string,
+      emailAuth: boolean,
+      env: "staging" | "prod" = "prod",
+    ) =>
+      assertBuildMatchesRuntime({
+        staticDir: staticWith(content),
+        features: features("accounts"),
+        emailAuth,
+        env,
+        warn: () => undefined,
+      });
+    expect(() => run(on, true)).not.toThrow();
+    expect(() => run(off, false)).not.toThrow();
+    expect(() => run("accounts\n", false)).not.toThrow(); // a build from before M8
+    expect(() => run(on, false)).toThrow(
+      /built with email sign-in on but this server runs with it off/,
+    );
+    expect(() => run(off, true, "staging")).toThrow(
+      /built with email sign-in off but this server runs with it on/,
+    );
+    expect(() => run("accounts\n", true)).toThrow(AccountEnvError);
   });
 
   it("does nothing in dev, where Vite serves the page", () => {

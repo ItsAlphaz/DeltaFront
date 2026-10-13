@@ -1,4 +1,7 @@
-import { buildTimeFeatureList } from "@openfront/shared/AccountFeatures";
+import {
+  buildTimeEmailAuth,
+  buildTimeFeatureList,
+} from "@openfront/shared/AccountFeatures";
 import {
   type AssetManifest,
   buildAssetUrl,
@@ -381,6 +384,13 @@ export default defineConfig(({ mode }) => {
         mode === "test"
           ? ""
           : buildTimeFeatureList(env.DF_ACCOUNT_FEATURES, isProduction),
+      ),
+      // Whether the sign-in screen offers email magic links: "1" or "", never
+      // the raw variable. The account API reads the same variable at start.
+      "process.env.DF_EMAIL_AUTH": JSON.stringify(
+        mode === "test"
+          ? ""
+          : buildTimeEmailAuth(env.DF_EMAIL_AUTH, isProduction),
       ),
       // Add other process.env variables if needed, OR migrate code to import.meta.env
     },

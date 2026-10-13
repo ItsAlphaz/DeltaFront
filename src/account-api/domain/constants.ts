@@ -89,6 +89,13 @@ export const ACCOUNT_RULES = deepFreeze({
   deadSessionRetentionDays: 30,
   /** What an erased account's name becomes in the game history other players still see. */
   deletedPlayerName: "Deleted player",
+  /** Minutes an emailed sign-in link stays valid (M8). */
+  magicLinkTtlMinutes: 15,
+  /** Links one email address may be sent in `magicLinkPerEmailWindowMinutes`; further requests are answered the same and send nothing. */
+  magicLinkPerEmail: 3,
+  magicLinkPerEmailWindowMinutes: 15,
+  /** Hours a used or expired link row is kept before the maintenance job deletes it. */
+  magicLinkRetentionHours: 24,
   /** Days between self-service username changes. */
   usernameChangeCooldownDays: 7,
   /** A game counts for stats and Credits only with at least this many account holders in it. */

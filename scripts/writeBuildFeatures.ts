@@ -1,4 +1,7 @@
-import { buildTimeFeatureList } from "@openfront/shared/AccountFeatures";
+import {
+  buildTimeEmailAuth,
+  buildTimeFeatureList,
+} from "@openfront/shared/AccountFeatures";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,5 +17,11 @@ import { fileURLToPath } from "node:url";
  */
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const value = buildTimeFeatureList(process.env.DF_ACCOUNT_FEATURES, true);
-fs.writeFileSync(path.join(root, "static/account-features.txt"), `${value}\n`);
+const emailAuth = buildTimeEmailAuth(process.env.DF_EMAIL_AUTH, true) === "1";
+// Line 1: the feature list. Line 2: whether the sign-in screen offers email links.
+fs.writeFileSync(
+  path.join(root, "static/account-features.txt"),
+  `${value}\nemail-auth=${emailAuth ? "on" : "off"}\n`,
+);
 console.log(`account features baked into this build: ${value || "(none)"}`);
+console.log(`email sign-in baked into this build: ${emailAuth ? "on" : "off"}`);

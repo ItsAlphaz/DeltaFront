@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { pruneMagicLinks } from "../auth/magicLink";
 import { withTransaction } from "../db/tx";
 import type { Logger } from "../logger";
 import { removeAccountFromClans } from "./clanOps";
@@ -57,6 +58,11 @@ export async function runDeletions(
         await removeAccountFromClans(tx, id);
         await tx.query("DELETE FROM auth_identities WHERE user_id = $1", [id]);
         await tx.query("DELETE FROM refresh_sessions WHERE user_id = $1", [id]);
+        // Pending sign-in links that would add an address to this account.
+        await tx.query(
+          "DELETE FROM magic_link_tokens WHERE link_user_id = $1",
+          [id],
+        );
         await tx.query(
           "DELETE FROM player_stat_aggregates WHERE user_id = $1",
           [id],
@@ -117,13 +123,14 @@ export async function runGuestCleanup(
 /**
  * Data that is only kept for a while: stored game records past their
  * retention (the rows in `games` and `game_players` stay, only the replay
- * data goes) and refresh-session rows that can no longer matter. Returns the
+ * data goes), refresh-session rows that can no longer matter and used or
+ * expired email sign-in links (M8). Returns the
  * counts. Idempotent, batched.
  */
 export async function runRetention(
   pool: Pool,
   now: Date = new Date(),
-): Promise<{ records: number; sessions: number }> {
+): Promise<{ records: number; sessions: number; magicLinks: number }> {
   const recordCutoff = new Date(
     now.getTime() - ACCOUNT_RULES.gameRecordRetentionDays * 86_400_000,
   );
@@ -154,7 +161,7 @@ export async function runRetention(
     sessions += rowCount ?? 0;
     if ((rowCount ?? 0) < BATCH * 5) break;
   }
-  return { records, sessions };
+  return { records, sessions, magicLinks: await pruneMagicLinks(pool, now) };
 }
 
 /** One pass of both jobs; errors are logged, never thrown, so a scheduler keeps ticking. */
@@ -167,12 +174,19 @@ export async function runMaintenance(
     const deleted = await runDeletions(pool, now);
     const removed = await runGuestCleanup(pool, now);
     const pruned = await runRetention(pool, now);
-    if (deleted > 0 || removed > 0 || pruned.records > 0 || pruned.sessions > 0)
+    if (
+      deleted > 0 ||
+      removed > 0 ||
+      pruned.records > 0 ||
+      pruned.sessions > 0 ||
+      pruned.magicLinks > 0
+    )
       log.info("account maintenance", {
         deleted,
         guestsRemoved: removed,
         recordsPruned: pruned.records,
         sessionsPruned: pruned.sessions,
+        magicLinksPruned: pruned.magicLinks,
       });
   } catch (error) {
     log.error("account maintenance failed", {

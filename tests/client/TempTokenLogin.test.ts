@@ -56,6 +56,22 @@ describe("tempTokenLogin", () => {
     expect(result).toEqual({ status: "failed", code: "expired" });
   });
 
+  it.each(["email_exists", "deleted", "wrong_browser"])(
+    "returns failed with code=%s (the M8 refusals) on a 400 carrying it",
+    async (code) => {
+      fetchSpy.mockResolvedValue(response(400, { code }));
+      expect(await tempTokenLogin("tok")).toEqual({ status: "failed", code });
+    },
+  );
+
+  it("puts the token in the query string encoded, and sends the cookie", async () => {
+    fetchSpy.mockResolvedValue(response(200, { email: "a@b.c" }));
+    await tempTokenLogin("a b&c=d");
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toContain("/auth/login/token?login-token=a%20b%26c%3Dd");
+    expect(init).toMatchObject({ credentials: "include" });
+  });
+
   it("defaults to code=invalid on a 400 with an unrecognized or missing code", async () => {
     fetchSpy.mockResolvedValue(response(400, { error: "Bad request" }));
     const result = await tempTokenLogin("tok");

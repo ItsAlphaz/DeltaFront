@@ -78,7 +78,7 @@ describe("the shipped migrations", () => {
 
   it("0001 leaves out what later milestones own", () => {
     const sql = files[0].sql.replace(/^\s*--.*$/gm, "");
-    // Magic-link email sign-in is M8 (decisions D3/D4); the leaderboard table is M3.
+    // Magic-link email sign-in is M8 (decisions D3/D4, migration 0003); the leaderboard table is M3.
     expect(sql).not.toMatch(/magic_link_tokens/);
     expect(sql).not.toMatch(/leaderboard_players/);
     // One currency (D1): no premium balance anywhere.
@@ -96,6 +96,23 @@ describe("the shipped migrations", () => {
     expect(sql).toMatch(/CREATE UNIQUE INDEX leaderboard_players_position_idx/);
     // nothing for later milestones
     expect(sql).not.toMatch(/inventory|purchases|clans|friends/i);
+  });
+
+  it("0003 adds only the magic-link table: a hashed token as the key, an expiry, a rate-limit index, no raw token column", () => {
+    expect(files[2].fileName).toBe("0003_magic_links.sql");
+    const sql = files[2].sql.replace(/^\s*--.*$/gm, "");
+    expect(
+      [...sql.matchAll(/^CREATE TABLE (\w+)\s*\(/gm)].map((m) => m[1]),
+    ).toEqual(["magic_link_tokens"]);
+    expect(sql).toMatch(/token_hash\s+bytea PRIMARY KEY/);
+    expect(sql).toMatch(/expires_at\s+timestamptz NOT NULL/);
+    expect(sql).toMatch(/consumed_at\s+timestamptz/);
+    expect(sql).toMatch(
+      /CREATE INDEX magic_link_tokens_email_created_idx\s+ON magic_link_tokens \(email, created_at\)/,
+    );
+    expect(sql).toMatch(/CREATE INDEX magic_link_tokens_expires_idx/);
+    expect(sql).not.toMatch(/\btoken\s+(text|varchar)/i);
+    expect(sql).not.toMatch(/ALTER TABLE|DROP /i); // no change to the account or session tables
   });
 
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {

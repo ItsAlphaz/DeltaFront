@@ -4,6 +4,7 @@ import express, {
   type Response,
 } from "express";
 import type { Pool } from "pg";
+import type { Mailer } from "../auth/email";
 import type { KeyRing } from "../auth/keys";
 import type { OAuthProviders } from "../auth/oauth/providers";
 import {
@@ -28,6 +29,8 @@ export interface AppDeps {
   tokens: TokenService;
   limiters: Limiters;
   providers: OAuthProviders;
+  /** Sends sign-in emails; null while email sign-in is off. */
+  mailer: Mailer | null;
   turnstile: Turnstile;
   /** The cosmetic catalog; null when no feature uses it. */
   catalog: Catalog | null;

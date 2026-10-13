@@ -4,7 +4,7 @@ import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { isSteamPrimaryUser } from "../AccountIdentity";
 import { deleteAccount, setMarketingConsent } from "../Api";
-import { clearLocalSession, linkGoogle, sendMagicLink } from "../Auth";
+import { clearLocalSession, linkGoogle } from "../Auth";
 import { crazyGamesSDK } from "../CrazyGamesSDK";
 import { isDesktopShell } from "../DesktopShell";
 import { showInGameAlert } from "../InGameModal";
@@ -12,6 +12,7 @@ import { steamSDK } from "../SteamSDK";
 import { translateText } from "../Utils";
 import "./baseComponents/Button";
 import "./DeleteAccountDialog";
+import "./EmailSignIn";
 import "./IdentityTokenCard";
 import { googleLinkButton } from "./ui/GoogleLinkButton";
 
@@ -32,7 +33,6 @@ export class AccountSettingsPanel extends LitElement {
   @property({ attribute: false }) player: UserMePlayer | null = null;
   @property({ attribute: false }) user: UserMeUser | null = null;
 
-  @state() private email: string = "";
   @state() private consentBusy: boolean = false;
   @state() private deleteDialogOpen: boolean = false;
   @state() private deleteBusy: boolean = false;
@@ -166,23 +166,9 @@ export class AccountSettingsPanel extends LitElement {
     `;
   }
 
+  // The email magic-link form (its own component: src/client/components/EmailSignIn.ts).
   private renderEmailField(): TemplateResult {
-    return html`
-      <input
-        type="email"
-        .value=${this.email}
-        @input=${this.handleEmailInput}
-        placeholder=${translateText("account_modal.email_placeholder")}
-        class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10"
-      />
-      <o-button
-        variant="primary"
-        width="block"
-        size="md"
-        translationKey="account_modal.get_magic_link"
-        @click=${this.handleSubmit}
-      ></o-button>
-    `;
+    return html`<email-sign-in></email-sign-in>`;
   }
 
   // Self-service account deletion (DELETE /users/@me). A valid request queues
@@ -296,26 +282,6 @@ export class AccountSettingsPanel extends LitElement {
     this.consentBusy = false;
     this.requestUpdate();
   }
-
-  private handleEmailInput = (e: Event): void => {
-    this.email = (e.target as HTMLInputElement).value;
-  };
-
-  private handleSubmit = async (): Promise<void> => {
-    if (!this.email) {
-      await showInGameAlert(translateText("account_modal.enter_email_address"));
-      return;
-    }
-
-    const success = await sendMagicLink(this.email);
-    await showInGameAlert(
-      success
-        ? translateText("account_modal.recovery_email_sent", {
-            email: this.email,
-          })
-        : translateText("account_modal.failed_to_send_recovery_email"),
-    );
-  };
 
   private handleLinkGoogle = async (): Promise<void> => {
     // On success linkGoogle navigates to Google; the result comes back as a

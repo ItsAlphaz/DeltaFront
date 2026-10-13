@@ -144,6 +144,32 @@ Everything else (`ranked`, `payments`, `friends`, `progression`, `tribes`, `trus
 - the game server refuses to start if its flags differ from the ones the client in `static/` was built with (`static/account-features.txt`, written by `npm run build-prod`);
 - `launch:check` fails unless the set is exactly the launch set.
 
+### 4.1 Email sign-in (magic links), optional
+
+Off by default, and independent of the feature flags. A deployment with Discord and Google only needs nothing below, and `launch:check` asks for nothing.
+
+**To turn it on** (all of these, then `npm run launch:check`):
+
+1. Set `DF_EMAIL_AUTH=1` in **three** places, like `DF_ACCOUNT_FEATURES`: the client build (`docker build --build-arg DF_EMAIL_AUTH=1`), `game.env` and `api.env`. The game server refuses to start if its value differs from the build's (`static/account-features.txt`, line 2), and `launch:check` fails if the client offers email while the API has it off (the button would answer 404).
+2. Pick a provider, `EMAIL_PROVIDER=resend` or `postmark` (the two the plan names; one HTTPS call each, no SDK), and set `EMAIL_FROM` (`DeltaFront <login@mail.your-domain.tld>`) and `EMAIL_API_KEY` in `api.env` only. The key is a secret: never a build argument, never in the client, never logged.
+3. At the provider: create a **send-only** API key, verify a sending domain (a subdomain such as `mail.your-domain.tld` keeps your main domain's reputation separate) and publish the SPF, DKIM and DMARC records it gives you. `launch:check --probe` looks up SPF and DMARC for the sender domain and warns if either is missing; DKIM can only be checked in the provider's dashboard.
+4. Update the Privacy Policy (section 11): the e-mail address, the sign-in links and the delivery provider. `launch:check` and the production game server refuse a privacy page that does not mention them while email sign-in is on.
+5. Send yourself a link from the real site, from a clean browser, and check it lands in the inbox rather than spam (section 12).
+
+The API refuses to start with email on and a missing or placeholder key, a malformed sender, an unknown provider, `EMAIL_PROVIDER=dev` (anywhere but `GAME_ENV=dev`), or without the `accounts` feature. `launch:check` also fails a placeholder sender domain (`example.com`) and a site origin that is not in `ALLOWED_ORIGINS`.
+
+**How it behaves**
+
+- `POST /auth/magic-link {email, redirectDomain}` always answers 204 for a well-formed address: it never looks up whether an account exists, and an address that has had 3 links in 15 minutes gets the same 204 and no email. A malformed address is 400 `invalid_email`, a `redirectDomain` that is not exactly one of `ALLOWED_ORIGINS` is 400 `invalid_redirect_domain`, more than 10 requests an hour from one address is 429, a provider outage is 503 `delivery_failed` (the link is discarded and does not count against the address). Cookie-authenticated, so it needs an allowed `Origin`.
+- The email holds one link, `https://<your site>/#token-login?token-login=<token>`. The token is in the URL **fragment**, which browsers never send to a server, so it reaches no access log or `Referer`. The page reads it, strips it from the address bar and calls `GET /auth/login/token?login-token=<token>`.
+- The token is 32 random bytes (43 characters). Only its SHA-256 is stored; it is single use, valid for 15 minutes, and consumed in the same transaction that signs the account in. The endpoint requires the site's own `Origin` (so another site cannot make a browser sign in as an attacker), allows 10 tries a minute per address, and answers 200 `{email}` or 400 `{code}`: `consumed`, `expired`, `invalid`, `email_exists`, `deleted`, `wrong_browser`.
+- Signing in uses the same funnel, session cookie, rotation, revoke-all and logout as Discord and Google. A guest who opens the link is **upgraded in place** (same account, public id, Credits, items, stats, clan), in whichever browser opens it. An address that is already an email account signs in to it. An address that already belongs to a **different** account (for example a verified Discord or Google email) is refused with `email_exists`: accounts are never merged, and the person is told to sign in the other way. A registered account that is signed in can add an address; that link only works in the browser it was requested from (`wrong_browser` otherwise, and it stays usable).
+- nginx's API access log (`deploy/nginx/deltafront.conf`) records the path only, never the query, because the token travels in `?login-token=`.
+
+**Development.** With `DF_EMAIL_AUTH=1` and `GAME_ENV=dev` the default provider is `dev`: messages stay in memory, and `GET http://localhost:8787/dev/email-outbox?email=<address>` (loopback connections only, mounted only in dev) returns the link. There is no way to read a link in staging or production.
+
+**Operating it.** `npm run admin -- email:status` prints counts only (pending, expired unused, used, requested in the last hour), never an address or token. Used and expired links are deleted a day after they expire by the maintenance job; deleting an account removes the links that would add an address to it. Bounces and complaints are in the provider's dashboard: this API does not read them. There is no tool to read a token or to sign in as someone, by design.
+
 ## 5. Updating, and going back
 
 ```bash
@@ -237,19 +263,21 @@ npm run backup:drill -- ./deltafront- --identity ~/df-backup-key.txt < stamp > .
 
 Application limits (per process, in memory; windows are fixed):
 
-| Route / action                                                            | Limit                                                               | Key     |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------- |
-| new guest account (`/auth/refresh`, no cookie)                            | 10 per hour                                                         | address |
-| sign-in start (`/auth/login`, `/auth/link`)                               | 30 per minute                                                       | address |
-| OAuth callback                                                            | 60 per minute                                                       | address |
-| session refresh                                                           | 120 per minute                                                      | address |
-| username change                                                           | 5 per hour (valid names only; the 7-day cooldown is the real limit) | account |
-| store purchase                                                            | 20 per minute                                                       | account |
-| clan changes / clan creation                                              | 20 per minute / 3 per day (successful creations)                    | account |
-| account deletion request                                                  | 5 per hour                                                          | address |
-| public reads (profiles, leaderboards, clans)                              | 240 per minute                                                      | address |
-| server calls with a valid key (join verification, check-in, game archive) | 1200 per minute                                                     | address |
-| wrong or missing server keys                                              | 30 per minute, then 429 even for the right key                      | address |
+| Route / action                                                            | Limit                                                               | Key             |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------- |
+| new guest account (`/auth/refresh`, no cookie)                            | 10 per hour                                                         | address         |
+| sign-in start (`/auth/login`, `/auth/link`)                               | 30 per minute                                                       | address         |
+| OAuth callback                                                            | 60 per minute                                                       | address         |
+| email sign-in link requested (when on)                                    | 10 per hour; 3 links per address per 15 minutes (silent)            | address / email |
+| email sign-in link used (when on)                                         | 10 per minute                                                       | address         |
+| session refresh                                                           | 120 per minute                                                      | address         |
+| username change                                                           | 5 per hour (valid names only; the 7-day cooldown is the real limit) | account         |
+| store purchase                                                            | 20 per minute                                                       | account         |
+| clan changes / clan creation                                              | 20 per minute / 3 per day (successful creations)                    | account         |
+| account deletion request                                                  | 5 per hour                                                          | address         |
+| public reads (profiles, leaderboards, clans)                              | 240 per minute                                                      | address         |
+| server calls with a valid key (join verification, check-in, game archive) | 1200 per minute                                                     | address         |
+| wrong or missing server keys                                              | 30 per minute, then 429 even for the right key                      | address         |
 
 nginx adds a coarse brake (30 requests/second, 5/second on `/auth/`) in front. The address is the real client only if `TRUST_PROXY_HOPS=1` and nginx overwrites `X-Forwarded-For` (the shipped config does); `launch:check` fails on `TRUST_PROXY_HOPS=0` behind a proxy because every player would then share one limit.
 
@@ -271,6 +299,7 @@ If you add a third-party script or service, add its host to `src/server/Security
 A page passes when it: no longer carries the `DELTAFRONT PLACEHOLDER` marker or placeholder wording; has a review marker `<!-- DELTAFRONT-LEGAL-REVIEWED: 2026-11-01 by Jane Doe -->` with a real date and name; gives a way to contact you; is at least ~1,500 characters of text; and mentions the subjects DeltaFront's behaviour makes unavoidable. That check is a floor, not legal advice. The pages must truthfully cover:
 
 - **Privacy:** what Discord and Google share (user id, name, avatar, e-mail) and what is stored (identities, username, e-mail only to detect conflicts); the refresh-session cookie (`df_refresh`, HttpOnly, 30 days) and the short-lived `df_oauth` cookie; IP addresses (stored only as a keyed hash with the session, for abuse investigation) and user agents; Cloudflare Turnstile and the data it sees; game records (usernames in replays for 60 days; game history and stats without names afterwards); Credits and purchase history; clans; logs (route, status, no query strings); backups (encrypted, up to 12 months off-site); retention; **deletion** (24 hours after the request; §13) and that an active ban blocks self-service deletion; the operator's identity and contact; the right to access and erase.
+- **If email sign-in is on (it must be added, and the gate checks for it):** the e-mail address you give to sign in, that it is stored as a sign-in identity and used only to send the sign-in link and to recognise you, the delivery provider that sends it (name it), that links expire after 15 minutes and unused ones are deleted within a day, and that an address is never shown to other players.
 - **Terms:** one account per person, conduct and bans, Credits are an in-game currency with **no cash value** and are not transferable or refundable, no warranty and limitation of liability, governing law, changes to the terms, the AGPL notice for the software.
 
 After editing, rebuild (`static/` carries copies) and run `launch:check`.
@@ -287,25 +316,27 @@ The code has been exercised against stand-in providers and a local PostgreSQL. *
 6. Finish a game; check the winner's Credits and the leaderboard after the 5-minute rebuild.
 7. Delete a test account; 24 hours later confirm it is gone (§13).
 8. `npm run backup:run`, then the restore drill (§8).
+9. If email sign-in is on: from a clean browser ask for a link to an address you own; it arrives (check spam, and the headers for SPF/DKIM/DMARC `pass`); opening it signs you in once; opening it again says it was already used; a link older than 15 minutes says it expired; a guest with Credits who opens one keeps them. Do it once from a phone to see the link opens on another device.
 
 Until these are done, say in the release notes that sign-in is "launching".
 
 ## 13. What happens to your data
 
-| Data                                                     | While the account lives              | After deletion (24 h after the request)                                                                                                                           |
-| -------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-in identities (provider id, e-mail, profile)        | kept                                 | deleted                                                                                                                                                           |
-| Refresh sessions (user agent, hashed IP)                 | kept; dead rows pruned after 30 days | deleted at once (all sessions are also revoked when deletion is requested)                                                                                        |
-| Username, role, username cooldown                        | kept                                 | cleared                                                                                                                                                           |
-| Stats aggregates                                         | kept                                 | deleted                                                                                                                                                           |
-| Game history rows                                        | linked to the account                | kept for other players' history but **anonymised**: no account link, name becomes "Deleted player", clan tag removed                                              |
-| Stored game record (replay data, includes in-game names) | kept 60 days, then pruned            | pruned on the same schedule; not rewritten (the in-game name is visible to everyone who played)                                                                   |
-| Credits wallet, ledger, purchases, owned items           | kept                                 | kept as records under the anonymous tombstone id (they identify no one)                                                                                           |
-| Clan membership, leadership                              | kept                                 | removed; a leader's clan passes to the oldest officer, else the oldest member, else it is disbanded                                                               |
-| The account row                                          | kept                                 | stays as a **tombstone** (random ids and timestamps only) so references in records keep meaning                                                                   |
-| Bans                                                     | kept                                 | **an active ban blocks the request** (otherwise deleting would erase the evidence and let the player return as someone new); the request waits until the ban ends |
-| Admin audit log                                          | kept                                 | kept (staff actions)                                                                                                                                              |
-| Backups                                                  | rolling 7 / 14 / 8 / 12              | an erased account can reappear if a backup is restored; re-run the deletion afterwards                                                                            |
+| Data                                                     | While the account lives                            | After deletion (24 h after the request)                                                                                                                           |
+| -------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Email sign-in links (hashed token, address, expiry)      | 15 minutes to use; rows deleted a day after expiry | links that would add an address to the account are deleted at once; none outlives a day                                                                           |
+| Sign-in identities (provider id, e-mail, profile)        | kept                                               | deleted                                                                                                                                                           |
+| Refresh sessions (user agent, hashed IP)                 | kept; dead rows pruned after 30 days               | deleted at once (all sessions are also revoked when deletion is requested)                                                                                        |
+| Username, role, username cooldown                        | kept                                               | cleared                                                                                                                                                           |
+| Stats aggregates                                         | kept                                               | deleted                                                                                                                                                           |
+| Game history rows                                        | linked to the account                              | kept for other players' history but **anonymised**: no account link, name becomes "Deleted player", clan tag removed                                              |
+| Stored game record (replay data, includes in-game names) | kept 60 days, then pruned                          | pruned on the same schedule; not rewritten (the in-game name is visible to everyone who played)                                                                   |
+| Credits wallet, ledger, purchases, owned items           | kept                                               | kept as records under the anonymous tombstone id (they identify no one)                                                                                           |
+| Clan membership, leadership                              | kept                                               | removed; a leader's clan passes to the oldest officer, else the oldest member, else it is disbanded                                                               |
+| The account row                                          | kept                                               | stays as a **tombstone** (random ids and timestamps only) so references in records keep meaning                                                                   |
+| Bans                                                     | kept                                               | **an active ban blocks the request** (otherwise deleting would erase the evidence and let the player return as someone new); the request waits until the ban ends |
+| Admin audit log                                          | kept                                               | kept (staff actions)                                                                                                                                              |
+| Backups                                                  | rolling 7 / 14 / 8 / 12                            | an erased account can reappear if a backup is restored; re-run the deletion afterwards                                                                            |
 
 The deletion job and the retention jobs run every 10 minutes while accounts are enabled; they are idempotent and safe to run from several instances.
 

@@ -116,6 +116,7 @@ export const ADMIN_COMMANDS = [
   "server:key:list",
   "server:key:revoke <id> --reason <text> [--allow-last] --yes",
   "server:state <site> <letter> <open|draining|fenced> --reason <text> --yes",
+  "email:status",
 ] as const;
 
 async function audit(
@@ -814,6 +815,36 @@ export async function runAdminCommand(
           );
         });
         io.out(`server ${letter} of ${site} is now ${state}`);
+        return 0;
+      }
+      case "email:status": {
+        // Counts only: never a token, never an address. Read-only, not audited.
+        const { rows } = await pool.query<{
+          pending: number;
+          unused_expired: number;
+          used: number;
+          last_hour: number;
+          oldest_pending_s: number | null;
+        }>(
+          `SELECT count(*) FILTER (WHERE consumed_at IS NULL AND expires_at > now())::int AS pending,
+                  count(*) FILTER (WHERE consumed_at IS NULL AND expires_at <= now())::int AS unused_expired,
+                  count(*) FILTER (WHERE consumed_at IS NOT NULL)::int AS used,
+                  count(*) FILTER (WHERE created_at > now() - interval '1 hour')::int AS last_hour,
+                  floor(extract(epoch FROM now() - min(created_at) FILTER (WHERE consumed_at IS NULL AND expires_at > now())))::int AS oldest_pending_s
+             FROM magic_link_tokens`,
+        );
+        const r = rows[0];
+        io.out(
+          `email sign-in links: ${r.pending} pending, ${r.unused_expired} expired unused, ${r.used} used, ${r.last_hour} requested in the last hour`,
+        );
+        io.out(
+          r.oldest_pending_s === null
+            ? "no link is waiting"
+            : `the oldest pending link is ${r.oldest_pending_s}s old`,
+        );
+        io.out(
+          "(expired and used rows are deleted by the maintenance job a day after expiry)",
+        );
         return 0;
       }
       default:

@@ -147,6 +147,9 @@ export class TokenLoginModal extends BaseModal {
           consumed: "error_modal.login_token_consumed",
           expired: "error_modal.login_token_expired",
           invalid: "error_modal.login_token_invalid",
+          email_exists: "error_modal.login_token_email_exists",
+          deleted: "error_modal.login_token_deleted",
+          wrong_browser: "error_modal.login_token_wrong_browser",
         }[result.code];
         void showInGameAlert(translateText(messageKey));
         return;

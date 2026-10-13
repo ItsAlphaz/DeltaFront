@@ -3,6 +3,7 @@ import {
   usesCosmeticCatalog,
 } from "@openfront/shared/AccountFeatures";
 import express, { type Express } from "express";
+import type { DevMailer } from "./auth/email";
 import type { AccountApiConfig } from "./config";
 import { cors } from "./http";
 import type { Logger } from "./logger";
@@ -11,6 +12,7 @@ import { authRouter } from "./routes/auth";
 import { clansRouter } from "./routes/clans";
 import { clusterRouter } from "./routes/cluster";
 import type { AppDeps } from "./routes/common";
+import { devOutboxRouter } from "./routes/devOutbox";
 import { feedsRouter } from "./routes/feeds";
 import { gameRouter } from "./routes/game";
 import { joinVerifyRouter } from "./routes/joinVerify";
@@ -91,6 +93,16 @@ export function createApp(deps: {
       app.use(usersRouter(backend));
       app.use(profileRouter(backend));
       app.use(joinVerifyRouter(backend));
+      // Development only: read back the "sent" sign-in emails (see the router).
+      if (
+        config.env === "dev" &&
+        config.email.enabled &&
+        config.email.provider === "dev" &&
+        backend.mailer !== null &&
+        "outbox" in backend.mailer
+      ) {
+        app.use(devOutboxRouter(backend.mailer as DevMailer));
+      }
     }
     if (config.features.clans && config.features.accounts) {
       app.use(clansRouter(backend));

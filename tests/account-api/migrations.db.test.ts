@@ -83,10 +83,15 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     const { applied } = await applyMigrations(pool, {
       log: silentLogger as never,
     });
-    expect(applied).toEqual(["0001", "0002"]);
+    expect(applied).toEqual(["0001", "0002", "0003"]);
 
     expect(await tablesOf(pool)).toEqual(
-      [...M0_TABLES, "leaderboard_players", "schema_migrations"].sort(),
+      [
+        ...M0_TABLES,
+        "leaderboard_players",
+        "magic_link_tokens",
+        "schema_migrations",
+      ].sort(),
     );
     const files = loadMigrationFiles();
     const rows = (
@@ -97,6 +102,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(rows).toEqual([
       { version: "0001", name: "init", checksum: files[0].checksum },
       { version: "0002", name: "leaderboard", checksum: files[1].checksum },
+      { version: "0003", name: "magic_links", checksum: files[2].checksum },
     ]);
   });
 
@@ -108,7 +114,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(2);
+    ).toBe(3);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -120,7 +126,11 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     });
     const pool = createPool(config.database, silentLogger);
     try {
-      expect((await applyMigrations(pool)).applied).toEqual(["0001", "0002"]);
+      expect((await applyMigrations(pool)).applied).toEqual([
+        "0001",
+        "0002",
+        "0003",
+      ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
         (await pool.query("SHOW statement_timeout")).rows[0].statement_timeout,
@@ -137,12 +147,20 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     const { pool } = await freshDb();
     const before = await migrationStatus(pool);
     expect(before.applied).toEqual([]);
-    expect(before.pending.map((m) => m.version)).toEqual(["0001", "0002"]);
+    expect(before.pending.map((m) => m.version)).toEqual([
+      "0001",
+      "0002",
+      "0003",
+    ]);
     expect(await tablesOf(pool)).toEqual([]);
 
     await applyMigrations(pool);
     const after = await migrationStatus(pool);
-    expect(after.applied.map((m) => m.version)).toEqual(["0001", "0002"]);
+    expect(after.applied.map((m) => m.version)).toEqual([
+      "0001",
+      "0002",
+      "0003",
+    ]);
     expect(after.pending).toEqual([]);
   });
 });
@@ -226,11 +244,11 @@ describeDb("migration safety", () => {
       applyMigrations(pool),
       applyMigrations(pool),
     ]);
-    expect(results.flatMap((r) => r.applied)).toEqual(["0001", "0002"]);
+    expect(results.flatMap((r) => r.applied)).toEqual(["0001", "0002", "0003"]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(2);
+    ).toBe(3);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -249,7 +267,11 @@ describeDb("migration safety", () => {
       ]);
       holder.release();
     }
-    expect((await applyMigrations(pool)).applied).toEqual(["0001", "0002"]);
+    expect((await applyMigrations(pool)).applied).toEqual([
+      "0001",
+      "0002",
+      "0003",
+    ]);
   });
 });
 

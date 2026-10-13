@@ -3,6 +3,8 @@ import {
   ACCOUNT_FEATURES_ENV,
   AUTH_PROVIDERS,
   describeRejectedToken,
+  EMAIL_AUTH_ENV,
+  parseEmailAuthFlag,
   resolveAccountFeatures,
   unfinishedFeatures,
   usesAccountApi,
@@ -38,6 +40,23 @@ export interface DatabaseConfig {
   statementTimeoutMs: number;
 }
 
+export const EMAIL_PROVIDERS = ["dev", "resend", "postmark"] as const;
+export type EmailProviderName = (typeof EMAIL_PROVIDERS)[number];
+
+/**
+ * Email magic-link sign-in (milestone M8). Off unless DF_EMAIL_AUTH turns it
+ * on; when on, outside dev it needs a real mail provider and a sender.
+ */
+export interface EmailConfig {
+  enabled: boolean;
+  /** `dev` keeps links in memory for a local developer; it is refused outside dev. */
+  provider: EmailProviderName | null;
+  /** The From header, e.g. `DeltaFront <login@example.com>`. */
+  from: string | null;
+  /** The provider's API key: a secret, never logged and never in the client. */
+  apiKey: string | null;
+}
+
 export interface AccountApiConfig {
   env: AccountApiEnv;
   /** The site the API serves, e.g. `example.com`; the JWT audience. */
@@ -64,6 +83,7 @@ export interface AccountApiConfig {
   /** The action a Turnstile token must carry; null skips the check. */
   turnstileAction: string | null;
   features: AccountFeatures;
+  email: EmailConfig;
   jwt: {
     privateKeyPath: string | null;
     previousPublicKeyPath: string | null;
@@ -398,6 +418,9 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     google: parseOAuth(env, "GOOGLE", issues),
   };
 
+  // Email magic links (M8).
+  const email = parseEmail(env, { strict, mode, features, issues, warnings });
+
   // What the enabled features need. Only enforced outside dev: a developer can
   // run with features on and no providers to work on one thing at a time.
   if (strict && features.accounts) {
@@ -450,10 +473,91 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     turnstileHostnames,
     turnstileAction,
     features,
+    email,
     jwt,
     oauth,
     warnings,
   };
+}
+
+/** `Name <login@example.com>` or a bare address; returns the bare address, or null when malformed. */
+export function senderAddress(from: string): string | null {
+  const match =
+    /^(?:[^<>\r\n"]{1,80}\s)?<([^<>\s@]+@[^<>\s@]+)>$|^([^<>\s@]+@[^<>\s@]+)$/.exec(
+      from.trim(),
+    );
+  const address = match?.[1] ?? match?.[2] ?? null;
+  return address !== null &&
+    /^[^\s@]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(address)
+    ? address
+    : null;
+}
+
+function parseEmail(
+  env: Env,
+  ctx: {
+    strict: boolean;
+    mode: AccountApiEnv;
+    features: AccountFeatures;
+    issues: string[];
+    warnings: string[];
+  },
+): EmailConfig {
+  const { strict, mode, features, issues } = ctx;
+  const flag = parseEmailAuthFlag(env[EMAIL_AUTH_ENV]);
+  if (flag.invalid) {
+    issues.push(`${EMAIL_AUTH_ENV} must be 1, true, 0 or false (or unset)`);
+  }
+  const off: EmailConfig = {
+    enabled: false,
+    provider: null,
+    from: null,
+    apiKey: null,
+  };
+  if (!flag.enabled) return off;
+  if (!features.accounts) {
+    issues.push(
+      `${EMAIL_AUTH_ENV} is on but the accounts feature is not: email sign-in needs ${ACCOUNT_FEATURES_ENV} to include accounts`,
+    );
+  }
+
+  const rawProvider = trimmed(env, "EMAIL_PROVIDER");
+  let provider: EmailProviderName | null = null;
+  if (rawProvider === undefined) {
+    if (strict) {
+      issues.push(
+        `EMAIL_PROVIDER is required when ${EMAIL_AUTH_ENV} is on (${EMAIL_PROVIDERS.filter((p) => p !== "dev").join(" or ")})`,
+      );
+    } else {
+      provider = "dev";
+    }
+  } else if (!(EMAIL_PROVIDERS as readonly string[]).includes(rawProvider)) {
+    issues.push(`EMAIL_PROVIDER must be one of: ${EMAIL_PROVIDERS.join(", ")}`);
+  } else if (rawProvider === "dev" && strict) {
+    issues.push(
+      `EMAIL_PROVIDER=dev keeps sign-in links in memory for local development and is refused when GAME_ENV=${mode}`,
+    );
+  } else {
+    provider = rawProvider as EmailProviderName;
+  }
+
+  const from = trimmed(env, "EMAIL_FROM") ?? null;
+  if (from !== null && senderAddress(from) === null) {
+    issues.push(
+      'EMAIL_FROM must be an address such as login@example.com or "DeltaFront <login@example.com>"',
+    );
+  }
+  const apiKey = trimmed(env, "EMAIL_API_KEY") ?? null;
+  if (provider !== null && provider !== "dev") {
+    if (from === null)
+      issues.push("EMAIL_FROM is required with a real EMAIL_PROVIDER");
+    if (apiKey === null)
+      issues.push("EMAIL_API_KEY is required with a real EMAIL_PROVIDER");
+    if (apiKey !== null && /CHANGE_ME/.test(apiKey)) {
+      issues.push("EMAIL_API_KEY is still the CHANGE_ME placeholder");
+    }
+  }
+  return { enabled: true, provider, from, apiKey };
 }
 
 /**
@@ -487,6 +591,13 @@ export function describeConfig(
     turnstile: config.turnstileSecret === null ? "unset" : "set",
     turnstileHostnames: config.turnstileHostnames,
     turnstileAction: config.turnstileAction,
+    // (not called "email": the log redactor hides any key with that name)
+    magicLinks: {
+      enabled: config.email.enabled,
+      provider: config.email.provider,
+      sender: config.email.from === null ? "unset" : "set",
+      apiKey: config.email.apiKey === null ? "unset" : "set",
+    },
     features: ACCOUNT_FEATURE_NAMES.filter((name) => config.features[name]),
     jwt: {
       privateKey: config.jwt.privateKeyPath === null ? "unset" : "set",

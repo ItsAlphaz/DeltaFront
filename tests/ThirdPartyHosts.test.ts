@@ -20,6 +20,10 @@ const ALLOWED: Record<string, string> = {
   "accounts.google.com": "Google OAuth authorize URL (account API only)",
   "oauth2.googleapis.com": "Google OAuth token endpoint (account API only)",
   "openidconnect.googleapis.com": "Google OAuth userinfo (account API only)",
+  "api.resend.com":
+    "email provider, only if EMAIL_PROVIDER=resend (account API sends sign-in links; never the browser)",
+  "api.postmarkapp.com":
+    "email provider, only if EMAIL_PROVIDER=postmark (account API only)",
   "challenges.cloudflare.com": "Cloudflare Turnstile (bot check at join)",
   "sdk.crazygames.com":
     "CrazyGames SDK, loaded only when embedded on crazygames.com",

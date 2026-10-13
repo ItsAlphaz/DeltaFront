@@ -10,6 +10,12 @@ import {
   serializeCookie,
 } from "../auth/cookies";
 import {
+  consumeMagicLink,
+  normalizeEmail,
+  requestMagicLink,
+  validateRedirectDomain,
+} from "../auth/magicLink";
+import {
   validateRedirectUri,
   withLoginResult,
   type LoginResult,
@@ -41,7 +47,7 @@ import {
   roleClaim,
   touchLastSeen,
 } from "../repo/users";
-import { authenticate, cookieSecure, type AppDeps } from "./common";
+import { authenticate, cookieSecure, jsonBody, type AppDeps } from "./common";
 
 /** The `provider` claim: how this account signs in. Guests have no identity. */
 async function providerClaim(deps: AppDeps, userId: string): Promise<string> {
@@ -225,8 +231,13 @@ export function authRouter(deps: AppDeps): Router {
   const isProviderId = (v: string): v is "discord" | "google" =>
     v === "discord" || v === "google";
 
-  router.get("/auth/login/:provider", async (req, res) => {
+  router.get("/auth/login/:provider", async (req, res, next) => {
     const name = String(req.params.provider);
+    // `/auth/login/token` is the emailed link (below), not a provider.
+    if (name === "token") {
+      next();
+      return;
+    }
     const redirectUri = validateRedirectUri(
       req.query.redirect_uri,
       config.allowedOrigins,
@@ -365,18 +376,131 @@ export function authRouter(deps: AppDeps): Router {
     }
     const userId = signedInUser(result)!;
 
-    // The same person stays on their session (linking, or a guest upgraded in
-    // place); a different account gets a fresh one and the old family ends.
-    if (current === null || current.userId !== userId) {
-      const ctx = sessionContext(req);
-      const session = await withTransaction(pool, async (db) => {
-        if (current !== null)
-          await revokeFamily(db, current.familyId, "sign_in");
-        return createSession(db, userId, ctx);
-      });
-      res.append("Set-Cookie", refreshCookie(session.token));
-    }
+    await switchSession(req, res, userId, current);
     res.redirect(302, record.redirectUri);
+  });
+
+  /**
+   * The same person stays on their session (linking, or a guest upgraded in
+   * place); a different account gets a fresh one and the old family ends.
+   * Shared by the OAuth callback and the emailed link: one session system.
+   */
+  async function switchSession(
+    req: Request,
+    res: Response,
+    userId: string,
+    current: { userId: string; familyId: string } | null,
+  ): Promise<void> {
+    if (current !== null && current.userId === userId) return;
+    const ctx = sessionContext(req);
+    const session = await withTransaction(pool, async (db) => {
+      if (current !== null) await revokeFamily(db, current.familyId, "sign_in");
+      return createSession(db, userId, ctx);
+    });
+    res.append("Set-Cookie", refreshCookie(session.token));
+  }
+
+  // ------------------------------------------------- email magic links (M8)
+  // Off (404) unless DF_EMAIL_AUTH is on and a mailer is configured.
+  const emailOn = () => config.email.enabled && deps.mailer !== null;
+  const notFound = (res: Response) =>
+    res.status(404).json({ error: "not_found" });
+  const tooMany = (res: Response, seconds: number) => {
+    res.setHeader("Retry-After", String(seconds));
+    res.status(429).json({ error: "rate_limited" });
+  };
+
+  // Asks for a link. 204 whether or not the address has an account, and
+  // whether or not the address is being rate limited: the caller can learn
+  // nothing about who has signed up.
+  // Off means off: 404 before anything else is checked, like any unrouted path.
+  const whenEmailOn = (_req: Request, res: Response, next: () => void) =>
+    emailOn() ? next() : notFound(res);
+
+  router.post(
+    "/auth/magic-link",
+    whenEmailOn,
+    sameOrigin,
+    jsonBody("2kb"),
+    async (req, res) => {
+      if (!emailOn()) return notFound(res);
+      const verdict = limiters.magicLinkRequest.hit(clientIp(req));
+      if (!verdict.allowed) return tooMany(res, verdict.retryAfterSeconds);
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const email = normalizeEmail(body.email);
+      if (email === null) {
+        res.status(400).json({ code: "invalid_email" });
+        return;
+      }
+      const redirectOrigin = validateRedirectDomain(
+        body.redirectDomain,
+        config.allowedOrigins,
+      );
+      if (redirectOrigin === null) {
+        res.status(400).json({ code: "invalid_redirect_domain" });
+        return;
+      }
+      // A registered account that is signed in and asks for a link is adding
+      // this address to itself. A guest is not: a guest who opens the link is
+      // upgraded in place, in whichever browser opens it.
+      const presented = parseCookies(req.headers.cookie)[REFRESH_COOKIE];
+      const session = presented ? await liveSession(pool, presented) : null;
+      const requester =
+        session === null ? null : await getUser(pool, session.userId);
+      const linkUserId =
+        requester !== null &&
+        requester.kind === "registered" &&
+        requester.deletedAt === null
+          ? requester.id
+          : null;
+      const outcome = await requestMagicLink(
+        { pool, mailer: deps.mailer!, log },
+        { email, redirectOrigin, linkUserId, ipHash: hashIp(clientIp(req)) },
+      );
+      if (outcome.kind === "delivery_failed") {
+        res.status(503).json({ code: "delivery_failed" });
+        return;
+      }
+      res.status(204).end();
+    },
+  );
+
+  // Uses a link. The browser holds the token in a URL fragment and sends it
+  // here; success sets the same refresh cookie Discord and Google do.
+  router.get("/auth/login/token", async (req, res) => {
+    if (!emailOn()) return notFound(res);
+    const verdict = limiters.magicLinkConsume.hit(clientIp(req));
+    if (!verdict.allowed) return tooMany(res, verdict.retryAfterSeconds);
+    // The request sets a session cookie, so an address bar, an <img> or a form
+    // on another site must not be able to make a browser sign in as someone
+    // else with a token the attacker holds (login CSRF). The page's own fetch
+    // always carries its Origin; a request with none, or a foreign one, is
+    // refused before the token is looked at, and so is never consumed.
+    const origin = req.headers.origin;
+    if (typeof origin !== "string" || !config.allowedOrigins.includes(origin)) {
+      res.status(403).json({ code: "forbidden_origin" });
+      return;
+    }
+    const token = req.query["login-token"];
+    if (typeof token !== "string") {
+      res.status(400).json({ code: "invalid" });
+      return;
+    }
+    const presented = parseCookies(req.headers.cookie)[REFRESH_COOKIE];
+    const current = presented ? await liveSession(pool, presented) : null;
+    const outcome = await consumeMagicLink(
+      pool,
+      token,
+      current?.userId ?? null,
+    );
+    if (!outcome.ok) {
+      log.info("sign-in failed", { provider: "email", reason: outcome.code });
+      res.status(400).json({ code: outcome.code });
+      return;
+    }
+    await switchSession(req, res, outcome.result.userId, current);
+    log.info("sign-in", { provider: "email", outcome: outcome.result.outcome });
+    res.json({ email: outcome.email });
   });
 
   return router;

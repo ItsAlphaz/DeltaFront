@@ -29,7 +29,10 @@ export interface LegalFinding {
   problems: string[];
 }
 
-export function checkLegalPages(staticDir: string): LegalFinding[] {
+export function checkLegalPages(
+  staticDir: string,
+  options: { emailAuth?: boolean } = {},
+): LegalFinding[] {
   const findings: LegalFinding[] = [];
   for (const kind of Object.keys(LEGAL_PAGE_FILES) as LegalPageKind[]) {
     const file = LEGAL_PAGE_FILES[kind];
@@ -40,7 +43,7 @@ export function checkLegalPages(staticDir: string): LegalFinding[] {
       findings.push({ file, problems: ["is missing"] });
       continue;
     }
-    const problems = legalPageProblems(kind, html);
+    const problems = legalPageProblems(kind, html, new Date(), options);
     if (problems.length > 0) findings.push({ file, problems });
   }
   return findings;
@@ -50,10 +53,14 @@ export function assertLegalPagesFinal(options: {
   staticDir: string;
   env: "dev" | "staging" | "prod";
   allowPlaceholders: boolean;
+  /** Email sign-in is on: the privacy policy must cover it too. */
+  emailAuth?: boolean;
   warn: (message: string) => void;
 }): void {
   if (options.env === "dev") return;
-  const findings = checkLegalPages(options.staticDir);
+  const findings = checkLegalPages(options.staticDir, {
+    emailAuth: options.emailAuth,
+  });
   if (findings.length === 0) return;
   const text = findings
     .map((f) => `${f.file} ${f.problems.join("; ")}`)

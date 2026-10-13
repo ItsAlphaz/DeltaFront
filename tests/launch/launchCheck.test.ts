@@ -325,3 +325,171 @@ describe("placeholders copied from deploy/env", () => {
     );
   });
 });
+
+describe("email sign-in in the launch check", () => {
+  const EMAIL_SECRET = "re_live_9f8e7d6c5b4a3921abcdef0123456789";
+  const emailEnv = (extra: Record<string, string> = {}) => ({
+    ...fx.env,
+    DF_EMAIL_AUTH: "1",
+    EMAIL_PROVIDER: "resend",
+    EMAIL_FROM: "DeltaFront <login@mail.example.net>",
+    EMAIL_API_KEY: EMAIL_SECRET,
+    ALLOWED_ORIGINS: "https://example.com",
+    ...extra,
+  });
+  /** A privacy page that also covers emailed sign-in links, and a build that says email is on. */
+  const prepare = (built: "on" | "off" | null = "on") => {
+    for (const dir of ["resources/public", "static"]) {
+      const file = path.join(fx.root, dir, "privacy-policy.html");
+      fs.writeFileSync(
+        file,
+        fs
+          .readFileSync(file, "utf8")
+          .replace(
+            "<h1>Privacy</h1>",
+            "<h1>Privacy</h1><p>If you sign in with an e-mail address we send you a sign-in link through our e-mail delivery provider, and keep the address while the link is valid and on your account.</p>",
+          ),
+      );
+    }
+    if (built !== null) {
+      fs.writeFileSync(
+        path.join(fx.root, "static/account-features.txt"),
+        `accounts,store,inventory,clans,leaderboards\nemail-auth=${built}\n`,
+      );
+    }
+  };
+
+  it("when email sign-in is off nothing about email is required, even stray or broken email settings", async () => {
+    for (const env of [
+      fx.env,
+      { ...fx.env, EMAIL_PROVIDER: "dev", EMAIL_FROM: "nonsense" },
+    ]) {
+      const report = await run({}, env);
+      expect(failing(report)).toEqual([]);
+      expect(report.results.find((r) => r.id === "email")?.status).toBe("pass");
+    }
+  });
+
+  it("when a build offers email sign-in but the setting is off, it fails: the button would answer 404", async () => {
+    prepare("on");
+    expect(failing(await run())).toContain("email-build");
+  });
+
+  it("a complete real setup passes the checks, with a warning that delivery itself is unverified", async () => {
+    prepare("on");
+    const report = await run({}, emailEnv());
+    expect(failing(report)).toEqual([]);
+    const email = report.results.find((r) => r.id === "email")!;
+    expect(email.status).toBe("warn");
+    expect(email.detail).toMatch(/cannot prove the provider delivers/);
+    expect(JSON.stringify(report)).not.toContain(EMAIL_SECRET);
+  });
+
+  it("fails the dev provider, a missing sender or key, and a typo in the switch", async () => {
+    prepare("on");
+    const dev = await run({}, emailEnv({ EMAIL_PROVIDER: "dev" }));
+    expect(failing(dev)).toContain("config");
+    expect(detailOf(dev, "config")).toMatch(/EMAIL_PROVIDER=dev/);
+    const none = await run(
+      {},
+      { ...emailEnv(), EMAIL_FROM: "", EMAIL_API_KEY: "" },
+    );
+    expect(detailOf(none, "config")).toMatch(/EMAIL_FROM is required/);
+    expect(detailOf(none, "config")).toMatch(/EMAIL_API_KEY is required/);
+    expect(failing(await run({}, emailEnv({ DF_EMAIL_AUTH: "yes" })))).toEqual(
+      expect.arrayContaining(["email", "config"]),
+    );
+  });
+
+  it("fails placeholder senders and keys, and a site origin the link would be refused on", async () => {
+    prepare("on");
+    const sender = await run({}, emailEnv({ EMAIL_FROM: "login@example.com" }));
+    expect(detailOf(sender, "email")).toMatch(/placeholder domain/);
+    for (const key of [
+      "re_your_key_here",
+      "re_test_key_not_real",
+      "xxxxxxxxxxxxxxxx",
+    ]) {
+      expect(
+        detailOf(await run({}, emailEnv({ EMAIL_API_KEY: key })), "email"),
+        key,
+      ).toMatch(/placeholder/);
+    }
+    const origin = await run(
+      {},
+      emailEnv({ ALLOWED_ORIGINS: "https://www.example.com" }),
+    );
+    expect(detailOf(origin, "email")).toMatch(
+      /https:\/\/example\.com is not in ALLOWED_ORIGINS/,
+    );
+  });
+
+  it("fails when the client was built without email sign-in although it is on", async () => {
+    prepare("off");
+    expect(detailOf(await run({}, emailEnv()), "email")).toMatch(
+      /built with email sign-in off/,
+    );
+  });
+
+  it("requires the privacy policy to cover emailed links before it can pass", async () => {
+    // fixture pages as shipped by createFixture (no email paragraph), build says on
+    fs.writeFileSync(
+      path.join(fx.root, "static/account-features.txt"),
+      "accounts,store,inventory,clans,leaderboards\nemail-auth=on\n",
+    );
+    const report = await run({}, emailEnv());
+    expect(failing(report)).toEqual(
+      expect.arrayContaining(["legal:resources/public", "legal:static"]),
+    );
+    expect(detailOf(report, "legal:static")).toMatch(
+      /privacy-policy\.html does not mention: .*e-mailed sign-in links/,
+    );
+    // the terms page is not asked for it
+    expect(detailOf(report, "legal:static")).not.toMatch(
+      /terms-of-service\.html does not mention/,
+    );
+  });
+
+  it("scans the built client for the mail provider's key", async () => {
+    prepare("on");
+    fs.writeFileSync(
+      path.join(fx.root, "static/assets/leak.js"),
+      `var f="accounts,store,inventory,clans,leaderboards";var k="${EMAIL_SECRET}"`,
+    );
+    const report = await run({}, emailEnv());
+    expect(failing(report)).toContain("bundle-secrets");
+    expect(detailOf(report, "bundle-secrets")).toMatch(
+      /EMAIL_API_KEY appears in/,
+    );
+    expect(JSON.stringify(report)).not.toContain(EMAIL_SECRET);
+  });
+
+  it("with --probe, warns when the sender domain has no SPF or DMARC record, and says nothing when it has both", async () => {
+    prepare("on");
+    const probe = (records: Record<string, string[][]>) =>
+      run(
+        {
+          probe: true,
+          fetchFn: (async () => new Response("{}", { status: 200 })) as never,
+          resolveTxt: async (name) => {
+            if (name in records) return records[name];
+            throw Object.assign(new Error("ENOTFOUND"), { code: "ENOTFOUND" });
+          },
+        },
+        emailEnv(),
+      );
+    const missing = await probe({});
+    const dns = missing.results.find((r) => r.id === "email-dns")!;
+    expect(dns.status).toBe("warn");
+    expect(dns.detail).toMatch(/mail\.example\.net has no SPF or DMARC record/);
+    const full = await probe({
+      "mail.example.net": [["v=spf1 include:_spf.provider.test ~all"]],
+      "_dmarc.mail.example.net": [["v=DMARC1; p=quarantine"]],
+    });
+    expect(full.results.find((r) => r.id === "email-dns")?.status).toBe("pass");
+    const half = await probe({ "mail.example.net": [["v=spf1 -all"]] });
+    expect(half.results.find((r) => r.id === "email-dns")?.detail).toMatch(
+      /no DMARC record/,
+    );
+  });
+});

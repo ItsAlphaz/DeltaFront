@@ -2,6 +2,7 @@ import { generateKeyPairSync } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { Mailer } from "../../../src/account-api/auth/email";
 import {
   createEphemeralKeyRing,
   type KeyRing,
@@ -19,7 +20,7 @@ import { applyMigrations } from "../../../src/account-api/db/migrator";
 import { createPool } from "../../../src/account-api/db/pool";
 import { sha256 } from "../../../src/account-api/http";
 import type { RateLimit, RateLimitName } from "../../../src/account-api/limits";
-import { silentLogger } from "../../../src/account-api/logger";
+import { silentLogger, type Logger } from "../../../src/account-api/logger";
 import {
   startAccountApi,
   type RunningService,
@@ -47,6 +48,14 @@ export interface HarnessOptions {
   keys?: KeyRing;
   /** Read the cosmetic catalog from this directory. */
   catalogDir?: string;
+  /** Turn email magic-link sign-in on (DF_EMAIL_AUTH=1). Dev uses the in-memory `dev` mailer; staging a stand-in `resend` one. */
+  emailAuth?: boolean;
+  /** Replace the mailer (default: the dev mailer in dev, a recording stand-in in staging). */
+  mailer?: Mailer;
+  /** Extra environment for loadConfig (tests of configuration errors, provider settings). */
+  extraEnv?: Record<string, string>;
+  /** Where the API logs (default: nowhere). */
+  log?: Logger;
   /** Bind this port instead of a free one (the game server expects the API on 8787 in dev). */
   fixedPort?: number;
 }
@@ -153,6 +162,15 @@ export async function startHarness(
         API_PORT: "8787",
         ALLOWED_ORIGINS: APP_ORIGIN,
       };
+  if (options.emailAuth === true) {
+    env.DF_EMAIL_AUTH = "1";
+    if (staging) {
+      env.EMAIL_PROVIDER = "resend";
+      env.EMAIL_FROM = "DeltaFront <login@example.com>";
+      env.EMAIL_API_KEY = "re_test_key_not_real";
+    }
+  }
+  Object.assign(env, options.extraEnv ?? {});
   Object.assign(env, {
     DATABASE_URL: db.url,
     DF_ACCOUNT_FEATURES: options.features ?? "accounts",
@@ -171,7 +189,8 @@ export async function startHarness(
   const config = { ...loadConfig(env), port: options.fixedPort ?? 0 };
 
   const keys = options.keys ?? (await createEphemeralKeyRing());
-  const service = await startAccountApi(config, silentLogger, {
+  const service = await startAccountApi(config, options.log ?? silentLogger, {
+    mailer: options.mailer,
     keys,
     fetchFn: options.fetchFn,
     turnstile: options.turnstile,
@@ -179,6 +198,8 @@ export async function startHarness(
     // address; the tests that exercise it pass their own.
     limits: {
       oauthCallback: { max: 1_000_000, windowMs: 60_000 },
+      magicLinkRequest: { max: 1_000_000, windowMs: 60_000 },
+      magicLinkConsume: { max: 1_000_000, windowMs: 60_000 },
       ...options.limits,
     },
     oauthEndpoints: options.oauthEndpoints,

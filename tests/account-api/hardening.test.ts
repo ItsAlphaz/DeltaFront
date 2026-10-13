@@ -554,3 +554,64 @@ describe("the rate limiter's exhaustion check", () => {
     expect(limiter.isExhausted("k").allowed).toBe(true);
   });
 });
+
+describe("the development outbox is mounted nowhere but in development", () => {
+  async function appFor(
+    env: "dev" | "staging" | "prod",
+    provider: "dev" | "resend",
+  ) {
+    const { createDevMailer } =
+      await import("../../src/account-api/auth/email");
+    const { createLimiters } = await import("../../src/account-api/limits");
+    const { loadReservedClanNames } =
+      await import("../../src/account-api/domain/clans");
+    const mailer = createDevMailer();
+    await mailer.send({
+      to: "a@b.co",
+      subject: "s",
+      text: "https://x.test/#token-login?token-login=" + "A".repeat(43),
+      html: "",
+    });
+    const log = recordingLogger().log;
+    const base = env === "dev" ? devConfig() : prodConfig();
+    const config = {
+      ...base,
+      env,
+      features: { ...base.features, accounts: true },
+      email: { enabled: true, provider, from: null, apiKey: null },
+    };
+    const backend = {
+      config,
+      log,
+      pool: {} as never,
+      keys: { jwks: () => ({ keys: [] }) } as never,
+      tokens: {} as never,
+      limiters: createLimiters(),
+      providers: {},
+      mailer,
+      turnstile: {} as never,
+      catalog: null,
+      reserved: loadReservedClanNames(),
+    };
+    return serve(createApp({ config, log, backend: backend as never }));
+  }
+
+  it("answers in dev with the dev provider, from this machine", async () => {
+    const base = await appFor("dev", "dev");
+    const res = await fetch(`${base}/dev/email-outbox?email=a@b.co`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).messages).toHaveLength(1);
+  });
+
+  it("is a 404 in staging and prod, even with a dev mailer in the backend", async () => {
+    for (const env of ["staging", "prod"] as const) {
+      const base = await appFor(env, "dev");
+      expect((await fetch(`${base}/dev/email-outbox`)).status, env).toBe(404);
+    }
+  });
+
+  it("is a 404 in dev when the provider is a real one", async () => {
+    const base = await appFor("dev", "resend");
+    expect((await fetch(`${base}/dev/email-outbox`)).status).toBe(404);
+  });
+});

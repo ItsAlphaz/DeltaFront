@@ -49,6 +49,9 @@ describe("TokenLoginModal — retry loop", () => {
     ["expired", "error_modal.login_token_expired"],
     ["invalid", "error_modal.login_token_invalid"],
     ["consumed", "error_modal.login_token_consumed"],
+    ["email_exists", "error_modal.login_token_email_exists"],
+    ["deleted", "error_modal.login_token_deleted"],
+    ["wrong_browser", "error_modal.login_token_wrong_browser"],
   ])(
     "shows the %s message immediately and stops retrying",
     async (code, message) => {

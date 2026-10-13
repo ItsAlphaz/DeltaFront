@@ -52,7 +52,9 @@ export async function completeSignIn(
   // the winner's row.
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withTransaction(pool, (db) => signIn(db, identity, ctx));
+      return await withTransaction(pool, (db) =>
+        signInInTransaction(db, identity, ctx),
+      );
     } catch (error) {
       if ((error as { code?: string }).code === "23505" && attempt < 1)
         continue;
@@ -61,7 +63,11 @@ export async function completeSignIn(
   }
 }
 
-async function signIn(
+/**
+ * The sign-in decision itself, for a caller that needs it in a transaction of
+ * its own (the magic link consumes its token in the same one).
+ */
+export async function signInInTransaction(
   db: Db,
   identity: ProviderIdentity,
   ctx: SignInContext,

@@ -216,7 +216,19 @@ export type TokenLoginResult =
   | { status: "success"; email: string }
   // A 400 is final: the token was invalid, expired, or already consumed.
   // Retrying it is pointless.
-  | { status: "failed"; code: "consumed" | "expired" | "invalid" }
+  | {
+      status: "failed";
+      code:
+        | "consumed"
+        | "expired"
+        | "invalid"
+        // M8: the address already belongs to another account (never merged)
+        | "email_exists"
+        // M8: the account is queued for deletion
+        | "deleted"
+        // M8: the link adds an address to an account, opened in another browser
+        | "wrong_browser";
+    }
   // A network hiccup or non-400 error — worth retrying.
   | { status: "retry" };
 
@@ -224,7 +236,7 @@ export async function tempTokenLogin(token: string): Promise<TokenLoginResult> {
   let response: Response;
   try {
     response = await fetch(
-      `${getApiBase()}/auth/login/token?login-token=${token}`,
+      `${getApiBase()}/auth/login/token?login-token=${encodeURIComponent(token)}`,
       {
         credentials: "include",
       },
@@ -238,7 +250,10 @@ export async function tempTokenLogin(token: string): Promise<TokenLoginResult> {
     const code =
       body?.code === "consumed" ||
       body?.code === "expired" ||
-      body?.code === "invalid"
+      body?.code === "invalid" ||
+      body?.code === "email_exists" ||
+      body?.code === "deleted" ||
+      body?.code === "wrong_browser"
         ? body.code
         : "invalid";
     return { status: "failed", code };
@@ -731,7 +746,20 @@ export async function retrySteamSignIn(): Promise<UserAuth> {
   return __steamRetryPromise;
 }
 
-export async function sendMagicLink(email: string): Promise<boolean> {
+export type MagicLinkRequestResult =
+  | { status: "sent" }
+  | { status: "invalid_email" }
+  | { status: "rate_limited" }
+  | { status: "failed" };
+
+/**
+ * Asks the API to email a sign-in link. "sent" means the request was accepted,
+ * never that an account exists or that mail arrived: the API answers the same
+ * for every well-formed address.
+ */
+export async function requestMagicLink(
+  email: string,
+): Promise<MagicLinkRequestResult> {
   try {
     const apiBase = getApiBase();
     const response = await fetch(`${apiBase}/auth/magic-link`, {
@@ -741,7 +769,7 @@ export async function sendMagicLink(email: string): Promise<boolean> {
       },
       credentials: "include",
       body: JSON.stringify({
-        // The domain the server builds the emailed link on, so it has to be a
+        // The origin the server builds the emailed link on, so it has to be a
         // real website: the recipient opens it in a browser, possibly on
         // another device. window.location.origin is `app://openfront` in the
         // shell, which would email a link nothing can open. See
@@ -751,20 +779,26 @@ export async function sendMagicLink(email: string): Promise<boolean> {
       }),
     });
 
-    if (response.ok) {
-      return true;
-    } else {
-      console.error(
-        "Failed to send recovery email:",
-        response.status,
-        response.statusText,
-      );
-      return false;
+    if (response.ok) return { status: "sent" };
+    if (response.status === 429) return { status: "rate_limited" };
+    if (response.status === 400) {
+      const body = await response.json().catch(() => null);
+      if (body?.code === "invalid_email") return { status: "invalid_email" };
     }
+    console.error(
+      "Failed to send sign-in link:",
+      response.status,
+      response.statusText,
+    );
+    return { status: "failed" };
   } catch (error) {
-    console.warn("Error sending recovery email:", error);
-    return false;
+    console.warn("Error sending sign-in link:", error);
+    return { status: "failed" };
   }
+}
+
+export async function sendMagicLink(email: string): Promise<boolean> {
+  return (await requestMagicLink(email)).status === "sent";
 }
 
 // WARNING: DO NOT EXPOSE THIS ID

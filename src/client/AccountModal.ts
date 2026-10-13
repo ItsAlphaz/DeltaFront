@@ -20,7 +20,6 @@ import {
   linkSteam,
   logOut,
   reauthAfterCrazyGamesChange,
-  sendMagicLink,
   steamLogin,
 } from "./Auth";
 import "./components/baseComponents/stats/DiscordUserHeader";
@@ -35,6 +34,7 @@ import "./components/CreatorCodePanel";
 import type { CreatorChangedDetail } from "./components/CreatorCodePanel";
 import "./components/CurrencyDisplay";
 import "./components/Difficulties";
+import "./components/EmailSignIn";
 import "./components/FriendsList";
 import type { PrestigeFlow } from "./components/PrestigeFlow";
 import "./components/ProfileCard";
@@ -84,7 +84,6 @@ function loadPrestigeFlow(): Promise<unknown> {
 export class AccountModal extends BaseModal {
   protected routerName = "account";
 
-  @state() private email: string = "";
   @state() private isLoadingUser: boolean = false;
   // Counts openings, to key the profile card's once-per-open flourish.
   private openCount = 0;
@@ -246,24 +245,9 @@ export class AccountModal extends BaseModal {
     }
   }
 
-  // Email input + "get magic link" button used by the sign-in form.
+  // The email magic-link form (its own component: src/client/components/EmailSignIn.ts).
   private renderEmailField(): TemplateResult {
-    return html`
-      <input
-        type="email"
-        .value=${this.email}
-        @input=${this.handleEmailInput}
-        placeholder=${translateText("account_modal.email_placeholder")}
-        class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10"
-      />
-      <o-button
-        variant="primary"
-        width="block"
-        size="md"
-        translationKey="account_modal.get_magic_link"
-        @click=${this.handleSubmit}
-      ></o-button>
-    `;
+    return html`<email-sign-in></email-sign-in>`;
   }
 
   private renderFriendsTab(): TemplateResult {
@@ -970,27 +954,6 @@ export class AccountModal extends BaseModal {
         </div>
       </div>
     `;
-  }
-
-  private handleEmailInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    this.email = target.value;
-  }
-
-  private async handleSubmit() {
-    if (!this.email) {
-      await showInGameAlert(translateText("account_modal.enter_email_address"));
-      return;
-    }
-
-    const success = await sendMagicLink(this.email);
-    await showInGameAlert(
-      success
-        ? translateText("account_modal.recovery_email_sent", {
-            email: this.email,
-          })
-        : translateText("account_modal.failed_to_send_recovery_email"),
-    );
   }
 
   // CrazyGames sign-in: after their prompt completes, exchange the new token

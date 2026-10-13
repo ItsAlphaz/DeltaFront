@@ -34,6 +34,7 @@ vi.mock("../../src/client/Auth", () => ({
   clearLocalSession: vi.fn(),
   reauthAfterCrazyGamesChange: vi.fn(async () => false),
   sendMagicLink: vi.fn(async () => true),
+  requestMagicLink: vi.fn(async () => ({ status: "sent" })),
   getAuthHeader: vi.fn(async () => "Bearer t"),
 }));
 vi.mock("../../src/client/Utils", () => ({
@@ -159,8 +160,14 @@ describe("the sign-in screen follows AUTH_PROVIDERS", () => {
     Object.assign(providers, { email: true, steam: true });
     const text = await showSignIn();
     expect(text).toContain("main.login_steam");
-    expect(text).toContain("account_modal.get_magic_link");
     expect(text).toContain("account_modal.or");
+    // the form is its own component (src/client/components/EmailSignIn.ts)
+    const form = modal.querySelector("email-sign-in") as HTMLElement & {
+      updateComplete: Promise<boolean>;
+    };
+    expect(form).not.toBeNull();
+    await form.updateComplete;
+    expect(form.textContent).toContain("account_modal.get_magic_link");
     expect(modal.querySelector('input[type="email"]')).not.toBeNull();
   });
 });
