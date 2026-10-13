@@ -10,7 +10,7 @@ export const BRAND = {
   // AGPL-3.0 §13: players of a modified network game must be offered its
   // source. TODO(deltafront): point this at the DeltaFront repository before
   // running a public server; until then it names the upstream project.
-  sourceRepoUrl: "https://github.com/openfrontio/OpenFrontIO",
+  sourceRepoUrl: "https://github.com/ItsAlphaz/DeltaFront",
 
   discordUrl: "",
   redditUrl: "",
