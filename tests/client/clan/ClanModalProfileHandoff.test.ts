@@ -44,6 +44,18 @@ import type { ClanInfo } from "../../../src/client/ClanApi";
 import { fetchClanDetail } from "../../../src/client/ClanApi";
 import { ClanModal } from "../../../src/client/ClanModal";
 
+// These tests cover the map tab, which only exists when a map service does
+// (DeltaFront has none, so it is off by default: see clanMapEnabled).
+vi.mock(
+  "../../../src/client/components/clan/ClanMapView",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("../../../src/client/components/clan/ClanMapView")
+    >()),
+    clanMapEnabled: () => true,
+  }),
+);
+
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 
 describe("ClanModal — player-profile handoff", () => {

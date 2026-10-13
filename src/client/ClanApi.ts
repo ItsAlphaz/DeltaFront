@@ -60,6 +60,111 @@ async function clanFetch(
   });
 }
 
+/** The `code` of an error body from the clan API, or "". */
+async function errorCode(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => ({}))) as { code?: unknown };
+  return typeof body.code === "string" ? body.code : "";
+}
+
+// Codes the clan API answers that deserve their own message; anything else is
+// the generic failure.
+const CLAN_ERROR_KEYS: Record<string, string> = {
+  ALREADY_IN_CLAN: "clan_modal.error_already_in_clan",
+  TRANSFER_REQUIRED: "clan_modal.error_transfer_required",
+  ACCOUNT_UNAVAILABLE: "clan_modal.error_account_unavailable",
+  LOGIN_REQUIRED: "clan_modal.sign_in_for_clans",
+  BANNED: "clan_modal.error_banned",
+  RATE_LIMITED: "clan_modal.error_rate_limited_generic",
+};
+
+/** The i18n key for a failed clan action's response. */
+async function failureKey(res: Response): Promise<string> {
+  if (res.status === 401) return "clan_modal.sign_in_for_clans";
+  if (res.status === 429) return "clan_modal.error_rate_limited_generic";
+  return CLAN_ERROR_KEYS[await errorCode(res)] ?? "clan_modal.error_failed";
+}
+
+export type CreateClanInput = {
+  name: string;
+  tag: string;
+  description?: string;
+  isOpen?: boolean;
+};
+
+export type CreateClanFailure = {
+  /** An i18n key under `clan_modal.`, with the values it needs. */
+  error: string;
+  params?: Record<string, string | number>;
+};
+
+/**
+ * Creates a clan (POST /clans). The server decides everything (eligibility,
+ * names, tags); this only maps its answers to messages, using the `required`
+ * and `current` numbers the eligibility refusals carry.
+ */
+export async function createClan(
+  input: CreateClanInput,
+): Promise<ClanInfo | CreateClanFailure> {
+  try {
+    const res = await clanFetch("/clans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (res.ok) {
+      const parsed = ClanInfoSchema.safeParse(await res.json());
+      if (parsed.success) return parsed.data;
+      console.warn("createClan: Zod validation failed", parsed.error);
+      return { error: "clan_modal.create_error_failed" };
+    }
+    if (res.status === 401) return { error: "clan_modal.sign_in_for_clans" };
+    if (res.status === 429) {
+      return { error: "clan_modal.error_rate_limited_generic" };
+    }
+    const body = (await res.json().catch(() => ({}))) as {
+      code?: string;
+      required?: number;
+      current?: number;
+    };
+    switch (body.code) {
+      case "LOGIN_REQUIRED":
+        return { error: "clan_modal.sign_in_for_clans" };
+      case "BANNED":
+        return { error: "clan_modal.error_banned" };
+      case "ALREADY_IN_CLAN":
+        return { error: "clan_modal.error_already_in_clan" };
+      case "ACCOUNT_TOO_NEW":
+        return {
+          error: "clan_modal.create_error_account_too_new",
+          params: { days: body.required ?? 0, current: body.current ?? 0 },
+        };
+      case "NOT_ENOUGH_GAMES":
+        return {
+          error: "clan_modal.create_error_not_enough_games",
+          params: { games: body.required ?? 0, current: body.current ?? 0 },
+        };
+      case "INVALID_NAME":
+        return { error: "clan_modal.create_error_invalid_name" };
+      case "INVALID_TAG":
+        return { error: "clan_modal.create_error_invalid_tag" };
+      case "NAME_PROFANE":
+        return { error: "clan_modal.create_error_profane" };
+      case "INVALID_DESCRIPTION":
+        return { error: "clan_modal.create_error_invalid_description" };
+      case "NAME_TAKEN":
+        return { error: "clan_modal.create_error_name_taken" };
+      case "TAG_TAKEN":
+        return { error: "clan_modal.create_error_tag_taken" };
+      case "TAG_HELD":
+        return { error: "clan_modal.create_error_tag_held" };
+      default:
+        return { error: "clan_modal.create_error_failed" };
+    }
+  } catch {
+    return { error: "clan_modal.error_network" };
+  }
+}
+
 export async function fetchClanLeaderboard(): Promise<
   ClanLeaderboardResponse | false
 > {
@@ -235,7 +340,12 @@ export async function joinClan(
     });
     if (res.status === 409) {
       const body = await res.json().catch(() => ({}));
-      const msg = (body as { message?: string }).message ?? "";
+      const { code, message } = body as { code?: string; message?: string };
+      // One clan at a time: the server says so by code.
+      if (code === "ALREADY_IN_CLAN") {
+        return { error: "clan_modal.error_already_in_clan" };
+      }
+      const msg = message ?? "";
       return {
         error: msg.toLowerCase().includes("request")
           ? "clan_modal.error_request_pending"
@@ -258,6 +368,10 @@ export async function joinClan(
             : "clan_modal.error_banned",
           ...(b.reason ? { reason: b.reason } : {}),
         };
+      }
+      // A guest has no account to join with.
+      if (b.code === "LOGIN_REQUIRED") {
+        return { error: "clan_modal.sign_in_for_clans" };
       }
       return {
         error: "clan_modal.error_failed",
@@ -287,11 +401,7 @@ export async function leaveClan(
     const res = await clanFetch(`/clans/${encodeURIComponent(tag)}/leave`, {
       method: "POST",
     });
-    if (!res.ok) {
-      return {
-        error: "clan_modal.error_failed",
-      };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };
@@ -409,11 +519,7 @@ export async function disbandClan(
     const res = await clanFetch(`/clans/${encodeURIComponent(tag)}`, {
       method: "DELETE",
     });
-    if (!res.ok) {
-      return {
-        error: "clan_modal.error_failed",
-      };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };
@@ -431,9 +537,7 @@ async function memberAction(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetPublicId }),
     });
-    if (!res.ok) {
-      return { error: "clan_modal.error_failed" };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };
@@ -490,11 +594,7 @@ export async function approveClanRequest(
         body: JSON.stringify({ targetPublicId }),
       },
     );
-    if (!res.ok) {
-      return {
-        error: "clan_modal.error_failed",
-      };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };
@@ -514,11 +614,7 @@ export async function denyClanRequest(
         body: JSON.stringify({ targetPublicId }),
       },
     );
-    if (!res.ok) {
-      return {
-        error: "clan_modal.error_failed",
-      };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };
@@ -533,11 +629,7 @@ export async function withdrawClanRequest(
       `/clans/${encodeURIComponent(tag)}/requests/withdraw`,
       { method: "POST" },
     );
-    if (!res.ok) {
-      return {
-        error: "clan_modal.error_failed",
-      };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };
@@ -559,9 +651,7 @@ export async function banClanMember(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) {
-      return { error: "clan_modal.error_failed" };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };
@@ -578,9 +668,7 @@ export async function unbanClanMember(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetPublicId }),
     });
-    if (!res.ok) {
-      return { error: "clan_modal.error_failed" };
-    }
+    if (!res.ok) return { error: await failureKey(res) };
     return true;
   } catch {
     return { error: "clan_modal.error_network" };

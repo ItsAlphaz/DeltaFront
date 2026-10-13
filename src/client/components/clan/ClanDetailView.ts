@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { invalidateUserMe } from "../../Api";
@@ -822,7 +823,7 @@ export class ClanDetailView extends LitElement {
         </button>
       `);
     }
-    if (isMember) {
+    if (isMember && ACCOUNT_FEATURES.payments) {
       buttons.push(html`
         <button
           @click=${() => (this.donateOpen = true)}

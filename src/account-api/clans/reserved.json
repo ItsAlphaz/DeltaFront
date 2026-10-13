@@ -1,0 +1,39 @@
+{
+  "tags": [
+    "ADMIN",
+    "ALL",
+    "BOT",
+    "BOTS",
+    "DELTA",
+    "DEV",
+    "DEVS",
+    "DF",
+    "DFRON",
+    "GM",
+    "HELP",
+    "MOD",
+    "MODS",
+    "NONE",
+    "NPC",
+    "NULL",
+    "OF",
+    "OFIO",
+    "OPEN",
+    "OPENF",
+    "ROOT",
+    "STAFF",
+    "SYS",
+    "TEAM"
+  ],
+  "nameSkeletons": [
+    "admin",
+    "administrator",
+    "deltafront",
+    "moderator",
+    "official",
+    "openfront",
+    "staff",
+    "support",
+    "system"
+  ]
+}

@@ -12,6 +12,7 @@ import {
   randomDiscriminator,
 } from "../domain/usernames";
 import { clientIp, requireAllowedOrigin } from "../http";
+import { clansOfUser, type MyClan } from "../repo/clans";
 import { activeFlaresOf, reportedFlares } from "../repo/inventory";
 import { creditsOf } from "../repo/profile";
 import { liveSession, revokeAllForUser } from "../repo/sessions";
@@ -70,6 +71,11 @@ export function buildUserMe(
   credits: number,
   /** The cosmetics the account owns; absent while no feature uses the catalog. */
   flares?: string[],
+  /** The account's clan memberships and pending requests; absent while clans are off. */
+  clans?: {
+    clans: MyClan[];
+    requests: Array<{ tag: string; name: string; createdAt: string }>;
+  },
 ): UserMeResponse {
   return {
     user: linkedIdentities(identities),
@@ -97,6 +103,9 @@ export function buildUserMe(
       // Credits ride in the contract's "soft" slot; the premium slot stays 0.
       currency: { soft: credits, hard: 0 },
       ...(flares === undefined ? {} : { flares }),
+      ...(clans === undefined
+        ? {}
+        : { clans: clans.clans, clanRequests: clans.requests }),
       achievements: { singleplayerMap: [], player: [] },
       friends: [],
       subscription: null,
@@ -123,17 +132,18 @@ export function usersRouter(deps: AppDeps): Router {
       res.status(401).json({ error: "unauthorized" });
       return;
     }
-    const [identities, ban, credits, owned] = await Promise.all([
+    const [identities, ban, credits, owned, clans] = await Promise.all([
       identitiesOf(pool, user.id),
       activeBan(pool, user.id),
       creditsOf(pool, user.id),
       deps.catalog === null ? undefined : activeFlaresOf(pool, user.id),
+      config.features.clans ? clansOfUser(pool, user.id) : undefined,
     ]);
     const flares =
       deps.catalog === null || owned === undefined
         ? undefined
         : reportedFlares(deps.catalog, owned);
-    res.json(buildUserMe(user, identities, ban, credits, flares));
+    res.json(buildUserMe(user, identities, ban, credits, flares, clans));
   });
 
   // Sets the account username: a base the player picks plus a random

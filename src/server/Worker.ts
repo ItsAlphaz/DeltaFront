@@ -36,6 +36,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import { registerAdminBotRoutes } from "./AdminBotRoutes";
 import { censorPlayer } from "./Censor";
+import { isClanTagRegistered } from "./ClanTagCheck";
 import { Client } from "./Client";
 import { gameApiCors } from "./GameApiCors";
 import { GameManager } from "./GameManager";
@@ -796,7 +797,24 @@ export async function startWorker() {
             clanTag,
           });
         }
-        const resolvedClanTag = resolution.tag;
+        let resolvedClanTag = resolution.tag;
+        // A tag the player does not own and the polled list did not know could
+        // belong to a clan created since the last poll: ask the API.
+        if (
+          resolvedClanTag !== null &&
+          ACCOUNT_FEATURES.clans &&
+          !ownedClanTags.some(
+            (t) => t.toUpperCase() === resolvedClanTag!.toUpperCase(),
+          ) &&
+          (await isClanTagRegistered(resolvedClanTag)) === true
+        ) {
+          log.warn("Dropped clan tag: registered since the last refresh", {
+            persistentID: persistentId,
+            gameID: clientMsg.gameID,
+            clanTag,
+          });
+          resolvedClanTag = null;
+        }
 
         const cosmeticResult = privilegeRefresher
           .get()

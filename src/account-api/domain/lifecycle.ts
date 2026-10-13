@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { withTransaction } from "../db/tx";
 import type { Logger } from "../logger";
+import { removeAccountFromClans } from "./clanOps";
 import { ACCOUNT_RULES } from "./constants";
 
 /**
@@ -40,10 +41,13 @@ export async function runDeletions(
     for (const { id } of rows) {
       await withTransaction(pool, async (tx) => {
         const lock = await tx.query(
-          `SELECT 1 FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+          // NO KEY UPDATE: the clan code locks a clan row and then inserts
+          // rows that name this user, which a plain FOR UPDATE would block.
+          `SELECT 1 FROM users WHERE id = $1 AND deleted_at IS NULL FOR NO KEY UPDATE`,
           [id],
         );
         if (lock.rows.length === 0) return;
+        await removeAccountFromClans(tx, id);
         await tx.query("DELETE FROM auth_identities WHERE user_id = $1", [id]);
         await tx.query("DELETE FROM refresh_sessions WHERE user_id = $1", [id]);
         await tx.query(

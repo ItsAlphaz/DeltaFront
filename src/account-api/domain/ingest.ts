@@ -221,8 +221,11 @@ export async function ingestGameRecord(
           : 0;
       await tx.query(
         `INSERT INTO game_players
-           (game_id, client_id, user_id, username, clan_tag, result, completed, credits_awarded, stats)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+           (game_id, client_id, user_id, username, clan_tag, clan_id, result, completed, credits_awarded, stats)
+         VALUES ($1, $2, $3, $4, $5::text,
+                 (SELECT c.id FROM clans c JOIN clan_members m ON m.clan_id = c.id
+                   WHERE c.tag = $5::text::citext AND c.disbanded_at IS NULL AND m.user_id = $3::uuid),
+                 $6, $7, $8, $9::jsonb)
          ON CONFLICT (game_id, client_id) DO NOTHING`,
         [
           gameId,

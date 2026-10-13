@@ -542,7 +542,10 @@ describeDb("only the backend can change ownership", () => {
       headers: { "x-api-key": key },
     });
     expect(tags.status).toBe(200);
-    expect(ReservedClanTagsResponseSchema.parse(await tags.json())).toEqual([]);
+    // no clan exists in this database: the list is the reserved names alone
+    const listed = ReservedClanTagsResponseSchema.parse(await tags.json());
+    expect(listed).toContain("ADMIN");
+    expect(listed.every((t) => /^[A-Z0-9]{2,5}$/.test(t))).toBe(true);
 
     expect(
       (

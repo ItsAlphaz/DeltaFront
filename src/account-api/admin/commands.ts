@@ -3,9 +3,18 @@ import type { Pool } from "pg";
 import { hasFlareShape, isWildcardFlare } from "../catalog/flares";
 import { loadCatalog, type Catalog } from "../catalog/load";
 import { withTransaction } from "../db/tx";
+import {
+  adminRemoveClan,
+  adminRemoveMember,
+  adminRenameClan,
+  adminTransferClan,
+  ClanError,
+} from "../domain/clanOps";
+import { loadReservedClanNames, tagFromRoute } from "../domain/clans";
 import { ACCOUNT_RULES } from "../domain/constants";
 import { adjustWallet } from "../domain/economy";
 import { sha256 } from "../http";
+import { clanByTag, clansOfUser } from "../repo/clans";
 import { flareRowsOf, grantFlare, revokeFlare } from "../repo/inventory";
 import { revokeAllForUser } from "../repo/sessions";
 import type { Db } from "../repo/users";
@@ -91,6 +100,12 @@ export const ADMIN_COMMANDS = [
   "user:unban <publicId>",
   "user:revoke-sessions <publicId> --yes",
   "user:role <publicId> <admin|mod|flagged|none> --yes",
+  "clan:list [search]",
+  "clan:show <TAG>",
+  "clan:rename <TAG> <new name> --reason <text>",
+  "clan:transfer <TAG> <publicId> --reason <text> --yes",
+  "clan:member-remove <TAG> <publicId> --reason <text> --yes",
+  "clan:remove <TAG> --reason <text> --yes",
   "wallet:show <publicId>",
   "wallet:grant <publicId> <credits> --reason <text>",
   "wallet:revoke <publicId> <credits> --reason <text> --yes",
@@ -262,6 +277,10 @@ export async function runAdminCommand(
         io.out(
           `items:       ${owned.length === 0 ? "(none granted; see item:list)" : owned.map((r) => r.flare).join(", ")}`,
         );
+        const myClans = await clansOfUser(pool, user.id);
+        io.out(
+          `clans:       ${myClans.clans.length === 0 ? "(none)" : myClans.clans.map((c) => `${c.tag} (${c.role})`).join(", ")}${myClans.requests.length === 0 ? "" : `   pending requests: ${myClans.requests.map((r) => r.tag).join(", ")}`}`,
+        );
         io.out(`bans:`);
         for (const b of bans.rows) {
           const state = b.revoked_at
@@ -349,6 +368,133 @@ export async function runAdminCommand(
           await audit(db, io, "user:role", "user", publicId, { role });
         });
         io.out(`role of ${publicId} is now ${role}`);
+        return 0;
+      }
+      case "clan:list": {
+        const search = p.positional[0]?.toLowerCase();
+        const { rows } = await pool.query<{
+          tag: string;
+          name: string;
+          members: number;
+          is_open: boolean;
+          created_at: Date;
+        }>(
+          `SELECT c.tag::text AS tag, c.name::text AS name, c.is_open, c.created_at,
+                  (SELECT count(*)::int FROM clan_members m WHERE m.clan_id = c.id) AS members
+             FROM clans c
+            WHERE c.disbanded_at IS NULL
+              AND ($1::text IS NULL OR lower(c.tag::text) = $1 OR lower(c.name::text) LIKE '%' || $1 || '%')
+            ORDER BY c.created_at DESC LIMIT 50`,
+          [search === undefined ? null : search.replace(/[\\%_]/g, "")],
+        );
+        if (rows.length === 0) io.out("no matching clans");
+        for (const r of rows) {
+          io.out(
+            `${r.tag.padEnd(5)}  ${r.name}  ${r.members} member(s)  ${r.is_open ? "open" : "closed"}  ${r.created_at.toISOString()}`,
+          );
+        }
+        return 0;
+      }
+      case "clan:show": {
+        const tag = tagFromRoute(need(p, 0, "clan tag"));
+        const clan = tag === null ? null : await clanByTag(pool, tag);
+        if (clan === null)
+          throw new AdminUsageError("no live clan with that tag");
+        const [members, requests, bans, events] = await Promise.all([
+          pool.query<{ public_id: string; role: string; joined_at: Date }>(
+            `SELECT u.public_id, m.role, m.joined_at FROM clan_members m JOIN users u ON u.id = m.user_id
+              WHERE m.clan_id = $1 ORDER BY (m.role = 'leader') DESC, (m.role = 'officer') DESC, m.joined_at`,
+            [clan.id],
+          ),
+          pool.query<{ n: number }>(
+            "SELECT count(*)::int AS n FROM clan_join_requests WHERE clan_id = $1",
+            [clan.id],
+          ),
+          pool.query<{ n: number }>(
+            "SELECT count(*)::int AS n FROM clan_bans WHERE clan_id = $1",
+            [clan.id],
+          ),
+          pool.query<{ action: string; created_at: Date; details: unknown }>(
+            "SELECT action, created_at, details FROM clan_events WHERE clan_id = $1 ORDER BY id DESC LIMIT 10",
+            [clan.id],
+          ),
+        ]);
+        io.out(
+          `${clan.tag}  ${clan.name}  (${clan.isOpen ? "open" : "closed"})`,
+        );
+        io.out(`created:     ${clan.createdAt.toISOString()}`);
+        io.out(
+          `description: ${clan.description === "" ? "-" : clan.description}`,
+        );
+        io.out(`discord:     ${clan.discordUrl ?? "-"}`);
+        io.out(
+          `pending requests: ${requests.rows[0].n}   bans: ${bans.rows[0].n}`,
+        );
+        io.out(`members (${members.rows.length}):`);
+        for (const m of members.rows) {
+          io.out(
+            `  ${m.public_id}  ${m.role}  joined ${m.joined_at.toISOString()}`,
+          );
+        }
+        io.out("recent events (newest first):");
+        for (const e of events.rows) {
+          io.out(`  ${e.created_at.toISOString()}  ${e.action}`);
+        }
+        return 0;
+      }
+      case "clan:rename":
+      case "clan:transfer":
+      case "clan:member-remove":
+      case "clan:remove": {
+        if (command !== "clan:rename") requireYes(p, command);
+        const tag = tagFromRoute(need(p, 0, "clan tag"));
+        if (tag === null) throw new AdminUsageError("not a clan tag");
+        const reason = reasonArg(p);
+        const clanAudit =
+          (details: Record<string, unknown>) => async (db: Db) =>
+            audit(db, io, command, "clan", tag, { reason, ...details });
+        try {
+          if (command === "clan:rename") {
+            const name = need(p, 1, "new name");
+            await adminRenameClan(
+              pool,
+              tag,
+              name,
+              reason,
+              loadReservedClanNames(),
+              (tx) => clanAudit({ name })(tx),
+            );
+            io.out(`${tag} renamed to ${name}`);
+          } else if (command === "clan:transfer") {
+            const target = need(p, 1, "public id");
+            await adminTransferClan(pool, tag, target, reason, (tx) =>
+              clanAudit({ target })(tx),
+            );
+            io.out(
+              `${tag} is now led by ${target} (the old leader is an officer)`,
+            );
+          } else if (command === "clan:member-remove") {
+            const target = need(p, 1, "public id");
+            await adminRemoveMember(pool, tag, target, reason, (tx) =>
+              clanAudit({ target })(tx),
+            );
+            io.out(`${target} removed from ${tag}`);
+          } else {
+            const clan = await adminRemoveClan(pool, tag, reason, (tx, c) =>
+              clanAudit({ name: c.name, members: c.memberCount })(tx),
+            );
+            io.out(
+              `${tag} (${clan.name}, ${clan.memberCount} member(s)) removed; its tag is held`,
+            );
+          }
+        } catch (error) {
+          if (error instanceof ClanError) {
+            throw new AdminUsageError(
+              `${String(error.body.code ?? "refused")}${error.body.code === "TRANSFER_REQUIRED" ? ": transfer the clan or remove it first" : ""}`,
+            );
+          }
+          throw error;
+        }
         return 0;
       }
       case "wallet:show": {

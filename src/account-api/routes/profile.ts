@@ -14,6 +14,7 @@ import { ACCOUNT_RULES } from "../domain/constants";
 import { buildStatsTree } from "../domain/stats";
 import { displayUsername } from "../domain/usernames";
 import { clientIp } from "../http";
+import { clansOfUser } from "../repo/clans";
 import { aggregatesOf, historyPage, recentRowsOf } from "../repo/profile";
 import { getUserByPublicId, identitiesOf, type UserRow } from "../repo/users";
 import { authenticate, type AppDeps } from "./common";
@@ -23,13 +24,13 @@ const PUBLIC_ID = /^[A-Za-z0-9]{6,32}$/;
 const CURSOR = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** A cursor is the id of the last game on the page; opaque to the client. */
-function encodeCursor(gameId: string): string {
+export function encodeCursor(gameId: string): string {
   return Buffer.from(JSON.stringify({ g: gameId }), "utf8").toString(
     "base64url",
   );
 }
 
-function decodeCursor(cursor: string): string | null {
+export function decodeCursor(cursor: string): string | null {
   if (!CURSOR.test(cursor)) return null;
   try {
     const parsed = JSON.parse(
@@ -83,7 +84,11 @@ export function profileRouter(deps: AppDeps): Router {
       recentRowsOf(pool, user.id),
     ]);
     const discord = linkedIdentities(identities).discord;
+    const clans = deps.config.features.clans
+      ? (await clansOfUser(pool, user.id)).clans
+      : undefined;
     return {
+      ...(clans === undefined ? {} : { clans }),
       createdAt: user.createdAt.toISOString(),
       ...(discord === undefined ? {} : { user: discord }),
       username: displayUsername(user.usernameBase, user.usernameDiscriminator),

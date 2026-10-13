@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import { html } from "lit";
 import { customElement, state } from "lit/decorators.js";
@@ -9,13 +10,17 @@ import "./components/clan/ClanBansView";
 import "./components/clan/ClanBrowseView";
 import type { BrowseState } from "./components/clan/ClanBrowseView";
 import "./components/clan/ClanCard";
+import "./components/clan/ClanCreateForm";
 import "./components/clan/ClanDetailView";
 import "./components/clan/ClanDonationsView";
 import "./components/clan/ClanGameHistoryView";
 import type { ClanGameHistoryCache } from "./components/clan/ClanGameHistoryView";
 import "./components/clan/ClanManageView";
 import "./components/clan/ClanMapView";
-import type { ClanMapView } from "./components/clan/ClanMapView";
+import {
+  clanMapEnabled,
+  type ClanMapView,
+} from "./components/clan/ClanMapView";
 import "./components/clan/ClanMyRequestsView";
 import "./components/clan/ClanRequestsView";
 import type { ClanRole } from "./components/clan/ClanShared";
@@ -29,7 +34,7 @@ import "./GameStatsModal";
 import { modalRouter } from "./ModalRouter";
 import "./PlayerProfileModal";
 import type { ProfileOrigin } from "./PlayerProfileModal";
-import { translateText } from "./Utils";
+import { showToast, translateText } from "./Utils";
 
 type View =
   | "list"
@@ -65,6 +70,8 @@ export class ClanModal extends BaseModal {
     this.activeTab = "my-clans";
   }
 
+  // Set by "Create clan" on My Clans: Browse opens with the form showing.
+  @state() private createRequested = false;
   @state() private view: View = "list";
   @state() private loading = false;
   // No session: the map and Browse still work; My Clans asks to sign in and
@@ -137,7 +144,10 @@ export class ClanModal extends BaseModal {
     return {
       tabs: this.onListView
         ? [
-            { key: "map", label: translateText("clan_modal.tab_map") },
+            // The Map tab only exists with a map service (see clanMapEnabled).
+            ...(clanMapEnabled()
+              ? [{ key: "map", label: translateText("clan_modal.tab_map") }]
+              : []),
             { key: "my-clans", label: translateText("clan_modal.my_clans") },
             { key: "browse", label: translateText("clan_modal.browse") },
           ]
@@ -155,10 +165,15 @@ export class ClanModal extends BaseModal {
                 key: "game-history",
                 label: translateText("clan_modal.tab_game_history"),
               },
-              {
-                key: "donations",
-                label: translateText("clan_modal.tab_donations"),
-              },
+              // Donations spend the premium currency: a payments feature.
+              ...(ACCOUNT_FEATURES.payments
+                ? [
+                    {
+                      key: "donations",
+                      label: translateText("clan_modal.tab_donations"),
+                    },
+                  ]
+                : []),
             ]
           : [],
     };
@@ -648,6 +663,11 @@ export class ClanModal extends BaseModal {
       ${this.activeTab === "my-clans"
         ? this.renderMyClans()
         : html`<clan-browse-view
+            .canCreate=${!this.signedOut && this.myClans.length === 0}
+            .openCreate=${this.createRequested}
+            @clan-created=${(e: CustomEvent<{ clan: ClanInfo }>) =>
+              this.onClanCreated(e.detail.clan)}
+            @create-cancel=${() => (this.createRequested = false)}
             .myClanRoles=${this.myClanRoles}
             .myPendingRequests=${this.myPendingRequests}
             .cachedState=${this.browseCache}
@@ -786,6 +806,24 @@ export class ClanModal extends BaseModal {
     this.modalEl?.setScrollTop(this.gameHistoryScrollTop);
   }
 
+  /** A clan was just created by this player: refresh who they are and open it. */
+  private async onClanCreated(clan: ClanInfo) {
+    this.createRequested = false;
+    this.browseCache = null;
+    showToast(translateText("clan_modal.created", { tag: clan.tag }), "green");
+    invalidateUserMe();
+    await this.loadMyClans();
+    // The tag picker in the username input listens for this.
+    this.dispatchEvent(
+      new CustomEvent("clan-joined", {
+        detail: { tag: clan.tag },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    this.openDetail(clan.tag);
+  }
+
   private renderMyClans() {
     if (this.signedOut) {
       return signedOutNotice(() => {
@@ -802,12 +840,24 @@ export class ClanModal extends BaseModal {
           <p class="text-white/40 text-sm mb-4">
             ${translateText("clan_modal.no_clans")}
           </p>
-          <button
-            @click=${() => this.setActiveTab("browse")}
-            class="px-6 py-2 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
-          >
-            ${translateText("clan_modal.browse")}
-          </button>
+          <div class="flex flex-wrap items-center justify-center gap-3">
+            <button
+              @click=${() => this.setActiveTab("browse")}
+              class="px-6 py-2 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
+            >
+              ${translateText("clan_modal.browse")}
+            </button>
+            <button
+              data-create-clan-start
+              @click=${() => {
+                this.createRequested = true;
+                this.setActiveTab("browse");
+              }}
+              class="px-6 py-2 text-sm font-bold text-white uppercase tracking-wider bg-white/10 hover:bg-white/15 rounded-lg border border-white/10 transition-all"
+            >
+              ${translateText("clan_modal.create_button")}
+            </button>
+          </div>
         </div>
       `;
     }

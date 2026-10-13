@@ -20,6 +20,8 @@ export const RATE_LIMITS = Object.freeze({
   publicRead: { max: 240, windowMs: 60 * 1000 },
   /** Store purchases, per account (plan section 14.3). */
   purchase: { max: 20, windowMs: 60 * 1000 },
+  /** Clan changes (create, join, manage), per account (plan section 14.3). */
+  clanWrite: { max: 20, windowMs: 60_000 },
   /** Account deletion requests, per client address. */
   accountDeletion: { max: 5, windowMs: 60 * 60 * 1000 },
 } as const satisfies Record<string, RateLimit>);
@@ -80,6 +82,7 @@ export function createLimiters(
     refresh: make("refresh"),
     publicRead: make("publicRead"),
     purchase: make("purchase"),
+    clanWrite: make("clanWrite"),
     accountDeletion: make("accountDeletion"),
   };
 }

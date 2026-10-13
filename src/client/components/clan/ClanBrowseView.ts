@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { type ClanBrowseResponse, fetchClans } from "../../ClanApi";
 import { translateText } from "../../Utils";
 import "./ClanCard";
+import "./ClanCreateForm";
 import { type ClanRole, renderLoadingSpinner } from "./ClanShared";
 
 export interface BrowseState {
@@ -20,6 +21,12 @@ export class ClanBrowseView extends LitElement {
   @property({ type: Object }) myClanRoles: Map<string, ClanRole> = new Map();
   @property({ type: Array }) myPendingRequests: { tag: string }[] = [];
   @property({ type: Object }) cachedState: BrowseState | null = null;
+  /** Whether to offer "Create clan" (a signed-in player who is in no clan). */
+  @property({ type: Boolean }) canCreate = false;
+  /** Open with the create form already showing. */
+  @property({ type: Boolean }) openCreate = false;
+
+  @state() private creating = false;
 
   @state() private searchQuery = "";
   @state() private browseData: ClanBrowseResponse | null = null;
@@ -73,8 +80,13 @@ export class ClanBrowseView extends LitElement {
     }, 400);
   }
 
+  protected willUpdate(changed: Map<string, unknown>) {
+    if (changed.has("openCreate") && this.openCreate) this.creating = true;
+  }
+
   connectedCallback() {
     super.connectedCallback();
+    if (this.openCreate) this.creating = true;
     if (this.cachedState?.data) {
       this.browseData = this.cachedState.data;
       this.browsePage = this.cachedState.page;
@@ -102,6 +114,19 @@ export class ClanBrowseView extends LitElement {
 
     return html`
       <div class="space-y-4">
+        ${this.canCreate
+          ? this.creating
+            ? html`<clan-create-form
+                @create-cancel=${() => (this.creating = false)}
+              ></clan-create-form>`
+            : html`<button
+                data-create-clan-start
+                @click=${() => (this.creating = true)}
+                class="w-full px-4 py-3 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright rounded-xl transition-all"
+              >
+                ${translateText("clan_modal.create_button")}
+              </button>`
+          : ""}
         <div class="relative">
           <input
             type="text"

@@ -9,6 +9,15 @@ import { translateText } from "../../Utils";
 // `clanmap:ready` on load, ~1 min before its JWT expires and after any API
 // 401; the parent answers with `clanmap:auth` carrying the current JWT. A
 // viewer without an account gets no reply and the map stays read-only.
+/**
+ * Whether DeltaFront has a clan map to show. It does not: the page is a
+ * separate service (`clanmap.<audience>`) that is not part of this project, so
+ * the Map tab is left out until one exists (flip this, or read it from config).
+ */
+export function clanMapEnabled(): boolean {
+  return false;
+}
+
 export function clanMapOrigin(): string {
   const aud = getAudience();
   return aud === "localhost"

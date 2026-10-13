@@ -22,7 +22,7 @@
     "admin": "tsx src/account-api/admin/cli.ts",
     "start:account-api-dev": "cross-env GAME_ENV=dev tsx src/account-api/index.ts",
     "account-api:dev-setup": "npm run account-api:migrate && cross-env GAME_ENV=dev API_KEY=WARNING_DEV_API_KEY_DO_NOT_USE_IN_PRODUCTION tsx src/account-api/admin/cli.ts server:key:create dev --from-env API_KEY",
-    "dev:accounts": "cross-env GAME_ENV=dev DF_ACCOUNT_FEATURES=accounts,leaderboards,inventory,store concurrently \"npm run start:client\" \"npm run start:server-dev\" \"npm run start:account-api-dev\"",
+    "dev:accounts": "cross-env GAME_ENV=dev DF_ACCOUNT_FEATURES=accounts,leaderboards,inventory,store,clans concurrently \"npm run start:client\" \"npm run start:server-dev\" \"npm run start:account-api-dev\"",
     "dev": "cross-env GAME_ENV=dev concurrently \"npm run start:client\" \"npm run start:server-dev\"",
     "dev:host": "cross-env GAME_ENV=dev VITE_HOST=lan concurrently \"npm run start:client\" \"npm run start:server-dev\"",
     "docs:map-generator": "cd map-generator && go doc -cmd -u -all",

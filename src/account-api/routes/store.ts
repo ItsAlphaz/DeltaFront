@@ -1,15 +1,10 @@
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-  type Router,
-} from "express";
+import express, { type Router } from "express";
 import { z } from "zod";
 import { ASSET_ROUTE, type Catalog } from "../catalog/load";
 import { findOffer } from "../catalog/offer";
 import { purchaseOffer } from "../domain/economy";
 import { activeBan, getUser } from "../repo/users";
-import { authenticate, type AppDeps } from "./common";
+import { authenticate, jsonBody, type AppDeps } from "./common";
 
 /**
  * The cosmetic catalog and its assets (docs/DeltaFrontAccountsPlan.md section
@@ -76,20 +71,6 @@ const PurchaseBody = z.object({
   currencyType: z.enum(["soft", "hard"]),
   colorPaletteName: z.string().regex(NAME).optional(),
 });
-
-/** express.json, but a malformed body is the caller's mistake (400), not ours (500). */
-function jsonBody(limit: string) {
-  const parse = express.json({ limit });
-  return (req: Request, res: Response, next: NextFunction): void => {
-    parse(req, res, (error?: unknown) => {
-      if (error !== undefined && error !== null) {
-        res.status(400).json({ reason: "Invalid request" });
-        return;
-      }
-      next();
-    });
-  };
-}
 
 /**
  * `POST /shop/purchase`: spend Credits on a catalog item (plan section 9.4).

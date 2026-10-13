@@ -1,4 +1,8 @@
-import type { Request } from "express";
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import type { Pool } from "pg";
 import type { KeyRing } from "../auth/keys";
 import type { OAuthProviders } from "../auth/oauth/providers";
@@ -9,6 +13,7 @@ import {
 } from "../auth/tokens";
 import type { Catalog } from "../catalog/load";
 import type { AccountApiConfig } from "../config";
+import type { ReservedClanNames } from "../domain/clans";
 import type { Limiters } from "../limits";
 import type { Logger } from "../logger";
 import { isFamilyActive } from "../repo/sessions";
@@ -26,6 +31,8 @@ export interface AppDeps {
   turnstile: Turnstile;
   /** The cosmetic catalog; null when no feature uses it. */
   catalog: Catalog | null;
+  /** Reserved clan tags and names (clans/reserved.json). */
+  reserved: ReservedClanNames;
 }
 
 /** Cookies are Secure everywhere except plain-http dev. */
@@ -60,4 +67,18 @@ export async function authenticate(
   if (claims.sid === null || !(await isFamilyActive(deps.pool, claims.sid)))
     return null;
   return claims;
+}
+
+/** express.json, but a malformed body is the caller's mistake (400), not ours (500). */
+export function jsonBody(limit: string) {
+  const parse = express.json({ limit });
+  return (req: Request, res: Response, next: NextFunction): void => {
+    parse(req, res, (error?: unknown) => {
+      if (error !== undefined && error !== null) {
+        res.status(400).json({ reason: "Invalid request" });
+        return;
+      }
+      next();
+    });
+  };
 }

@@ -53,6 +53,26 @@ export const CLAN_RULES = deepFreeze({
   disbandedTagHoldDays: 90,
   /** Days between clan renames. */
   nameChangeCooldownDays: 30,
+  /** Clan names are this many characters (after whitespace is collapsed). */
+  nameMinLength: 3,
+  nameMaxLength: 35,
+  /** The longest clan description. */
+  descriptionMaxLength: 200,
+  /** The longest reason attached to a clan ban. */
+  banReasonMaxLength: 200,
+  /** Rows per page when the caller does not say, and the most it may ask for. */
+  defaultPageSize: 20,
+  maxPageSize: 50,
+  /** The furthest page any clan list serves. */
+  maxPage: 1_000,
+  /** Games per page of a clan's game history. */
+  gamesPageSize: 20,
+  /** Days the clan leaderboard looks back. */
+  leaderboardDays: 30,
+  /** Counted public games a clan needs in that window to be listed. */
+  leaderboardMinClanGames: 1,
+  /** Clans the leaderboard lists. */
+  leaderboardSize: 50,
 } as const);
 
 /**

@@ -14,6 +14,7 @@ import {
   type AdminIo,
 } from "../../src/account-api/admin/commands";
 import type { Turnstile } from "../../src/account-api/turnstile";
+import { makeUser, type TestUser } from "./util/games";
 import {
   call,
   completeLogin,
@@ -137,6 +138,7 @@ async function join(
     gitCommit?: string;
     waitMs?: number;
     cosmetics?: PlayerCosmeticRefs;
+    clanTag?: string | null;
   } = {},
 ): Promise<JoinOutcome> {
   const ws = new WebSocket("ws://localhost:3001/w0");
@@ -160,7 +162,7 @@ async function join(
         token,
         gameID,
         username: options.username ?? "Tester",
-        clanTag: null,
+        clanTag: options.clanTag ?? null,
         cosmetics: options.cosmetics,
         turnstileToken:
           options.turnstileToken === undefined
@@ -600,10 +602,13 @@ describeDb(
       await h?.close();
     });
 
-    it("loaded the DeltaFront catalog from the account API (no clan tags yet)", () => {
-      expect(server.output()).toMatch(
-        /Privilege checker loaded successfully \(0 reserved clan tags\)/,
-      );
+    it("loaded the DeltaFront catalog and the reserved tag list from the account API", () => {
+      const m =
+        /Privilege checker loaded successfully \((\d+) reserved clan tags\)/.exec(
+          server.output(),
+        );
+      // no clan exists yet: these are the reserved names alone
+      expect(Number(m![1])).toBeGreaterThan(0);
     });
 
     it("admits the free pattern for a guest who owns nothing else", async () => {
@@ -852,5 +857,278 @@ describeDb(
     it("never contacted an OpenFront host while loading the catalog or checking joins", () => {
       expect(server.output()).not.toMatch(/openfront\.(io|dev)/i);
     });
+  },
+);
+
+interface Entrant {
+  token: string;
+  username: string;
+  clanTag?: string | null;
+}
+
+/**
+ * Puts the entrants in one private game, starts it from the first one (the
+ * creator) and returns who the server says is playing: the roster of the
+ * `start` message every client receives, with the clan tag the server settled on.
+ */
+async function playLobby(
+  gameID: string,
+  entrants: Entrant[],
+): Promise<Array<{ username: string; clanTag: string | null | undefined }>> {
+  const sockets = await Promise.all(
+    entrants.map(async (e) => {
+      const ws = new WebSocket("ws://localhost:3001/w0");
+      const messages: ReturnType<typeof decodeServerMessage>[] = [];
+      let closed: { code: number; reason: string } | null = null;
+      ws.on("message", (data: Buffer) => {
+        try {
+          messages.push(decodeServerMessage(data, undefined));
+        } catch {
+          // frames after the start use the roster table; only the start matters here
+        }
+      });
+      ws.on("close", (code, reason) => {
+        closed = { code, reason: reason.toString() };
+      });
+      await new Promise<void>((resolve, reject) => {
+        ws.once("open", () => resolve());
+        ws.once("error", reject);
+      });
+      ws.send(
+        encodeClientMessage(
+          {
+            type: "join",
+            token: e.token,
+            gameID,
+            username: e.username,
+            clanTag: e.clanTag ?? null,
+            turnstileToken: "good",
+            gitCommit: COMMIT,
+          } as never,
+          undefined,
+        ),
+      );
+      return { ws, messages, closed: () => closed };
+    }),
+  );
+  try {
+    for (
+      let i = 0;
+      i < 60 &&
+      !sockets.every((s) => s.messages.some((m) => m.type === "lobby_info"));
+      i++
+    ) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    sockets[0].ws.send(
+      encodeClientMessage(
+        {
+          type: "intent",
+          intent: { type: "toggle_game_start_timer" },
+        } as never,
+        undefined,
+      ),
+    );
+    let start:
+      | Extract<ReturnType<typeof decodeServerMessage>, { type: "start" }>
+      | undefined;
+    for (let i = 0; i < 200 && start === undefined; i++) {
+      start = sockets[sockets.length - 1].messages.find(
+        (m) => m.type === "start",
+      ) as typeof start;
+      if (start === undefined) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (start === undefined) {
+      throw new Error(
+        `no start message; closes: ${JSON.stringify(sockets.map((s) => s.closed()))}`,
+      );
+    }
+    return start.gameStartInfo.players.map((p) => ({
+      username: p.username,
+      clanTag: p.clanTag,
+    }));
+  } finally {
+    for (const s of sockets) s.ws.close();
+  }
+}
+
+describeDb(
+  "clan tags at join, with the real game server and the real clan API (clans feature)",
+  () => {
+    let h: Harness;
+    let server: GameServer;
+    let n = 0;
+
+    const post = (u: { jwt: string }, route: string, body?: unknown) =>
+      call(h, route, {
+        method: "POST",
+        bearer: u.jwt,
+        origin: null,
+        ...(body === undefined ? {} : { json: body }),
+      });
+
+    /** A registered, clan-eligible account (old enough, ten completed games). */
+    async function player(): Promise<TestUser> {
+      const u = await makeUser(h, "registered");
+      await h.db.pool.query(
+        "UPDATE users SET created_at = now() - interval '10 days' WHERE id = $1",
+        [u.id],
+      );
+      await h.db.pool.query(
+        `WITH gs AS (
+           INSERT INTO games (game_code, source, type, started_at, ended_at, duration_s, human_players, counts_for_stats)
+           SELECT 'clj' || ${++n} || k, 'server', 'Public', now() - interval '10 minutes', now(), 600, 2, true
+             FROM generate_series(1, 10) k RETURNING id)
+         INSERT INTO game_players (game_id, client_id, user_id, username, result, completed)
+         SELECT id, 'p1', $1, 'x', 'victory', true FROM gs`,
+        [u.id],
+      );
+      return u;
+    }
+    const gameFor = async (u: TestUser) => (await createGame(u.jwt)).gameID!;
+
+    beforeAll(async () => {
+      for (const port of [8787, 3000, 3001]) {
+        if (!(await portFree(port)))
+          throw new Error(
+            `port ${port} is in use: stop other servers and rerun.`,
+          );
+      }
+      h = await startHarness({
+        fixedPort: 8787,
+        turnstile,
+        features: "accounts,inventory,clans",
+        limits: {
+          guestCreation: { max: 1000, windowMs: 60_000 },
+          clanWrite: { max: 1000, windowMs: 60_000 },
+        },
+      });
+      const key = await createServerKey(h, "e2e-clans-key-0123456789abcdef");
+      server = await startGameServer(key, {
+        DF_ACCOUNT_FEATURES: "accounts,inventory,clans",
+      });
+      const deadline = Date.now() + 30_000;
+      while (
+        !/Privilege checker loaded successfully \(\d+ reserved clan tags\)/.test(
+          server.output(),
+        )
+      ) {
+        if (Date.now() > deadline)
+          throw new Error(
+            `the game server never loaded the tags:\n${server.output().slice(-2500)}`,
+          );
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }, 120_000);
+    afterAll(async () => {
+      await server?.stop();
+      await h?.close();
+    });
+
+    it("loaded the reserved list from the account API", () => {
+      const m =
+        /Privilege checker loaded successfully \((\d+) reserved clan tags\)/.exec(
+          server.output(),
+        );
+      expect(Number(m![1])).toBeGreaterThan(0);
+    });
+
+    it("a member's real tag appears in the game, and another player sees it", async () => {
+      const leader = await player();
+      const tag = `E${(++n).toString(36).toUpperCase().padStart(2, "0")}`;
+      expect(
+        (await post(leader, "/clans", { name: `E2E Clan ${tag}`, tag })).status,
+      ).toBe(201);
+      const watcher = await newGuest(h);
+      const roster = await playLobby(await gameFor(leader), [
+        { token: leader.jwt, username: "Wearer", clanTag: tag },
+        { token: watcher.jwt, username: "Watcher" },
+      ]);
+      expect(roster.find((p) => p.username === "Wearer")?.clanTag).toBe(tag);
+      expect(
+        roster.find((p) => p.username === "Watcher")?.clanTag ?? null,
+      ).toBeNull();
+    }, 60_000);
+
+    it("a forged tag is dropped: a non-member wearing a real clan's tag (even one created after the server's last refresh), or a reserved one, gets none", async () => {
+      const leader = await player();
+      const tag = `F${(++n).toString(36).toUpperCase().padStart(2, "0")}`;
+      await post(leader, "/clans", { name: `Forgery Target ${tag}`, tag });
+      const impostor = await newGuest(h);
+      const reserved = await newGuest(h);
+      const plain = await newGuest(h);
+      const roster = await playLobby(await gameFor(leader), [
+        { token: leader.jwt, username: "Leader", clanTag: tag },
+        {
+          token: impostor.jwt,
+          username: "Imposter",
+          clanTag: tag.toLowerCase(),
+        },
+        { token: reserved.jwt, username: "Reserved", clanTag: "ADMIN" },
+        { token: plain.jwt, username: "Plain" },
+      ]);
+      expect(roster.find((p) => p.username === "Leader")?.clanTag).toBe(tag);
+      expect(
+        roster.find((p) => p.username === "Imposter")?.clanTag ?? null,
+      ).toBeNull();
+      expect(
+        roster.find((p) => p.username === "Reserved")?.clanTag ?? null,
+      ).toBeNull();
+      expect(
+        roster.find((p) => p.username === "Plain")?.clanTag ?? null,
+      ).toBeNull();
+    }, 60_000);
+
+    it("a tag nobody has registered is a free, fictional tag and is kept (the existing design)", async () => {
+      const u = await newGuest(h);
+      const roster = await playLobby(
+        await gameFor({ jwt: u.jwt } as TestUser),
+        [{ token: u.jwt, username: "Fiction", clanTag: "ZQX" }],
+      );
+      expect(roster[0].clanTag).toBe("ZQX");
+    }, 60_000);
+
+    it("after leaving or being kicked, the old tag is dropped at the next join", async () => {
+      const leader = await player();
+      const tag = `L${(++n).toString(36).toUpperCase().padStart(2, "0")}`;
+      await post(leader, "/clans", { name: `Leavers ${tag}`, tag });
+      const leaver = await player();
+      const kicked = await player();
+      for (const u of [leaver, kicked])
+        expect((await post(u, `/clans/${tag}/join`)).status).toBe(200);
+      const before = await playLobby(await gameFor(leader), [
+        { token: leader.jwt, username: "Boss", clanTag: tag },
+        { token: leaver.jwt, username: "Leaver", clanTag: tag },
+        { token: kicked.jwt, username: "Kicked", clanTag: tag },
+      ]);
+      for (const name of ["Boss", "Leaver", "Kicked"])
+        expect(before.find((p) => p.username === name)?.clanTag, name).toBe(
+          tag,
+        );
+
+      expect((await post(leaver, `/clans/${tag}/leave`)).status).toBe(200);
+      const me = (await (
+        await call(h, "/users/@me", { bearer: kicked.jwt, origin: null })
+      ).json()) as { player: { publicId: string } };
+      expect(
+        (
+          await post(leader, `/clans/${tag}/kick`, {
+            targetPublicId: me.player.publicId,
+          })
+        ).status,
+      ).toBe(200);
+      const after = await playLobby(await gameFor(leader), [
+        { token: leader.jwt, username: "Boss", clanTag: tag },
+        { token: leaver.jwt, username: "Leaver", clanTag: tag },
+        { token: kicked.jwt, username: "Kicked", clanTag: tag },
+      ]);
+      expect(after.find((p) => p.username === "Boss")?.clanTag).toBe(tag);
+      expect(
+        after.find((p) => p.username === "Leaver")?.clanTag ?? null,
+      ).toBeNull();
+      expect(
+        after.find((p) => p.username === "Kicked")?.clanTag ?? null,
+      ).toBeNull();
+    }, 90_000);
   },
 );

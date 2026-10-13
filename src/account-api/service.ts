@@ -19,6 +19,7 @@ import type { AccountApiConfig } from "./config";
 import { describeConfig } from "./config";
 import { loadMigrationFiles, migrationStatus } from "./db/migrator";
 import { createPool } from "./db/pool";
+import { loadReservedClanNames } from "./domain/clans";
 import { runMaintenance } from "./domain/lifecycle";
 import { startLeaderboardJob } from "./jobs/leaderboard";
 import { createLimiters, type RateLimit, type RateLimitName } from "./limits";
@@ -112,6 +113,8 @@ export async function buildBackend(
           dir: overrides.catalogDir,
         })
       : null,
+    // The reserved clan tags and names, checked once like the catalog.
+    reserved: loadReservedClanNames(),
     turnstile:
       overrides.turnstile ??
       createTurnstile({
