@@ -1,6 +1,8 @@
 // @vitest-environment node
+import type { PlayerCosmeticRefs } from "@openfront/shared/WireSchemas";
 import {
   decodeLobbyMessage,
+  decodeServerMessage,
   encodeClientMessage,
 } from "@openfront/shared/ZbinWire";
 import type { ChildProcess } from "node:child_process";
@@ -39,11 +41,12 @@ import { describeDb } from "./util/testDb";
  */
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
-const CLOSE = { Unauthorized: 4001, Banned: 4003 } as const;
+const CLOSE = { Unauthorized: 4001, Forbidden: 4002, Banned: 4003 } as const;
 const REASON = {
   InvalidToken: "close_reason.invalid_token",
   TurnstileFailed: "close_reason.turnstile_failed",
   Banned: "close_reason.banned",
+  CosmeticsForbidden: "close_reason.cosmetics_forbidden",
 } as const;
 
 async function portFree(port: number): Promise<boolean> {
@@ -133,6 +136,7 @@ async function join(
     username?: string;
     gitCommit?: string;
     waitMs?: number;
+    cosmetics?: PlayerCosmeticRefs;
   } = {},
 ): Promise<JoinOutcome> {
   const ws = new WebSocket("ws://localhost:3001/w0");
@@ -157,6 +161,7 @@ async function join(
         gameID,
         username: options.username ?? "Tester",
         clanTag: null,
+        cosmetics: options.cosmetics,
         turnstileToken:
           options.turnstileToken === undefined
             ? "good"
@@ -508,5 +513,298 @@ describeDb(
       }
       expect(state).toBe("fenced");
     }, 60_000);
+  },
+);
+
+describeDb(
+  "cosmetics at join, with the real game server and the real catalog (inventory feature)",
+  () => {
+    let h: Harness;
+    let server: GameServer;
+    const FREE_PATTERN: PlayerCosmeticRefs = {
+      patternName: "delta_stripes",
+      patternColorPaletteName: "ash",
+    };
+
+    /** A guest with the given items granted by the admin command. */
+    async function player(grants: string[] = []) {
+      const guest = await newGuest(h);
+      const me = (await (
+        await call(h, "/users/@me", { bearer: guest.jwt, origin: null })
+      ).json()) as { player: { publicId: string } };
+      for (const flare of grants) {
+        const r = await runAdminCommand(
+          h.db.pool,
+          ["item:grant", me.player.publicId, flare],
+          io,
+        );
+        expect(r).toBe(0);
+      }
+      return { ...guest, publicId: me.player.publicId };
+    }
+
+    async function admitted(
+      grants: string[],
+      cosmetics: PlayerCosmeticRefs,
+    ): Promise<JoinOutcome> {
+      const p = await player(grants);
+      const { gameID } = await createGame(p.jwt);
+      return join(gameID!, p.jwt, { cosmetics });
+    }
+
+    beforeAll(async () => {
+      for (const port of [8787, 3000, 3001]) {
+        if (!(await portFree(port))) {
+          throw new Error(
+            `port ${port} is in use: stop other servers and rerun.`,
+          );
+        }
+      }
+      h = await startHarness({
+        fixedPort: 8787,
+        turnstile,
+        features: "accounts,inventory",
+        // These tests create many guests from one address.
+        limits: { guestCreation: { max: 1000, windowMs: 60_000 } },
+      });
+      const key = await createServerKey(h, "e2e-cosmetics-key-0123456789ab");
+      server = await startGameServer(key, {
+        DF_ACCOUNT_FEATURES: "accounts,inventory",
+      });
+      // Until the server has loaded the catalog it deliberately strips every
+      // cosmetic instead of checking it, so wait for the first load.
+      const deadline = Date.now() + 30_000;
+      while (!server.output().includes("Privilege checker loaded")) {
+        if (Date.now() > deadline) {
+          throw new Error(
+            `the game server never loaded the catalog:\n${server.output().slice(-2500)}`,
+          );
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }, 120_000);
+
+    afterAll(async () => {
+      await server?.stop();
+      await h?.close();
+    });
+
+    it("loaded the DeltaFront catalog from the account API (no clan tags yet)", () => {
+      expect(server.output()).toMatch(
+        /Privilege checker loaded successfully \(0 reserved clan tags\)/,
+      );
+    });
+
+    it("admits the free pattern for a guest who owns nothing else", async () => {
+      const outcome = await admitted([], FREE_PATTERN);
+      expect(outcome.closed).toBeNull();
+      expect(outcome.messages).toBeGreaterThan(0);
+    }, 30_000);
+
+    it("admits an owned flag, pattern and effect together", async () => {
+      const outcome = await admitted(
+        ["flag:delta_mark", "pattern:grid_check:ember", "effect:red_wake"],
+        {
+          flag: "flag:delta_mark",
+          patternName: "grid_check",
+          patternColorPaletteName: "ember",
+          effects: { transportShipTrail: "red_wake" },
+        },
+      );
+      expect(outcome.closed, server.output().slice(-1500)).toBeNull();
+      expect(outcome.messages).toBeGreaterThan(0);
+    }, 30_000);
+
+    it.each([
+      ["a flag the account does not own", { flag: "flag:split_field" }],
+      [
+        "a pattern it does not own",
+        { patternName: "grid_check", patternColorPaletteName: "ember" },
+      ],
+      [
+        "a paid palette of the free pattern",
+        { patternName: "delta_stripes", patternColorPaletteName: "ember" },
+      ],
+      [
+        "the free pattern without its palette (a different flare)",
+        { patternName: "delta_stripes" },
+      ],
+      [
+        "an effect it does not own",
+        { effects: { transportShipTrail: "red_wake" } },
+      ],
+      ["an item that is not in the catalog", { flag: "flag:made_up" }],
+      ["a wildcard flag", { flag: "flag:*" }],
+      ["a skin (the catalog has none)", { skinName: "delta_stripes" }],
+      ["a crown (the catalog has none)", { crownName: "gold" }],
+      ["a colour it was never sold", { color: "#ff0000" }],
+    ] as Array<[string, PlayerCosmeticRefs]>)(
+      "refuses a join that claims %s",
+      async (_what, cosmetics) => {
+        const outcome = await admitted([], cosmetics);
+        expect(outcome.messages).toBe(0);
+        expect(outcome.closed).toEqual({
+          code: CLOSE.Forbidden,
+          reason: REASON.CosmeticsForbidden,
+        });
+      },
+      30_000,
+    );
+
+    it("refuses a malformed cosmetic name before it is ever looked up", async () => {
+      const outcome = await admitted([], { patternName: "*" });
+      // The message does not even parse, so the player is told and dropped.
+      expect(outcome.closed).not.toBeNull();
+    }, 30_000);
+
+    it("refuses an effect owned for a different slot", async () => {
+      const outcome = await admitted(["effect:red_wake"], {
+        effects: { nukeTrail: "red_wake" },
+      });
+      expect(outcome.closed?.reason).toBe(REASON.CosmeticsForbidden);
+    }, 30_000);
+
+    it("does not accept another account's item", async () => {
+      await player(["flag:delta_mark"]); // someone else owns it
+      const outcome = await admitted([], { flag: "flag:delta_mark" });
+      expect(outcome.closed?.reason).toBe(REASON.CosmeticsForbidden);
+    }, 30_000);
+
+    it("refuses an item the moment the admin revokes it", async () => {
+      const p = await player(["flag:split_field"]);
+      const { gameID } = await createGame(p.jwt);
+      const ok = await join(gameID!, p.jwt, {
+        cosmetics: { flag: "flag:split_field" },
+      });
+      expect(ok.closed).toBeNull();
+      expect(
+        await runAdminCommand(
+          h.db.pool,
+          ["item:revoke", p.publicId, "flag:split_field", "--yes"],
+          io,
+        ),
+      ).toBe(0);
+      const second = await createGame(p.jwt);
+      const refused = await join(second.gameID!, p.jwt, {
+        cosmetics: { flag: "flag:split_field" },
+      });
+      expect(refused.closed?.reason).toBe(REASON.CosmeticsForbidden);
+    }, 30_000);
+
+    it("lets a player with no cosmetics selected play, and country flags need no ownership", async () => {
+      const bare = await admitted([], {});
+      expect(bare.closed).toBeNull();
+      const country = await admitted([], { flag: "country:fr" });
+      expect(country.closed).toBeNull();
+    }, 30_000);
+
+    it("shows an owned cosmetic to the other players in the game, and nothing they were not given", async () => {
+      const alice = await player([
+        "flag:delta_mark",
+        "pattern:grid_check:ember",
+      ]);
+      const bob = await player();
+      const { gameID } = await createGame(alice.jwt);
+
+      // Two live connections: they collect every server message.
+      const open = async (
+        token: string,
+        username: string,
+        cosmetics: PlayerCosmeticRefs,
+      ) => {
+        const ws = new WebSocket("ws://localhost:3001/w0");
+        const messages: ReturnType<typeof decodeServerMessage>[] = [];
+        ws.on("message", (data: Buffer) => {
+          try {
+            messages.push(decodeServerMessage(data, undefined));
+          } catch {
+            // later frames use the roster table; only the start message matters here
+          }
+        });
+        await new Promise<void>((resolve, reject) => {
+          ws.once("open", () => resolve());
+          ws.once("error", reject);
+        });
+        ws.send(
+          encodeClientMessage(
+            {
+              type: "join",
+              token,
+              gameID: gameID!,
+              username,
+              clanTag: null,
+              cosmetics,
+              turnstileToken: "good",
+              gitCommit: COMMIT,
+            } as never,
+            undefined,
+          ),
+        );
+        return { ws, messages };
+      };
+      const a = await open(alice.jwt, "Alice", {
+        flag: "flag:delta_mark",
+        patternName: "grid_check",
+        patternColorPaletteName: "ember",
+      });
+      const b = await open(bob.jwt, "Bob", FREE_PATTERN);
+      try {
+        // The creator starts the lobby.
+        for (
+          let i = 0;
+          i < 40 && !b.messages.some((m) => m.type === "lobby_info");
+          i++
+        ) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        a.ws.send(
+          encodeClientMessage(
+            {
+              type: "intent",
+              intent: { type: "toggle_game_start_timer" },
+            } as never,
+            undefined,
+          ),
+        );
+        let start:
+          | Extract<ReturnType<typeof decodeServerMessage>, { type: "start" }>
+          | undefined;
+        for (let i = 0; i < 150 && start === undefined; i++) {
+          start = b.messages.find((m) => m.type === "start") as typeof start;
+          if (start === undefined) await new Promise((r) => setTimeout(r, 100));
+        }
+        expect(start, server.output().slice(-1500)).toBeDefined();
+
+        const catalog = (await (
+          await fetch("http://localhost:8787/cosmetics.json")
+        ).json()) as {
+          flags: Record<string, { url: string }>;
+          patterns: Record<string, { pattern: string }>;
+          colorPalettes: Record<string, unknown>;
+        };
+        const players = start!.gameStartInfo.players;
+        const seenAlice = players.find((p) => p.username === "Alice")!;
+        const seenBob = players.find((p) => p.username === "Bob")!;
+        expect(seenAlice.cosmetics?.flag).toBe(catalog.flags.delta_mark.url);
+        expect(seenAlice.cosmetics?.pattern).toEqual({
+          name: "grid_check",
+          patternData: catalog.patterns.grid_check.pattern,
+          colorPalette: catalog.colorPalettes.ember,
+        });
+        // Bob wore only the free pattern: he shows that, and no flag.
+        expect(seenBob.cosmetics?.pattern?.name).toBe("delta_stripes");
+        expect(seenBob.cosmetics?.pattern?.colorPalette).toEqual(
+          catalog.colorPalettes.ash,
+        );
+        expect(seenBob.cosmetics?.flag).toBeUndefined();
+      } finally {
+        a.ws.close();
+        b.ws.close();
+      }
+    }, 60_000);
+
+    it("never contacted an OpenFront host while loading the catalog or checking joins", () => {
+      expect(server.output()).not.toMatch(/openfront\.(io|dev)/i);
+    });
   },
 );

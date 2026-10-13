@@ -1,5 +1,8 @@
 import { ID, isValidGameID } from "@openfront/engine-api/Schemas";
-import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
+import {
+  ACCOUNT_FEATURES,
+  usesCosmeticCatalog,
+} from "@openfront/shared/AccountFeatures";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import { generateID, replacer } from "@openfront/shared/SharedUtil";
@@ -127,7 +130,7 @@ export async function startWorker() {
   // The cosmetics catalog and reserved clan tags come from the account
   // backend. Without those features nothing is loaded and get() keeps
   // answering with the fail-open checker, as it does before the first load.
-  if (ACCOUNT_FEATURES.store || ACCOUNT_FEATURES.clans) {
+  if (usesCosmeticCatalog(ACCOUNT_FEATURES)) {
     privilegeRefresher.start();
   }
 

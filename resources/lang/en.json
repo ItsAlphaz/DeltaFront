@@ -1294,7 +1294,7 @@
     "selected_cosmetic": "Selected {name}",
     "selected_cosmetic_variant": "{name} ({variant})",
     "showing_effects": "Effects equipped: {count}",
-    "sign_in_for_cosmetics": "Sign in or create an account to access your skins, crowns, and effects.",
+    "sign_in_for_cosmetics": "Sign in or create an account to access your cosmetics.",
     "title": "Inventory",
     "unequip": "Unequip",
     "unequip_all": "Unequip all",

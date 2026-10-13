@@ -105,22 +105,24 @@ export class MobileNavBar extends LitElement {
         ></button>
         ${ACCOUNT_FEATURES.store
           ? html`<div
-                class="no-crazygames nav-menu-item flex items-center w-full cursor-pointer"
-                data-page="page-item-store"
-                @click=${this._notifications.onStoreClick}
-              >
-                <button class="${MOBILE_ITEM}" data-i18n="main.store"></button>
-                ${this._notifications.showStoreDot()
-                  ? this._renderDot("bg-df-red-bright")
-                  : ""}
-              </div>
-              <button
-                class="${MOBILE_ITEM} ${currentPage === "page-inventory"
-                  ? "active"
-                  : ""}"
-                data-page="page-inventory"
-                data-i18n="main.inventory"
-              ></button>`
+              class="no-crazygames nav-menu-item flex items-center w-full cursor-pointer"
+              data-page="page-item-store"
+              @click=${this._notifications.onStoreClick}
+            >
+              <button class="${MOBILE_ITEM}" data-i18n="main.store"></button>
+              ${this._notifications.showStoreDot()
+                ? this._renderDot("bg-df-red-bright")
+                : ""}
+            </div>`
+          : ""}
+        ${ACCOUNT_FEATURES.inventory
+          ? html`<button
+              class="${MOBILE_ITEM} ${currentPage === "page-inventory"
+                ? "active"
+                : ""}"
+              data-page="page-inventory"
+              data-i18n="main.inventory"
+            ></button>`
           : ""}
         ${ACCOUNT_FEATURES.leaderboards
           ? html`<button

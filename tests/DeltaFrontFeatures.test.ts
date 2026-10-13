@@ -26,6 +26,7 @@ type Mountable = HTMLElement & { updateComplete: Promise<unknown> };
 const ALL_OFF = {
   accounts: false,
   store: false,
+  inventory: false,
   ranked: false,
   clans: false,
   leaderboards: false,
@@ -120,7 +121,8 @@ describe("navigation without an account backend", () => {
 
   it("brings each item back with its own feature", async () => {
     const cases: Array<[keyof typeof ALL_OFF, string[]]> = [
-      ["store", ["page-item-store", "page-inventory"]],
+      ["store", ["page-item-store"]],
+      ["inventory", ["page-inventory"]],
       ["leaderboards", ["page-leaderboard"]],
       ["clans", ["page-clan"]],
     ];

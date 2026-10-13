@@ -69,7 +69,8 @@ export class DesktopNavBar extends LitElement {
             data-i18n="main.play"
           ></button>
           <!-- Store, inventory, leaderboards and clans need the account
-               backend and are hidden without it (ACCOUNT_FEATURES). -->
+               backend and are each hidden until their feature is on
+               (ACCOUNT_FEATURES). -->
           ${ACCOUNT_FEATURES.store
             ? html`<div class="relative no-crazygames">
                 <button
@@ -90,7 +91,7 @@ export class DesktopNavBar extends LitElement {
                   : ""}
               </div>`
             : ""}
-          ${ACCOUNT_FEATURES.store
+          ${ACCOUNT_FEATURES.inventory
             ? html`<button
                 class="${NAV_ITEM} ${active("page-inventory")}"
                 data-page="page-inventory"

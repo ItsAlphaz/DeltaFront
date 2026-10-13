@@ -1,4 +1,7 @@
-import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
+import {
+  ACCOUNT_FEATURES,
+  usesCosmeticCatalog,
+} from "@openfront/shared/AccountFeatures";
 import {
   isGrantedSubscription,
   UserMeResponse,
@@ -854,9 +857,10 @@ export function invalidateCosmetics(): void {
 }
 
 export async function fetchCosmetics(): Promise<Cosmetics | null> {
-  // The catalog is served by the account backend. Without the store there is
-  // none, and every caller already treats null as "no cosmetics".
-  if (!ACCOUNT_FEATURES.store) return null;
+  // The catalog is served by the account backend. Without the inventory or
+  // the store there is none, and every caller already treats null as "no
+  // cosmetics".
+  if (!usesCosmeticCatalog(ACCOUNT_FEATURES)) return null;
   if (__cosmetics !== null) {
     return __cosmetics;
   }

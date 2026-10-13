@@ -20,8 +20,17 @@
 export interface AccountFeatures {
   /** Sign-in, profile, usernames, account settings, account-linked prompts. */
   accounts: boolean;
-  /** Store, inventory, cosmetics and purchases with Credits. */
+  /**
+   * The store page: buying cosmetics with Credits (milestone M5). Off until
+   * purchases exist, so the page is never shown with nothing to buy.
+   */
   store: boolean;
+  /**
+   * The DeltaFront cosmetic catalog and the inventory page: what a player
+   * owns, and equipping it. Needs `accounts` (ownership belongs to an
+   * account). The game server checks every equipped cosmetic against it.
+   */
+  inventory: boolean;
   /** Ranked matchmaking queue (and the server's matchmaking check-in). */
   ranked: boolean;
   /** Clans, clan tags and clan pages. */
@@ -50,6 +59,7 @@ export type AccountFeatureName = keyof AccountFeatures;
 export const ACCOUNT_FEATURE_NAMES = [
   "accounts",
   "store",
+  "inventory",
   "ranked",
   "clans",
   "leaderboards",
@@ -75,6 +85,7 @@ export function allFeaturesOff(): AccountFeatures {
   return {
     accounts: false,
     store: false,
+    inventory: false,
     ranked: false,
     clans: false,
     leaderboards: false,
@@ -176,6 +187,16 @@ if (initial.rejected.length > 0) {
 }
 
 export const ACCOUNT_FEATURES: AccountFeatures = initial.features;
+
+/**
+ * True when the cosmetic catalog is in use: the inventory, the store, or the
+ * game server's cosmetic and clan-tag checks (which read the catalog too).
+ */
+export function usesCosmeticCatalog(
+  features: AccountFeatures = ACCOUNT_FEATURES,
+): boolean {
+  return features.inventory || features.store || features.clans;
+}
 
 /** True when any feature that talks to the account API is switched on. */
 export function usesAccountApi(

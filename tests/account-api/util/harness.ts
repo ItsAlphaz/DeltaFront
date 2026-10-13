@@ -45,6 +45,8 @@ export interface HarnessOptions {
   withoutProviders?: Array<"discord" | "google">;
   oauthEndpoints?: Partial<Record<OAuthProviderId, OAuthEndpoints>>;
   keys?: KeyRing;
+  /** Read the cosmetic catalog from this directory. */
+  catalogDir?: string;
   /** Bind this port instead of a free one (the game server expects the API on 8787 in dev). */
   fixedPort?: number;
 }
@@ -172,6 +174,7 @@ export async function startHarness(
     turnstile: options.turnstile,
     limits: options.limits,
     oauthEndpoints: options.oauthEndpoints,
+    catalogDir: options.catalogDir,
   });
   return {
     db,

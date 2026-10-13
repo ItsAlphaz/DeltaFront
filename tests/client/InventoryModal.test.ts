@@ -966,9 +966,30 @@ describe("InventoryModal", () => {
         ?.disabled,
     ).toBe(true);
 
+    // A catalog without crowns (DeltaFront's V1 one) has no crowns slot at
+    // all, and a stale request for the tab shows the skins instead.
+    expect(loadout(modal).entries.map((entry) => entry.category)).not.toContain(
+      "crowns",
+    );
+    await showTab(modal, "crowns");
+    expect(modal.querySelector('[data-inventory-grid="crowns"]')).toBeNull();
+    expect(modal.querySelector('[data-inventory-grid="skins"]')).toBeTruthy();
+
+    // A catalog that has crowns, none of them owned, says so.
+    Object.assign(modal as unknown as Record<string, unknown>, {
+      cosmetics: {
+        ...emptyCatalog,
+        crowns: { locked: { ...common, name: "locked", url: "/c.svg" } },
+      },
+    });
+    modal.requestUpdate();
     await showTab(modal, "crowns");
     expect(card(modal, "crown:none")).toBeUndefined();
     expect(modal.querySelector('[data-inventory-empty="crowns"]')).toBeTruthy();
+    Object.assign(modal as unknown as Record<string, unknown>, {
+      cosmetics: emptyCatalog,
+    });
+    modal.requestUpdate();
 
     await showTab(modal, "effects");
     expect(card(modal, "effect:none:transportShipTrail")).toBeUndefined();

@@ -1,4 +1,9 @@
-import type { NextFunction, Request, Response } from "express";
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+  type Router,
+} from "express";
 import type { Pool } from "pg";
 import { sha256 } from "../http";
 
@@ -29,4 +34,28 @@ export function requireServerKey(pool: Pick<Pool, "query">) {
     }
     next();
   };
+}
+
+/**
+ * The game server's other lookups, which have nothing to list yet:
+ *  - the registered clan tags (`[]` until clans exist, milestone M6), which the
+ *    server's privilege refresher requires alongside the cosmetic catalog;
+ *  - the pool of purchased tribe names (`{ tribes: [] }`; custom tribe names
+ *    are not part of V1).
+ */
+export function serverLookupsRouter(pool: Pick<Pool, "query">): Router {
+  const router = express.Router();
+  const serverOnly = requireServerKey(pool);
+
+  router.get("/reserved_clan_tags", serverOnly, (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json([]);
+  });
+
+  router.post("/custom_tribes", serverOnly, (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ tribes: [] });
+  });
+
+  return router;
 }

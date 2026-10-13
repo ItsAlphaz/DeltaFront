@@ -1,4 +1,7 @@
-import { usesAccountApi } from "@openfront/shared/AccountFeatures";
+import {
+  usesAccountApi,
+  usesCosmeticCatalog,
+} from "@openfront/shared/AccountFeatures";
 import fs from "node:fs";
 import type { Server } from "node:http";
 import path from "node:path";
@@ -11,6 +14,7 @@ import {
   type OAuthProviderId,
 } from "./auth/oauth/providers";
 import { TokenService } from "./auth/tokens";
+import { loadCatalog } from "./catalog/load";
 import type { AccountApiConfig } from "./config";
 import { describeConfig } from "./config";
 import { loadMigrationFiles, migrationStatus } from "./db/migrator";
@@ -60,6 +64,8 @@ export interface ServiceOverrides {
   oauthEndpoints?: Partial<Record<OAuthProviderId, OAuthEndpoints>>;
   turnstile?: Turnstile;
   limits?: Partial<Record<RateLimitName, RateLimit>>;
+  /** Read the cosmetic catalog from here instead of `src/account-api/catalog`. */
+  catalogDir?: string;
 }
 
 /** How often the deletion and guest-cleanup jobs run. */
@@ -98,6 +104,14 @@ export async function buildBackend(
       overrides.fetchFn,
       overrides.oauthEndpoints,
     ),
+    // Checked once, here: a catalog with a mistake in it stops the API from
+    // starting (CatalogError) instead of failing when a player opens a page.
+    catalog: usesCosmeticCatalog(config.features)
+      ? loadCatalog({
+          publicOrigin: config.publicOrigin,
+          dir: overrides.catalogDir,
+        })
+      : null,
     turnstile:
       overrides.turnstile ??
       createTurnstile({

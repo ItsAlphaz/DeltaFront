@@ -24,6 +24,7 @@ beforeEach(() => {
   Object.assign(ACCOUNT_FEATURES, {
     accounts: true,
     store: true,
+    inventory: true,
     ranked: true,
     clans: true,
     leaderboards: true,

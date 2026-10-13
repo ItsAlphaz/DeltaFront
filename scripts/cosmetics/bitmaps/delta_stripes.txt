@@ -1,0 +1,9 @@
+// Delta Stripes: diagonal stripes. # = primary colour, . = secondary. Drawn for DeltaFront. Encode with scale 1.
+##..##..
+#..##..#
+..##..##
+.##..##.
+##..##..
+#..##..#
+..##..##
+.##..##.

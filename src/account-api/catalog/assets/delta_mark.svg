@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="60" viewBox="0 0 90 60">
+  <!-- Delta Mark: a red triangle on black. Original DeltaFront placeholder artwork. -->
+  <rect width="90" height="60" fill="#090909"/>
+  <path d="M45 10 L72 52 H18 Z" fill="#e31b23"/>
+</svg>

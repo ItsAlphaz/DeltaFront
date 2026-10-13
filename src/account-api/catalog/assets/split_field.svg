@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="60" viewBox="0 0 90 60">
+  <!-- Split Field: black and white halves with a red bar. Original DeltaFront placeholder artwork. -->
+  <rect width="45" height="60" fill="#090909"/>
+  <rect x="45" width="45" height="60" fill="#f5f5f5"/>
+  <rect y="24" width="90" height="12" fill="#e31b23"/>
+</svg>

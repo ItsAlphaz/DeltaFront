@@ -519,7 +519,7 @@ class Client {
         { tag: "troubleshooting-modal", pageId: "page-troubleshooting" },
       ],
       [
-        ACCOUNT_FEATURES.store,
+        ACCOUNT_FEATURES.inventory,
         "inventory",
         { tag: "inventory-modal", pageId: "page-inventory" },
       ],

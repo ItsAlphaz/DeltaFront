@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { ReactiveController, ReactiveControllerHost } from "lit";
 import version from "resources/version.txt?raw";
 import { getCosmeticsHash } from "../Cosmetics";
@@ -74,7 +75,11 @@ class NavNotificationsStore {
   }
 
   showStoreDot(): boolean {
-    return this._hasNewCosmetics && !this.showNewsDot();
+    // The dot sits on the Store nav item; without a store there is nothing to
+    // point at, and it must not hide the help dot either.
+    return (
+      ACCOUNT_FEATURES.store && this._hasNewCosmetics && !this.showNewsDot()
+    );
   }
 
   showHelpDot(): boolean {

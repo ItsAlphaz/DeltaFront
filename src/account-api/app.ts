@@ -1,4 +1,7 @@
-import { usesAccountApi } from "@openfront/shared/AccountFeatures";
+import {
+  usesAccountApi,
+  usesCosmeticCatalog,
+} from "@openfront/shared/AccountFeatures";
 import express, { type Express } from "express";
 import type { AccountApiConfig } from "./config";
 import { cors } from "./http";
@@ -11,6 +14,8 @@ import { gameRouter } from "./routes/game";
 import { joinVerifyRouter } from "./routes/joinVerify";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { profileRouter } from "./routes/profile";
+import { serverLookupsRouter } from "./routes/server";
+import { storeRouter } from "./routes/store";
 import { usersRouter } from "./routes/users";
 
 /**
@@ -23,6 +28,8 @@ import { usersRouter } from "./routes/users";
  *    and game history, the signing-key set and the game server's join
  *    verification;
  *  - `leaderboards`: the basic player leaderboard;
+ *  - `inventory` (or `store`, or `clans`): the cosmetic catalog and its
+ *    assets, and the lookups the game server's cosmetic checks need;
  *  - any feature: server discovery (check-in and the server list), the game
  *    archive and the news feeds, which the client and game server use as soon
  *    as they talk to the API at all.
@@ -69,6 +76,10 @@ export function createApp(deps: {
     }
     if (config.features.leaderboards) {
       app.use(leaderboardRouter(backend));
+    }
+    if (backend.catalog !== null && usesCosmeticCatalog(config.features)) {
+      app.use(storeRouter(backend.catalog));
+      app.use(serverLookupsRouter(backend.pool));
     }
     if (usesAccountApi(config.features)) {
       app.use(clusterRouter(backend));

@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import {
@@ -22,6 +23,7 @@ import {
   cosmeticSelectionLabel,
 } from "./components/CosmeticPresentation";
 import "./components/CosmeticPreviewModal";
+import "./components/CurrencyDisplay";
 import "./components/EffectsGrid";
 import "./components/InventoryLoadoutBar";
 import type {
@@ -351,6 +353,14 @@ export class InventoryModal extends BaseModal {
     );
   }
 
+  /**
+   * The crowns slot exists only while the catalog defines crowns: DeltaFront's
+   * V1 catalog has none, and an empty slot would only be a dead end.
+   */
+  private catalogHasCrowns(): boolean {
+    return Object.keys(this.cosmetics?.crowns ?? {}).length > 0;
+  }
+
   private loadoutEntries(): InventoryLoadoutEntry[] {
     const effects = this.equippedEffects();
     const entries: Array<{
@@ -375,12 +385,16 @@ export class InventoryModal extends BaseModal {
       },
     ];
     return [
-      ...entries.map(({ category, label, item }) => ({
-        category,
-        label,
-        items: item ? [item] : [],
-        summary: item ? cosmeticDisplayName(item) : "",
-      })),
+      ...entries
+        .filter(
+          ({ category }) => category !== "crowns" || this.catalogHasCrowns(),
+        )
+        .map(({ category, label, item }) => ({
+          category,
+          label,
+          items: item ? [item] : [],
+          summary: item ? cosmeticDisplayName(item) : "",
+        })),
       {
         category: "effects",
         label: translateText("store.effects"),
@@ -615,17 +629,27 @@ export class InventoryModal extends BaseModal {
     </div>`;
   }
 
-  protected renderHeaderSlot() {
-    const isLoggedIn = this.userMeResponse !== false;
-    return html`
-      <div
-        class="relative flex flex-col border-b border-white/10 pb-4 shrink-0"
-      >
-        ${modalHeader({
-          title: translateText("inventory.title"),
-          onBack: () => this.close(),
-          ariaLabel: translateText("common.back"),
-          rightContent: html`<o-button
+  /**
+   * The Credits balance and, when the account is not signed in, the way to
+   * sign in. The Store button is part of the store feature (milestone M5) and
+   * does not exist before it: the inventory never offers a purchase.
+   */
+  private renderHeaderActions(isLoggedIn: boolean): TemplateResult {
+    const credits =
+      this.userMeResponse === false
+        ? null
+        : (this.userMeResponse.player.currency?.soft ?? null);
+    const showStore = isLoggedIn && ACCOUNT_FEATURES.store;
+    const showSignIn = !isLoggedIn && ACCOUNT_FEATURES.accounts;
+    return html`<div class="flex items-center gap-4">
+      ${isLoggedIn && credits !== null
+        ? html`<currency-display
+            data-inventory-credits
+            .soft=${credits}
+          ></currency-display>`
+        : nothing}
+      ${showStore || showSignIn
+        ? html`<o-button
             data-inventory-header-action
             class="no-crazygames"
             variant=${isLoggedIn ? "primary" : "danger"}
@@ -641,7 +665,22 @@ export class InventoryModal extends BaseModal {
                 window.showPage?.("page-account");
               }
             }}
-          ></o-button>`,
+          ></o-button>`
+        : nothing}
+    </div>`;
+  }
+
+  protected renderHeaderSlot() {
+    const isLoggedIn = this.userMeResponse !== false;
+    return html`
+      <div
+        class="relative flex flex-col border-b border-white/10 pb-4 shrink-0"
+      >
+        ${modalHeader({
+          title: translateText("inventory.title"),
+          onBack: () => this.close(),
+          ariaLabel: translateText("common.back"),
+          rightContent: this.renderHeaderActions(isLoggedIn),
         })}
 
         <div class="md:flex items-center gap-2 justify-center mt-4">
@@ -717,7 +756,7 @@ export class InventoryModal extends BaseModal {
     let grid: TemplateResult;
     if (tab === "flags") {
       grid = html`${this.renderUnequip("flags")}${this.renderFlagGrid()}`;
-    } else if (tab === "crowns") {
+    } else if (tab === "crowns" && this.catalogHasCrowns()) {
       grid = html`${this.renderUnequip("crowns")}${this.renderCrownGrid()}`;
     } else if (tab === "effects") {
       // effects-grid raises its own per-type empty notice below its tab bar,

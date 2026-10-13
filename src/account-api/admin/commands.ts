@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 import type { Pool } from "pg";
+import { hasFlareShape, isWildcardFlare } from "../catalog/flares";
+import { loadCatalog, type Catalog } from "../catalog/load";
 import { withTransaction } from "../db/tx";
 import { sha256 } from "../http";
+import { flareRowsOf, grantFlare, revokeFlare } from "../repo/inventory";
 import { revokeAllForUser } from "../repo/sessions";
 import type { Db } from "../repo/users";
 
@@ -19,6 +22,8 @@ export interface AdminIo {
   env: Record<string, string | undefined>;
   /** Who is running this, for the audit log. */
   actor: string;
+  /** The cosmetic catalog item commands check against; the shipped one when absent. */
+  catalog?: Catalog;
 }
 
 export class AdminUsageError extends Error {
@@ -84,6 +89,9 @@ export const ADMIN_COMMANDS = [
   "user:unban <publicId>",
   "user:revoke-sessions <publicId> --yes",
   "user:role <publicId> <admin|mod|flagged|none> --yes",
+  "item:list <publicId>",
+  "item:grant <publicId> <flare>",
+  "item:revoke <publicId> <flare> --yes",
   "server:key:create <name> [--from-env <VAR>]",
   "server:key:list",
   "server:key:revoke <id> --yes",
@@ -115,6 +123,27 @@ async function userByPublicId(
   if (rows.length === 0)
     throw new AdminUsageError(`no user with public id ${publicId}`);
   return rows[0];
+}
+
+/** The catalog the item commands check flares against. Asset URLs are not used here. */
+function catalogOf(io: AdminIo): Catalog {
+  return io.catalog ?? loadCatalog({ publicOrigin: "http://localhost" });
+}
+
+/** A flare argument: shaped like one, and never a wildcard. */
+function flareArg(p: Parsed, index: number): string {
+  const flare = need(p, index, "flare (e.g. flag:delta_mark)");
+  if (isWildcardFlare(flare)) {
+    throw new AdminUsageError(
+      "wildcard flares are not allowed: grant one item at a time",
+    );
+  }
+  if (!hasFlareShape(flare)) {
+    throw new AdminUsageError(
+      `${JSON.stringify(flare.slice(0, 60))} is not a flare (expected pattern:<name>:<palette>, flag:<name> or effect:<name>)`,
+    );
+  }
+  return flare;
 }
 
 /** Runs one command; returns the process exit code. */
@@ -195,6 +224,12 @@ export async function runAdminCommand(
             `  ${i.provider}  ${i.provider_user_id}  ${i.email ?? "-"}${i.email_verified ? " (verified)" : ""}`,
           );
         if (ids.rows.length === 0) io.out("  (none: guest)");
+        const owned = (await flareRowsOf(pool, user.id)).filter(
+          (r) => r.revokedAt === null,
+        );
+        io.out(
+          `items:       ${owned.length === 0 ? "(none granted; see item:list)" : owned.map((r) => r.flare).join(", ")}`,
+        );
         io.out(`bans:`);
         for (const b of bans.rows) {
           const state = b.revoked_at
@@ -282,6 +317,85 @@ export async function runAdminCommand(
           await audit(db, io, "user:role", "user", publicId, { role });
         });
         io.out(`role of ${publicId} is now ${role}`);
+        return 0;
+      }
+      case "item:list": {
+        const user = await userByPublicId(pool, need(p, 0, "public id"));
+        const catalog = catalogOf(io);
+        const rows = await flareRowsOf(pool, user.id);
+        io.out(`items of ${user.public_id}:`);
+        for (const flare of catalog.defaultFlares) {
+          io.out(`  ${flare}  default (everyone owns it)`);
+        }
+        for (const r of rows) {
+          const known = catalog.validFlares.has(r.flare)
+            ? ""
+            : "  (no longer in the catalog)";
+          io.out(
+            `  ${r.flare}  ${r.revokedAt ? `REVOKED ${r.revokedAt.toISOString()}` : `owned (${r.source}) since ${r.grantedAt.toISOString()}`}${known}`,
+          );
+        }
+        if (rows.length === 0) io.out("  (nothing granted)");
+        return 0;
+      }
+      case "item:grant": {
+        const publicId = need(p, 0, "public id");
+        const flare = flareArg(p, 1);
+        const catalog = catalogOf(io);
+        if (!catalog.validFlares.has(flare)) {
+          throw new AdminUsageError(`${flare} is not an item in the catalog`);
+        }
+        if (catalog.defaultFlares.includes(flare)) {
+          throw new AdminUsageError(
+            `${flare} is a default item: every account already owns it`,
+          );
+        }
+        const result = await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          const { rows } = await db.query<{ deleted_at: Date | null }>(
+            "SELECT deleted_at FROM users WHERE id = $1 FOR UPDATE",
+            [user.id],
+          );
+          if (rows[0].deleted_at !== null) {
+            throw new AdminUsageError(`${publicId} is a deleted account`);
+          }
+          const outcome = await grantFlare(db, user.id, flare);
+          await audit(db, io, "item:grant", "user", publicId, {
+            flare,
+            result: outcome,
+          });
+          return outcome;
+        });
+        io.out(
+          result === "already_owned"
+            ? `${publicId} already owns ${flare} (nothing changed)`
+            : `${flare} ${result === "restored" ? "restored for" : "granted to"} ${publicId}`,
+        );
+        return 0;
+      }
+      case "item:revoke": {
+        requireYes(p, "revoking an item");
+        const publicId = need(p, 0, "public id");
+        const flare = flareArg(p, 1);
+        if (catalogOf(io).defaultFlares.includes(flare)) {
+          throw new AdminUsageError(
+            `${flare} is a default item owned by every account: it cannot be revoked per account (remove it from defaultFlares in the catalog instead)`,
+          );
+        }
+        const result = await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          const outcome = await revokeFlare(db, user.id, flare);
+          await audit(db, io, "item:revoke", "user", publicId, {
+            flare,
+            result: outcome,
+          });
+          return outcome;
+        });
+        io.out(
+          result === "revoked"
+            ? `${flare} revoked from ${publicId}`
+            : `${publicId} does not own ${flare} (nothing changed)`,
+        );
         return 0;
       }
       case "server:key:create": {

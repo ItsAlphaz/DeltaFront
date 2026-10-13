@@ -12,10 +12,11 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("the account feature flags", () => {
-  it("are the ten documented ones", () => {
+  it("are the eleven documented ones", () => {
     expect([...ACCOUNT_FEATURE_NAMES]).toEqual([
       "accounts",
       "store",
+      "inventory",
       "ranked",
       "clans",
       "leaderboards",
@@ -86,9 +87,10 @@ describe("parseAccountFeatureOverride", () => {
   it("reads a comma-separated list, in the documented order, once each", () => {
     expect(enabled("store,accounts")).toEqual(["accounts", "store"]);
     expect(enabled("clans,clans,clans")).toEqual(["clans"]);
-    expect(enabled("accounts,leaderboards,store,clans")).toEqual([
+    expect(enabled("accounts,leaderboards,inventory,store,clans")).toEqual([
       "accounts",
       "store",
+      "inventory",
       "clans",
       "leaderboards",
     ]);

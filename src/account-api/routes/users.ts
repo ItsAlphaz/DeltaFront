@@ -12,6 +12,7 @@ import {
   randomDiscriminator,
 } from "../domain/usernames";
 import { clientIp, requireAllowedOrigin } from "../http";
+import { activeFlaresOf, reportedFlares } from "../repo/inventory";
 import { creditsOf } from "../repo/profile";
 import { liveSession, revokeAllForUser } from "../repo/sessions";
 import {
@@ -56,8 +57,9 @@ export function linkedIdentities(
 
 /**
  * The /users/@me body: who the account is, how it signs in, its username and
- * its Credits balance. Everything that belongs to a later milestone
- * (inventory, clans, friends, progression, premium currency) is left out, or
+ * its Credits balance and, once the catalog is in use, the cosmetics it owns
+ * (`flares`). Everything that belongs to a later milestone (clans, friends,
+ * progression, premium currency) is left out, or
  * empty where the schema insists on a value, so the client keeps those
  * screens hidden.
  */
@@ -66,6 +68,8 @@ export function buildUserMe(
   identities: IdentityRow[],
   ban: ActiveBan | null,
   credits: number,
+  /** The cosmetics the account owns; absent while no feature uses the catalog. */
+  flares?: string[],
 ): UserMeResponse {
   return {
     user: linkedIdentities(identities),
@@ -92,6 +96,7 @@ export function buildUserMe(
       nextUsernameChangeAt: user.nextUsernameChangeAt?.toISOString() ?? null,
       // Credits ride in the contract's "soft" slot; the premium slot stays 0.
       currency: { soft: credits, hard: 0 },
+      ...(flares === undefined ? {} : { flares }),
       achievements: { singleplayerMap: [], player: [] },
       friends: [],
       subscription: null,
@@ -118,12 +123,17 @@ export function usersRouter(deps: AppDeps): Router {
       res.status(401).json({ error: "unauthorized" });
       return;
     }
-    const [identities, ban, credits] = await Promise.all([
+    const [identities, ban, credits, owned] = await Promise.all([
       identitiesOf(pool, user.id),
       activeBan(pool, user.id),
       creditsOf(pool, user.id),
+      deps.catalog === null ? undefined : activeFlaresOf(pool, user.id),
     ]);
-    res.json(buildUserMe(user, identities, ban, credits));
+    const flares =
+      deps.catalog === null || owned === undefined
+        ? undefined
+        : reportedFlares(deps.catalog, owned);
+    res.json(buildUserMe(user, identities, ban, credits, flares));
   });
 
   // Sets the account username: a base the player picks plus a random

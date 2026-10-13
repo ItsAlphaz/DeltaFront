@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getCosmeticsHash, getGamesPlayed } = vi.hoisted(() => ({
@@ -62,6 +63,18 @@ describe("nav notifications", () => {
     expect(navBar.controller.showStoreDot()).toBe(true);
     // Both components re-render off the shared state.
     expect(navBar.requestUpdate).toHaveBeenCalled();
+  });
+
+  it("shows no store dot (and keeps the help dot) when there is no store, only an inventory", async () => {
+    ACCOUNT_FEATURES.store = false;
+    ACCOUNT_FEATURES.inventory = true;
+    localStorage.setItem("newsSeenVersion", "v9.9.9");
+    navNotifications.reset();
+    const navBar = host();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(navBar.controller.showStoreDot()).toBe(false);
+    expect(navBar.controller.showHelpDot()).toBe(true);
   });
 
   it("keeps help last in the priority chain", async () => {

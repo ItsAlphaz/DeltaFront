@@ -7,6 +7,7 @@ import {
   type AccessClaims,
   type TokenService,
 } from "../auth/tokens";
+import type { Catalog } from "../catalog/load";
 import type { AccountApiConfig } from "../config";
 import type { Limiters } from "../limits";
 import type { Logger } from "../logger";
@@ -23,6 +24,8 @@ export interface AppDeps {
   limiters: Limiters;
   providers: OAuthProviders;
   turnstile: Turnstile;
+  /** The cosmetic catalog; null when no feature uses it. */
+  catalog: Catalog | null;
 }
 
 /** Cookies are Secure everywhere except plain-http dev. */
