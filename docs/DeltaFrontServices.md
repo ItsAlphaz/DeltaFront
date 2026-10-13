@@ -45,7 +45,7 @@ Enabling a flag in production is the public launch of that feature, so it waits 
 
 ### The account API (`src/account-api`)
 
-A separate Node service that answers the `api.<DOMAIN>` contracts the client and game server already speak. **Milestone M1 (core sign-in, production admission, server discovery)** and **milestone M2 (profiles, persistent stats, Credits earning)** are implemented; leaderboards, the inventory and store, clans and email sign-in are later milestones and are not served.
+A separate Node service that answers the `api.<DOMAIN>` contracts the client and game server already speak. **Milestone M1 (core sign-in, production admission, server discovery)** **milestone M2 (profiles, persistent stats, Credits earning)** and **milestone M3 (the basic player leaderboard)** are implemented; ranked ladders, the inventory and store, clans and email sign-in are later milestones and are not served.
 
 What it serves follows the feature flags, so nothing is exposed for a feature that is off:
 
@@ -53,7 +53,10 @@ What it serves follows the feature flags, so nothing is exposed for a feature th
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | always           | `GET /health`                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `accounts`       | `POST /auth/refresh` (also mints guests), `POST /auth/logout`, `POST /auth/revoke`, `GET /auth/login/{discord,google}`, `GET /auth/callback/{discord,google}`, `GET /auth/link/google`, `GET /users/@me` (with the Credits balance), `PUT /users/@me/username`, `DELETE /users/@me`, `GET /player/:publicId`, `GET /public/player/:publicId`, `GET /public/player/:publicId/games`, `GET /.well-known/jwks.json`, `POST /join_verify` |
+| `leaderboards`   | `GET /leaderboard/players?page=N&period=all\|30d` (the basic player board; also starts the 5-minute rebuild job)                                                                                                                                                                                                                                                                                                                      |
 | any feature flag | `POST /cluster/checkin`, `GET /cluster.json?site=`, `POST /game/:id` (a game server's finished game: stored, then turned into stats and Credits), `GET /game/:id` (replays), `GET /news.json`, `GET /streams.json`                                                                                                                                                                                                                    |
+
+**Leaderboard (M3).** `leaderboard_players` is rebuilt every 5 minutes from the stored counted games (one transaction, an advisory lock so a second instance skips) and each request reads one page of it: 50 rows, at most 20 pages, with a `400 Page must be between 1 and N` past the end, which is what the client already treats as the end of a board. A player needs 10 counted public games in the period; order is wins, win rate, games, public id; ranks are competition ranks on (wins, win rate). Flagged, banned, deleted and deletion-queued accounts are filtered out at read time as well as at rebuild, so they vanish at once. Run migrations (`0002`) before starting.
 
 **Stats and Credits (M2).** Only a game server can report a game: `POST /game/:id` needs a server key (`x-api-key`) and refuses any request that carries an `Origin` header, so a browser can neither submit a result nor change a balance. Each record is applied in one transaction and exactly once (repeats and concurrent duplicates change nothing). The rules are in [`domain/stats.ts`](../src/account-api/domain/stats.ts) (what counts, what a completed game is) and [`domain/economy.ts`](../src/account-api/domain/economy.ts) (the only code that credits a wallet); the numbers (100 per completed game, 250 more for a win, 1,000 a day) are in `constants.ts`. Credits ride in the `soft` slot of `/users/@me`'s `currency`; `hard` is always 0. Two background jobs run in the service: deletions requested through `DELETE /users/@me` are carried out after 24 hours, and idle guests with nothing to keep are removed after 30 days.
 
@@ -67,7 +70,7 @@ npm run test:account-api              # database tests; needs DATABASE_URL_TEST
 # Local development with accounts on (guest + Discord + Google), needs PostgreSQL:
 export DATABASE_URL=postgres://user:password@localhost:5432/deltafront_dev
 npm run account-api:dev-setup # migrate, and register the dev game-server key
-npm run dev:accounts          # client + game server + account API (DF_ACCOUNT_FEATURES=accounts)
+npm run dev:accounts          # client + game server + account API (DF_ACCOUNT_FEATURES=accounts,leaderboards)
 ```
 
 - It needs **PostgreSQL**. There is no fallback database, and the service refuses to start if the database is unreachable or has pending migrations (it never migrates implicitly: run the migrate command as a deploy step first).

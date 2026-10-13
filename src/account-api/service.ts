@@ -16,6 +16,7 @@ import { describeConfig } from "./config";
 import { loadMigrationFiles, migrationStatus } from "./db/migrator";
 import { createPool } from "./db/pool";
 import { runMaintenance } from "./domain/lifecycle";
+import { startLeaderboardJob } from "./jobs/leaderboard";
 import { createLimiters, type RateLimit, type RateLimitName } from "./limits";
 import type { Logger } from "./logger";
 import type { AppDeps } from "./routes/common";
@@ -153,6 +154,9 @@ export async function startAccountApi(
 
     // Deletions and idle-guest cleanup. Only a deployment with sign-in has
     // anything to do; the timer never keeps the process alive.
+    let stopLeaderboard: (() => void) | null = null;
+    if (backend !== undefined && config.features.leaderboards)
+      stopLeaderboard = startLeaderboardJob(pool, log);
     let maintenance: NodeJS.Timeout | null = null;
     if (backend !== undefined && config.features.accounts) {
       maintenance = setInterval(
@@ -168,6 +172,7 @@ export async function startAccountApi(
       port,
       close: async () => {
         if (maintenance !== null) clearInterval(maintenance);
+        stopLeaderboard?.();
         await new Promise<void>((resolve) => server.close(() => resolve()));
         await pool.end();
       },

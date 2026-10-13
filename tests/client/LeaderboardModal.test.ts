@@ -7,6 +7,9 @@ vi.mock("@lit-labs/virtualizer/virtualize.js", async () => {
   };
 });
 
+const loadModalMock = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("../../src/client/LazyModals", () => ({ loadModal: loadModalMock }));
+
 vi.mock("../../src/client/Utils", () => ({
   translateText: vi.fn((key: string) => {
     const translations: Record<string, string> = {
@@ -22,6 +25,15 @@ vi.mock("../../src/client/Utils", () => ({
       "leaderboard_modal.refresh_time": "Refreshed every 1 hour",
       "leaderboard_modal.error": "Something went wrong",
       "leaderboard_modal.rank": "Rank",
+      "leaderboard_modal.basic_tab": "Players",
+      "leaderboard_modal.basic_no_stats": "No players are listed yet",
+      "leaderboard_modal.period_all": "All time",
+      "leaderboard_modal.period_30d": "Last 30 days",
+      "leaderboard_modal.refresh_time_basic": "Refreshed every 5 minutes",
+      "leaderboard_modal.wins": "Wins",
+      "leaderboard_modal.win_rate": "Win rate",
+      "leaderboard_modal.tribes_tab": "Tribes",
+      "leaderboard_modal.ranked_ffa_tab": "FFA Ranked",
       "leaderboard_modal.clan": "Clan",
       "leaderboard_modal.games": "Games",
       "leaderboard_modal.win_score": "Win Score",
@@ -67,6 +79,25 @@ vi.mock("../../src/client/Api", async () => {
       }
       return res.json();
     }),
+    // Mirrors the control flow of the real fetchBasicPlayerLeaderboard.
+    fetchBasicPlayerLeaderboard: vi.fn(
+      async (page: number, period: string = "all") => {
+        const url = new URL(`${getApiBase()}/leaderboard/players`);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("period", period);
+        const res = await fetch(url.toString(), {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) {
+          if (res.status === 400) {
+            const body = await res.json().catch(() => null);
+            if (isPageBoundsMessage(body)) return "reached_limit";
+          }
+          return false;
+        }
+        return res.json();
+      },
+    ),
     // Mirrors the real fetchTribeLeaderboard: page 1, plus page 2 only when
     // page 1 came back exactly full.
     fetchTribeLeaderboard: vi.fn(async () => {
@@ -133,6 +164,7 @@ beforeEach(() => {
 });
 
 import { RankedType } from "@openfront/engine-api/game/GameTypes";
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import "../../src/client/components/baseComponents/Modal";
 import { LeaderboardModal } from "../../src/client/LeaderboardModal";
 
@@ -606,7 +638,11 @@ describe("LeaderboardModal", () => {
 
       expect(modal.textContent).toContain("No data yet");
       expect(modal.textContent).toContain("No ranked games on this ladder");
-      expect(modal.querySelector("leaderboard-player-list table")).toBeNull();
+      expect(
+        modal.querySelector(
+          "leaderboard-player-list[data-board='ranked'] table",
+        ),
+      ).toBeNull();
     });
 
     it("pages the ladders independently", async () => {
@@ -678,11 +714,375 @@ describe("LeaderboardModal", () => {
     });
   });
 
+  describe("Basic players board", () => {
+    const basicEntry = (
+      rank: number,
+      id: string,
+      wins: number,
+      games = 12,
+    ) => ({
+      rank,
+      playerId: id,
+      accountUsername: id === "anon" ? null : `${id}.0001`,
+      games,
+      wins,
+      losses: games - wins,
+      winRate: wins / games,
+    });
+    const getBasicList = () =>
+      modal.querySelector("leaderboard-player-list[data-board='basic']") as
+        | (HTMLElement & {
+            loadPlayerLeaderboard: (reset?: boolean) => Promise<void>;
+            ensureLoaded: () => Promise<void>;
+            updateComplete: Promise<unknown>;
+            playerData: Array<Record<string, unknown>>;
+            currentUserEntry?: { playerId: string } | null;
+            period: string;
+            basic: boolean;
+            hasMore?: boolean;
+          })
+        | null;
+    const fetchMock = () => global.fetch as ReturnType<typeof vi.fn>;
+    const urlsCalled = () =>
+      fetchMock().mock.calls.map((c) => String(c[0])) as string[];
+    const loaded = async (players: unknown[]) => {
+      fetchMock().mockResolvedValueOnce(jsonRes({ players }));
+      const list = getBasicList()!;
+      await list.loadPlayerLeaderboard(true);
+      await list.updateComplete;
+      return list;
+    };
+
+    it("is the first tab, ahead of the ranked ladders", () => {
+      const tabs = (
+        modal as unknown as { modalConfig(): { tabs: { key: string }[] } }
+      ).modalConfig().tabs;
+      expect(tabs.map((t) => t.key)).toEqual([
+        "basic",
+        "players",
+        "players2v2",
+        "playersFfa",
+        "clans",
+        "tribes",
+      ]);
+    });
+
+    it("lists the rows in the order the server sent, with wins and no Elo column", async () => {
+      await loaded([
+        basicEntry(1, "ann", 11),
+        basicEntry(2, "bob", 9),
+        basicEntry(2, "cy", 9),
+        basicEntry(4, "dee", 5),
+      ]);
+      const list = getBasicList()!;
+      await list.updateComplete;
+      expect(list.playerData.map((p) => p.playerId)).toEqual([
+        "ann",
+        "bob",
+        "cy",
+        "dee",
+      ]);
+      const headers = [...list.querySelectorAll("thead th")].map((th) =>
+        th.textContent!.trim(),
+      );
+      expect(headers).toEqual(["Rank", "Player", "Games", "Wins", "Win rate"]);
+      expect(headers).not.toContain("Elo");
+      const rows = [...list.querySelectorAll("tbody tr")];
+      expect(rows).toHaveLength(4);
+      // numeric ranks: the tied pair shows rank 2 twice, then 4
+      expect(
+        rows.map((r) => r.querySelector("td")!.textContent!.trim()),
+      ).toEqual(["👑", "🥈", "🥈", "4"]);
+      expect(rows[0].textContent).toContain("11");
+      expect(rows[0].textContent).toContain("91.7%");
+    });
+
+    it("gives each row the player's account name, or null so their public id is shown", async () => {
+      const list = await loaded([
+        basicEntry(1, "ann", 10),
+        basicEntry(2, "anon", 9),
+      ]);
+      const names = [...list.querySelectorAll("player-name")].map((el) => {
+        const e = el as HTMLElement & {
+          username?: string | null;
+          publicId?: string;
+        };
+        return [e.publicId, e.username];
+      });
+      expect(names).toEqual([
+        ["ann", "ann.0001"],
+        ["anon", null],
+      ]);
+    });
+
+    it("clicking a player opens their public profile through the profile modal", async () => {
+      const opened: string[] = [];
+      const fake = document.createElement(
+        "player-profile-modal",
+      ) as HTMLElement & {
+        openFromLeaderboard: (id: string) => void;
+      };
+      fake.openFromLeaderboard = (id) => opened.push(id);
+      document.body.appendChild(fake);
+      const list = await loaded([
+        basicEntry(1, "ann", 10),
+        basicEntry(2, "bob", 9),
+      ]);
+      const names = [...list.querySelectorAll("player-name")] as Array<
+        HTMLElement & { onNameClick?: () => void }
+      >;
+      names[1].onNameClick!();
+      await vi.waitFor(() => expect(opened).toEqual(["bob"]));
+      expect(loadModalMock).toHaveBeenCalledWith("player-profile-modal");
+      fake.remove();
+    });
+
+    it("pins the signed-in player's own row when they are on the board", async () => {
+      const { getUserMe } = await import("../../src/client/Api");
+      (getUserMe as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        player: { publicId: "bob" },
+      });
+      const list = await loaded([
+        basicEntry(1, "ann", 11),
+        basicEntry(2, "bob", 9),
+      ]);
+      expect(list.currentUserEntry?.playerId).toBe("bob");
+    });
+
+    it("asks the API for the first page of the all-time board, and the 30-day board on request", async () => {
+      const list = await loaded([basicEntry(1, "ann", 11)]);
+      expect(urlsCalled()[0]).toContain(
+        "/leaderboard/players?page=1&period=all",
+      );
+      fetchMock().mockResolvedValueOnce(
+        jsonRes({ players: [basicEntry(1, "bob", 10)] }),
+      );
+      (list.querySelector("[data-period='30d']") as HTMLButtonElement).click();
+      await vi.waitFor(() => {
+        expect(
+          urlsCalled().some(
+            (u) => u.includes("period=30d") && u.includes("page=1"),
+          ),
+        ).toBe(true);
+      });
+      await list.updateComplete;
+      await vi.waitFor(() => {
+        expect(list.playerData.map((p) => p.playerId)).toEqual(["bob"]);
+      });
+      expect(
+        list.querySelector("[data-period='30d']")!.getAttribute("aria-pressed"),
+      ).toBe("true");
+      expect(
+        list.querySelector("[data-period='all']")!.getAttribute("aria-pressed"),
+      ).toBe("false");
+    });
+
+    it("pages on scroll: the next page is requested with the next number and rows are not repeated", async () => {
+      const page1 = Array.from({ length: 50 }, (_, i) =>
+        basicEntry(i + 1, `p${i + 1}`, 60 - i),
+      );
+      const list = await loaded(page1);
+      expect(list.playerData).toHaveLength(50);
+      fetchMock().mockResolvedValueOnce(
+        jsonRes({
+          // a repeated row (a rebuild moved someone) is not shown twice
+          players: [
+            page1[49],
+            basicEntry(51, "p51", 5),
+            basicEntry(52, "p52", 4),
+          ],
+        }),
+      );
+      await list.loadPlayerLeaderboard();
+      await list.updateComplete;
+      expect(urlsCalled()[urlsCalled().length - 1]).toContain("page=2");
+      const ids = list.playerData.map((p) => p.playerId as string);
+      expect(ids).toHaveLength(52);
+      expect(new Set(ids).size).toBe(52);
+      // the short second page ends the board: no third request
+      const calls = fetchMock().mock.calls.length;
+      await list.loadPlayerLeaderboard();
+      expect(fetchMock().mock.calls.length).toBe(calls);
+    });
+
+    it("stops quietly at the page limit the server reports", async () => {
+      const page1 = Array.from({ length: 50 }, (_, i) =>
+        basicEntry(i + 1, `p${i + 1}`, 60 - i),
+      );
+      const list = await loaded(page1);
+      fetchMock().mockResolvedValueOnce(
+        jsonRes({ message: "Page must be between 1 and 1" }, false, 400),
+      );
+      await list.loadPlayerLeaderboard();
+      await list.updateComplete;
+      expect(list.playerData).toHaveLength(50);
+      expect(list.textContent).not.toContain("Something went wrong");
+    });
+
+    it("shows a loading state while the first page is in flight", async () => {
+      let release!: (v: unknown) => void;
+      fetchMock().mockReturnValueOnce(new Promise((r) => (release = r)));
+      const list = getBasicList()!;
+      const pending = list.loadPlayerLeaderboard(true);
+      await list.updateComplete;
+      expect(list.textContent).toContain("Loading");
+      expect(list.querySelector("table")).toBeNull();
+      // the period switch is still there
+      expect(list.querySelector("[data-period='all']")).not.toBeNull();
+      release(jsonRes({ players: [] }));
+      await pending;
+    });
+
+    it("shows an empty state, not an error, for a board with nobody on it", async () => {
+      const list = await loaded([]);
+      await list.updateComplete;
+      expect(list.textContent).toContain("No data yet");
+      expect(list.textContent).toContain("No players are listed yet");
+      expect(list.textContent).not.toContain("Something went wrong");
+      expect(list.querySelector("table")).toBeNull();
+    });
+
+    it("shows an error state with a retry when the API fails, and retry loads the board", async () => {
+      fetchMock().mockResolvedValueOnce(jsonRes({}, false, 500));
+      const list = getBasicList()!;
+      await list.loadPlayerLeaderboard(true);
+      await list.updateComplete;
+      expect(list.textContent).toContain("Something went wrong");
+      fetchMock().mockResolvedValueOnce(
+        jsonRes({ players: [basicEntry(1, "ann", 10)] }),
+      );
+      const retry = [...list.querySelectorAll("button")].find((b) =>
+        b.textContent!.includes("Try Again"),
+      )!;
+      retry.click();
+      await vi.waitFor(() => expect(list.playerData).toHaveLength(1));
+      await list.updateComplete;
+      expect(list.textContent).not.toContain("Something went wrong");
+    });
+
+    it("an answer that does not match the contract is an error, not a crash", async () => {
+      fetchMock().mockResolvedValueOnce(jsonRes({ players: "nope" }));
+      const list = getBasicList()!;
+      await list.loadPlayerLeaderboard(true);
+      await list.updateComplete;
+      expect(list.textContent).toContain("Something went wrong");
+    });
+
+    it("ignores a slow answer for the period the player has already left", async () => {
+      let slow!: (v: unknown) => void;
+      fetchMock().mockReturnValueOnce(new Promise((r) => (slow = r)));
+      const list = getBasicList()!;
+      const first = list.loadPlayerLeaderboard(true); // all time, never answers yet
+      fetchMock().mockResolvedValueOnce(
+        jsonRes({ players: [basicEntry(1, "recent", 10)] }),
+      );
+      (list.querySelector("[data-period='30d']") as HTMLButtonElement).click();
+      await vi.waitFor(() =>
+        expect(list.playerData.map((p) => p.playerId)).toEqual(["recent"]),
+      );
+      slow(jsonRes({ players: [basicEntry(1, "stale", 99)] }));
+      await first;
+      await list.updateComplete;
+      expect(list.playerData.map((p) => p.playerId)).toEqual(["recent"]);
+    });
+  });
+
+  describe("Feature gating of the tabs", () => {
+    const rebuild = async () => {
+      document.body.removeChild(modal);
+      modal = document.createElement("leaderboard-modal") as LeaderboardModal;
+      document.body.appendChild(modal);
+      await modal.updateComplete;
+    };
+    const tabKeys = () =>
+      (modal as unknown as { modalConfig(): { tabs: { key: string }[] } })
+        .modalConfig()
+        .tabs.map((t) => t.key);
+
+    it("with only the leaderboards feature, just the basic board exists: no ranked, clan or tribe tab or element", async () => {
+      Object.assign(ACCOUNT_FEATURES, {
+        ranked: false,
+        clans: false,
+        tribes: false,
+      });
+      await rebuild();
+      expect(tabKeys()).toEqual(["basic"]);
+      expect(
+        modal.querySelector("leaderboard-player-list[data-board='ranked']"),
+      ).toBeNull();
+      expect(modal.querySelector("leaderboard-clan-table")).toBeNull();
+      expect(modal.querySelector("leaderboard-tribe-table")).toBeNull();
+      expect(
+        modal.querySelector("leaderboard-player-list[data-board='basic']"),
+      ).not.toBeNull();
+      expect(modal.textContent).not.toMatch(/Ranked|Clans|Tribes/);
+    });
+
+    it("each extra feature adds exactly its own tabs", async () => {
+      Object.assign(ACCOUNT_FEATURES, {
+        ranked: true,
+        clans: false,
+        tribes: false,
+      });
+      await rebuild();
+      expect(tabKeys()).toEqual([
+        "basic",
+        "players",
+        "players2v2",
+        "playersFfa",
+      ]);
+      Object.assign(ACCOUNT_FEATURES, {
+        ranked: false,
+        clans: true,
+        tribes: false,
+      });
+      await rebuild();
+      expect(tabKeys()).toEqual(["basic", "clans"]);
+      Object.assign(ACCOUNT_FEATURES, {
+        ranked: false,
+        clans: false,
+        tribes: true,
+      });
+      await rebuild();
+      expect(tabKeys()).toEqual(["basic", "tribes"]);
+    });
+
+    it("opening the board loads only the basic board, and never calls a ranked, clan or tribe endpoint", async () => {
+      Object.assign(ACCOUNT_FEATURES, {
+        ranked: false,
+        clans: false,
+        tribes: false,
+      });
+      await rebuild();
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockImplementation(async () => jsonRes({ players: [] }));
+      (modal as unknown as { onOpen(): void }).onOpen();
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      await new Promise((r) => setTimeout(r, 30));
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.every((u) => u.includes("/leaderboard/players"))).toBe(true);
+    });
+
+    it("a link to a ranked tab falls back to the basic board when ranked is off", async () => {
+      Object.assign(ACCOUNT_FEATURES, {
+        ranked: false,
+        clans: false,
+        tribes: false,
+      });
+      await rebuild();
+      (modal as unknown as { activeTab: string }).activeTab = "";
+      const tabs = tabKeys();
+      expect(tabs.includes("players")).toBe(false);
+      expect(tabs[0]).toBe("basic");
+    });
+  });
+
   describe("Modal Functionality", () => {
     it("should initialize with default state", () => {
       expect(modal).toBeTruthy();
+      // The basic players board comes first.
       expect((modal as unknown as { activeTab: string }).activeTab).toBe(
-        "players",
+        "basic",
       );
     });
 

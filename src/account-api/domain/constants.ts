@@ -85,6 +85,22 @@ export const ACCOUNT_RULES = deepFreeze({
   maxFutureEndMs: 24 * 60 * 60 * 1000,
   /** Largest value kept for any single game statistic (JavaScript's safe integer). */
   maxStatValue: 9_007_199_254_740_991,
+  /** Counted games a player needs in a leaderboard period to be listed. */
+  leaderboardMinGames: 10,
+  /** Rows per leaderboard page, and the most pages served (a hard server-side cap). */
+  leaderboardPageSize: 50,
+  leaderboardMaxPages: 20,
+  /** The shorter leaderboard period, in days. */
+  leaderboardRecentDays: 30,
+  /** How often the leaderboard table is rebuilt from the stored games. */
+  leaderboardRebuildMs: 5 * 60 * 1000,
+  /** Seconds a leaderboard page may be cached by browsers and proxies. */
+  leaderboardCacheSeconds: 60,
+  /**
+   * Whether guest accounts are listed. The plan excludes only flagged, banned
+   * and deleted accounts, so guests are (their stats are kept either way).
+   */
+  leaderboardIncludesGuests: true,
   /** Largest Credits balance a wallet may reach; far above the cap can ever pay. */
   maxWalletCredits: 9_007_199_254_740_991,
 } as const);

@@ -5,7 +5,12 @@ import {
 } from "@openfront/shared/ApiSchemas";
 import { html, LitElement, nothing, PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
-import { fetchPlayerLeaderboard, getUserMe } from "../../Api";
+import {
+  fetchBasicPlayerLeaderboard,
+  fetchPlayerLeaderboard,
+  getUserMe,
+  type BasicLeaderboardPeriod,
+} from "../../Api";
 import { loadModal } from "../../LazyModals";
 import { translateText } from "../../Utils";
 import "../PlayerName";
@@ -48,6 +53,14 @@ export class LeaderboardPlayerList extends LitElement {
    */
   @property({ attribute: false }) rankedType: RankedType = RankedType.OneVOne;
 
+  /**
+   * The basic (non-ranked) board: wins, then win rate, over counted public
+   * games, with an all-time / last-30-days switch and no Elo column. It uses
+   * the first ladder slot for its rows; the other slots stay empty.
+   */
+  @property({ type: Boolean }) basic = false;
+  @state() private period: BasicLeaderboardPeriod = "all";
+
   @state() private ladders: Record<RankedType, LadderState> = emptyLadders();
   @state() private showStickyUser = false;
   @state() private isLoading = false;
@@ -56,6 +69,9 @@ export class LeaderboardPlayerList extends LitElement {
   @state() private loadMoreError: string | null = null;
 
   private hasLoadedPlayers = false;
+  // Bumped by every fresh load (first load, retry, period switch) so that a
+  // slower response for the board the player has since left is dropped.
+  private loadSeq = 0;
   private readonly playerPageSize = 50;
   private currentPage = 1;
   private currentUserId: string | null = null;
@@ -63,16 +79,26 @@ export class LeaderboardPlayerList extends LitElement {
 
   @query(".scroll-container") private scrollContainer?: HTMLElement;
 
+  // The ladder slot being shown: the basic board always uses the first.
+  private get shownLadder(): RankedType {
+    return this.basic ? RankedType.OneVOne : this.rankedType;
+  }
+
   private get playerData(): PlayerLeaderboardEntry[] {
-    return this.ladders[this.rankedType].entries;
+    return this.ladders[this.shownLadder].entries;
   }
 
   private get currentUserEntry(): PlayerLeaderboardEntry | null {
-    return this.ladders[this.rankedType].userEntry;
+    return this.ladders[this.shownLadder].userEntry;
   }
 
   private get playerHasMore(): boolean {
-    return this.ladders[this.rankedType].hasMore;
+    return this.ladders[this.shownLadder].hasMore;
+  }
+
+  // Only the ranked ladders have a rating; only the basic board lists wins.
+  private get showElo(): boolean {
+    return !this.basic;
   }
 
   private mapLadders(
@@ -90,7 +116,7 @@ export class LeaderboardPlayerList extends LitElement {
   }
 
   protected updated(changed: PropertyValues) {
-    if (changed.has("rankedType")) {
+    if (changed.has("rankedType") || changed.has("basic")) {
       // The ladders are separate lists sharing one scroll container: show the
       // newly selected one from its top rather than the other one's offset.
       if (this.scrollContainer) this.scrollContainer.scrollTop = 0;
@@ -106,26 +132,28 @@ export class LeaderboardPlayerList extends LitElement {
 
   public async loadPlayerLeaderboard(reset = false) {
     if (reset) {
+      // A fresh load supersedes whatever is in flight.
+      this.loadSeq++;
       this.currentPage = 1;
       this.loadMoreError = null;
       this.ladders = emptyLadders();
       this.showStickyUser = false;
-    } else if (!this.playerHasMore) {
-      return;
-    }
-
-    if (this.isLoading || this.isLoadingMore) return;
-
-    if (reset) {
+      this.isLoadingMore = false;
       this.isLoading = true;
       this.error = null;
     } else {
+      if (!this.playerHasMore) return;
+      if (this.isLoading || this.isLoadingMore) return;
       this.isLoadingMore = true;
       this.loadMoreError = null;
     }
+    const seq = this.loadSeq;
 
     try {
-      const result = await fetchPlayerLeaderboard(this.currentPage);
+      const result = this.basic
+        ? await fetchBasicPlayerLeaderboard(this.currentPage, this.period)
+        : await fetchPlayerLeaderboard(this.currentPage);
+      if (seq !== this.loadSeq) return;
 
       if (result === false) {
         throw new Error("Failed to load player leaderboard");
@@ -145,16 +173,23 @@ export class LeaderboardPlayerList extends LitElement {
         this.currentUserIdLoaded = true;
         const userMe = await getUserMe();
         this.currentUserId = userMe ? userMe.player.publicId : null;
+        if (seq !== this.loadSeq) return;
       }
 
-      // One page carries a slice of every ladder, so fold them all in — even
-      // the ones whose tab isn't showing.
+      // One ranked page carries a slice of every ladder, so fold them all in
+      // — even the ones whose tab isn't showing. The basic board is a single
+      // list.
       let receivedAny = false;
       const nextLadders = { ...this.ladders };
       for (const rankedType of RANKED_TYPES) {
         const ladder = this.ladders[rankedType];
-        const nextPlayers = (result[rankedType] ?? []).map(toPlayerEntry);
-        if (nextPlayers.length > 0) receivedAny = true;
+        const incoming: PlayerLeaderboardEntry[] =
+          "players" in result
+            ? rankedType === RankedType.OneVOne
+              ? result.players
+              : []
+            : (result[rankedType] ?? []).map(toPlayerEntry);
+        if (incoming.length > 0) receivedAny = true;
 
         const existingIds = new Set(
           ladder.entries.map((player) => player.playerId),
@@ -162,22 +197,18 @@ export class LeaderboardPlayerList extends LitElement {
         nextLadders[rankedType] = {
           entries: [
             ...ladder.entries,
-            ...nextPlayers.filter(
-              (player) => !existingIds.has(player.playerId),
-            ),
+            ...incoming.filter((player) => !existingIds.has(player.playerId)),
           ],
           // Ranks differ per ladder, so the pinned "your ranking" row is
           // whichever row this ladder gave the signed-in player.
           userEntry:
             ladder.userEntry ??
-            nextPlayers.find(
-              (player) => player.playerId === this.currentUserId,
-            ) ??
+            incoming.find((player) => player.playerId === this.currentUserId) ??
             null,
           // A short page ends that ladder. The ladders run out at different
           // pages — the 2v2 board is younger and has no backfill — so this is
           // tracked per ladder rather than off the 1v1 page size.
-          hasMore: ladder.hasMore && nextPlayers.length >= this.playerPageSize,
+          hasMore: ladder.hasMore && incoming.length >= this.playerPageSize,
         };
       }
       this.ladders = nextLadders;
@@ -190,6 +221,7 @@ export class LeaderboardPlayerList extends LitElement {
       this.scheduleStickyVisibilityCheck();
       this.schedulePlayerFillCheck();
     } catch (err) {
+      if (seq !== this.loadSeq) return;
       console.warn("loadPlayerLeaderboard: request failed", err);
       if (reset) {
         this.error = translateText("leaderboard_modal.error");
@@ -197,12 +229,21 @@ export class LeaderboardPlayerList extends LitElement {
         this.loadMoreError = translateText("leaderboard_modal.error");
       }
     } finally {
-      if (reset) {
-        this.isLoading = false;
-      } else {
-        this.isLoadingMore = false;
+      if (seq === this.loadSeq) {
+        if (reset) {
+          this.isLoading = false;
+        } else {
+          this.isLoadingMore = false;
+        }
       }
     }
+  }
+
+  private setPeriod(period: BasicLeaderboardPeriod) {
+    if (period === this.period) return;
+    this.period = period;
+    this.hasLoadedPlayers = false;
+    void this.loadPlayerLeaderboard(true);
   }
 
   public handleTabActivated() {
@@ -324,12 +365,21 @@ export class LeaderboardPlayerList extends LitElement {
               ></player-name>
             </div>
           </td>
-          <td class="py-3 px-4 text-right">
-            <span class="font-mono text-white font-bold">${entry.elo}</span>
-          </td>
+          ${this.showElo
+            ? html`<td class="py-3 px-4 text-right">
+                <span class="font-mono text-white font-bold">${entry.elo}</span>
+              </td>`
+            : nothing}
           <td class="py-3 px-4 text-right">
             <span class="font-mono text-white font-bold">${entry.games}</span>
           </td>
+          ${this.basic
+            ? html`<td class="py-3 px-4 text-right">
+                <span class="font-mono text-white font-bold"
+                  >${entry.wins}</span
+                >
+              </td>`
+            : nothing}
           <td class="py-3 px-4 text-right pr-6">
             <div class="inline-flex flex-col items-end">
               <span class="font-mono font-bold text-white"
@@ -388,12 +438,23 @@ export class LeaderboardPlayerList extends LitElement {
             ></player-name>
           </div>
         </td>
-        <td class="py-3 px-4 text-right">
-          <span class="font-mono text-white font-medium">${player.elo}</span>
-        </td>
+        ${this.showElo
+          ? html`<td class="py-3 px-4 text-right">
+              <span class="font-mono text-white font-medium"
+                >${player.elo}</span
+              >
+            </td>`
+          : nothing}
         <td class="py-3 px-4 text-right">
           <span class="font-mono text-white font-medium">${player.games}</span>
         </td>
+        ${this.basic
+          ? html`<td class="py-3 px-4 text-right">
+              <span class="font-mono text-white font-medium"
+                >${player.wins}</span
+              >
+            </td>`
+          : nothing}
         <td class="py-3 px-4 text-right pr-6">
           <div class="inline-flex flex-col items-end">
             <span
@@ -522,13 +583,52 @@ export class LeaderboardPlayerList extends LitElement {
           ${translateText("leaderboard_modal.no_data_yet")}
         </h3>
         <p class="text-white/30 text-sm">
-          ${translateText("leaderboard_modal.ranked_no_stats")}
+          ${translateText(
+            this.basic
+              ? "leaderboard_modal.basic_no_stats"
+              : "leaderboard_modal.ranked_no_stats",
+          )}
         </p>
       </div>
     `;
   }
 
+  // The all-time / last-30-days switch of the basic board. It stays on screen
+  // in every state, so an empty or failed period can be left.
+  private renderPeriodSwitch() {
+    if (!this.basic) return nothing;
+    const button = (period: BasicLeaderboardPeriod, label: string) => html`
+      <button
+        type="button"
+        data-period=${period}
+        aria-pressed=${this.period === period ? "true" : "false"}
+        class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider border transition-colors ${this
+          .period === period
+          ? "bg-df-red border-df-red text-white"
+          : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"}"
+        @click=${() => this.setPeriod(period)}
+      >
+        ${label}
+      </button>
+    `;
+    return html`
+      <div class="flex gap-2 pb-3">
+        ${button("all", translateText("leaderboard_modal.period_all"))}
+        ${button("30d", translateText("leaderboard_modal.period_30d"))}
+      </div>
+    `;
+  }
+
   render() {
+    return html`
+      <div class="h-full flex flex-col">
+        ${this.renderPeriodSwitch()}
+        <div class="flex-1 min-h-0">${this.renderBoard()}</div>
+      </div>
+    `;
+  }
+
+  private renderBoard() {
     if (this.isLoading && this.playerData.length === 0)
       return this.renderLoading();
     if (this.error) return this.renderError();
@@ -553,13 +653,14 @@ export class LeaderboardPlayerList extends LitElement {
               <colgroup>
                 <col style="width: 4rem" />
                 <col style="width: 12rem" />
+                ${this.showElo ? html`<col style="width: 6rem" />` : nothing}
                 <col style="width: 6rem" />
-                <col style="width: 6rem" />
+                ${this.basic ? html`<col style="width: 6rem" />` : nothing}
                 <col style="width: 6rem" />
               </colgroup>
               <thead class="sticky top-0 z-10">
                 <tr
-                  class="text-white/40 text-[10px] uppercase tracking-wider border-b border-white/5 bg-[#1e2433]"
+                  class="text-white/40 text-[10px] uppercase tracking-wider border-b border-white/5 bg-df-panel"
                 >
                   <th class="py-4 px-4 text-center font-bold">
                     ${translateText("leaderboard_modal.rank")}
@@ -567,14 +668,25 @@ export class LeaderboardPlayerList extends LitElement {
                   <th class="py-4 px-4 text-left font-bold">
                     ${translateText("leaderboard_modal.player")}
                   </th>
-                  <th class="py-4 px-4 text-right font-bold">
-                    ${translateText("leaderboard_modal.elo")}
-                  </th>
+                  ${this.showElo
+                    ? html`<th class="py-4 px-4 text-right font-bold">
+                        ${translateText("leaderboard_modal.elo")}
+                      </th>`
+                    : nothing}
                   <th class="py-4 px-4 text-right font-bold">
                     ${translateText("leaderboard_modal.games")}
                   </th>
+                  ${this.basic
+                    ? html`<th class="py-4 px-4 text-right font-bold">
+                        ${translateText("leaderboard_modal.wins")}
+                      </th>`
+                    : nothing}
                   <th class="py-4 px-4 text-right font-bold pr-6">
-                    ${translateText("leaderboard_modal.win_loss_ratio")}
+                    ${translateText(
+                      this.basic
+                        ? "leaderboard_modal.win_rate"
+                        : "leaderboard_modal.win_loss_ratio",
+                    )}
                   </th>
                 </tr>
               </thead>

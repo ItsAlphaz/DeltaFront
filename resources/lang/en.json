@@ -1353,6 +1353,8 @@
     "warships": "Warships"
   },
   "leaderboard_modal": {
+    "basic_no_stats": "No players are listed yet. Play public games with other players to appear here.",
+    "basic_tab": "Players",
     "clan": "Clan",
     "clans_tab": "Clans",
     "elo": "ELO",
@@ -1362,6 +1364,8 @@
     "loss_score_tooltip": "Weighted losses based on clan participation and match difficulty",
     "no_data_yet": "No Data Yet",
     "no_stats": "No stats available",
+    "period_30d": "Last 30 days",
+    "period_all": "All time",
     "player": "Player",
     "rank": "Rank",
     "ranked_2v2_tab": "2v2 Ranked",
@@ -1370,6 +1374,7 @@
     "ranked_tab": "1v1 Ranked",
     "ratio": "Ratio",
     "refresh_time": "Refreshed every 1 hour",
+    "refresh_time_basic": "Refreshed every 5 minutes",
     "title": "Leaderboard",
     "tribes_boost": "Boosts",
     "tribes_boost_tooltip": "Boosted names appear more often in other players' games",
@@ -1385,8 +1390,10 @@
     "tribes_window": "Rolling {days}-day window ({start} – {end})",
     "try_again": "Try Again",
     "win_loss_ratio": "Win/Loss",
+    "win_rate": "Win rate",
     "win_score": "Win Score",
     "win_score_tooltip": "Weighted wins based on clan participation and match difficulty",
+    "wins": "Wins",
     "your_ranking": "Your Ranking"
   },
   "legend_ceremony": {

@@ -19,6 +19,8 @@ import {
   PaymentsProvider,
   PlayerGameModeFilter,
   PlayerGameTypeFilter,
+  PlayerLeaderboardResponse,
+  PlayerLeaderboardResponseSchema,
   PlayerProfile,
   PlayerProfileSchema,
   PostTribeBoostResponse,
@@ -2229,6 +2231,55 @@ export async function fetchPlayerLeaderboard(
     return parsed.data;
   } catch (err) {
     console.error("fetchPlayerLeaderboard: request failed", err);
+    return false;
+  }
+}
+
+// GET /leaderboard/players — the basic (non-ranked) player leaderboard: wins,
+// then win rate, over counted public games. `period` is "all" or "30d". Like
+// the ranked leaderboard, a page past the end is a 400 with the page-bounds
+// message, reported as "reached_limit".
+export type BasicLeaderboardPeriod = "all" | "30d";
+
+export async function fetchBasicPlayerLeaderboard(
+  page: number,
+  period: BasicLeaderboardPeriod = "all",
+): Promise<PlayerLeaderboardResponse | "reached_limit" | false> {
+  try {
+    const url = new URL(`${getApiBase()}/leaderboard/players`);
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("period", period);
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      if (res.status === 400) {
+        const body = await res.json().catch(() => null);
+        if (isPageBoundsMessage(body)) {
+          return "reached_limit";
+        }
+      }
+      console.warn(
+        "fetchBasicPlayerLeaderboard: unexpected status",
+        res.status,
+        res.statusText,
+      );
+      return false;
+    }
+
+    const parsed = PlayerLeaderboardResponseSchema.safeParse(await res.json());
+    if (!parsed.success) {
+      console.warn(
+        "fetchBasicPlayerLeaderboard: Zod validation failed",
+        parsed.error.toString(),
+      );
+      return false;
+    }
+
+    return parsed.data;
+  } catch (err) {
+    console.error("fetchBasicPlayerLeaderboard: request failed", err);
     return false;
   }
 }

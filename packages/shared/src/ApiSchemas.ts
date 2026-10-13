@@ -1026,7 +1026,9 @@ export const PlayerLeaderboardEntrySchema = z.object({
   // the playerId.
   accountUsername: z.string().nullable(),
   flag: z.string().optional(),
-  elo: z.number(),
+  // Absent on the basic (non-ranked) leaderboard, which has no rating; the
+  // list hides the column then.
+  elo: z.number().optional(),
   games: z.number(),
   wins: z.number(),
   losses: z.number(),

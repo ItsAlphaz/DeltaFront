@@ -77,7 +77,7 @@ describeDb("the account API against PostgreSQL", () => {
     await expect(
       startAccountApi(config, silentLogger, { pool: refused }),
     ).rejects.toThrow(
-      /1 pending migration\(s\) \(next: 0001_init\.sql\); run "npm run account-api:migrate" first/,
+      /2 pending migration\(s\) \(next: 0001_init\.sql\); run "npm run account-api:migrate" first/,
     );
 
     const pool = createPool(config.database, silentLogger);
@@ -114,6 +114,7 @@ describeDb("npm run account-api:migrate and npm run start:account-api", () => {
     );
     expect(before.code).toBe(0);
     expect(before.stdout).toContain("pending  0001_init");
+    expect(before.stdout).toContain("pending  0002_leaderboard");
 
     // Booting before migrating fails clearly, with the fix in the message.
     const early = await runScript(work.dir, "src/account-api/index.ts", [], {
@@ -125,7 +126,7 @@ describeDb("npm run account-api:migrate and npm run start:account-api", () => {
 
     const up = await runScript(work.dir, "src/account-api/migrate.ts", [], env);
     expect(up.code).toBe(0);
-    expect(up.stdout).toContain("applied 1 migration(s): 0001");
+    expect(up.stdout).toContain("applied 2 migration(s): 0001, 0002");
     const again = await runScript(
       work.dir,
       "src/account-api/migrate.ts",
@@ -140,6 +141,7 @@ describeDb("npm run account-api:migrate and npm run start:account-api", () => {
       env,
     );
     expect(after.stdout).toMatch(/applied\s+0001_init/);
+    expect(after.stdout).toMatch(/applied\s+0002_leaderboard/);
 
     const port = await freePort();
     const service = startScript(work.dir, "src/account-api/index.ts", {

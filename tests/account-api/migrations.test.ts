@@ -87,6 +87,17 @@ describe("the shipped migrations", () => {
     expect(sql).not.toMatch(/sqlite|AUTOINCREMENT|PRAGMA/i);
   });
 
+  it("0002 adds only the derived leaderboard table, with one row per position", () => {
+    expect(files[1].fileName).toBe("0002_leaderboard.sql");
+    const sql = files[1].sql.replace(/^\s*--.*$/gm, "");
+    expect(
+      [...sql.matchAll(/^CREATE TABLE (\w+)\s*\(/gm)].map((m) => m[1]),
+    ).toEqual(["leaderboard_players"]);
+    expect(sql).toMatch(/CREATE UNIQUE INDEX leaderboard_players_position_idx/);
+    // nothing for later milestones
+    expect(sql).not.toMatch(/inventory|purchases|clans|friends/i);
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time
