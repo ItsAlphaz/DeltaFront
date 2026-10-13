@@ -96,10 +96,10 @@ function requireYes(p: Parsed, what: string): void {
 export const ADMIN_COMMANDS = [
   "user:find <publicId|uuid|email|providerId>",
   "user:show <publicId>",
-  "user:ban <publicId> --category <name> [--reason <text>] [--days <n>] --yes",
-  "user:unban <publicId>",
-  "user:revoke-sessions <publicId> --yes",
-  "user:role <publicId> <admin|mod|flagged|none> --yes",
+  "user:ban <publicId> --category <name> --reason <text> [--days <n>] --yes",
+  "user:unban <publicId> --reason <text>",
+  "user:revoke-sessions <publicId> --reason <text> --yes",
+  "user:role <publicId> <admin|mod|flagged|none> --reason <text> --yes",
   "clan:list [search]",
   "clan:show <TAG>",
   "clan:rename <TAG> <new name> --reason <text>",
@@ -111,11 +111,11 @@ export const ADMIN_COMMANDS = [
   "wallet:revoke <publicId> <credits> --reason <text> --yes",
   "item:list <publicId>",
   "item:grant <publicId> <flare>",
-  "item:revoke <publicId> <flare> --yes",
+  "item:revoke <publicId> <flare> --reason <text> --yes",
   "server:key:create <name> [--from-env <VAR>]",
   "server:key:list",
-  "server:key:revoke <id> --yes",
-  "server:state <site> <letter> <open|draining|fenced> --yes",
+  "server:key:revoke <id> --reason <text> [--allow-last] --yes",
+  "server:state <site> <letter> <open|draining|fenced> --reason <text> --yes",
 ] as const;
 
 async function audit(
@@ -301,6 +301,7 @@ export async function runAdminCommand(
         const category = flag(p, "category");
         if (category === undefined || category.trim() === "")
           throw new AdminUsageError("--category is required");
+        const reason = reasonArg(p);
         const days = flag(p, "days");
         if (days !== undefined && !/^[1-9]\d{0,4}$/.test(days))
           throw new AdminUsageError("--days must be a positive whole number");
@@ -309,13 +310,13 @@ export async function runAdminCommand(
           await db.query(
             `INSERT INTO bans (user_id, category, reason, expires_at)
              VALUES ($1, $2, $3, CASE WHEN $4::int IS NULL THEN NULL ELSE now() + ($4::int || ' days')::interval END)`,
-            [user.id, category.trim(), flag(p, "reason") ?? null, days ?? null],
+            [user.id, category.trim(), reason, days ?? null],
           );
           // Signing out everywhere makes the ban take effect on the next request.
           const revoked = await revokeAllForUser(db, user.id, "banned");
           await audit(db, io, "user:ban", "user", publicId, {
             category,
-            reason: flag(p, "reason") ?? null,
+            reason,
             days: days ?? null,
             sessionsRevoked: revoked,
           });
@@ -325,6 +326,7 @@ export async function runAdminCommand(
       }
       case "user:unban": {
         const publicId = need(p, 0, "public id");
+        const reason = reasonArg(p);
         const count = await withTransaction(pool, async (db) => {
           const user = await userByPublicId(db, publicId);
           const r = await db.query(
@@ -332,6 +334,7 @@ export async function runAdminCommand(
             [user.id],
           );
           await audit(db, io, "user:unban", "user", publicId, {
+            reason,
             bansRevoked: r.rowCount,
           });
           return r.rowCount ?? 0;
@@ -342,10 +345,12 @@ export async function runAdminCommand(
       case "user:revoke-sessions": {
         requireYes(p, "revoking all sessions");
         const publicId = need(p, 0, "public id");
+        const reason = reasonArg(p);
         const count = await withTransaction(pool, async (db) => {
           const user = await userByPublicId(db, publicId);
           const n = await revokeAllForUser(db, user.id, "admin_revoke");
           await audit(db, io, "user:revoke-sessions", "user", publicId, {
+            reason,
             sessionsRevoked: n,
           });
           return n;
@@ -359,13 +364,22 @@ export async function runAdminCommand(
         const role = need(p, 1, "role");
         if (!(ROLES as readonly string[]).includes(role))
           throw new AdminUsageError(`role must be one of: ${ROLES.join(", ")}`);
+        const reason = reasonArg(p);
         await withTransaction(pool, async (db) => {
           const user = await userByPublicId(db, publicId);
+          const before = await db.query<{ role: string | null }>(
+            "SELECT role FROM users WHERE id = $1 FOR UPDATE",
+            [user.id],
+          );
           await db.query("UPDATE users SET role = $2 WHERE id = $1", [
             user.id,
             role === "none" ? null : role,
           ]);
-          await audit(db, io, "user:role", "user", publicId, { role });
+          await audit(db, io, "user:role", "user", publicId, {
+            from: before.rows[0]?.role ?? "none",
+            role,
+            reason,
+          });
         });
         io.out(`role of ${publicId} is now ${role}`);
         return 0;
@@ -644,6 +658,7 @@ export async function runAdminCommand(
         requireYes(p, "revoking an item");
         const publicId = need(p, 0, "public id");
         const flare = flareArg(p, 1);
+        const reason = reasonArg(p);
         if (catalogOf(io).defaultFlares.includes(flare)) {
           throw new AdminUsageError(
             `${flare} is a default item owned by every account: it cannot be revoked per account (remove it from defaultFlares in the catalog instead)`,
@@ -654,6 +669,7 @@ export async function runAdminCommand(
           const outcome = await revokeFlare(db, user.id, flare);
           await audit(db, io, "item:revoke", "user", publicId, {
             flare,
+            reason,
             result: outcome,
           });
           return outcome;
@@ -674,6 +690,15 @@ export async function runAdminCommand(
           if (value === undefined || value.length < MIN_KEY_LENGTH) {
             throw new AdminUsageError(
               `${fromEnv} must be set to a key of at least ${MIN_KEY_LENGTH} characters`,
+            );
+          }
+          // The development placeholder must never become a real server key.
+          if (
+            value.includes("WARNING_DEV_API_KEY") &&
+            (io.env.GAME_ENV === "staging" || io.env.GAME_ENV === "prod")
+          ) {
+            throw new AdminUsageError(
+              `${fromEnv} holds the development placeholder key: it cannot be registered when GAME_ENV=${io.env.GAME_ENV}`,
             );
           }
           key = value;
@@ -730,14 +755,32 @@ export async function runAdminCommand(
         const id = need(p, 0, "key id");
         if (!/^\d+$/.test(id))
           throw new AdminUsageError("key id must be a number");
+        const reason = reasonArg(p);
         await withTransaction(pool, async (db) => {
-          const r = await db.query(
-            "UPDATE server_api_keys SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
+          // Serialise with other key changes, then keep the one invariant that
+          // matters: revoking the last active key would lock every game server
+          // out until someone with shell access registers another.
+          await db.query(
+            "LOCK TABLE server_api_keys IN SHARE ROW EXCLUSIVE MODE",
+          );
+          const active = await db.query<{ id: string }>(
+            "SELECT id FROM server_api_keys WHERE revoked_at IS NULL",
+          );
+          if (!active.rows.some((row) => String(row.id) === id))
+            throw new AdminUsageError(`no active key #${id}`);
+          if (active.rows.length === 1 && p.flags.get("allow-last") !== true) {
+            throw new AdminUsageError(
+              `key #${id} is the only active server key: revoking it would lock every game server out. Create the replacement first (rotation), or repeat with --allow-last if that is intended`,
+            );
+          }
+          await db.query(
+            "UPDATE server_api_keys SET revoked_at = now() WHERE id = $1",
             [id],
           );
-          if ((r.rowCount ?? 0) === 0)
-            throw new AdminUsageError(`no active key #${id}`);
-          await audit(db, io, "server:key:revoke", "server_key", id);
+          await audit(db, io, "server:key:revoke", "server_key", id, {
+            reason,
+            remainingActive: active.rows.length - 1,
+          });
         });
         io.out(`key #${id} revoked`);
         return 0;
@@ -751,6 +794,7 @@ export async function runAdminCommand(
           throw new AdminUsageError(
             `state must be one of: ${SERVER_STATES.join(", ")}`,
           );
+        const reason = reasonArg(p);
         await withTransaction(pool, async (db) => {
           const r = await db.query(
             "UPDATE game_servers SET state = $3 WHERE site = $1 AND letter = $2",
@@ -766,7 +810,7 @@ export async function runAdminCommand(
             "server:state",
             "game_server",
             `${site}/${letter}`,
-            { state },
+            { state, reason },
           );
         });
         io.out(`server ${letter} of ${site} is now ${state}`);

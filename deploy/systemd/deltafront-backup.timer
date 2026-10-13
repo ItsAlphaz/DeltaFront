@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the DeltaFront database backup every night
+
+[Timer]
+# Quiet hours (UTC); the random delay keeps several machines from all
+# uploading in the same minute.
+OnCalendar=*-*-* 03:17:00
+RandomizedDelaySec=10min
+# If the machine was off at 03:17, run when it comes back.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

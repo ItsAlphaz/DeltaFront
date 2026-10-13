@@ -1,0 +1,25 @@
+#!/bin/sh
+# Checks the three things that matter, on loopback, and exits non-zero (so
+# systemd's OnFailure= can raise an alert) if any of them is wrong.
+#   account API   GET :8787/health   process answers
+#   readiness     GET :8787/ready    database, migrations, signing key, not draining
+#   game server   GET :3080/api/health
+# Prints only the endpoint name and status, never a response body.
+set -u
+API="${DF_API_URL:-http://127.0.0.1:8787}"
+GAME="${DF_GAME_URL:-http://127.0.0.1:3080}"
+failed=0
+check() {
+  name="$1"
+  url="$2"
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" || true)
+  if [ "$code" != "200" ]; then
+    echo "FAIL $name ($code)"
+    failed=1
+  fi
+}
+check "account-api-health" "$API/health"
+check "account-api-ready" "$API/ready"
+check "game-server-health" "$GAME/api/health"
+[ "$failed" -eq 0 ] && echo "ok"
+exit "$failed"

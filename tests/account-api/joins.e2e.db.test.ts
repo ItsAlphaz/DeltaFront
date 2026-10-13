@@ -42,10 +42,16 @@ import { describeDb } from "./util/testDb";
  */
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
-const CLOSE = { Unauthorized: 4001, Forbidden: 4002, Banned: 4003 } as const;
+const CLOSE = {
+  VerificationUnavailable: 4104,
+  Unauthorized: 4001,
+  Forbidden: 4002,
+  Banned: 4003,
+} as const;
 const REASON = {
   InvalidToken: "close_reason.invalid_token",
   TurnstileFailed: "close_reason.turnstile_failed",
+  VerificationUnavailable: "close_reason.verification_unavailable",
   Banned: "close_reason.banned",
   CosmeticsForbidden: "close_reason.cosmetics_forbidden",
 } as const;
@@ -67,7 +73,7 @@ const turnstile: Turnstile = {
     if (token === "good") return { status: "ok" };
     if (token === "down")
       return { status: "unavailable", reason: "cloudflare unreachable" };
-    return { status: "rejected", reason: "invalid-input-response" };
+    return { status: "rejected", reason: "invalid" };
   },
 };
 
@@ -244,7 +250,7 @@ describeDb(
         turnstile,
         fetchFn: mock.fetchFn,
       });
-      key = await createServerKey(h, "e2e-server-key-0123456789abcdef");
+      key = await createServerKey(h, "dfk_e2e-server-key-0123456789abcdefghij");
       server = await startGameServer(key);
     }, 120_000);
 
@@ -347,7 +353,15 @@ describeDb(
       ).rows[0].public_id;
       await runAdminCommand(
         h.db.pool,
-        ["user:ban", publicId, "--category", "test", "--yes"],
+        [
+          "user:ban",
+          publicId,
+          "--category",
+          "test",
+          "--yes",
+          "--reason",
+          "test",
+        ],
         io,
       );
       const again = await completeLogin(h, "google", "banned");
@@ -382,11 +396,26 @@ describeDb(
         expect(outcome.closed?.reason).toBe(REASON.TurnstileFailed);
       }, 30_000);
 
-      it("fails open, as designed, when Cloudflare cannot be reached", async () => {
+      it("while Cloudflare is unreachable, refuses a guest at once with a terminal close that explains why (the default fallback)", async () => {
         const guest = await newGuest(h);
         const { gameID } = await createGame(guest.jwt);
         const outcome = await join(gameID!, guest.jwt, {
           turnstileToken: "down",
+        });
+        expect(outcome.messages).toBe(0);
+        expect(outcome.closed).toEqual({
+          code: CLOSE.VerificationUnavailable,
+          reason: REASON.VerificationUnavailable,
+        });
+      }, 30_000);
+
+      it("while Cloudflare is unreachable, still admits a signed-in player", async () => {
+        const { jar } = await completeLogin(h, "discord", "discord");
+        const jwt = (await (await refresh(h, jar)).json()).jwt as string;
+        const { gameID } = await createGame(jwt);
+        const outcome = await join(gameID!, jwt, {
+          turnstileToken: "down",
+          username: "SignedInDuringOutage",
         });
         expect(outcome.closed).toBeNull();
         expect(outcome.messages).toBeGreaterThan(0);
@@ -460,7 +489,7 @@ describeDb(
     }
 
     it("registers with the API, is listed in cluster.json, and only then schedules public lobbies", async () => {
-      key = await createServerKey(h, "e2e-discovery-key-0123456789ab");
+      key = await createServerKey(h, "dfk_e2e-discovery-key-0123456789abcdef");
       server = await startGameServer(key, {
         GAME_HOST: "localhost",
         SITE_HOST: "localhost",
@@ -500,7 +529,15 @@ describeDb(
     it("a fenced server stops being offered new lobbies (existing ones are kept)", async () => {
       await runAdminCommand(
         h.db.pool,
-        ["server:state", "localhost", "a", "fenced", "--yes"],
+        [
+          "server:state",
+          "localhost",
+          "a",
+          "fenced",
+          "--yes",
+          "--reason",
+          "test",
+        ],
         io,
       );
       // The next check-in (every 10 s) applies it; the server keeps what it queued but adds no more.
@@ -580,7 +617,10 @@ describeDb(
         // These tests create many guests from one address.
         limits: { guestCreation: { max: 1000, windowMs: 60_000 } },
       });
-      const key = await createServerKey(h, "e2e-cosmetics-key-0123456789ab");
+      const key = await createServerKey(
+        h,
+        "dfk_e2e-cosmetics-key-0123456789abcdef",
+      );
       server = await startGameServer(key, {
         DF_ACCOUNT_FEATURES: "accounts,inventory,store",
       });
@@ -696,7 +736,14 @@ describeDb(
       expect(
         await runAdminCommand(
           h.db.pool,
-          ["item:revoke", p.publicId, "flag:split_field", "--yes"],
+          [
+            "item:revoke",
+            p.publicId,
+            "flag:split_field",
+            "--yes",
+            "--reason",
+            "test",
+          ],
           io,
         ),
       ).toBe(0);
@@ -1003,7 +1050,10 @@ describeDb(
           clanWrite: { max: 1000, windowMs: 60_000 },
         },
       });
-      const key = await createServerKey(h, "e2e-clans-key-0123456789abcdef");
+      const key = await createServerKey(
+        h,
+        "dfk_e2e-clans-key-0123456789abcdef",
+      );
       server = await startGameServer(key, {
         DF_ACCOUNT_FEATURES: "accounts,inventory,clans",
       });

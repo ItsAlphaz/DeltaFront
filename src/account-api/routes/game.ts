@@ -35,7 +35,7 @@ export function gameRouter(deps: AppDeps): Router {
   router.post(
     "/game/:id",
     serverOnly,
-    requireServerKey(pool),
+    requireServerKey(pool, deps.limiters),
     express.json({ limit: "100mb" }),
     async (req, res) => {
       const id = ID.safeParse(req.params.id);

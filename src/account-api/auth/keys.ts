@@ -20,10 +20,10 @@ import path from "node:path";
  * The Ed25519 keys that sign access tokens.
  *
  * Only the public half is ever published (JWKS); the private key is read from
- * a file on the API host and kept in memory. The game server verifies with
- * `keys[0]` of the JWKS (src/server/ServerEnv.ts), so the current key is
- * always listed first, and during a rotation the previous public key follows
- * it so tokens signed with it still verify here.
+ * a file on the API host and kept in memory. The game server picks a key from
+ * the JWKS by `kid` (src/server/JwksCache.ts), so during a rotation the
+ * previous public key stays listed after the current one and tokens signed
+ * with it keep verifying, here and on the game server, until it is removed.
  */
 
 export interface PublicJwk extends JWK {

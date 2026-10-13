@@ -35,6 +35,14 @@ COPY scripts ./scripts
 
 ARG GIT_COMMIT=unknown
 ENV GIT_COMMIT="$GIT_COMMIT"
+# Which account features the client shows, baked into the bundle at build time
+# (packages/shared/src/AccountFeatures.ts). Pass the launch set:
+#   docker build --build-arg DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards .
+# Only known feature names reach the bundle, an unknown one stops the build, and
+# the game server refuses to start if its own DF_ACCOUNT_FEATURES differs
+# (static/account-features.txt, written by build-prod). Not a secret.
+ARG DF_ACCOUNT_FEATURES=""
+ENV DF_ACCOUNT_FEATURES="$DF_ACCOUNT_FEATURES"
 RUN npm run build-prod
 
 # Production dependencies stage - separate from build
@@ -100,17 +108,23 @@ ARG GIT_COMMIT=unknown
 RUN echo "$GIT_COMMIT" > static/commit.txt
 
 ENV GIT_COMMIT="$GIT_COMMIT"
+# The runtime default equals the build's, so a container started without the
+# variable still agrees with its own client. An env file may set it, but the
+# server checks it against static/account-features.txt at start.
+ARG DF_ACCOUNT_FEATURES=""
+ENV DF_ACCOUNT_FEATURES="$DF_ACCOUNT_FEATURES"
 
 RUN <<'EOF' tee /usr/local/bin/start.sh
 #!/bin/sh
 # Generate the create-game nginx upstream from NUM_WORKERS before nginx starts.
 /usr/local/bin/generate-nginx-upstream.sh
 
-if [ "$DOMAIN" = openfront.dev ] && [ "$SUBDOMAIN" != main ]; then
-    exec timeout 25h /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-else
-    exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-fi
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
 EOF
 RUN chmod +x /usr/local/bin/start.sh
+
+# Liveness of the game server's master process (docs/Deployment.md, "Health").
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:80/api/health || exit 1
+
 ENTRYPOINT ["/usr/local/bin/start.sh"]

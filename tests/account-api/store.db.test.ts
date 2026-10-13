@@ -294,8 +294,16 @@ describeDb("POST /shop/purchase", () => {
       const s = await shopper(1000);
       await buy(s, BODY["flag:delta_mark"]);
       expect(
-        (await run(h, ["item:revoke", s.publicId, "flag:delta_mark", "--yes"]))
-          .code,
+        (
+          await run(h, [
+            "item:revoke",
+            s.publicId,
+            "flag:delta_mark",
+            "--yes",
+            "--reason",
+            "test",
+          ])
+        ).code,
       ).toBe(0);
       expect((await buy(s, BODY["flag:delta_mark"])).status).toBe(200);
       expect(await credits(s)).toBe(200);

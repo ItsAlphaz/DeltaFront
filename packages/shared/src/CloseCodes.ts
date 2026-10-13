@@ -16,6 +16,10 @@ export const CloseCode = {
   InvalidClan: 4101,
   ClanVerificationFailed: 4102,
   NotTrusted: 4103,
+  // The bot check could not be run and this join is not covered by the
+  // fallback policy: terminal, so the player is told at once instead of
+  // watching a spinner (they can join again when it is back).
+  VerificationUnavailable: 4104,
 } as const;
 
 export type CloseCode = (typeof CloseCode)[keyof typeof CloseCode];
@@ -36,6 +40,9 @@ export const CloseReason = {
   InvalidToken: "close_reason.invalid_token",
   Banned: "close_reason.banned",
   TurnstileFailed: "close_reason.turnstile_failed",
+  // The bot check could not be run (Cloudflare unreachable) and this join is
+  // not covered by the fallback policy (src/server/JoinFallback.ts).
+  VerificationUnavailable: "close_reason.verification_unavailable",
   LoginRequired: "close_reason.login_required",
   AccountLookupFailed: "close_reason.account_lookup_failed",
   Forbidden: "close_reason.forbidden",

@@ -1,0 +1,13 @@
+[Unit]
+Description=DeltaFront health check (account API, readiness, game server)
+OnFailure=deltafront-alert@%n.service
+
+[Service]
+Type=oneshot
+User=nobody
+ExecStart=/opt/deltafront/current/deploy/bin/df-healthcheck
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true

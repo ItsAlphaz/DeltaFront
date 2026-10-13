@@ -1,0 +1,51 @@
+[Unit]
+Description=DeltaFront account API
+Documentation=file:///opt/deltafront/current/docs/Deployment.md
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=df-api
+Group=df-api
+WorkingDirectory=/opt/deltafront/current
+# DATABASE_URL, the OAuth and Turnstile secrets, JWT_PRIVATE_KEY_PATH, ...
+# (root:df-api 0640; see deploy/env/api.env.example)
+EnvironmentFile=/etc/deltafront/api.env
+# Migrations are NEVER run here. They are a deploy step: npm run account-api:migrate
+ExecStart=/opt/deltafront/current/node_modules/.bin/tsx src/account-api/index.ts
+Restart=always
+RestartSec=3
+# SIGTERM starts a graceful drain (SHUTDOWN_TIMEOUT_MS, default 15 s, plus a 5 s backstop).
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Hardening. The service needs the network and read access to its own code;
+# nothing else. (MemoryDenyWriteExecute is deliberately absent: V8 needs it.)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+UMask=0077
+LimitNOFILE=65536
+# Logs are JSON lines on stdout: journalctl -u deltafront-account-api -o cat
+
+[Install]
+WantedBy=multi-user.target

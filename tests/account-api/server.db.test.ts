@@ -412,7 +412,15 @@ describeDb("server check-in and the server list", () => {
     expect(
       await runAdminCommand(
         h.db.pool,
-        ["server:state", "example.com", "a", "draining", "--yes"],
+        [
+          "server:state",
+          "example.com",
+          "a",
+          "draining",
+          "--yes",
+          "--reason",
+          "test",
+        ],
         io,
       ),
     ).toBe(0);
@@ -448,7 +456,15 @@ describeDb("server check-in and the server list", () => {
 
     await runAdminCommand(
       h.db.pool,
-      ["server:state", "example.com", "b", "fenced", "--yes"],
+      [
+        "server:state",
+        "example.com",
+        "b",
+        "fenced",
+        "--yes",
+        "--reason",
+        "test",
+      ],
       io,
     );
     const none = ServerListSchema.parse(
@@ -543,7 +559,15 @@ describeDb(
       for (const state of ["draining", "fenced"] as const) {
         await runAdminCommand(
           h.db.pool,
-          ["server:state", "example.com", "a", state, "--yes"],
+          [
+            "server:state",
+            "example.com",
+            "a",
+            state,
+            "--yes",
+            "--reason",
+            "test",
+          ],
           io,
         );
         const answer = await realCheckin(h, key, checkin());
@@ -556,7 +580,15 @@ describeDb(
 
       await runAdminCommand(
         h.db.pool,
-        ["server:state", "example.com", "a", "open", "--yes"],
+        [
+          "server:state",
+          "example.com",
+          "a",
+          "open",
+          "--yes",
+          "--reason",
+          "test",
+        ],
         io,
       );
       applyCheckinState(await realCheckin(h, key, checkin()), (a) =>
@@ -682,7 +714,7 @@ describeDb("join verification (the production admission gate)", () => {
     it("a rejected token is a rejection (the game server then refuses the join)", async () => {
       const t = withTurnstile({
         status: "rejected",
-        reason: "invalid-input-response",
+        reason: "invalid",
       });
       const h = await harness({ turnstile: t.turnstile });
       const key = await createServerKey(h);
@@ -694,14 +726,14 @@ describeDb("join verification (the production admission gate)", () => {
       });
       expect(await res.json()).toEqual({
         status: "rejected",
-        reason: "invalid-input-response",
+        reason: "invalid",
       });
     });
 
     it("a reconnect (no token) skips the check entirely and still screens the name", async () => {
       const t = withTurnstile({
         status: "rejected",
-        reason: "would fail if asked",
+        reason: "invalid",
       });
       const h = await harness({ turnstile: t.turnstile });
       const key = await createServerKey(h);
@@ -758,7 +790,8 @@ describeDb("join verification (the production admission gate)", () => {
       });
       expect(await turnstile.verify("tok2", "9.9.9.9")).toEqual({
         status: "rejected",
-        reason: "timeout-or-duplicate",
+        reason: "invalid",
+        detail: "timeout-or-duplicate",
       });
       expect((await turnstile.verify("tok3", "9.9.9.9")).status).toBe(
         "unavailable",
@@ -804,7 +837,7 @@ describeDb("join verification (the production admission gate)", () => {
     const t = { n: 0 };
     const verdicts: TurnstileVerdict[] = [
       { status: "ok" },
-      { status: "rejected", reason: "bad" },
+      { status: "rejected", reason: "invalid" },
       { status: "unavailable", reason: "down" },
     ];
     const h = await harness({
@@ -826,7 +859,7 @@ describeDb("join verification (the production admission gate)", () => {
     });
     expect(await verifyJoin("1.2.3.4", "tok", "Ann", null)).toEqual({
       status: "rejected",
-      reason: "bad",
+      reason: "invalid",
     });
     expect((await verifyJoin("1.2.3.4", "tok", "Ann", null)).status).toBe(
       "error",

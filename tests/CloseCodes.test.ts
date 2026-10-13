@@ -53,6 +53,8 @@ describe("isTerminalClose", () => {
       CloseCode.GameClosed,
       CloseCode.LobbyFull,
       CloseCode.WrongWorker,
+      // the bot check was unreachable: say so now, do not spin
+      CloseCode.VerificationUnavailable,
     ]) {
       expect(isTerminalClose(code)).toBe(true);
     }

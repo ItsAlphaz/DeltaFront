@@ -3,6 +3,10 @@
  * is right for one API instance; a second instance would need a shared store.
  */
 
+import { CLAN_RULES } from "./domain/constants";
+
+const DAY_MS = 86_400_000;
+
 export interface RateLimit {
   max: number;
   windowMs: number;
@@ -24,6 +28,16 @@ export const RATE_LIMITS = Object.freeze({
   clanWrite: { max: 20, windowMs: 60_000 },
   /** Account deletion requests, per client address. */
   accountDeletion: { max: 5, windowMs: 60 * 60 * 1000 },
+  /** OAuth callbacks (a state that checks out is single use; this caps guessing), per client address. */
+  oauthCallback: { max: 60, windowMs: 60 * 1000 },
+  /** Account username changes, per account (the 30 day cooldown is the real limit). */
+  usernameChange: { max: 5, windowMs: 60 * 60 * 1000 },
+  /** Clan creation, per account (plan section 14.3). */
+  clanCreate: { max: CLAN_RULES.createsPerDay, windowMs: DAY_MS },
+  /** Calls from game servers with a valid key (join verification, check-in, archive), per client address. */
+  serverCall: { max: 1200, windowMs: 60 * 1000 },
+  /** Wrong or missing server keys, per client address: a guess budget, not a request budget. */
+  serverKeyFailure: { max: 30, windowMs: 60 * 1000 },
 } as const satisfies Record<string, RateLimit>);
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -62,6 +76,23 @@ export class RateLimiter {
     return { allowed: true, retryAfterSeconds: 0 };
   }
 
+  /** Whether `key` has already used up its budget, without counting a hit. */
+  isExhausted(key: string): LimitResult {
+    const now = this.now();
+    const entry = this.hits.get(key);
+    if (
+      entry === undefined ||
+      entry.resetAt <= now ||
+      entry.count < this.limit.max
+    ) {
+      return { allowed: true, retryAfterSeconds: 0 };
+    }
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+    };
+  }
+
   private sweep(now: number): void {
     for (const [key, entry] of this.hits)
       if (entry.resetAt <= now) this.hits.delete(key);
@@ -84,5 +115,10 @@ export function createLimiters(
     purchase: make("purchase"),
     clanWrite: make("clanWrite"),
     accountDeletion: make("accountDeletion"),
+    oauthCallback: make("oauthCallback"),
+    usernameChange: make("usernameChange"),
+    clanCreate: make("clanCreate"),
+    serverCall: make("serverCall"),
+    serverKeyFailure: make("serverKeyFailure"),
   };
 }

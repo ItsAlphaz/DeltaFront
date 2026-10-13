@@ -9,6 +9,7 @@ import { GameEnv } from "@openfront/shared/configuration/Env";
 import { PersistentIdSchema } from "@openfront/shared/WireSchemas";
 import { jwtVerify } from "jose";
 import { z } from "zod";
+import { createJwksCache, type JwksCache } from "./JwksCache";
 import { ServerEnv } from "./ServerEnv";
 
 type TokenVerificationResult =
@@ -18,6 +19,29 @@ type TokenVerificationResult =
       claims: TokenPayload | null;
     }
   | { type: "error"; message: string };
+
+let jwks: { url: string; cache: JwksCache } | null = null;
+
+/** The key cache for the configured issuer (see JwksCache.ts), built on first use. */
+export function jwksCache(): JwksCache {
+  const url = `${ServerEnv.jwtIssuer()}/.well-known/jwks.json`;
+  if (jwks === null || jwks.url !== url) {
+    jwks = {
+      url,
+      cache: createJwksCache({
+        url,
+        log: (event, fields) =>
+          console.log(JSON.stringify({ event, ...fields })),
+      }),
+    };
+  }
+  return jwks.cache;
+}
+
+/** Fetches the signing keys at start-up so the first join does not wait for them. */
+export async function warmJwks(): Promise<void> {
+  await jwksCache().refresh();
+}
 
 export async function verifyClientToken(
   token: string,
@@ -35,8 +59,7 @@ export async function verifyClientToken(
   try {
     const issuer = ServerEnv.jwtIssuer();
     const audience = ServerEnv.jwtAudience();
-    const key = await ServerEnv.jwkPublicKey();
-    const { payload } = await jwtVerify(token, key, {
+    const { payload } = await jwtVerify(token, jwksCache().getKey, {
       algorithms: ["EdDSA"],
       issuer,
       audience,

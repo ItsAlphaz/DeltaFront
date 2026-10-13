@@ -1,0 +1,33 @@
+[Unit]
+Description=DeltaFront nightly database backup
+Documentation=file:///opt/deltafront/current/docs/Deployment.md
+After=postgresql.service
+OnFailure=deltafront-alert@%n.service
+
+[Service]
+Type=oneshot
+User=df-backup
+Group=df-backup
+WorkingDirectory=/opt/deltafront/current
+# BACKUP_DATABASE_URL (a read-only role), BACKUP_AGE_RECIPIENT (a PUBLIC key),
+# BACKUP_REMOTE. The rclone remote's credentials are in ~df-backup/.config/rclone.
+EnvironmentFile=/etc/deltafront/backup.env
+ExecStart=/opt/deltafront/current/node_modules/.bin/tsx scripts/backup/cli.ts run
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+UMask=0077
+ReadWritePaths=/var/backups/deltafront

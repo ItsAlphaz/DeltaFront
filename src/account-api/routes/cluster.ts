@@ -37,7 +37,7 @@ export function clusterRouter(deps: AppDeps): Router {
   router.post(
     "/cluster/checkin",
     express.json({ limit: "16kb" }),
-    requireServerKey(pool),
+    requireServerKey(pool, deps.limiters),
     async (req, res) => {
       const parsed = CheckinBody.safeParse(req.body);
       if (!parsed.success) {

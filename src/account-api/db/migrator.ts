@@ -205,6 +205,13 @@ export async function applyMigrations(
           await client.query("BEGIN");
           // Migrations may be slow (index builds); lift the pool's per-statement cap.
           await client.query("SET LOCAL statement_timeout = 0");
+          // A migration that cannot get its lock should fail the deploy, not
+          // wait forever (and queue the live API behind it); the idle-in-
+          // transaction cap does not apply to a migration's own session.
+          await client.query("SET LOCAL lock_timeout = '30s'");
+          await client.query(
+            "SET LOCAL idle_in_transaction_session_timeout = 0",
+          );
           await client.query(file.sql);
           await client.query(
             "INSERT INTO schema_migrations (version, name, checksum) VALUES ($1, $2, $3)",

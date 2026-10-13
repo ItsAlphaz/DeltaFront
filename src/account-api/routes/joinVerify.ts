@@ -27,7 +27,7 @@ export function joinVerifyRouter(deps: AppDeps): Router {
   router.post(
     "/join_verify",
     express.json({ limit: "16kb" }),
-    requireServerKey(deps.pool),
+    requireServerKey(deps.pool, deps.limiters),
     async (req, res) => {
       const parsed = Body.safeParse(req.body);
       if (!parsed.success) {
@@ -38,12 +38,18 @@ export function joinVerifyRouter(deps: AppDeps): Router {
       if (token !== null) {
         const verdict = await deps.turnstile.verify(token, ip);
         if (verdict.status === "rejected") {
+          // The reason is a fixed code (never the token); Cloudflare's own
+          // error codes stay in the log.
+          deps.log.info("join_verify: token rejected", {
+            reason: verdict.reason,
+            detail: verdict.detail,
+          });
           res.json({ status: "rejected", reason: verdict.reason });
           return;
         }
         if (verdict.status === "unavailable") {
-          // The game server fails open on an API error, keeping players able to
-          // join while Cloudflare is down; the cost is one unverified join each.
+          // The game server decides what an unverified join may do
+          // (src/server/JoinVerify.ts, joinFallback); this only reports it.
           deps.log.warn("Turnstile unavailable", { reason: verdict.reason });
           res.status(503).json({ error: "turnstile_unavailable" });
           return;

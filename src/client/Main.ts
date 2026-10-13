@@ -1,3 +1,8 @@
+// organize-imports-ignore
+// ZodConfig must evaluate before any module that builds a zod schema (the very
+// first import below does), so it stays first and this file is not re-sorted.
+import "./ZodConfig";
+
 import { GAME_ID_REGEX } from "@openfront/engine-api/Schemas";
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";

@@ -6,7 +6,8 @@ import express, {
 } from "express";
 import type { Pool } from "pg";
 import { tagFromRoute, type ReservedClanNames } from "../domain/clans";
-import { sha256 } from "../http";
+import { clientIp, sha256 } from "../http";
+import type { Limiters } from "../limits";
 import { reservedTagList, tagIsRegistered } from "../repo/clans";
 
 /**
@@ -14,24 +15,48 @@ import { reservedTagList, tagIsRegistered } from "../repo/clans";
  * game archive): the `x-api-key` header must hash to a key in
  * `server_api_keys` that has not been revoked. Keys are minted with
  * `npm run admin -- server:key:create` and only their SHA-256 is stored.
+ *
+ * With `limiters`, a client address that keeps presenting wrong keys is cut
+ * off with 429 before any lookup (a guess budget), and a valid key is held to
+ * a generous request budget (a leaked key cannot be used to hammer the API
+ * unnoticed).
  */
-export function requireServerKey(pool: Pick<Pool, "query">) {
+export function requireServerKey(
+  pool: Pick<Pool, "query">,
+  limiters?: Pick<Limiters, "serverCall" | "serverKeyFailure">,
+) {
+  const tooMany = (res: Response, retryAfterSeconds: number): void => {
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    res.status(429).json({ error: "rate_limited" });
+  };
   return async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
+    const ip = clientIp(req);
+    const blocked = limiters?.serverKeyFailure.isExhausted(ip);
+    if (blocked !== undefined && !blocked.allowed) {
+      tooMany(res, blocked.retryAfterSeconds);
+      return;
+    }
     const key = req.headers["x-api-key"];
-    if (typeof key !== "string" || key === "" || key.length > 512) {
+    let valid = false;
+    if (typeof key === "string" && key !== "" && key.length <= 512) {
+      const { rows } = await pool.query(
+        "SELECT 1 FROM server_api_keys WHERE key_hash = $1 AND revoked_at IS NULL",
+        [sha256(key)],
+      );
+      valid = rows.length > 0;
+    }
+    if (!valid) {
+      limiters?.serverKeyFailure.hit(ip);
       res.status(401).json({ error: "invalid_api_key" });
       return;
     }
-    const { rows } = await pool.query(
-      "SELECT 1 FROM server_api_keys WHERE key_hash = $1 AND revoked_at IS NULL",
-      [sha256(key)],
-    );
-    if (rows.length === 0) {
-      res.status(401).json({ error: "invalid_api_key" });
+    const verdict = limiters?.serverCall.hit(ip);
+    if (verdict !== undefined && !verdict.allowed) {
+      tooMany(res, verdict.retryAfterSeconds);
       return;
     }
     next();
@@ -49,9 +74,10 @@ export function requireServerKey(pool: Pick<Pool, "query">) {
 export function serverLookupsRouter(
   pool: Pick<Pool, "query">,
   reserved: ReservedClanNames,
+  limiters?: Pick<Limiters, "serverCall" | "serverKeyFailure">,
 ): Router {
   const router = express.Router();
-  const serverOnly = requireServerKey(pool);
+  const serverOnly = requireServerKey(pool, limiters);
 
   router.get("/reserved_clan_tags", serverOnly, async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");

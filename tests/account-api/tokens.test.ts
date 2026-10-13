@@ -419,18 +419,15 @@ describe("tokens against the game server's verifyClientToken", () => {
     }
   });
 
-  it("verifies against the published key set only, so a rotation that lists both keys keeps old tokens valid", async () => {
-    const oldKeys = keys;
+  it("keeps verifying tokens from the previous key while the rotated key set lists both", async () => {
     const oldToken = (
-      await new TokenService(oldKeys, ISSUER, AUDIENCE).issue({
+      await tokens.issue({
         userId: USER,
         role: null,
         provider: "guest",
         sid: "f",
       })
     ).jwt;
-    // The game server reads keys[0]: the current key. After a rotation the old
-    // token is verified by the API (it lists both) but the game server only sees the new first key.
     expect((await verifyClientToken(oldToken)).type).toBe("success");
     expect(jwksFetches).toBe(1);
   });

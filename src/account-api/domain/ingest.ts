@@ -189,8 +189,9 @@ export async function ingestGameRecord(
 
     const gz = gzipSync(Buffer.from(rawJson, "utf8"));
     await tx.query(
-      "INSERT INTO game_records (game_id, record_gz, bytes) VALUES ($1, $2, $3)",
-      [gameId, gz, gz.length],
+      `INSERT INTO game_records (game_id, record_gz, bytes, expires_at)
+       VALUES ($1, $2, $3, now() + make_interval(days => $4))`,
+      [gameId, gz, gz.length, ACCOUNT_RULES.gameRecordRetentionDays],
     );
 
     const aggregated =

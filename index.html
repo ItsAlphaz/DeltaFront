@@ -189,11 +189,30 @@
       }
     </script>
 
-    <!-- CrazyGames SDK -->
-    <script
-      src="https://sdk.crazygames.com/crazygames-sdk-v3.js"
-      async
-    ></script>
+    <!--
+      CrazyGames SDK. Loaded only when the page is embedded on crazygames.com
+      (the same test src/client/CrazyGamesSDK.ts isOnCrazyGames uses), so a
+      standalone DeltaFront page runs no third-party platform script.
+    -->
+    <script>
+      (function () {
+        var embedded = false;
+        try {
+          var parent = window.self !== window.top;
+          var origins = window.location.ancestorOrigins;
+          var where =
+            document.referrer || (origins && origins.length ? origins[0] : "");
+          embedded = parent && /crazygames/i.test(where);
+        } catch (e) {
+          embedded = false;
+        }
+        if (!embedded) return;
+        var sdk = document.createElement("script");
+        sdk.async = true;
+        sdk.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+        document.head.appendChild(sdk);
+      })();
+    </script>
 
     <!-- Cloudflare Turnstile -->
     <script

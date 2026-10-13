@@ -136,6 +136,11 @@ export function authRouter(deps: AppDeps): Router {
     }
     const rotated = await rotateSession(pool, presented, ctx);
     if (rotated.kind === "invalid") {
+      // Reuse of a replaced token is the theft signal worth a line in the log.
+      (rotated.reason === "reuse_detected" ? log.warn : log.info)(
+        "refresh rejected",
+        { reason: rotated.reason },
+      );
       res.append("Set-Cookie", clearRefreshCookie());
       res.status(401).json({ error: "invalid_session" });
       return;
@@ -287,6 +292,12 @@ export function authRouter(deps: AppDeps): Router {
 
   // ----------------------------------------------------- OAuth: callback
   router.get("/auth/callback/:provider", async (req, res) => {
+    const callbackVerdict = limiters.oauthCallback.hit(clientIp(req));
+    if (!callbackVerdict.allowed) {
+      res.setHeader("Retry-After", String(callbackVerdict.retryAfterSeconds));
+      res.status(429).json({ error: "rate_limited" });
+      return;
+    }
     const name = String(req.params.provider);
     const state = typeof req.query.state === "string" ? req.query.state : "";
     const bound = parseCookies(req.headers.cookie)[OAUTH_COOKIE] ?? "";
@@ -299,17 +310,21 @@ export function authRouter(deps: AppDeps): Router {
     // Until the state checks out we do not know where to send the browser, and
     // must not trust anything in the request: answer plainly.
     if (state === "" || bound === "" || !safeEqual(state, bound)) {
+      log.warn("sign-in failed", { provider: name, reason: "state_mismatch" });
       res.status(400).json({ error: "invalid_state" });
       return;
     }
     const record = await consumeOAuthState(pool, state);
     if (record === null || record.provider !== name) {
+      log.warn("sign-in failed", { provider: name, reason: "state_unknown" });
       res.status(400).json({ error: "invalid_state" });
       return;
     }
 
-    const fail = (result: LoginResult) =>
+    const fail = (result: LoginResult) => {
+      log.info("sign-in failed", { provider: name, reason: result });
       res.redirect(302, withLoginResult(record.redirectUri, result));
+    };
 
     if (typeof req.query.error === "string") {
       fail(req.query.error === "access_denied" ? "cancel" : "error");

@@ -6,24 +6,10 @@ import {
 } from "@openfront/shared/ClusterConfig";
 import { GameEnv, parseGameEnv } from "@openfront/shared/configuration/Env";
 import { generateGameID } from "@openfront/shared/SharedUtil";
-import { JWK } from "jose";
-import { z } from "zod";
-
-const JwksSchema = z.object({
-  keys: z
-    .object({
-      alg: z.literal("EdDSA"),
-      crv: z.literal("Ed25519"),
-      kty: z.literal("OKP"),
-      x: z.string(),
-    })
-    .array()
-    .min(1),
-});
+import { parseJoinFallback, type JoinFallbackPolicy } from "./JoinFallback";
 
 export class ServerEnv {
   private static readonly gameEnv: GameEnv = parseGameEnv(process.env.GAME_ENV);
-  private static publicKey: JWK | null = null;
 
   // Values that also flow to the client via index.html, but on the server
   // are read from process.env directly. Server code never reaches into
@@ -100,6 +86,20 @@ export class ServerEnv {
     if (!v || !/^[a-f0-9]{32}$/.test(v)) return undefined;
     return v;
   }
+  // What a first join may do while the bot check is unreachable (JoinVerify.ts).
+  static turnstileFallback(): JoinFallbackPolicy {
+    return parseJoinFallback(
+      process.env.TURNSTILE_FALLBACK,
+      ServerEnv.gameEnv === GameEnv.Dev,
+    );
+  }
+  // How the app shell's Content-Security-Policy is applied: enforced (the
+  // default outside dev), report-only while diagnosing a violation, or off.
+  static cspMode(): "enforce" | "report-only" | "off" {
+    const v = process.env.CSP_MODE?.trim();
+    if (v === "report-only" || v === "off") return v;
+    return "enforce";
+  }
   static jwtAudience(): string {
     const v = process.env.DOMAIN;
     if (!v) {
@@ -129,24 +129,6 @@ export class ServerEnv {
     return audience === "localhost"
       ? "http://localhost:8787"
       : `https://api.${audience}`;
-  }
-  static async jwkPublicKey(): Promise<JWK> {
-    if (ServerEnv.publicKey) return ServerEnv.publicKey;
-    const jwksUrl = ServerEnv.jwtIssuer() + "/.well-known/jwks.json";
-    console.log(`Fetching JWKS from ${jwksUrl}`);
-    const response = await fetch(jwksUrl);
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`JWKS fetch failed: ${response.status} ${body}`);
-    }
-    const result = JwksSchema.safeParse(await response.json());
-    if (!result.success) {
-      const error = z.prettifyError(result.error);
-      console.error("Error parsing JWKS", error);
-      throw new Error("Invalid JWKS");
-    }
-    ServerEnv.publicKey = result.data.keys[0];
-    return ServerEnv.publicKey;
   }
   static turnIntervalMs(): number {
     return 100;

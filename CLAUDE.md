@@ -16,6 +16,9 @@ npm run lint:fix         # Oxlint + ESLint with auto-fix
 npm run format           # Prettier
 npm run build-prod       # Production build
 npm run typecheck        # tsc for the root project and each package
+npm run launch:check     # Is this deployment safe to open to the public? Read-only, prints no secrets (docs/Deployment.md)
+npm run backup:run       # Nightly database backup (systemd timer); `-- --dry-run` shows the steps. backup:drill restores into a scratch DB
+npm run launch:loadtest  # Small load test of /auth/refresh and /users/@me against a STAGING API
 ```
 
 **Run a single test file:**
@@ -95,6 +98,10 @@ The game server only serves `index.html` and the WebSocket. All other assets (JS
 - Product name, community links, source-code link, Steam app ID: `src/client/Branding.ts` (empty link hides its UI).
 - Colours, radii, shared `.df-btn` / `.df-input` / `.df-panel` classes: `src/client/styles.css` (`--color-df-*` tokens). Use them instead of hard-coded colours; red is for primary actions, selection, focus and accents.
 - Logo and icon: `resources/images/branding/`. Upstream's `proprietary/` folder (All Rights Reserved OpenFront assets) is removed and must not be re-added.
+
+## Production deployment
+
+`docs/Deployment.md` is the single-server runbook (nginx, the account API, the game container, PostgreSQL, backups, key rotation, the Terms/Privacy gate); `deploy/` holds the reference files; `docs/OpenFrontAudit.md` lists every remaining OpenFront reference and third-party host (`tests/ThirdPartyHosts.test.ts` fails on a new one). Outside dev, only the launch features (`accounts,store,inventory,clans,leaderboards`) may run, and the production game server refuses to start while the Terms/Privacy pages are placeholders. Never log a secret: the account API's logger redacts, but keep calling code clean.
 
 ## Account backend features
 

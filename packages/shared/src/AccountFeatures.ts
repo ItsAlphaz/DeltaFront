@@ -97,6 +97,17 @@ export function allFeaturesOff(): AccountFeatures {
   };
 }
 
+/**
+ * How a rejected token is named in a message. A plausible typo of a feature
+ * name is echoed (it is what the operator needs to see); anything else is
+ * only counted, because a value pasted into the wrong variable may be a secret.
+ */
+export function describeRejectedToken(token: string): string {
+  return /^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(token)
+    ? JSON.stringify(token)
+    : `<${token.length} characters, not a feature name>`;
+}
+
 /** The environment variable that switches features on (comma-separated flag names). */
 export const ACCOUNT_FEATURES_ENV = "DF_ACCOUNT_FEATURES";
 
@@ -135,7 +146,7 @@ export function parseAccountFeatureOverride(
     return { enabled: [], rejected: [String(raw)] };
   }
   if (raw.length > MAX_OVERRIDE_LENGTH) {
-    return { enabled: [], rejected: [`${raw.slice(0, 32)}…`] };
+    return { enabled: [], rejected: [raw.slice(0, 64)] };
   }
   const requested = new Set<string>();
   const rejected: string[] = [];
@@ -181,7 +192,7 @@ const initial = resolveAccountFeatures(readEnvOverride());
 if (initial.rejected.length > 0) {
   console.warn(
     `${ACCOUNT_FEATURES_ENV}: ignoring ${initial.rejected
-      .map((t) => JSON.stringify(t))
+      .map(describeRejectedToken)
       .join(", ")} (known features: ${ACCOUNT_FEATURE_NAMES.join(", ")})`,
   );
 }
@@ -220,3 +231,56 @@ export const AUTH_PROVIDERS = Object.freeze({
 } as const);
 
 export type AuthProviderName = keyof typeof AUTH_PROVIDERS;
+
+/**
+ * The public-launch profile: the flags a production deployment turns on, and
+ * the value to set `DF_ACCOUNT_FEATURES` to, for the client build, the game
+ * server and the account API alike (docs/Deployment.md). Everything else in
+ * `AccountFeatures` has no backend yet, so it stays off: a flag outside this
+ * set would show an unfinished feature, so outside dev both servers refuse to
+ * start with one (`unfinishedFeatures`) and `npm run launch:check` fails.
+ */
+export const LAUNCH_FEATURES = [
+  "accounts",
+  "store",
+  "inventory",
+  "clans",
+  "leaderboards",
+] as const satisfies readonly AccountFeatureName[];
+
+/** `accounts,store,inventory,clans,leaderboards`, the string deployments set. */
+export const LAUNCH_FEATURES_VALUE = LAUNCH_FEATURES.join(",");
+
+/** The enabled flags that are not part of the launch profile (to refuse outside dev). */
+export function unfinishedFeatures(
+  features: AccountFeatures,
+): AccountFeatureName[] {
+  const launch: readonly string[] = LAUNCH_FEATURES;
+  return ACCOUNT_FEATURE_NAMES.filter(
+    (name) => features[name] && !launch.includes(name),
+  );
+}
+
+/**
+ * The value the client build bakes in for `process.env.DF_ACCOUNT_FEATURES`
+ * (vite.config.ts): the known feature names, normalised, and nothing else, so
+ * no stray text from the environment can reach the browser bundle. A
+ * production build refuses an unknown name instead of quietly building with a
+ * feature off.
+ */
+export function buildTimeFeatureList(
+  raw: string | undefined,
+  production: boolean,
+): string {
+  const { enabled, rejected } = parseAccountFeatureOverride(raw);
+  if (rejected.length > 0 && production) {
+    throw new Error(
+      `${ACCOUNT_FEATURES_ENV}: unknown feature ${rejected
+        .map(describeRejectedToken)
+        .join(
+          ", ",
+        )} (known: ${ACCOUNT_FEATURE_NAMES.join(", ")}). The build was stopped so the client does not ship with a feature silently off.`,
+    );
+  }
+  return enabled.join(",");
+}

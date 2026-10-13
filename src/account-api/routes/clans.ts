@@ -320,6 +320,13 @@ export function clansRouter(deps: AppDeps): Router {
     handle(async (req, res) => {
       const user = await member(req, res, { write: true });
       if (user === null) return;
+      // Only clans that were created count: a mistyped tag is not a day lost.
+      const created = limiters.clanCreate.isExhausted(user.id);
+      if (!created.allowed) {
+        res.setHeader("Retry-After", String(created.retryAfterSeconds));
+        res.status(429).json({ code: "RATE_LIMITED" });
+        return;
+      }
       const input = (req.body ?? {}) as Record<string, unknown>;
       if (typeof input !== "object" || Array.isArray(input)) {
         res.status(400).json({ code: "INVALID_REQUEST" });
@@ -336,6 +343,7 @@ export function clansRouter(deps: AppDeps): Router {
         },
         reserved,
       );
+      limiters.clanCreate.hit(user.id);
       const clan = await clanByTag(pool, tag);
       res.status(201).json(clan === null ? {} : toClanInfo(clan));
     }),

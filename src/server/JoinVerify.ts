@@ -95,9 +95,9 @@ export function planJoinVerify(args: {
  * Failures are never retried: a Turnstile token is single-use, so
  * re-submitting after a timeout or 5xx can redeem an already-spent token and
  * turn an API hiccup into a hard rejection of a legitimate player. Any
- * failure returns "error" and the caller fails open with the locally
- * screened name (see Censor.ts), matching the old standalone-Turnstile
- * stance.
+ * failure returns "error" and the caller applies the fallback policy
+ * (joinFallbackDecision); an admitted join keeps the locally screened name
+ * (see Censor.ts).
  */
 export async function verifyJoin(
   ip: string,

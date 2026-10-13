@@ -130,7 +130,10 @@ export async function startHarness(
   options: HarnessOptions = {},
 ): Promise<Harness> {
   const db = await createTestDatabase();
-  const bootstrap = createPool({ url: db.url, poolMax: 2 }, silentLogger);
+  const bootstrap = createPool(
+    { url: db.url, poolMax: 2, statementTimeoutMs: 30_000 },
+    silentLogger,
+  );
   await applyMigrations(bootstrap);
   await bootstrap.end();
 
@@ -172,7 +175,12 @@ export async function startHarness(
     keys,
     fetchFn: options.fetchFn,
     turnstile: options.turnstile,
-    limits: options.limits,
+    // The callback limit would trip suites that sign many accounts in from one
+    // address; the tests that exercise it pass their own.
+    limits: {
+      oauthCallback: { max: 1_000_000, windowMs: 60_000 },
+      ...options.limits,
+    },
     oauthEndpoints: options.oauthEndpoints,
     catalogDir: options.catalogDir,
   });

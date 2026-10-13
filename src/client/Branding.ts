@@ -21,10 +21,12 @@ export const BRAND = {
   upstreamCreditsUrl:
     "https://github.com/openfrontio/OpenFrontIO/blob/main/CREDITS.md",
 
-  // Tutorial video embedded in Help and on the post-game screen. This is
-  // OpenFront's own video (the gameplay it shows matches DeltaFront for now).
-  // Replace it with your own embed URL when you have one; "" hides the video.
-  tutorialVideoUrl: "https://www.youtube.com/embed/7J5zwb_s_Cg",
+  // Tutorial video embedded in Help and on the post-game screen. Empty: the
+  // only video that existed was OpenFront's own, and a YouTube embed is a
+  // third-party tracker (docs/OpenFrontAudit.md). Set your own embed URL (and
+  // allow https://www.youtube.com in the CSP frame-src, src/server/
+  // SecurityHeaders.ts) to bring the video back; "" hides it.
+  tutorialVideoUrl: "",
 
   // Ads. Off: the upstream ad scripts (Playwire, Admiral) are not shipped, and
   // with this false the homepage/in-game ad slots and adblock polling stay

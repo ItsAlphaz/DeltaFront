@@ -508,6 +508,7 @@ describe("loadDatabaseConfig", () => {
     expect(loadDatabaseConfig({ DATABASE_URL: DB })).toEqual({
       url: DB,
       poolMax: 10,
+      statementTimeoutMs: 30_000,
     });
   });
 
@@ -516,5 +517,85 @@ describe("loadDatabaseConfig", () => {
     expect(() => loadDatabaseConfig({ DATABASE_URL: "sqlite://x" })).toThrow(
       ConfigError,
     );
+  });
+});
+
+describe("loadConfig: M7 production rules", () => {
+  it("Turnstile hostnames default to the site's domain in production and are unchecked in dev", () => {
+    expect(loadConfig(prodWithAccounts()).turnstileHostnames).toEqual([
+      "example.com",
+    ]);
+    expect(loadConfig(dev()).turnstileHostnames).toBeNull();
+    expect(loadConfig(prodWithAccounts()).turnstileAction).toBe("join");
+  });
+
+  it("TURNSTILE_ALLOWED_HOSTNAMES is a validated list, and never includes localhost outside dev", () => {
+    expect(
+      loadConfig(
+        prodWithAccounts({
+          TURNSTILE_ALLOWED_HOSTNAMES: "Example.com, play.example.org",
+        }),
+      ).turnstileHostnames,
+    ).toEqual(["example.com", "play.example.org"]);
+    for (const bad of ["https://example.com", "exa mple.com", ",", "a/b"]) {
+      expect(
+        issuesOf(prodWithAccounts({ TURNSTILE_ALLOWED_HOSTNAMES: bad })),
+        bad,
+      ).toContain(
+        "TURNSTILE_ALLOWED_HOSTNAMES must be a comma-separated list of bare hostnames such as example.com",
+      );
+    }
+    expect(
+      issuesOf(prodWithAccounts({ TURNSTILE_ALLOWED_HOSTNAMES: "localhost" })),
+    ).toEqual([expect.stringContaining("must not include localhost")]);
+  });
+
+  it("TURNSTILE_ACTION is validated", () => {
+    expect(
+      issuesOf(prodWithAccounts({ TURNSTILE_ACTION: "bad action!" })),
+    ).toEqual([expect.stringContaining("TURNSTILE_ACTION")]);
+  });
+
+  it("outside dev, only the launch features may be enabled", () => {
+    const launch = "accounts,store,inventory,clans,leaderboards";
+    expect(
+      loadConfig(prodWithAccounts({ DF_ACCOUNT_FEATURES: launch })).features,
+    ).toMatchObject({ accounts: true, clans: true, payments: false });
+    for (const name of [
+      "ranked",
+      "payments",
+      "friends",
+      "progression",
+      "tribes",
+      "trustedLobbies",
+    ]) {
+      for (const env of ["prod", "staging"]) {
+        expect(
+          issuesOf(
+            prodWithAccounts({
+              GAME_ENV: env,
+              DF_ACCOUNT_FEATURES: `${launch},${name}`,
+            }),
+          ).join("\n"),
+          `${env}:${name}`,
+        ).toContain(`enables ${name}`);
+      }
+      // dev stays free to work on any of them
+      expect(() =>
+        loadConfig(dev({ DF_ACCOUNT_FEATURES: name })),
+      ).not.toThrow();
+    }
+  });
+
+  it("describeConfig never contains a secret", () => {
+    const text = JSON.stringify(describeConfig(loadConfig(prodWithAccounts())));
+    for (const secret of [
+      "turnstile-secret-value",
+      "discord-secret-value",
+      "google-secret-value",
+      "db-password-123",
+    ]) {
+      expect(text).not.toContain(secret);
+    }
   });
 });

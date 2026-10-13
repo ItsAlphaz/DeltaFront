@@ -24,6 +24,7 @@ import { runMaintenance } from "./domain/lifecycle";
 import { startLeaderboardJob } from "./jobs/leaderboard";
 import { createLimiters, type RateLimit, type RateLimitName } from "./limits";
 import type { Logger } from "./logger";
+import { createReadiness } from "./readiness";
 import type { AppDeps } from "./routes/common";
 import { createTurnstile, type Turnstile } from "./turnstile";
 
@@ -119,6 +120,8 @@ export async function buildBackend(
       overrides.turnstile ??
       createTurnstile({
         secret: config.turnstileSecret,
+        allowedHostnames: config.turnstileHostnames,
+        expectedAction: config.turnstileAction,
         fetchFn: overrides.fetchFn,
         log,
       }),
@@ -157,7 +160,13 @@ export async function startAccountApi(
     const backend = usesAccountApi(config.features)
       ? await buildBackend(config, log, pool, overrides)
       : undefined;
-    const app = createApp({ config, log, backend });
+    const readiness = createReadiness({
+      pool,
+      keys:
+        backend !== undefined && config.features.accounts ? backend.keys : null,
+      log,
+    });
+    const app = createApp({ config, log, backend, readiness });
     const server = await new Promise<Server>((resolve, reject) => {
       const s = app.listen(config.port, () => resolve(s));
       s.once("error", reject);
@@ -188,9 +197,26 @@ export async function startAccountApi(
       pool,
       port,
       close: async () => {
+        // Draining: /ready turns 503 so a proxy stops sending traffic, new
+        // connections are refused, idle keep-alive connections are closed at
+        // once, and requests in flight get `shutdownTimeoutMs` to finish
+        // before their connections are cut. Only then is the pool closed.
+        readiness.startDraining();
         if (maintenance !== null) clearInterval(maintenance);
         stopLeaderboard?.();
-        await new Promise<void>((resolve) => server.close(() => resolve()));
+        const closed = new Promise<void>((resolve) =>
+          server.close(() => resolve()),
+        );
+        server.closeIdleConnections();
+        const cutoff = setTimeout(() => {
+          log.warn("shutdown: cutting connections that did not finish in time");
+          server.closeAllConnections();
+        }, config.shutdownTimeoutMs);
+        try {
+          await closed;
+        } finally {
+          clearTimeout(cutoff);
+        }
         await pool.end();
       },
     };

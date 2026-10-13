@@ -5,6 +5,14 @@ import {
   assertAccountBackendEnv,
 } from "../../src/server/AccountEnvCheck";
 
+const REAL_KEY = "dfk_Zk3p0Qm8VrT1uYb7Nc2LwXa9HdJe5GfS4iO6";
+const DEPLOYED = {
+  GAME_ENV: "prod",
+  API_KEY: REAL_KEY,
+  DOMAIN: "example.com",
+  TURNSTILE_SITE_KEY: "0x4AAAAAAAsitekey",
+};
+
 const on = (...names: string[]) => ({
   ...allFeaturesOff(),
   ...Object.fromEntries(names.map((n) => [n, true])),
@@ -69,7 +77,7 @@ describe("the game server's startup check for account-backed operation", () => {
   it("starts with a key present, and says nothing secret when it does not", () => {
     expect(() =>
       assertAccountBackendEnv({
-        env: { API_KEY: "dfk_real-key-value" },
+        env: { ...DEPLOYED, API_KEY: REAL_KEY },
         features: on("accounts"),
         isDev: false,
       }),
@@ -106,5 +114,88 @@ describe("the game server's startup check for account-backed operation", () => {
         isDev: true,
       }),
     ).not.toThrow();
+  });
+
+  describe("on a deployed server", () => {
+    const check = (env: Record<string, string | undefined>, ...f: string[]) =>
+      assertAccountBackendEnv({
+        env,
+        features: on(...f),
+        isDev: false,
+      });
+
+    it("accepts the launch configuration", () => {
+      expect(() =>
+        check(
+          { ...DEPLOYED, TURNSTILE_FALLBACK: "registered" },
+          "accounts",
+          "store",
+          "inventory",
+          "clans",
+          "leaderboards",
+        ),
+      ).not.toThrow();
+    });
+
+    it("reports every problem at once, by name, never by value", () => {
+      const secret = "changeme-short";
+      let message = "";
+      try {
+        check(
+          {
+            GAME_ENV: "prod",
+            API_KEY: secret,
+            DOMAIN: "localhost",
+            TURNSTILE_FALLBACK: "wide-open",
+          },
+          "accounts",
+          "payments",
+        );
+      } catch (error) {
+        message = String(error);
+      }
+      expect(message).toMatch(/API_KEY does not look like/);
+      expect(message).toMatch(/DOMAIN must be the public site domain/);
+      expect(message).toMatch(/TURNSTILE_SITE_KEY is required/);
+      expect(message).toMatch(/TURNSTILE_FALLBACK must be one of/);
+      expect(message).toMatch(/enables payments/);
+      expect(message).not.toContain(secret);
+    });
+
+    it("refuses every feature outside the launch profile", () => {
+      for (const name of [
+        "ranked",
+        "payments",
+        "friends",
+        "progression",
+        "tribes",
+        "trustedLobbies",
+      ]) {
+        expect(() => check(DEPLOYED, "accounts", name), name).toThrow(
+          new RegExp(`enables ${name}`),
+        );
+      }
+    });
+
+    it("allows localhost for staging (a production-like local stack) but not prod", () => {
+      const local = { ...DEPLOYED, DOMAIN: "localhost" };
+      expect(() =>
+        check({ ...local, GAME_ENV: "staging" }, "accounts"),
+      ).not.toThrow();
+      expect(() => check({ ...local, GAME_ENV: "prod" }, "accounts")).toThrow(
+        /DOMAIN/,
+      );
+    });
+
+    it("refuses a short or placeholder API key", () => {
+      for (const API_KEY of [
+        "short",
+        "please-change-me-0123456789abcdefghijk",
+      ]) {
+        expect(() => check({ ...DEPLOYED, API_KEY }, "accounts")).toThrow(
+          /API_KEY does not look like/,
+        );
+      }
+    });
   });
 });

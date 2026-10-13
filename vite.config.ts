@@ -1,3 +1,4 @@
+import { buildTimeFeatureList } from "@openfront/shared/AccountFeatures";
 import {
   type AssetManifest,
   buildAssetUrl,
@@ -374,8 +375,12 @@ export default defineConfig(({ mode }) => {
       // production build and the game server it talks to must be given the
       // same value. Forced empty under vitest (mode "test") so a variable in
       // the host shell can never switch features on for the test suite.
+      // Only known feature names are written into the bundle (never the raw
+      // variable), and an unknown name fails a production build.
       "process.env.DF_ACCOUNT_FEATURES": JSON.stringify(
-        mode === "test" ? "" : (env.DF_ACCOUNT_FEATURES ?? ""),
+        mode === "test"
+          ? ""
+          : buildTimeFeatureList(env.DF_ACCOUNT_FEATURES, isProduction),
       ),
       // Add other process.env variables if needed, OR migrate code to import.meta.env
     },

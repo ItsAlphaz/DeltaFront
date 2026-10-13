@@ -1,0 +1,8 @@
+#!/bin/sh
+# Example /etc/deltafront/alert. Copy it, make it executable, and point it at
+# YOUR channel. The webhook URL is read from the environment of the unit or a
+# root-only file: it is a credential and does not belong in the repository.
+unit="$1"
+url="$(cat /etc/deltafront/alert-webhook 2>/dev/null)" || exit 1
+curl -fsS --max-time 10 -X POST -H 'Content-Type: application/json' \
+  --data "{\"text\":\"DeltaFront: ${unit} failed on $(hostname)\"}" "$url"

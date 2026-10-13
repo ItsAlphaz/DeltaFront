@@ -34,8 +34,15 @@ export async function runDeletions(
       `SELECT id FROM users
         WHERE deletion_requested_at IS NOT NULL AND deletion_requested_at <= $1
           AND deleted_at IS NULL
+          -- A ban outlives a deletion request: erasing the sign-in identities
+          -- would let the player walk back in as a new account. The deletion
+          -- waits until the ban is lifted or expires.
+          AND NOT EXISTS (
+            SELECT 1 FROM bans b
+             WHERE b.user_id = users.id AND b.revoked_at IS NULL
+               AND (b.expires_at IS NULL OR b.expires_at > $3))
         ORDER BY deletion_requested_at LIMIT $2`,
-      [due, BATCH],
+      [due, BATCH, now],
     );
     if (rows.length === 0) return deleted;
     for (const { id } of rows) {
@@ -54,9 +61,13 @@ export async function runDeletions(
           "DELETE FROM player_stat_aggregates WHERE user_id = $1",
           [id],
         );
+        // The game rows stay for the other players' history, but no longer say
+        // who played: the account link, the display name and the clan tag go.
         await tx.query(
-          "UPDATE game_players SET user_id = NULL, clan_id = NULL WHERE user_id = $1",
-          [id],
+          `UPDATE game_players
+              SET user_id = NULL, clan_id = NULL, clan_tag = NULL, username = $2
+            WHERE user_id = $1`,
+          [id, ACCOUNT_RULES.deletedPlayerName],
         );
         await tx.query(
           `UPDATE users
@@ -103,6 +114,49 @@ export async function runGuestCleanup(
   }
 }
 
+/**
+ * Data that is only kept for a while: stored game records past their
+ * retention (the rows in `games` and `game_players` stay, only the replay
+ * data goes) and refresh-session rows that can no longer matter. Returns the
+ * counts. Idempotent, batched.
+ */
+export async function runRetention(
+  pool: Pool,
+  now: Date = new Date(),
+): Promise<{ records: number; sessions: number }> {
+  const recordCutoff = new Date(
+    now.getTime() - ACCOUNT_RULES.gameRecordRetentionDays * 86_400_000,
+  );
+  const sessionCutoff = new Date(
+    now.getTime() - ACCOUNT_RULES.deadSessionRetentionDays * 86_400_000,
+  );
+  let records = 0;
+  for (;;) {
+    const { rowCount } = await pool.query(
+      `DELETE FROM game_records WHERE game_id IN (
+         SELECT r.game_id FROM game_records r JOIN games g ON g.id = r.game_id
+          WHERE r.expires_at < $1 OR (r.expires_at IS NULL AND g.ended_at < $2)
+          LIMIT $3)`,
+      [now, recordCutoff, BATCH],
+    );
+    records += rowCount ?? 0;
+    if ((rowCount ?? 0) < BATCH) break;
+  }
+  let sessions = 0;
+  for (;;) {
+    const { rowCount } = await pool.query(
+      `DELETE FROM refresh_sessions WHERE id IN (
+         SELECT id FROM refresh_sessions
+          WHERE expires_at < $1 OR revoked_at < $1
+          LIMIT $2)`,
+      [sessionCutoff, BATCH * 5],
+    );
+    sessions += rowCount ?? 0;
+    if ((rowCount ?? 0) < BATCH * 5) break;
+  }
+  return { records, sessions };
+}
+
 /** One pass of both jobs; errors are logged, never thrown, so a scheduler keeps ticking. */
 export async function runMaintenance(
   pool: Pool,
@@ -112,8 +166,14 @@ export async function runMaintenance(
   try {
     const deleted = await runDeletions(pool, now);
     const removed = await runGuestCleanup(pool, now);
-    if (deleted > 0 || removed > 0)
-      log.info("account maintenance", { deleted, guestsRemoved: removed });
+    const pruned = await runRetention(pool, now);
+    if (deleted > 0 || removed > 0 || pruned.records > 0 || pruned.sessions > 0)
+      log.info("account maintenance", {
+        deleted,
+        guestsRemoved: removed,
+        recordsPruned: pruned.records,
+        sessionsPruned: pruned.sessions,
+      });
   } catch (error) {
     log.error("account maintenance failed", {
       error: error instanceof Error ? error.message : String(error),

@@ -221,7 +221,10 @@ describeDb("an invalid catalog stops the API from starting", () => {
   async function start(dir: string) {
     const db = await createTestDatabase();
     try {
-      const boot = createPool({ url: db.url, poolMax: 2 }, silentLogger);
+      const boot = createPool(
+        { url: db.url, poolMax: 2, statementTimeoutMs: 30_000 },
+        silentLogger,
+      );
       await applyMigrations(boot);
       await boot.end();
       const config = {
@@ -327,6 +330,8 @@ describeDb("ownership, as /users/@me reports it", () => {
       g.publicId,
       "flag:delta_mark",
       "--yes",
+      "--reason",
+      "test",
     ]);
     expect(revoked.code, revoked.err).toBe(0);
     expect((await me(h, next)).player.flares).toEqual([FREE]);
@@ -610,7 +615,14 @@ describeDb("admin: item:grant, item:revoke, item:list", () => {
     const g = await guestWithId(h);
     await run(h, ["item:grant", g.publicId, "flag:split_field"]);
     await run(h, ["item:grant", g.publicId, "flag:split_field"]);
-    await run(h, ["item:revoke", g.publicId, "flag:split_field", "--yes"]);
+    await run(h, [
+      "item:revoke",
+      g.publicId,
+      "flag:split_field",
+      "--yes",
+      "--reason",
+      "test",
+    ]);
     const log = await rows(
       h,
       "SELECT actor, action, target_id, details FROM admin_audit_log WHERE target_id = $1 ORDER BY id",
@@ -664,7 +676,16 @@ describeDb("admin: item:grant, item:revoke, item:list", () => {
       /default item/,
     );
     expect(
-      (await run(h, ["item:revoke", g.publicId, FREE, "--yes"])).err,
+      (
+        await run(h, [
+          "item:revoke",
+          g.publicId,
+          FREE,
+          "--yes",
+          "--reason",
+          "test",
+        ])
+      ).err,
     ).toMatch(/default item/);
     expect(
       await rows(
@@ -692,7 +713,13 @@ describeDb("admin: item:grant, item:revoke, item:list", () => {
   it("revokes only with --yes, and revoking what is not owned changes nothing", async () => {
     const g = await guestWithId(h);
     await run(h, ["item:grant", g.publicId, "flag:delta_mark"]);
-    const noYes = await run(h, ["item:revoke", g.publicId, "flag:delta_mark"]);
+    const noYes = await run(h, [
+      "item:revoke",
+      g.publicId,
+      "flag:delta_mark",
+      "--reason",
+      "test",
+    ]);
     expect(noYes.code).toBe(2);
     expect(noYes.err).toMatch(/--yes/);
     expect((await me(h, g.jwt)).player.flares).toContain("flag:delta_mark");
@@ -702,23 +729,44 @@ describeDb("admin: item:grant, item:revoke, item:list", () => {
       g.publicId,
       "flag:split_field",
       "--yes",
+      "--reason",
+      "test",
     ]);
     expect(notOwned.code).toBe(0);
     expect(notOwned.out).toMatch(/does not own/);
     expect(
-      (await run(h, ["item:revoke", g.publicId, "pattern:*", "--yes"])).err,
+      (
+        await run(h, [
+          "item:revoke",
+          g.publicId,
+          "pattern:*",
+          "--yes",
+          "--reason",
+          "test",
+        ])
+      ).err,
     ).toMatch(/wildcard/);
     const done = await run(h, [
       "item:revoke",
       g.publicId,
       "flag:delta_mark",
       "--yes",
+      "--reason",
+      "test",
     ]);
     expect(done.out).toMatch(/revoked from/);
     // Revoking twice is a no-op, not an error.
     expect(
-      (await run(h, ["item:revoke", g.publicId, "flag:delta_mark", "--yes"]))
-        .out,
+      (
+        await run(h, [
+          "item:revoke",
+          g.publicId,
+          "flag:delta_mark",
+          "--yes",
+          "--reason",
+          "test",
+        ])
+      ).out,
     ).toMatch(/does not own/);
   });
 
@@ -733,8 +781,16 @@ describeDb("admin: item:grant, item:revoke, item:list", () => {
       /flag:retired_flag .*\(no longer in the catalog\)/,
     );
     expect(
-      (await run(h, ["item:revoke", g.publicId, "flag:retired_flag", "--yes"]))
-        .out,
+      (
+        await run(h, [
+          "item:revoke",
+          g.publicId,
+          "flag:retired_flag",
+          "--yes",
+          "--reason",
+          "test",
+        ])
+      ).out,
     ).toMatch(/revoked from/);
   });
 
@@ -742,7 +798,14 @@ describeDb("admin: item:grant, item:revoke, item:list", () => {
     const g = await guestWithId(h);
     await run(h, ["item:grant", g.publicId, "flag:delta_mark"]);
     await run(h, ["item:grant", g.publicId, "effect:red_wake"]);
-    await run(h, ["item:revoke", g.publicId, "effect:red_wake", "--yes"]);
+    await run(h, [
+      "item:revoke",
+      g.publicId,
+      "effect:red_wake",
+      "--yes",
+      "--reason",
+      "test",
+    ]);
     const listed = await run(h, ["item:list", g.publicId]);
     expect(listed.code).toBe(0);
     expect(listed.out).toContain(`${FREE}  default (everyone owns it)`);

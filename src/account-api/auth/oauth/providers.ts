@@ -68,7 +68,27 @@ export function pkceChallenge(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-const TokenResponse = z.object({ access_token: z.string().min(1) });
+// Discord's edge refuses some requests that carry no identifying User-Agent;
+// both providers are easier to debug with one.
+const USER_AGENT = "DeltaFront-AccountAPI/1.0 (OAuth sign-in)";
+
+const TokenResponse = z.object({
+  access_token: z.string().min(1),
+  // Only bearer tokens are ever used as "Authorization: Bearer"; anything else
+  // is a provider (or proxy) answering something we did not ask for.
+  token_type: z
+    .string()
+    .refine((t) => t.toLowerCase() === "bearer", "token_type must be Bearer")
+    .optional(),
+});
+
+// Google documents a boolean here; some OIDC endpoints send "true"/"false".
+const LooseBoolean = z
+  .union([
+    z.boolean(),
+    z.enum(["true", "false"]).transform((v) => v === "true"),
+  ])
+  .optional();
 
 const DiscordUser = z.object({
   id: z.string().min(1),
@@ -77,13 +97,13 @@ const DiscordUser = z.object({
   avatar: z.string().nullable().optional(),
   discriminator: z.string().optional(),
   email: z.string().nullable().optional(),
-  verified: z.boolean().optional(),
+  verified: LooseBoolean,
 });
 
 const GoogleUser = z.object({
   sub: z.string().min(1),
   email: z.string().nullable().optional(),
-  email_verified: z.boolean().optional(),
+  email_verified: LooseBoolean,
   name: z.string().nullable().optional(),
   picture: z.string().nullable().optional(),
 });
@@ -122,6 +142,7 @@ function build(
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             Accept: "application/json",
+            "User-Agent": USER_AGENT,
           },
           body: new URLSearchParams({
             grant_type: "authorization_code",
@@ -152,6 +173,7 @@ function build(
           headers: {
             Authorization: `Bearer ${token.data.access_token}`,
             Accept: "application/json",
+            "User-Agent": USER_AGENT,
           },
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });

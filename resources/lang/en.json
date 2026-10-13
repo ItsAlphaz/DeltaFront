@@ -553,6 +553,7 @@
     "ranked_limit_reached": "You are out of free ranked matches for today.",
     "turnstile_failed": "The bot check failed. Please reload the page and try again.",
     "unknown": "The server closed the connection.",
+    "verification_unavailable": "The bot check is temporarily unavailable. Sign in to play, or try again in a few minutes.",
     "wrong_worker": "This connection reached the wrong server process. Please reload the page and try again."
   },
   "common": {

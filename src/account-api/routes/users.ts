@@ -180,6 +180,13 @@ export function usersRouter(deps: AppDeps): Router {
         res.status(400).json({ code: verdict.code, reason: verdict.reason });
         return;
       }
+      // Counted once the name is valid: typos are not attempts.
+      const limit = limiters.usernameChange.hit(user.id);
+      if (!limit.allowed) {
+        res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+        res.status(429).json({ code: "RATE_LIMITED" });
+        return;
+      }
       for (let attempt = 0; attempt < 20; attempt++) {
         const discriminator = randomDiscriminator();
         try {
@@ -259,6 +266,16 @@ export function usersRouter(deps: AppDeps): Router {
       if (user.role !== null && STAFF_ROLES.has(user.role)) {
         res.status(403).json({
           message: "Staff accounts cannot be deleted from here",
+        });
+        return;
+      }
+      // A ban is not escaped by deleting the account (the sign-in identities
+      // would go and the player could return as someone new): the request waits
+      // until the ban ends.
+      if ((await activeBan(pool, user.id)) !== null) {
+        res.status(403).json({
+          message:
+            "An account with an active ban cannot be deleted until the ban ends",
         });
         return;
       }

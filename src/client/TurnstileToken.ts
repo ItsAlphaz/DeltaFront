@@ -23,6 +23,8 @@ export interface TurnstileRenderOptions {
   size?: string;
   appearance?: string;
   theme?: string;
+  /** Tells the server which flow the token was solved for (checked at /join_verify). */
+  action?: string;
   /**
    * "render" (Turnstile's default) starts the challenge as soon as the widget
    * renders. "execute" holds it until execute() is called, which is the only
@@ -144,6 +146,7 @@ export function requestTurnstileToken(
         size: "normal",
         appearance: "interaction-only",
         theme: "light",
+        action: "join",
         execution: "execute",
         callback: (token: string) => succeed(token),
         "error-callback": (errorCode: string) =>

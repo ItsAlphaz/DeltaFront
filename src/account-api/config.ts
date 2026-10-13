@@ -2,7 +2,9 @@ import {
   ACCOUNT_FEATURE_NAMES,
   ACCOUNT_FEATURES_ENV,
   AUTH_PROVIDERS,
+  describeRejectedToken,
   resolveAccountFeatures,
+  unfinishedFeatures,
   usesAccountApi,
   type AccountFeatures,
 } from "@openfront/shared/AccountFeatures";
@@ -32,6 +34,8 @@ export interface DatabaseConfig {
   /** Contains the password: never log it (use describeConfig). */
   url: string;
   poolMax: number;
+  /** Per-statement ceiling (PostgreSQL `statement_timeout`), so a runaway query frees its connection. */
+  statementTimeoutMs: number;
 }
 
 export interface AccountApiConfig {
@@ -51,8 +55,14 @@ export interface AccountApiConfig {
    * the IP the game server's Turnstile check forwards. 0 trusts no header.
    */
   trustProxyHops: number;
+  /** How long a graceful shutdown waits for in-flight requests before cutting connections. */
+  shutdownTimeoutMs: number;
   /** Cloudflare Turnstile secret for /join_verify; null skips the check (dev only). */
   turnstileSecret: string | null;
+  /** Hostnames a Turnstile token may be solved on; null skips the check (dev). */
+  turnstileHostnames: string[] | null;
+  /** The action a Turnstile token must carry; null skips the check. */
+  turnstileAction: string | null;
   features: AccountFeatures;
   jwt: {
     privateKeyPath: string | null;
@@ -80,6 +90,8 @@ export class ConfigError extends Error {
 
 export const DEFAULT_API_PORT = 8787;
 const DEFAULT_POOL_MAX = 10;
+const DEFAULT_STATEMENT_TIMEOUT_MS = 30_000;
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 15_000;
 const DEV_ALLOWED_ORIGIN = "http://localhost:9000";
 
 type Env = Record<string, string | undefined>;
@@ -139,7 +151,25 @@ function parseDatabase(env: Env, issues: string[]): DatabaseConfig | null {
     if (parsed.success && /^\d+$/.test(rawPool)) poolMax = parsed.data;
     else issues.push("DATABASE_POOL_MAX must be an integer from 1 to 100");
   }
-  return url === null ? null : { url, poolMax };
+
+  let statementTimeoutMs = DEFAULT_STATEMENT_TIMEOUT_MS;
+  const rawTimeout = trimmed(env, "DATABASE_STATEMENT_TIMEOUT_MS");
+  if (rawTimeout !== undefined) {
+    const parsed = z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(300_000)
+      .safeParse(rawTimeout);
+    if (parsed.success && /^\d+$/.test(rawTimeout)) {
+      statementTimeoutMs = parsed.data;
+    } else {
+      issues.push(
+        "DATABASE_STATEMENT_TIMEOUT_MS must be an integer from 1000 to 300000",
+      );
+    }
+  }
+  return url === null ? null : { url, poolMax, statementTimeoutMs };
 }
 
 function parseOAuth(
@@ -184,13 +214,23 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
   const featureResult = resolveAccountFeatures(env[ACCOUNT_FEATURES_ENV]);
   if (featureResult.rejected.length > 0) {
     const message = `${ACCOUNT_FEATURES_ENV}: unknown feature ${featureResult.rejected
-      .map((t) => JSON.stringify(t))
+      .map(describeRejectedToken)
       .join(", ")} (known: ${ACCOUNT_FEATURE_NAMES.join(", ")})`;
     // Refuse to start rather than run with a feature silently off because of
     // a typo; in dev it is only a warning.
     (strict ? issues : warnings).push(message);
   }
   const features = featureResult.features;
+  // Outside dev only the launch profile may run: a flag with no backend behind
+  // it would show an unfinished feature to players.
+  if (strict) {
+    const unfinished = unfinishedFeatures(features);
+    if (unfinished.length > 0) {
+      issues.push(
+        `${ACCOUNT_FEATURES_ENV} enables ${unfinished.join(", ")}, which DeltaFront does not implement yet (GAME_ENV=${mode} allows only the launch features; see docs/Deployment.md)`,
+      );
+    }
+  }
 
   // DOMAIN
   let domain = "localhost";
@@ -294,7 +334,54 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     else issues.push("TRUST_PROXY_HOPS must be an integer from 0 to 5");
   }
 
+  // SHUTDOWN_TIMEOUT_MS
+  let shutdownTimeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS;
+  const rawShutdown = trimmed(env, "SHUTDOWN_TIMEOUT_MS");
+  if (rawShutdown !== undefined) {
+    const parsed = z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(120_000)
+      .safeParse(rawShutdown);
+    if (parsed.success && /^\d+$/.test(rawShutdown)) {
+      shutdownTimeoutMs = parsed.data;
+    } else {
+      issues.push("SHUTDOWN_TIMEOUT_MS must be an integer from 1000 to 120000");
+    }
+  }
+
   const turnstileSecret = trimmed(env, "TURNSTILE_SECRET_KEY") ?? null;
+
+  // Where a token may have been solved. Outside dev it defaults to the site's
+  // own domain (and its subdomains: game servers live under it), so a token
+  // farmed on another site's widget is refused.
+  let turnstileHostnames: string[] | null = strict ? [domain] : null;
+  const rawHostnames = trimmed(env, "TURNSTILE_ALLOWED_HOSTNAMES");
+  if (rawHostnames !== undefined) {
+    const list = rawHostnames
+      .split(",")
+      .map((h) => h.trim().toLowerCase())
+      .filter((h) => h !== "");
+    if (list.length === 0 || list.some((h) => !HOSTNAME.test(h))) {
+      issues.push(
+        "TURNSTILE_ALLOWED_HOSTNAMES must be a comma-separated list of bare hostnames such as example.com",
+      );
+    } else if (strict && list.includes("localhost")) {
+      issues.push(
+        `TURNSTILE_ALLOWED_HOSTNAMES must not include localhost when GAME_ENV=${mode}`,
+      );
+    } else {
+      turnstileHostnames = list;
+    }
+  }
+  const rawAction = trimmed(env, "TURNSTILE_ACTION");
+  if (rawAction !== undefined && !/^[A-Za-z0-9_-]{1,32}$/.test(rawAction)) {
+    issues.push(
+      "TURNSTILE_ACTION must be 1 to 32 letters, digits, '_' or '-' (the client sends \"join\")",
+    );
+  }
+  const turnstileAction = rawAction ?? "join";
 
   // Signing keys and sign-in providers
   const jwt = {
@@ -358,7 +445,10 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     database,
     logLevel: logLevel.data,
     trustProxyHops,
+    shutdownTimeoutMs,
     turnstileSecret,
+    turnstileHostnames,
+    turnstileAction,
     features,
     jwt,
     oauth,
@@ -386,10 +476,17 @@ export function describeConfig(
     port: config.port,
     publicOrigin: config.publicOrigin,
     allowedOrigins: config.allowedOrigins,
-    database: { host: databaseHost, poolMax: config.database.poolMax },
+    database: {
+      host: databaseHost,
+      poolMax: config.database.poolMax,
+      statementTimeoutMs: config.database.statementTimeoutMs,
+    },
+    shutdownTimeoutMs: config.shutdownTimeoutMs,
     logLevel: config.logLevel,
     trustProxyHops: config.trustProxyHops,
     turnstile: config.turnstileSecret === null ? "unset" : "set",
+    turnstileHostnames: config.turnstileHostnames,
+    turnstileAction: config.turnstileAction,
     features: ACCOUNT_FEATURE_NAMES.filter((name) => config.features[name]),
     jwt: {
       privateKey: config.jwt.privateKeyPath === null ? "unset" : "set",

@@ -42,8 +42,14 @@ import { gameApiCors } from "./GameApiCors";
 import { GameManager } from "./GameManager";
 import { registerGamePreviewRoute } from "./GamePreviewRoute";
 import { GamePhase, type GameServer } from "./GameServer";
+import { joinFallbackDecision } from "./JoinFallback";
 import { isSteamAuthenticated, planJoinVerify, verifyJoin } from "./JoinVerify";
-import { getUserMe, userMeFailureClose, verifyClientToken } from "./jwt";
+import {
+  getUserMe,
+  userMeFailureClose,
+  verifyClientToken,
+  warmJwks,
+} from "./jwt";
 import { levelBadgeForPlayer } from "./LevelBadge";
 import { payForLobbyQueue, queueListedLobby } from "./LobbyQueuePayment";
 import { logger } from "./Logger";
@@ -54,6 +60,7 @@ import { setNoStoreHeaders } from "./NoStoreHeaders";
 import { PrivilegeRefresher } from "./PrivilegeRefresher";
 import { startRankedCheckinLoops } from "./RankedCheckin";
 import { rejoinOrClose } from "./Rejoin";
+import { commonSecurityHeaders } from "./SecurityHeaders";
 import { ServerEnv } from "./ServerEnv";
 import { SingleplayerPresence } from "./SingleplayerPresence";
 import { applyStaticAssetCacheControl } from "./StaticAssetCache";
@@ -146,6 +153,8 @@ export async function startWorker() {
   app.use(stripWorkerPrefix(workerId));
 
   app.set("trust proxy", 3);
+  app.disable("x-powered-by");
+  app.use(commonSecurityHeaders({ enabled: ServerEnv.env() !== GameEnv.Dev }));
   app.use(compression());
 
   app.use(
@@ -695,13 +704,33 @@ export async function startWorker() {
                 });
                 ws.close(CloseCode.Unauthorized, CloseReason.TurnstileFailed);
                 return;
-              case "error":
-                // Fail open: the locally screened name stands.
+              case "error": {
+                // The bot check could not be run. A join with no token
+                // (re-admit, Steam) only lost its name check: the locally
+                // screened name stands. A first join follows the fallback
+                // policy (JoinVerify.ts): open, registered accounts only, or
+                // closed.
+                const decision =
+                  plan.token === null
+                    ? "admit"
+                    : joinFallbackDecision(
+                        ServerEnv.turnstileFallback(),
+                        claims,
+                      );
                 log.error("join_verify error", {
                   persistentID: persistentId,
                   gameID: clientMsg.gameID,
                   reason: verdict.reason,
+                  fallback: decision,
                 });
+                if (decision === "deny") {
+                  ws.close(
+                    CloseCode.VerificationUnavailable,
+                    CloseReason.VerificationUnavailable,
+                  );
+                  return;
+                }
+              }
             }
           } else {
             verifySkipped = true;
@@ -955,6 +984,8 @@ export async function startWorker() {
     // Signal to the master process that this worker is ready
     lobbyService.sendReady(workerId);
     log.info(`signaled ready state to master`);
+    // Best effort: a join before this finishes fetches the keys itself.
+    void warmJwks();
   });
 
   // Global error handler

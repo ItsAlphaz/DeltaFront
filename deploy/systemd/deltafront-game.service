@@ -1,0 +1,30 @@
+[Unit]
+Description=DeltaFront game server and client (container)
+Documentation=file:///opt/deltafront/current/docs/Deployment.md
+After=docker.service network-online.target deltafront-account-api.service
+Requires=docker.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/deltafront/game.env
+ExecStartPre=-/usr/bin/docker rm -f deltafront-game
+# Replace api.example.com with api.<your domain>. --add-host keeps the game
+# server's calls to the account API on this machine (they still use the public
+# name, so the TLS certificate matches), instead of leaving and coming back.
+ExecStart=/usr/bin/docker run --rm --name deltafront-game \
+  --env-file /etc/deltafront/game.env \
+  --add-host api.example.com:host-gateway \
+  --publish 127.0.0.1:3080:80 \
+  --security-opt no-new-privileges \
+  --pids-limit 1024 \
+  deltafront-game:current
+ExecStop=/usr/bin/docker stop --time 30 deltafront-game
+Restart=always
+RestartSec=5
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target

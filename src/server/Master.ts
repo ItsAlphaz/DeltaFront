@@ -25,6 +25,7 @@ import { MasterLobbyService } from "./MasterLobbyService";
 import { setNoStoreHeaders } from "./NoStoreHeaders";
 import { startPolling } from "./PollingLoop";
 import { renderAppShell } from "./RenderHtml";
+import { commonSecurityHeaders } from "./SecurityHeaders";
 import { ServerEnv } from "./ServerEnv";
 import { applyStaticAssetCacheControl } from "./StaticAssetCache";
 
@@ -32,6 +33,7 @@ const playlist = new MapPlaylist();
 let lobbyService: MasterLobbyService;
 
 const app = express();
+app.disable("x-powered-by");
 const server = http.createServer(app);
 
 const log = logger.child({ comp: "m" });
@@ -40,6 +42,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(express.json());
+app.use(commonSecurityHeaders({ enabled: ServerEnv.env() !== GameEnv.Dev }));
 
 // Serve the shared app shell for the root document.
 app.use(async (req, res, next) => {

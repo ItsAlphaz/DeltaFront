@@ -47,6 +47,8 @@ export const CLAN_RULES = deepFreeze({
   maxClansPerMember: 1,
   /** Clans a player can own (lead) at once. */
   maxOwnedClans: 1,
+  /** Clans one account can create per day (rate limit, plan section 14.3). */
+  createsPerDay: 3,
   /** Pending join requests one player can have at a time. */
   maxPendingRequests: 3,
   /** Days a disbanded clan's tag stays unavailable. */
@@ -81,6 +83,12 @@ export const CLAN_RULES = deepFreeze({
  * every number a route or job depends on can be found in one file.
  */
 export const ACCOUNT_RULES = deepFreeze({
+  /** Days a stored game record (full replay data) is kept before it is pruned. */
+  gameRecordRetentionDays: 60,
+  /** Days a signed-out, rotated or expired refresh session row is kept (reuse detection needs it for its token's life). */
+  deadSessionRetentionDays: 30,
+  /** What an erased account's name becomes in the game history other players still see. */
+  deletedPlayerName: "Deleted player",
   /** Days between self-service username changes. */
   usernameChangeCooldownDays: 7,
   /** A game counts for stats and Credits only with at least this many account holders in it. */

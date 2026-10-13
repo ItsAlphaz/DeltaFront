@@ -64,8 +64,15 @@ export type RotateResult =
   | { kind: "rotated"; userId: string; familyId: string; token: string }
   /** A concurrent refresh already rotated this token: issue an access token, but no new cookie. */
   | { kind: "grace"; userId: string; familyId: string }
-  /** Unknown, expired, revoked or reused: the session is dead. */
-  | { kind: "invalid" };
+  /**
+   * The session is dead. `reason` is for logs and tests only, never for the
+   * client: unknown, deleted (account), revoked, expired, or reuse_detected (a
+   * replaced token came back, so the whole family was just revoked).
+   */
+  | {
+      kind: "invalid";
+      reason: "unknown" | "deleted" | "revoked" | "expired" | "reuse_detected";
+    };
 
 /**
  * Exchanges a refresh token for its successor.
@@ -99,9 +106,9 @@ export async function rotateSession(
         FOR UPDATE OF s`,
       [sha256(token)],
     );
-    if (rows.length === 0) return { kind: "invalid" };
+    if (rows.length === 0) return { kind: "invalid", reason: "unknown" };
     const row = rows[0];
-    if (row.deleted_at !== null) return { kind: "invalid" };
+    if (row.deleted_at !== null) return { kind: "invalid", reason: "deleted" };
 
     if (row.revoked_at !== null) {
       const sameClient =
@@ -121,10 +128,13 @@ export async function rotateSession(
       if (row.revoked_reason === "rotated") {
         // A replaced token came back outside the race window: theft signal.
         await revokeFamily(db, row.family_id, "reuse_detected");
+        return { kind: "invalid", reason: "reuse_detected" };
       }
-      return { kind: "invalid" };
+      return { kind: "invalid", reason: "revoked" };
     }
-    if (row.expires_at.getTime() <= now.getTime()) return { kind: "invalid" };
+    if (row.expires_at.getTime() <= now.getTime()) {
+      return { kind: "invalid", reason: "expired" };
+    }
 
     await db.query(
       "UPDATE refresh_sessions SET revoked_at = now(), revoked_reason = 'rotated', last_used_at = now() WHERE id = $1",

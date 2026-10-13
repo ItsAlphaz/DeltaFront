@@ -1,9 +1,11 @@
 import { buildAssetUrl } from "@openfront/shared/AssetPaths";
+import { GameEnv } from "@openfront/shared/configuration/Env";
 import ejs from "ejs";
 import type { Response } from "express";
 import fs from "fs/promises";
 import { setNoStoreHeaders } from "./NoStoreHeaders";
 import { getRuntimeAssetManifest } from "./RuntimeAssetManifest";
+import { buildContentSecurityPolicy } from "./SecurityHeaders";
 import { ServerEnv } from "./ServerEnv";
 
 const APP_SHELL_CACHE_CONTROL =
@@ -140,6 +142,35 @@ export function clearAppShellContentCache(): void {
   appShellContentCache.clear();
 }
 
+const cspCache = new Map<string, string>();
+
+/**
+ * The CSP for a rendered app shell, or null when none applies (dev serves the
+ * page through Vite, which needs inline HMR scripts; CSP_MODE=off opts out).
+ */
+export function contentSecurityPolicyFor(html: string): string | null {
+  if (ServerEnv.env() === GameEnv.Dev || ServerEnv.cspMode() === "off") {
+    return null;
+  }
+  let policy = cspCache.get(html);
+  if (policy === undefined) {
+    const domain = ServerEnv.jwtAudience();
+    policy = buildContentSecurityPolicy({
+      html,
+      apiOrigin: ServerEnv.jwtIssuer(),
+      domains: [
+        ...new Set([domain, ServerEnv.gameDomain()].filter((d) => !!d)),
+      ] as string[],
+      cdnBase: ServerEnv.cdnBase(),
+      googleAnalytics: ServerEnv.googleAnalyticsId() !== undefined,
+      cloudflareAnalytics: ServerEnv.cloudflareAnalyticsToken() !== undefined,
+      upgradeInsecure: domain !== "localhost",
+    });
+    cspCache.set(html, policy);
+  }
+  return policy;
+}
+
 export function setAppShellCacheHeaders(res: Response): void {
   res.setHeader("Cache-Control", APP_SHELL_CACHE_CONTROL);
   res.setHeader("Content-Type", "text/html");
@@ -157,5 +188,14 @@ export async function renderAppShell(
 ): Promise<void> {
   const rendered = await getAppShellContent(htmlPath);
   setAppShellCacheHeaders(res);
+  const csp = contentSecurityPolicyFor(rendered);
+  if (csp !== null) {
+    res.setHeader(
+      ServerEnv.cspMode() === "report-only"
+        ? "Content-Security-Policy-Report-Only"
+        : "Content-Security-Policy",
+      csp,
+    );
+  }
   res.send(rendered);
 }

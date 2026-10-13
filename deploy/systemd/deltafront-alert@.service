@@ -1,0 +1,14 @@
+[Unit]
+Description=DeltaFront alert for %i
+
+[Service]
+Type=oneshot
+User=nobody
+# /etc/deltafront/alert is yours: a script that tells you (mail, a chat
+# webhook, ...). It receives the failed unit's name as its first argument. The
+# repository ships no credentials; deploy/bin/df-alert.example shows the shape.
+ExecStart=/etc/deltafront/alert %i
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

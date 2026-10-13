@@ -16,6 +16,12 @@ async function main(): Promise<void> {
     if (closing) return;
     closing = true;
     log.info(`received ${signal}, shutting down`);
+    // Backstop: whatever hangs (a stuck query, a leaked handle), the process
+    // still ends, so the supervisor can start its replacement.
+    setTimeout(() => {
+      log.error("shutdown timed out, exiting");
+      process.exit(1);
+    }, config.shutdownTimeoutMs + 5_000).unref();
     service.close().then(
       () => process.exit(0),
       (error) => {

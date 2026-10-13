@@ -222,4 +222,48 @@ describe("token and profile exchange", () => {
       await expect(failure, why).rejects.not.toThrow(/d-secret-XYZ/);
     }
   });
+
+  it("identifies itself with a User-Agent on both requests", async () => {
+    const agents: Array<string | null> = [];
+    await exchange((async (url: string, init: RequestInit) => {
+      agents.push(new Headers(init.headers).get("user-agent"));
+      return url.includes("oauth2/token")
+        ? json(200, { access_token: "ACCESS" })
+        : json(200, { id: "1", username: "u" });
+    }) as never);
+    expect(agents).toEqual([
+      expect.stringMatching(/^DeltaFront-AccountAPI\//),
+      expect.stringMatching(/^DeltaFront-AccountAPI\//),
+    ]);
+  });
+
+  it("accepts a Bearer token_type in any case and refuses any other", async () => {
+    const answer = (token_type: string) =>
+      (async (url: string) =>
+        url.includes("oauth2/token")
+          ? json(200, { access_token: "A", token_type })
+          : json(200, { id: "1", username: "u" })) as never;
+    await expect(exchange(answer("bearer"))).resolves.toBeDefined();
+    await expect(exchange(answer("Bearer"))).resolves.toBeDefined();
+    await expect(exchange(answer("mac"))).rejects.toBeInstanceOf(
+      OAuthExchangeError,
+    );
+  });
+
+  it("reads a verified-email flag sent as a string, and trusts only a true one", async () => {
+    const ask = async (verified: unknown) =>
+      exchange((async (url: string) =>
+        url.includes("oauth2/token")
+          ? json(200, { access_token: "A" })
+          : json(200, {
+              id: "1",
+              username: "u",
+              email: "A@Example.com",
+              verified,
+            })) as never);
+    expect((await ask("true")).emailVerified).toBe(true);
+    expect((await ask(true)).emailVerified).toBe(true);
+    expect((await ask("false")).emailVerified).toBe(false);
+    await expect(ask("yes")).rejects.toBeInstanceOf(OAuthExchangeError);
+  });
 });
