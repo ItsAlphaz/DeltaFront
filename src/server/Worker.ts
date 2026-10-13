@@ -767,6 +767,7 @@ export async function startWorker() {
               username?: string | null;
               usernameBase?: string | null;
               usernameStatus?: string;
+              verified?: boolean;
             }
           | undefined;
 
@@ -874,7 +875,7 @@ export async function startWorker() {
           clientMsg.cosmetics?.verified === true
         ) {
           log.info(
-            "Verified intent not honoured: join name is not the account bare name",
+            "Verified intent not honoured: account not verified or join name is not the account name",
             {
               persistentID: persistentId,
               gameID: clientMsg.gameID,

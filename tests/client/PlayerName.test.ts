@@ -41,6 +41,7 @@ function player(
     username: string | null;
     usernameBase: string | null;
     usernameStatus: string;
+    verified: boolean;
   }> = {},
 ): UserMeResponse {
   return {
@@ -369,6 +370,38 @@ describe("looksGenerated", () => {
 });
 
 describe("accountVerifiedName", () => {
+  // Operator-granted (admin CLI user:verify): needs no bare name, no premium.
+  it("returns the account's own name for an operator-verified account", () => {
+    expect(
+      accountVerifiedName(
+        player({
+          verified: true,
+          username: "Ann.4821",
+          usernameBase: "Ann",
+          usernameStatus: "unclaimed",
+        }),
+      ),
+    ).toBe("Ann.4821");
+  });
+
+  it("does not treat verified: false, or a verified account with no name, as eligible", () => {
+    expect(
+      accountVerifiedName(
+        player({
+          verified: false,
+          username: "Ann.4821",
+          usernameBase: "Ann",
+          usernameStatus: "unclaimed",
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      accountVerifiedName(
+        player({ verified: true, username: null, usernameBase: null }),
+      ),
+    ).toBeNull();
+  });
+
   it("returns the bare name for a subscriber who has claimed one", () => {
     expect(accountVerifiedName(player())).toBe("RyanTheGreat");
     expect(accountVerifiedName(player({ usernameStatus: "indefinite" }))).toBe(

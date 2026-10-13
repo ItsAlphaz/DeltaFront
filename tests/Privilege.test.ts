@@ -318,6 +318,81 @@ describe("resolveVerifiedJoin", () => {
     expect(cosmetics.verified).toBe(true);
   });
 
+  describe("operator-verified accounts", () => {
+    const account = {
+      username: "Ann.4821",
+      usernameBase: "Ann",
+      usernameStatus: "unclaimed",
+      verified: true,
+    };
+
+    test("keep the check under their own name without a bare name or premium", () => {
+      const cosmetics = { verified: true };
+      expect(resolveVerifiedJoin(cosmetics, "Ann.4821", account)).toBe(
+        "verified",
+      );
+      expect(cosmetics.verified).toBe(true);
+    });
+
+    test("the check does not travel to another name", () => {
+      for (const joinName of ["Barack Obama", "Ann", "ann.4821", "Ann.4822"]) {
+        const cosmetics = { verified: true };
+        expect(resolveVerifiedJoin(cosmetics, joinName, account)).toBe(
+          "custom",
+        );
+        expect(cosmetics.verified).toBeUndefined();
+      }
+    });
+
+    test("an account without a name never gets the check", () => {
+      const cosmetics = { verified: true };
+      expect(
+        resolveVerifiedJoin(cosmetics, "Anon", {
+          ...account,
+          username: null,
+          usernameBase: null,
+        }),
+      ).toBe("custom");
+      expect(cosmetics.verified).toBeUndefined();
+    });
+
+    test("no intent, no check", () => {
+      const cosmetics: { verified?: boolean } = {};
+      expect(resolveVerifiedJoin(cosmetics, "Ann.4821", account)).toBe(
+        "custom",
+      );
+      expect(cosmetics.verified).toBeUndefined();
+    });
+  });
+
+  test("a client claiming verified is refused unless the account says it is", () => {
+    // Absent, false, or any non-true value of the field: the intent is dropped.
+    for (const verified of [undefined, false, "true", 1, null]) {
+      const cosmetics = { verified: true };
+      expect(
+        resolveVerifiedJoin(cosmetics, "Ann.4821", {
+          username: "Ann.4821",
+          usernameBase: "Ann",
+          usernameStatus: "unclaimed",
+          verified: verified as unknown as boolean,
+        }),
+      ).toBe("custom");
+      expect(cosmetics.verified).toBeUndefined();
+    }
+  });
+
+  test("an account role does not imply the check", () => {
+    const cosmetics = { verified: true };
+    expect(
+      resolveVerifiedJoin(cosmetics, "Ann.4821", {
+        username: "Ann.4821",
+        usernameBase: "Ann",
+        usernameStatus: "unclaimed",
+        role: "admin",
+      } as never),
+    ).toBe("custom");
+  });
+
   test("no intent means nothing changes, whatever the account holds", () => {
     const cosmetics = {};
     expect(

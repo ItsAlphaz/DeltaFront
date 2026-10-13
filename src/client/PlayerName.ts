@@ -64,8 +64,10 @@ export function clampUsername(name: string): string {
     : name;
 }
 
-// The server-resolved bare name this player may play verified under, or null
-// when ineligible. Eligible means "holds the bare claim": entitled AND the
+// The server-resolved name this player may play verified under, or null when
+// ineligible. An operator-verified account (player.verified, set only by the
+// admin CLI) plays under its own display name, whatever its username status.
+// Otherwise eligible means "holds the bare claim": entitled AND the
 // display name equals the base (a held bare name renders as base.disc). The
 // game server applies the same rule at join (resolveVerifiedJoin), so this is
 // presentation; the server is the rule. `claimed` (lapsed) holders and
@@ -75,6 +77,7 @@ export function accountVerifiedName(
 ): string | null {
   if (userMe === null || userMe === false) return null;
   const player = userMe.player;
+  if (player.verified === true && player.username) return player.username;
   const status = player.usernameStatus;
   if (status !== "premium" && status !== "indefinite") return null;
   if (!player.username || isTemporaryUsername(player.usernameBase)) return null;

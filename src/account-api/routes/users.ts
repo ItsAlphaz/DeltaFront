@@ -99,6 +99,9 @@ export function buildUserMe(
       usernameBase: user.usernameBase,
       usernameDiscriminator: user.usernameDiscriminator,
       usernameStatus: "unclaimed",
+      // Decided by the database alone (admin CLI user:verify); the game server
+      // reads it from here at join (resolveVerifiedJoin).
+      verified: user.verified,
       nextUsernameChangeAt: user.nextUsernameChangeAt?.toISOString() ?? null,
       // Credits ride in the contract's "soft" slot; the premium slot stays 0.
       currency: { soft: credits, hard: 0 },

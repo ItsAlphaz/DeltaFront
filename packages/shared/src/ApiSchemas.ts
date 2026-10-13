@@ -391,6 +391,10 @@ export const UserMeResponseSchema = z.object({
     usernameBase: z.string().nullable().optional(),
     usernameDiscriminator: z.string().nullable().optional(),
     usernameStatus: UsernameStatusSchema.optional(),
+    // Operator-granted blue check (DeltaFront admin CLI user:verify). Server
+    // decided and independent of usernameStatus, so a verified account needs no
+    // bare name. Optional so an API without it parses (absent = not verified).
+    verified: z.boolean().optional(),
     // Only non-null in `claimed`: when the exclusive right to the bare name
     // becomes takeable by another subscriber. A past date means "at risk",
     // not "lost" — it stays set until the name is actually taken.
@@ -947,6 +951,8 @@ export const PlayerProfileSchema = z.object({
   // parse it — compare players by publicId only. Optional so responses from
   // an API without the field still parse.
   username: z.string().nullable().optional(),
+  // Operator-granted blue check; see UserMeResponseSchema player.verified.
+  verified: z.boolean().optional(),
   stats: PlayerStatsTreeSchema,
   // Clans this player belongs to, tag-ordered. Optional so responses from an
   // API without the field still parse (→ no clans shown).

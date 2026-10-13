@@ -302,6 +302,13 @@ export class FailOpenPrivilegeChecker implements PrivilegeChecker {
  * name the screening rewrote all land the same way: the screened name stands
  * and the check is removed.
  *
+ * A second, independent source is the operator-granted `account.verified`
+ * (admin CLI user:verify, read from /users/@me by the game server, never from
+ * the client). It needs no bare name and no premium status, but the check
+ * still vouches for the ACCOUNT's own name: the join name must be exactly
+ * `account.username`, so a verified account cannot wear the check over some
+ * other name. Roles do not imply it.
+ *
  * `account` null is an anonymous persistent-ID join, which only exists in
  * Dev; intent is kept there so the badge stays locally testable.
  */
@@ -312,10 +319,19 @@ export function resolveVerifiedJoin(
     username?: string | null;
     usernameBase?: string | null;
     usernameStatus?: string;
+    verified?: boolean;
   } | null,
 ): "verified" | "custom" | "dev" {
   if (cosmetics.verified !== true) return "custom";
   if (account === null) return "dev";
+  if (
+    account.verified === true &&
+    typeof account.username === "string" &&
+    account.username.length > 0 &&
+    joinUsername === account.username
+  ) {
+    return "verified";
+  }
   const entitled =
     account.usernameStatus === "premium" ||
     account.usernameStatus === "indefinite";

@@ -15,6 +15,8 @@ export interface UserRow {
   usernameBase: string | null;
   usernameDiscriminator: string | null;
   nextUsernameChangeAt: Date | null;
+  /** Operator-granted blue check; set only by the admin CLI. */
+  verified: boolean;
 }
 
 // Letters and digits only (the users.public_id CHECK); 10 characters is ~60
@@ -25,7 +27,8 @@ const publicIdAlphabet = customAlphabet(
 );
 
 const COLUMNS = `id, public_id, kind, role, created_at, deletion_requested_at, deleted_at,
-  username_base::text AS username_base, username_discriminator, next_username_change_at`;
+  username_base::text AS username_base, username_discriminator, next_username_change_at,
+  verified`;
 
 interface RawUser {
   id: string;
@@ -38,6 +41,7 @@ interface RawUser {
   username_base: string | null;
   username_discriminator: string | null;
   next_username_change_at: Date | null;
+  verified: boolean;
 }
 
 function toUser(row: RawUser): UserRow {
@@ -52,6 +56,7 @@ function toUser(row: RawUser): UserRow {
     usernameBase: row.username_base,
     usernameDiscriminator: row.username_discriminator,
     nextUsernameChangeAt: row.next_username_change_at,
+    verified: row.verified,
   };
 }
 

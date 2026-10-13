@@ -83,7 +83,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     const { applied } = await applyMigrations(pool, {
       log: silentLogger as never,
     });
-    expect(applied).toEqual(["0001", "0002", "0003"]);
+    expect(applied).toEqual(["0001", "0002", "0003", "0004"]);
 
     expect(await tablesOf(pool)).toEqual(
       [
@@ -103,6 +103,11 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       { version: "0001", name: "init", checksum: files[0].checksum },
       { version: "0002", name: "leaderboard", checksum: files[1].checksum },
       { version: "0003", name: "magic_links", checksum: files[2].checksum },
+      {
+        version: "0004",
+        name: "verified_accounts",
+        checksum: files[3].checksum,
+      },
     ]);
   });
 
@@ -114,7 +119,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(3);
+    ).toBe(4);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -130,6 +135,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0001",
         "0002",
         "0003",
+        "0004",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -151,6 +157,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0001",
       "0002",
       "0003",
+      "0004",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -160,6 +167,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0001",
       "0002",
       "0003",
+      "0004",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -244,11 +252,16 @@ describeDb("migration safety", () => {
       applyMigrations(pool),
       applyMigrations(pool),
     ]);
-    expect(results.flatMap((r) => r.applied)).toEqual(["0001", "0002", "0003"]);
+    expect(results.flatMap((r) => r.applied)).toEqual([
+      "0001",
+      "0002",
+      "0003",
+      "0004",
+    ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(3);
+    ).toBe(4);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -271,6 +284,7 @@ describeDb("migration safety", () => {
       "0001",
       "0002",
       "0003",
+      "0004",
     ]);
   });
 });

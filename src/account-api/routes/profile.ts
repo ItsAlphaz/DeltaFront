@@ -92,6 +92,7 @@ export function profileRouter(deps: AppDeps): Router {
       createdAt: user.createdAt.toISOString(),
       ...(discord === undefined ? {} : { user: discord }),
       username: displayUsername(user.usernameBase, user.usernameDiscriminator),
+      verified: user.verified,
       stats: buildStatsTree(aggregates, recent),
     } as unknown as PlayerProfile;
   }

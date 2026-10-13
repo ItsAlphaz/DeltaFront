@@ -100,6 +100,8 @@ export const ADMIN_COMMANDS = [
   "user:unban <publicId> --reason <text>",
   "user:revoke-sessions <publicId> --reason <text> --yes",
   "user:role <publicId> <admin|mod|flagged|none> --reason <text> --yes",
+  "user:verify <publicId> --reason <text> --yes",
+  "user:unverify <publicId> --reason <text> --yes",
   "clan:list [search]",
   "clan:show <TAG>",
   "clan:rename <TAG> <new name> --reason <text>",
@@ -236,7 +238,7 @@ export async function runAdminCommand(
         const user = await userByPublicId(pool, need(p, 0, "public id"));
         const [u, ids, sessions, bans] = await Promise.all([
           pool.query(
-            "SELECT id, public_id, kind, role, created_at, last_seen_at, deletion_requested_at FROM users WHERE id = $1",
+            "SELECT id, public_id, kind, role, verified, created_at, last_seen_at, deletion_requested_at FROM users WHERE id = $1",
             [user.id],
           ),
           pool.query(
@@ -258,6 +260,7 @@ export async function runAdminCommand(
         io.out(
           `kind:        ${row.kind}${row.role ? `  role: ${row.role}` : ""}`,
         );
+        io.out(`verified:    ${row.verified ? "yes" : "no"}`);
         io.out(
           `created:     ${row.created_at.toISOString()}   last seen: ${row.last_seen_at.toISOString()}`,
         );
@@ -383,6 +386,40 @@ export async function runAdminCommand(
           });
         });
         io.out(`role of ${publicId} is now ${role}`);
+        return 0;
+      }
+      case "user:verify":
+      case "user:unverify": {
+        const verify = command === "user:verify";
+        requireYes(
+          p,
+          verify ? "verifying an account" : "unverifying an account",
+        );
+        const publicId = need(p, 0, "public id");
+        const reason = reasonArg(p);
+        const changed = await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          const before = await db.query<{ verified: boolean }>(
+            "SELECT verified FROM users WHERE id = $1 FOR UPDATE",
+            [user.id],
+          );
+          if (before.rows[0].verified === verify) return false;
+          await db.query("UPDATE users SET verified = $2 WHERE id = $1", [
+            user.id,
+            verify,
+          ]);
+          await audit(db, io, command, "user", publicId, {
+            from: before.rows[0].verified,
+            verified: verify,
+            reason,
+          });
+          return true;
+        });
+        io.out(
+          changed
+            ? `${publicId} is now ${verify ? "verified" : "unverified"}`
+            : `${publicId} was already ${verify ? "verified" : "unverified"}; nothing changed`,
+        );
         return 0;
       }
       case "clan:list": {

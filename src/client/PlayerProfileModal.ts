@@ -36,6 +36,8 @@ export class PlayerProfileModal extends BaseModal {
 
   @state() private publicId: string | null = null;
   @state() private username: string | null = null;
+  // Operator-granted blue check, from the profile response.
+  @state() private verified = false;
   @state() private statsTree: PlayerStatsTree | null = null;
   @state() private clans: NonNullable<PlayerProfile["clans"]> = [];
   // Level / XP, when progression is on and the player has any.
@@ -75,7 +77,7 @@ export class PlayerProfileModal extends BaseModal {
             class="text-white text-xl lg:text-2xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
           >
             ${usernameText(this.username)}
-            ${isVerifiedUsername(this.username)
+            ${this.verified || isVerifiedUsername(this.username)
               ? verifiedBadge("w-5 h-5")
               : nothing}
           </span>`
@@ -297,6 +299,7 @@ export class PlayerProfileModal extends BaseModal {
     this.openCount++;
     this.publicId = publicId;
     this.username = null;
+    this.verified = false;
     this.statsTree = null;
     this.clans = [];
     this.progress = null;
@@ -327,6 +330,7 @@ export class PlayerProfileModal extends BaseModal {
     this.loading = false;
     this.statsTree = profile === false ? null : profile.stats;
     this.username = profile === false ? null : (profile.username ?? null);
+    this.verified = profile === false ? false : profile.verified === true;
     this.clans = profile === false ? [] : (profile.clans ?? []);
   }
 

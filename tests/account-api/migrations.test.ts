@@ -115,6 +115,14 @@ describe("the shipped migrations", () => {
     expect(sql).not.toMatch(/ALTER TABLE|DROP /i); // no change to the account or session tables
   });
 
+  it("0004 adds only users.verified: not null, false by default, nothing dropped", () => {
+    expect(files[3].fileName).toBe("0004_verified_accounts.sql");
+    const sql = files[3].sql.replace(/^\s*--.*$/gm, "").trim();
+    expect(sql).toBe(
+      "ALTER TABLE users ADD COLUMN verified boolean NOT NULL DEFAULT false;",
+    );
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time
