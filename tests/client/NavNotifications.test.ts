@@ -7,7 +7,7 @@ const { getCosmeticsHash, getGamesPlayed } = vi.hoisted(() => ({
 }));
 vi.mock("../../src/client/Cosmetics", () => ({ getCosmeticsHash }));
 vi.mock("../../src/client/Utils", () => ({ getGamesPlayed }));
-vi.mock("resources/version.txt?raw", () => ({ default: "v9.9.9" }));
+vi.mock("../../src/client/AppVersion", () => ({ APP_VERSION: "9.9.9" }));
 
 import {
   NavNotificationsController,

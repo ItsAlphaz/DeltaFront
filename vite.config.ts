@@ -153,6 +153,24 @@ function randomWorkerCreateProxy(numWorkers: number): Plugin {
   };
 }
 
+/**
+ * The game version players see (nav bar, news dot): `version` in package.json,
+ * the one place it is written. Injected as __APP_VERSION__ (see
+ * src/client/AppVersion.ts); a malformed value stops the build rather than
+ * shipping a label nobody can read.
+ */
+function readAppVersion(): string {
+  const { version } = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "package.json"), "utf8"),
+  ) as { version?: unknown };
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/.test(version)) {
+    throw new Error(
+      `package.json "version" must be MAJOR.MINOR.PATCH (for example 0.1.0), got ${JSON.stringify(version)}`,
+    );
+  }
+  return version;
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const isProduction = mode === "production";
@@ -363,6 +381,7 @@ export default defineConfig(({ mode }) => {
 
     define: {
       __ASSET_MANIFEST__: JSON.stringify(assetManifest),
+      __APP_VERSION__: JSON.stringify(readAppVersion()),
       "process.env.WEBSOCKET_URL": JSON.stringify(
         isProduction ? "" : "localhost:3000",
       ),

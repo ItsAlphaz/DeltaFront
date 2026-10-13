@@ -9,7 +9,7 @@ set -e # Exit immediately if a command exits with a non-zero status
 # Parse command line arguments
 DEPLOY_ENV="$1"
 VERSION_TAG="$2"
-VERSION_TXT="$3"
+# $3 (the upstream version-file text) is ignored: see the version note below.
 CHANGELOG_MD="$4"
 METADATA_FILE="$5"
 
@@ -82,9 +82,8 @@ echo "Git commit: $GIT_COMMIT"
 if [ -n "$CHANGELOG_MD" ]; then
     echo "$CHANGELOG_MD" > resources/changelog.md
 fi
-if [ -n "$VERSION_TXT" ]; then
-    echo "$VERSION_TXT" > resources/version.txt
-fi
+# The game version is package.json's "version" (read by vite.config.ts), not an
+# argument to this script.
 
 # Set up cache image reference
 CACHE_IMAGE="${GHCR_USERNAME}/${GHCR_REPO}:latest"

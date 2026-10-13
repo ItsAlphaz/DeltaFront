@@ -3,7 +3,7 @@ import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { BRAND } from "../Branding";
 import { composeVersionDisplay, desktopVersion } from "../DesktopShell";
-import { currentGameVersion } from "../GameVersion";
+import { currentBuildLabel } from "../GameVersion";
 import "./SteamWishlistButton";
 
 const SOCIAL_LINK =
@@ -11,12 +11,12 @@ const SOCIAL_LINK =
 
 @customElement("page-footer")
 export class Footer extends LitElement {
-  // Per instance, not at module scope: currentGameVersion reads
+  // Per instance, not at module scope: currentBuildLabel reads
   // BOOTSTRAP_CONFIG, which the server injects into the page and which is not
   // guaranteed to exist at the moment this module is first imported.
-  private readonly gameVersion = currentGameVersion();
+  private readonly gameVersion = currentBuildLabel();
 
-  // Starts as the game version alone and gains the shell version once the
+  // Starts as the build label (the commit) alone and gains the shell version once the
   // bridge answers, so the line is never blank while that call is in flight.
   @state() private versionLabel = this.gameVersion;
 

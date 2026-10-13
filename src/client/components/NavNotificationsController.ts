@@ -1,6 +1,6 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { ReactiveController, ReactiveControllerHost } from "lit";
-import version from "resources/version.txt?raw";
+import { APP_VERSION } from "../AppVersion";
 import { getCosmeticsHash } from "../Cosmetics";
 import { getGamesPlayed } from "../Utils";
 
@@ -9,7 +9,7 @@ const STORE_SEEN_HASH_KEY = "storeSeenHash";
 const NEWS_SEEN_VERSION_KEY = "newsSeenVersion";
 
 function normalizedVersion(): string {
-  const trimmed = version.trim();
+  const trimmed = APP_VERSION.trim();
   return trimmed.startsWith("v") ? trimmed : `v${trimmed}`;
 }
 
