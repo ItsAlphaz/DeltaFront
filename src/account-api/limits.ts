@@ -40,6 +40,10 @@ export const RATE_LIMITS = Object.freeze({
   magicLinkRequest: { max: 10, windowMs: 60 * 60 * 1000 },
   /** Emailed sign-in links used (M8), per client address. */
   magicLinkConsume: { max: 10, windowMs: 60 * 1000 },
+  /** Admin API reads, per staff account. */
+  adminRead: { max: 300, windowMs: 60 * 1000 },
+  /** Admin API changes, per staff account. */
+  adminWrite: { max: 60, windowMs: 60 * 1000 },
   /** Wrong or missing server keys, per client address: a guess budget, not a request budget. */
   serverKeyFailure: { max: 30, windowMs: 60 * 1000 },
 } as const satisfies Record<string, RateLimit>);
@@ -126,5 +130,7 @@ export function createLimiters(
     magicLinkConsume: make("magicLinkConsume"),
     serverCall: make("serverCall"),
     serverKeyFailure: make("serverKeyFailure"),
+    adminRead: make("adminRead"),
+    adminWrite: make("adminWrite"),
   };
 }

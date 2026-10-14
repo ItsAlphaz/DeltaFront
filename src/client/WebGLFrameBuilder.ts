@@ -560,6 +560,7 @@ export class WebGLFrameBuilder {
       flag: flagUrl,
       crown: crownUrl,
       verified: p.showsVerifiedBadge(),
+      staffRole: p.staffBadgeRole() ?? undefined,
       color: p.territoryColor().toHex(),
     };
   }

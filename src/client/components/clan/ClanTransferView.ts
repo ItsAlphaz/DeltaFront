@@ -199,7 +199,10 @@ export class ClanTransferView extends LitElement {
                   <span
                     class="pointer-events-auto inline-flex max-w-full min-w-0"
                   >
-                    ${playerNameLink(this, m.username, m.publicId)}
+                    ${playerNameLink(this, m.username, m.publicId, {
+                      verified: m.verified,
+                      staffRole: m.staffRole,
+                    })}
                   </span>
                 </div>
                 <span

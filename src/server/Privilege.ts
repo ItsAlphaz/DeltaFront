@@ -6,6 +6,7 @@ import {
   findEffectForSlot,
 } from "@openfront/shared/CosmeticSchemas";
 import { decodePatternData } from "@openfront/shared/PatternDecoder";
+import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import {
   PlayerColor,
   PlayerCosmeticRefs,
@@ -345,4 +346,37 @@ export function resolveVerifiedJoin(
   }
   delete cosmetics.verified;
   return "custom";
+}
+
+/**
+ * The role a connection acts with, decided at join.
+ *
+ * For a signed-in account it is the account API's CURRENT answer
+ * (`staffRole`, read from the database by /users/@me), not the role the token
+ * claimed when it was issued up to 15 minutes ago: a demotion applies to the
+ * next join, and a staff claim the API no longer confirms is dropped. A
+ * non-staff claim such as "flagged" is kept as it is. An anonymous join has no
+ * role.
+ */
+export function effectiveRole(
+  signedIn: boolean,
+  claimedRole: string | null,
+  staffRole: StaffRole | undefined,
+): string | null {
+  if (!signedIn) return null;
+  if (staffRole !== undefined) return staffRole;
+  return staffRoleOf(claimedRole) === null ? claimedRole : null;
+}
+
+/**
+ * Stamps the account's staff role into the cosmetics the lobby and the game
+ * show (the staff badge). Whatever the client sent is discarded first: the
+ * badge only ever comes from the account API's answer.
+ */
+export function stampStaffRole(
+  cosmetics: PlayerCosmetics,
+  staffRole: StaffRole | undefined,
+): void {
+  delete cosmetics.staffRole;
+  if (staffRole !== undefined) cosmetics.staffRole = staffRole;
 }

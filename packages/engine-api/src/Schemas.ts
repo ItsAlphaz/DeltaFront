@@ -1,6 +1,7 @@
 import { zb } from "@openfront/zbin";
 import quickChatData from "resources/QuickChat.json";
 import { z } from "zod";
+import { ADMIN_COMMAND_MAX_AMOUNT, ADMIN_COMMANDS } from "./AdminCommands";
 import {
   AllPlayers,
   Difficulty,
@@ -46,7 +47,8 @@ export type Intent =
   | KickPlayerIntent
   | TogglePauseIntent
   | UpdateGameConfigIntent
-  | ToggleGameStartTimer;
+  | ToggleGameStartTimer
+  | AdminCommandIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -76,6 +78,7 @@ export type AllianceExtensionIntent = z.infer<
 >;
 export type DeleteUnitIntent = z.infer<typeof DeleteUnitIntentSchema>;
 export type KickPlayerIntent = z.infer<typeof KickPlayerIntentSchema>;
+export type AdminCommandIntent = z.infer<typeof AdminCommandIntentSchema>;
 export type TogglePauseIntent = z.infer<typeof TogglePauseIntentSchema>;
 export type UpdateGameConfigIntent = z.infer<
   typeof UpdateGameConfigIntentSchema
@@ -549,6 +552,18 @@ export const ToggleGameStartTimerIntentSchema = z.object({
   type: z.literal("toggle_game_start_timer"),
 });
 
+// A staff testing command on one player (resources, troops, elimination, a
+// forced winner). The engine applies it exactly as given; WHO may send it is
+// the game server's decision (IntentAuthorization, against the sender's
+// permissions) and it never relays one from anyone else. A game containing one
+// is marked admin-modified (no stats, Credits or leaderboard).
+export const AdminCommandIntentSchema = z.object({
+  type: z.literal("admin_command"),
+  command: z.enum(ADMIN_COMMANDS),
+  target: MappedID,
+  amount: zb.float({ min: 0, max: ADMIN_COMMAND_MAX_AMOUNT }).optional(),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -575,6 +590,8 @@ export const IntentSchema = z.discriminatedUnion("type", [
   TogglePauseIntentSchema,
   UpdateGameConfigIntentSchema,
   ToggleGameStartTimerIntentSchema,
+  // Appended: a union variant's position is its wire tag.
+  AdminCommandIntentSchema,
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

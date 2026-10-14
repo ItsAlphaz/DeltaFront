@@ -360,6 +360,7 @@ export class LeaderboardPlayerList extends LitElement {
               <player-name
                 .username=${entry.accountUsername}
                 .verified=${entry.verified}
+                .staffRole=${entry.staffRole}
                 .publicId=${entry.playerId}
                 .nameClass=${"font-bold text-white truncate text-base hover:underline"}
                 .onNameClick=${() => this.openProfile(entry.playerId)}
@@ -434,6 +435,7 @@ export class LeaderboardPlayerList extends LitElement {
             <player-name
               .username=${player.accountUsername}
               .verified=${player.verified}
+              .staffRole=${player.staffRole}
               .publicId=${player.playerId}
               .nameClass=${"font-bold text-df-text truncate text-base hover:underline hover:text-df-red-bright"}
               .onNameClick=${() => this.openProfile(player.playerId)}

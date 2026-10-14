@@ -1,5 +1,9 @@
 import { GameType } from "@openfront/engine-api/game/GameTypes";
 import { ClientID, Intent } from "@openfront/engine-api/Schemas";
+import {
+  ADMIN_COMMAND_PERMISSION,
+  hasPermission,
+} from "@openfront/shared/Permissions";
 import { hostCheatsEnabled } from "./ConfigPatch";
 
 export interface IntentActor {
@@ -7,6 +11,10 @@ export interface IntentActor {
   isLobbyCreator: boolean;
   isAdmin: boolean; // role-based admin/root (also true for the admin bot)
   isAdminBot: boolean; // the trusted admin-bot HTTP API
+  // The sender's staff role as the account API reported it when they joined
+  // (never a value the client sent). What a staff action needs is decided by
+  // hasPermission on it, not by comparing role strings.
+  role?: string | null;
 }
 
 // Outcome of dispatching an intent. `status` is an HTTP-style code: 200 on
@@ -44,24 +52,27 @@ export function authorizeIntent(
     case "mark_disconnected":
       return { status: 400, error: "mark_disconnected is server-internal" };
 
-    case "kick_player":
-      if (!actor.isLobbyCreator && !actor.isAdmin) {
+    case "kick_player": {
+      const staffKick =
+        actor.isAdmin || hasPermission(actor.role, "game.admin.kick");
+      if (!actor.isLobbyCreator && !staffKick) {
         return {
           status: 403,
-          error: "only the lobby creator or an admin can kick players",
+          error: "only the lobby creator or staff can kick players",
         };
       }
       // A listed lobby recruits strangers from the public browser; letting
-      // the host kick them is a griefing vector. Admins keep the power for
+      // the host kick them is a griefing vector. Staff keep the power for
       // moderation. The listed flag survives game start on purpose, so a
       // publicly recruited game stays kick-free like a real public game.
-      if (game.isListed && !actor.isAdmin) {
+      if (game.isListed && !staffKick) {
         return {
           status: 403,
           error: "the host cannot kick players in a publicly listed lobby",
         };
       }
       return null;
+    }
 
     case "update_game_config":
       if (!actor.isLobbyCreator && !actor.isAdminBot) {
@@ -125,11 +136,12 @@ export function authorizeIntent(
       }
       return null;
 
-    case "toggle_pause":
-      if (!actor.isLobbyCreator && !actor.isAdminBot) {
+    case "toggle_pause": {
+      const staffPause = hasPermission(actor.role, "game.admin.pause");
+      if (!actor.isLobbyCreator && !actor.isAdminBot && !staffPause) {
         return { status: 403, error: "only the lobby creator can pause" };
       }
-      if (game.isListed && !actor.isAdminBot) {
+      if (game.isListed && !actor.isAdminBot && !staffPause) {
         return {
           status: 403,
           error: "the host cannot pause a publicly listed game",
@@ -140,6 +152,32 @@ export function authorizeIntent(
         return { status: 409, error: "game not started" };
       }
       return null;
+    }
+
+    case "admin_command": {
+      // A staff testing command. Authorized per command against the sender's
+      // permissions; the engine applies whatever the server relays, so this
+      // is the only gate and nothing a client claims reaches it.
+      if (actor.isAdminBot) {
+        return { status: 400, error: "intent not permitted for admin bot" };
+      }
+      const needed = ADMIN_COMMAND_PERMISSION[intent.command];
+      if (!hasPermission(actor.role, needed)) {
+        return { status: 403, error: `missing permission ${needed}` };
+      }
+      // Testing tools stay out of games real players recruited from the public
+      // browser or the matchmaker: they change the outcome for everyone in it.
+      if (game.isPublic || game.isListed) {
+        return {
+          status: 403,
+          error: "admin commands are only available in private test games",
+        };
+      }
+      if (!game.hasStarted) {
+        return { status: 409, error: "game not started" };
+      }
+      return null;
+    }
 
     default:
       // Gameplay intents: websocket players only.

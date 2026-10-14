@@ -11,6 +11,7 @@ import type {
   ClanMember,
   ClanMemberStats,
 } from "@openfront/shared/ClanApiSchemas";
+import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import type { ClanRole, ReservedClanNames } from "../domain/clans";
 import { CLAN_RULES } from "../domain/constants";
 import { displayUsername } from "../domain/usernames";
@@ -342,8 +343,11 @@ export async function membersPage(
     username_discriminator: string | null;
     role: ClanRole;
     joined_at: Date;
+    verified: boolean;
+    user_role: string | null;
   }>(
-    `SELECT u.id AS user_id, u.public_id, u.username_base, u.username_discriminator, m.role, m.joined_at
+    `SELECT u.id AS user_id, u.public_id, u.username_base, u.username_discriminator, m.role, m.joined_at,
+            u.verified, u.role AS user_role
        FROM clan_members m JOIN users u ON u.id = m.user_id
       WHERE ${where}`,
     params,
@@ -378,6 +382,10 @@ export async function membersPage(
       joinedAt: r.joined_at.toISOString(),
       publicId: r.public_id,
       username: displayUsername(r.username_base, r.username_discriminator),
+      verified: r.verified,
+      ...(staffRoleOf(r.user_role) === null
+        ? {}
+        : { staffRole: staffRoleOf(r.user_role) as StaffRole }),
       stats: stats.get(r.user_id),
     })),
   };

@@ -1,6 +1,6 @@
 {
   "width": 768,
-  "height": 1024,
+  "height": 1280,
   "cellSize": 256,
   "cols": 3,
   "pad": 16,
@@ -16,6 +16,9 @@
     "nukeWhite": 8,
     "allianceFaded": 9,
     "doomsdayClock": 10,
-    "verified": 11
+    "verified": 11,
+    "staffMod": 12,
+    "staffAdmin": 13,
+    "staffOwner": 14
   }
 }

@@ -32,6 +32,7 @@ function player(
     isAlive: () => true,
     isOnSameTeam: () => false,
     showsVerifiedBadge: () => false,
+    staffBadgeRole: () => null,
   } as unknown as PlayerView;
 }
 

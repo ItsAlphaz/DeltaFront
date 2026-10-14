@@ -146,6 +146,19 @@ async function run<T>(
 
 // ---------------------------------------------------------------- create
 
+/**
+ * What a staff creator may skip. Both default to off: an ordinary account is
+ * always held to the thresholds and the reserved lists. `bypassEligibility` is
+ * the account-age and completed-games rule (no match history is invented: the
+ * rule is simply not applied); `bypassReserved` lets official clans use the
+ * reserved tags and names (DELTA, "DeltaFront"). Set only from a permission
+ * check (admin.clans.official), never from the request body.
+ */
+export interface CreateOptions {
+  bypassEligibility?: boolean;
+  bypassReserved?: boolean;
+}
+
 export interface CreateInput {
   name: unknown;
   tag: unknown;
@@ -165,6 +178,7 @@ export async function createClan(
   input: CreateInput,
   reserved: ReservedClanNames,
   now: Date = new Date(),
+  options: CreateOptions = {},
 ): Promise<string> {
   const name = checkClanName(input.name);
   if (!name.ok) return fail(400, name.code);
@@ -198,24 +212,27 @@ export async function createClan(
     if (existing.rows.length > 0) {
       return fail(403, "ALREADY_IN_CLAN", { message: "Already in a clan" });
     }
-    const games = await tx.query<{ n: number }>(
-      "SELECT count(*)::int AS n FROM game_players WHERE user_id = $1 AND completed",
-      [user.id],
-    );
-    const eligible = checkCreateEligibility(
-      user.createdAt,
-      games.rows[0].n,
-      now,
-    );
-    if (!eligible.ok) {
-      return fail(403, eligible.code, {
-        required: eligible.required,
-        current: eligible.current,
-      });
+    if (options.bypassEligibility !== true) {
+      const games = await tx.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM game_players WHERE user_id = $1 AND completed",
+        [user.id],
+      );
+      const eligible = checkCreateEligibility(
+        user.createdAt,
+        games.rows[0].n,
+        now,
+      );
+      if (!eligible.ok) {
+        return fail(403, eligible.code, {
+          required: eligible.required,
+          current: eligible.current,
+        });
+      }
     }
     if (
-      isReservedTag(reserved, tag.value) ||
-      isReservedName(reserved, name.value)
+      options.bypassReserved !== true &&
+      (isReservedTag(reserved, tag.value) ||
+        isReservedName(reserved, name.value))
     ) {
       return fail(
         409,
@@ -921,6 +938,127 @@ export async function adminRenameClan(
       to: name.value,
       reason,
     });
+    await audit(tx, clan);
+  });
+}
+
+/** Admin: open or close a clan to join requests. */
+export async function adminSetOpen(
+  pool: Pick<Pool, "connect">,
+  tag: string,
+  isOpen: boolean,
+  reason: string,
+  audit: AdminAudit,
+): Promise<void> {
+  await run(pool, async (tx) => {
+    const clan = await lockClan(tx, tag);
+    await tx.query("UPDATE clans SET is_open = $2 WHERE id = $1", [
+      clan.id,
+      isOpen,
+    ]);
+    await event(tx, clan.id, null, "admin-open", null, {
+      from: clan.isOpen,
+      to: isOpen,
+      reason,
+    });
+    await audit(tx, clan);
+  });
+}
+
+/**
+ * Admin: change a clan's tag. The tag is screened and unique like any other;
+ * the old tag is freed (past games keep the tag they were played under).
+ * `bypassReserved` is the official-clan right to use reserved tags.
+ */
+export async function adminChangeTag(
+  pool: Pick<Pool, "connect">,
+  tag: string,
+  rawNewTag: unknown,
+  reason: string,
+  reserved: ReservedClanNames,
+  options: { bypassReserved: boolean },
+  audit: AdminAudit,
+  now: Date = new Date(),
+): Promise<string> {
+  const next = checkClanTag(rawNewTag);
+  if (!next.ok) return fail(400, next.code);
+  return run(pool, async (tx) => {
+    const clan = await lockClan(tx, tag);
+    if (next.value === clan.tag) return fail(409, "SAME_TAG");
+    if (!options.bypassReserved && isReservedTag(reserved, next.value))
+      return fail(409, "TAG_TAKEN");
+    const held = await tx.query<{ reusable_after: Date }>(
+      "SELECT reusable_after FROM clan_tag_holds WHERE tag = $1 FOR UPDATE",
+      [next.value],
+    );
+    if (held.rows.length > 0) {
+      if (held.rows[0].reusable_after > now) return fail(409, "TAG_HELD");
+      await tx.query("DELETE FROM clan_tag_holds WHERE tag = $1", [next.value]);
+    }
+    await tx.query("UPDATE clans SET tag = $2 WHERE id = $1", [
+      clan.id,
+      next.value,
+    ]);
+    await event(tx, clan.id, null, "admin-retag", null, {
+      from: clan.tag,
+      to: next.value,
+      reason,
+    });
+    await audit(tx, clan);
+    return next.value;
+  });
+}
+
+/** Admin: ban an account from a clan (removing it if a member), whatever the clan's own roles say. */
+export async function adminBanMember(
+  pool: Pick<Pool, "connect">,
+  tag: string,
+  targetPublicId: string,
+  reason: string,
+  audit: AdminAudit,
+): Promise<void> {
+  await run(pool, async (tx) => {
+    const clan = await lockClan(tx, tag);
+    const target = await targetByPublicId(tx, targetPublicId);
+    const role = await roleIn(tx, clan.id, target.id);
+    if (role === "leader") return fail(409, "TRANSFER_REQUIRED");
+    await tx.query(
+      `INSERT INTO clan_bans (clan_id, user_id, banned_by, reason)
+       VALUES ($1, $2, NULL, $3)
+       ON CONFLICT (clan_id, user_id) DO UPDATE
+          SET banned_by = NULL, reason = excluded.reason, created_at = now()`,
+      [clan.id, target.id, reason],
+    );
+    await tx.query(
+      "DELETE FROM clan_members WHERE clan_id = $1 AND user_id = $2",
+      [clan.id, target.id],
+    );
+    await tx.query(
+      "DELETE FROM clan_join_requests WHERE clan_id = $1 AND user_id = $2",
+      [clan.id, target.id],
+    );
+    await event(tx, clan.id, null, "admin-ban", target.id, { reason });
+    await audit(tx, clan);
+  });
+}
+
+/** Admin: lift an account's ban from a clan. */
+export async function adminUnbanMember(
+  pool: Pick<Pool, "connect">,
+  tag: string,
+  targetPublicId: string,
+  reason: string,
+  audit: AdminAudit,
+): Promise<void> {
+  await run(pool, async (tx) => {
+    const clan = await lockClan(tx, tag);
+    const target = await targetByPublicId(tx, targetPublicId);
+    const gone = await tx.query(
+      "DELETE FROM clan_bans WHERE clan_id = $1 AND user_id = $2",
+      [clan.id, target.id],
+    );
+    if ((gone.rowCount ?? 0) === 0) return fail(404, "NOT_BANNED");
+    await event(tx, clan.id, null, "admin-unban", target.id, { reason });
     await audit(tx, clan);
   });
 }

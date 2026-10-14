@@ -22,7 +22,6 @@ vi.mock("../../src/client/Auth", () => ({
   sendMagicLink: vi.fn(async () => true),
   requestMagicLink: vi.fn(async () => ({ status: "sent" })),
   getAuthHeader: vi.fn(async () => "Bearer test-token"),
-  userAuth: vi.fn(async () => false as const),
 }));
 
 vi.mock("../../src/client/Utils", () => ({
@@ -59,7 +58,6 @@ vi.stubGlobal("localStorage", {
 });
 
 import { AccountModal } from "../../src/client/AccountModal";
-import { userAuth } from "../../src/client/Auth";
 
 const BADGE = 'svg[aria-label="username.verified_player"]';
 
@@ -69,6 +67,7 @@ function userMe(
     usernameBase: string | null;
     usernameStatus: string;
     verified: boolean;
+    staffRole: "owner" | "admin" | "mod";
   }> = {},
 ): UserMeResponse {
   return {
@@ -100,7 +99,6 @@ describe("AccountModal — verified account status", () => {
     modal.setAttribute("inline", "");
     document.body.appendChild(modal);
     await modal.updateComplete;
-    vi.mocked(userAuth).mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -109,22 +107,13 @@ describe("AccountModal — verified account status", () => {
     window.location.hash = "";
   });
 
-  async function show(user: UserMeResponse, role?: string): Promise<void> {
-    vi.mocked(userAuth).mockResolvedValue(
-      role === undefined
-        ? false
-        : ({ jwt: "t", claims: { role } } as unknown as Awaited<
-            ReturnType<typeof userAuth>
-          >),
-    );
+  async function show(user: UserMeResponse): Promise<void> {
     const internals = modal as unknown as {
       userMeResponse: UserMeResponse | null;
       isLoadingUser: boolean;
-      loadRole(): Promise<void>;
     };
     internals.userMeResponse = user;
     internals.isLoadingUser = false;
-    await internals.loadRole();
     modal.requestUpdate();
     await modal.updateComplete;
   }
@@ -167,28 +156,56 @@ describe("AccountModal — verified account status", () => {
   });
 
   it("an admin role alone is not verified: the Admin chip shows, the check does not", async () => {
-    await show(userMe({ username: "Boss.0001", verified: false }), "admin");
+    await show(
+      userMe({ username: "Boss.0001", verified: false, staffRole: "admin" }),
+    );
 
-    expect(modal.querySelector("#account-admin-chip")?.textContent).toContain(
-      "account_modal.role_admin",
+    expect(modal.querySelector("#account-staff-chip")?.textContent).toContain(
+      "staff.admin",
     );
     expect(modal.querySelector("#account-verified-chip")).toBeNull();
     expect(status()?.querySelector(BADGE)).toBeNull();
   });
 
   it("keeps verified, admin and the linked identity as three separate things", async () => {
-    await show(userMe({ username: "Aydin.4821", verified: true }), "admin");
+    await show(
+      userMe({ username: "Aydin.4821", verified: true, staffRole: "admin" }),
+    );
 
     expect(modal.querySelector("#account-verified-chip")).not.toBeNull();
-    expect(modal.querySelector("#account-admin-chip")).not.toBeNull();
+    expect(modal.querySelector("#account-staff-chip")).not.toBeNull();
     // The sign-in identity is rendered outside the status block.
     expect(status()?.textContent).not.toContain("owner@example.com");
     expect(modal.textContent).toContain("account_modal.linked_account");
   });
 
-  it("a non-admin role is not shown as Admin", async () => {
-    await show(userMe({ username: "Mod.0002", verified: true }), "mod");
-    expect(modal.querySelector("#account-admin-chip")).toBeNull();
+  it("each staff role gets its own chip and badge, never another role's", async () => {
+    for (const role of ["owner", "admin", "mod"] as const) {
+      await show(userMe({ username: "Staff.0002", staffRole: role }));
+      const chip = modal.querySelector("#account-staff-chip");
+      expect(chip?.getAttribute("data-staff-role")).toBe(role);
+      expect(chip?.textContent).toContain(`staff.${role}`);
+      // the badge beside the name and the one inside the chip
+      expect(status()?.querySelectorAll("svg[data-staff-role]")).toHaveLength(
+        2,
+      );
+      expect(
+        [...(status()?.querySelectorAll("svg[data-staff-role]") ?? [])].every(
+          (el) => el.getAttribute("data-staff-role") === role,
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("a staff badge shows without verification, and verification shows without a staff role", async () => {
+    await show(
+      userMe({ username: "A.0001", staffRole: "owner", verified: false }),
+    );
+    expect(modal.querySelector("#account-verified-chip")).toBeNull();
+    expect(modal.querySelector("#account-staff-chip")).not.toBeNull();
+    await show(userMe({ username: "B.0001", verified: true }));
+    expect(modal.querySelector("#account-staff-chip")).toBeNull();
+    expect(modal.querySelector("#account-verified-chip")).not.toBeNull();
   });
 
   it("a verified account with no username is told to set one, never offered a subscription", async () => {

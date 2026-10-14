@@ -203,6 +203,10 @@ export type LobbyAccent = z.infer<typeof LobbyAccentSchema>;
 
 export type { LevelBadge } from "./LevelBadgeWire";
 
+// The staff roles a badge can show. A closed enum: its order is its encoding.
+export const StaffRoleWireSchema = z.enum(["owner", "admin", "mod"]);
+export type StaffRoleWire = z.infer<typeof StaffRoleWireSchema>;
+
 export const ClientInfoSchema = z.object({
   clientID: z.string(),
   username: UsernameSchema,
@@ -234,6 +238,12 @@ export const ClientInfoSchema = z.object({
   // on purpose: one bad value must not fail the whole roster's parse, so
   // unpackLevelBadge drops it instead.
   levelBadge: zb.uint().optional(),
+  // The account's staff role, for the staff badge in the lobby list: server
+  // stamped (see PlayerCosmetics.staffRole), never set on anonymized entries.
+  // This ninth optional field is what makes the header two bytes: client and
+  // server ship together (see packages/zbin/README.md), so no old frame exists
+  // to stay compatible with.
+  staffRole: StaffRoleWireSchema.optional(),
 });
 
 export const GameInfoSchema = z.object({
@@ -349,6 +359,8 @@ export interface ClientInfo {
   username: string;
   clanTag: string | null;
   friends?: ClientID[];
+  // Staff role badge (server stamped); see ClientInfoSchema.staffRole.
+  staffRole?: StaffRoleWire;
   // Plays under their server-validated account name (blue check). Never set
   // on anonymized entries.
   verified?: boolean;
@@ -460,6 +472,12 @@ export const PlayerCosmeticsSchema = z.object({
   effects: z.record(z.string(), PlayerEffectSchema).optional(),
   // Plays under the verified account username — renders the blue check.
   verified: z.boolean().optional(),
+  // The account's staff role (DeltaFront owner, administrator or moderator),
+  // stamped by the game server from the account API's own answer at join and
+  // never taken from the client. Draws the staff badge beside the name;
+  // independent of `verified`. Hidden with the rest of the cosmetics when names
+  // are anonymized.
+  staffRole: StaffRoleWireSchema.optional(),
 });
 
 // A player as the server sends and records it: what the engine reads

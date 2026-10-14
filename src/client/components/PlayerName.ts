@@ -1,8 +1,10 @@
 import { isVerifiedUsername } from "@openfront/shared/ApiSchemas";
+import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
 import { html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { translateText } from "../Utils";
 import "./CopyButton";
+import { staffBadge } from "./ui/StaffBadge";
 import { usernameText } from "./ui/UsernameText";
 import { verifiedBadge } from "./ui/VerifiedBadge";
 
@@ -26,6 +28,10 @@ export class PlayerName extends LitElement {
   // by callers whose data carries no flag; those fall back to recognising a
   // premium bare-name claim from the username itself (isVerifiedUsername).
   @property({ attribute: false }) verified: boolean | undefined = undefined;
+  // The server's staff role for this account (owner, admin or mod), drawn as its
+  // own badge beside the name. Never inferred; independent of `verified`.
+  @property({ attribute: false }) staffRole: StaffRoleWire | undefined =
+    undefined;
   // Copy payload override (e.g. a share URL).
   @property({ type: String }) copyText = "";
   // When set, clicking the name runs this instead of copying.
@@ -77,6 +83,7 @@ export class PlayerName extends LitElement {
               .showVisibilityToggle=${false}
               .showCopyIcon=${false}
             ></copy-button>`}
+        ${staffBadge(this.staffRole)}
         ${(this.verified ?? isVerifiedUsername(this.username))
           ? verifiedBadge()
           : nothing}

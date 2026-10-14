@@ -88,6 +88,7 @@ describe("PlayerInfoOverlay", () => {
     displayName: () => "Bob",
     cosmetics: {},
     showsVerifiedBadge: () => false,
+    staffBadgeRole: () => null,
     id: () => "bob",
     smallID: () => 2,
   };

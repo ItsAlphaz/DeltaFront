@@ -97,6 +97,7 @@ export function buildReplayPalette(
       flag: flag !== undefined ? assetUrl(flag) : undefined,
       crown: own.crown !== undefined ? assetUrl(own.crown.url) : undefined,
       verified: own.verified === true,
+      staffRole: own.staffRole,
       color: fill.toHex(),
     });
   }

@@ -374,6 +374,11 @@
           inline
           class="hidden w-full h-full page-content relative z-50"
         ></account-modal>
+        <admin-modal
+          id="page-admin"
+          inline
+          class="hidden w-full h-full page-content relative z-50"
+        ></admin-modal>
         <game-stats-modal
           id="page-stats"
           inline
@@ -497,6 +502,8 @@
     <chat-modal></chat-modal>
     <multi-tab-modal></multi-tab-modal>
     <game-left-sidebar></game-left-sidebar>
+    <!-- Staff only: draws nothing for anyone whose role lacks game.admin.panel -->
+    <game-admin-panel></game-admin-panel>
     <performance-overlay></performance-overlay>
     <player-info-overlay></player-info-overlay>
     <heads-up-message></heads-up-message>

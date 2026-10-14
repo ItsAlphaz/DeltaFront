@@ -31,6 +31,8 @@ export interface PlayerStatic {
   crown?: string;
   /** Plays under the verified account username — blue check next to the name. */
   verified?: boolean;
+  /** Staff role of the account (server stamped) — staff badge next to the name. */
+  staffRole?: "owner" | "admin" | "mod";
   /** Hex color (e.g. "#ff0000"). Populated from territoryColor (live) or palette (replay). */
   color?: string;
 }

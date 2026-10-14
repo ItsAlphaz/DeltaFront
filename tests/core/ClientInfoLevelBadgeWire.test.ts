@@ -22,10 +22,10 @@ import { z } from "zod";
 
 const pack = (badge: LevelBadge): number => packLevelBadge(badge)!;
 
-// The roster's level badge rides lobby_info as the last, optional field of
-// ClientInfo. These pin the wire contract that comment in Schemas.ts promises:
-// it round-trips, an entry without it is byte-identical to the pre-badge
-// layout, and a frame encoded before the field existed still decodes.
+// The roster's level badge rides lobby_info as an optional field of ClientInfo
+// (the staff role follows it). These pin the wire layout: the badge round-trips,
+// and an entry without a badge or staff role differs from the pre-badge layout
+// only by the second header byte the staff-role field added.
 
 const NewClientInfo = zb.object(ClientInfoSchema.shape);
 // A frozen copy of ClientInfo as it was before levelBadge was appended —
@@ -95,20 +95,35 @@ describe("ClientInfo.levelBadge on the wire", () => {
     }
   });
 
-  it("encodes an entry without a badge byte-identically to the pre-badge layout", () => {
-    // The badge took the last free bit of the one-byte header; a second header
-    // byte would change every entry, badge or not.
+  it("encodes an entry without a badge or staff role as the pre-badge layout plus one zero header byte", () => {
+    // The badge took the last free bit of the one-byte header; the staff-role
+    // field (appended after it) is the ninth optional field, which makes the
+    // header two bytes. Client and server ship together (packages/zbin/README.md),
+    // so that is a deliberate wire change. An entry with no staff role leaves
+    // the second header byte at zero and the rest of the entry untouched.
     for (const entry of [PLAIN, FULL]) {
-      expect(NewClientInfo.serialize(entry)).toEqual(
-        PreBadgeClientInfo.serialize(entry),
-      );
+      const now = NewClientInfo.serialize(entry);
+      const before = PreBadgeClientInfo.serialize(entry);
+      expect(now.byteLength).toBe(before.byteLength + 1);
+      expect(now[0]).toBe(before[0]);
+      expect(now[1]).toBe(0);
+      expect([...now.slice(2)]).toEqual([...before.slice(1)]);
     }
   });
 
-  it("decodes an entry encoded before the badge existed", () => {
-    for (const entry of [PLAIN, FULL]) {
-      const old = PreBadgeClientInfo.serialize(entry);
-      expect(NewClientInfo.parseBytes(old)).toEqual(entry);
+  it("round-trips a staff role, independent of the badge and of verified", () => {
+    for (const staffRole of ["owner", "admin", "mod"] as const) {
+      for (const base of [PLAIN, FULL]) {
+        const entry = {
+          ...base,
+          levelBadge: pack({ level: 5, prestige: 0, legend: false }),
+          staffRole,
+        };
+        const back = NewClientInfo.parseBytes(NewClientInfo.serialize(entry));
+        expect(back).toEqual(entry);
+        expect(back.staffRole).toBe(staffRole);
+        expect(back.verified).toBe(base.verified);
+      }
     }
   });
 

@@ -2,6 +2,7 @@ import type {
   PutUsernameResponse,
   UserMeResponse,
 } from "@openfront/shared/ApiSchemas";
+import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import express, { type Router } from "express";
 import { clearCookie, parseCookies, REFRESH_COOKIE } from "../auth/cookies";
 import { ACCOUNT_RULES } from "../domain/constants";
@@ -102,6 +103,9 @@ export function buildUserMe(
       // Decided by the database alone (admin CLI user:verify); the game server
       // reads it from here at join (resolveVerifiedJoin).
       verified: user.verified,
+      ...(staffRoleOf(user.role) === null
+        ? {}
+        : { staffRole: staffRoleOf(user.role) as StaffRole }),
       bareUsernameEnabled: user.bareUsernameEnabled,
       nextUsernameChangeAt: user.nextUsernameChangeAt?.toISOString() ?? null,
       // Credits ride in the contract's "soft" slot; the premium slot stays 0.

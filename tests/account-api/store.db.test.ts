@@ -806,7 +806,7 @@ describeDb("POST /shop/purchase", () => {
       expect(
         sources.filter((f) => /\bgrantFlare\b/.test(text(f))).sort(),
       ).toEqual([
-        "src/account-api/admin/commands.ts",
+        "src/account-api/domain/adminOps.ts",
         "src/account-api/domain/economy.ts",
         "src/account-api/repo/inventory.ts",
       ]);

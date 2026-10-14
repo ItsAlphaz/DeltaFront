@@ -140,6 +140,10 @@ export const ClanMemberSchema = z.object({
   // `username ?? publicId`; identify players by publicId only. Optional so
   // responses from an API without the field still parse.
   username: z.string().nullable().optional(),
+  // Server-decided badges for the member list (see UserMeResponseSchema).
+  // Optional so responses from an API without them still parse.
+  verified: z.boolean().optional(),
+  staffRole: z.enum(["owner", "admin", "mod"]).optional(),
   stats: ClanMemberStatsSchema.optional(),
 });
 export type ClanMember = z.infer<typeof ClanMemberSchema>;

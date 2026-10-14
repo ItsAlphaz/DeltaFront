@@ -53,6 +53,7 @@ describe("GameLeftSidebar", () => {
       isAlive: () => true,
       isOnSameTeam: () => false,
       showsVerifiedBadge: () => false,
+      staffBadgeRole: () => null,
       team: () => null,
     } as unknown as PlayerView;
     const game = {

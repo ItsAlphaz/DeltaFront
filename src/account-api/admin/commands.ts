@@ -4,6 +4,21 @@ import { hasFlareShape, isWildcardFlare } from "../catalog/flares";
 import { loadCatalog, type Catalog } from "../catalog/load";
 import { withTransaction } from "../db/tx";
 import {
+  adjustCredits,
+  AdminOpError,
+  banUser,
+  grantItem,
+  revokeItem,
+  revokeSessions,
+  ROLE_VALUES,
+  setBareNameEntitlement,
+  setRole,
+  setVerified,
+  unbanUser,
+  writeAudit,
+  type AuditContext,
+} from "../domain/adminOps";
+import {
   adminRemoveClan,
   adminRemoveMember,
   adminRenameClan,
@@ -12,19 +27,19 @@ import {
 } from "../domain/clanOps";
 import { loadReservedClanNames, tagFromRoute } from "../domain/clans";
 import { ACCOUNT_RULES } from "../domain/constants";
-import { adjustWallet } from "../domain/economy";
 import { displayUsername } from "../domain/usernames";
 import { sha256 } from "../http";
 import { clanByTag, clansOfUser } from "../repo/clans";
-import { flareRowsOf, grantFlare, revokeFlare } from "../repo/inventory";
-import { revokeAllForUser } from "../repo/sessions";
+import { flareRowsOf } from "../repo/inventory";
 import type { Db } from "../repo/users";
 
 /**
  * The admin commands (docs/DeltaFrontAccountsPlan.md section 15). Run on the
- * API host with `npm run admin -- <command>`; there is deliberately no HTTP
- * admin surface. Every change is one transaction that also writes
- * `admin_audit_log`, and anything destructive needs `--yes`.
+ * API host with `npm run admin -- <command>`. The staff web panel
+ * (routes/admin.ts) calls the same operations (domain/adminOps.ts), so a rule is
+ * written once. The CLI is the operator on the server: the owner role is
+ * assigned only here, never over HTTP. Every change is one transaction that also
+ * writes `admin_audit_log`, and anything destructive needs `--yes`.
  */
 
 export interface AdminIo {
@@ -46,7 +61,6 @@ export class AdminUsageError extends Error {
 }
 
 const SERVER_STATES = ["open", "draining", "fenced"] as const;
-const ROLES = ["admin", "mod", "flagged", "none"] as const;
 const MIN_KEY_LENGTH = 16;
 
 interface Parsed {
@@ -100,7 +114,7 @@ export const ADMIN_COMMANDS = [
   "user:ban <publicId> --category <name> --reason <text> [--days <n>] --yes",
   "user:unban <publicId> --reason <text>",
   "user:revoke-sessions <publicId> --reason <text> --yes",
-  "user:role <publicId> <admin|mod|flagged|none> --reason <text> --yes",
+  "user:role <publicId> <owner|admin|mod|flagged|none> --reason <text> --yes",
   "user:verify <publicId> --reason <text> --yes",
   "user:unverify <publicId> --reason <text> --yes",
   "user:grant-bare-name <publicId> --reason <text> --yes",
@@ -124,6 +138,11 @@ export const ADMIN_COMMANDS = [
   "email:status",
 ] as const;
 
+/** The audit context of a CLI run: the operator on the server. */
+function ctxOf(io: AdminIo): AuditContext {
+  return { actor: io.actor, source: "cli", actorRole: "operator" };
+}
+
 async function audit(
   db: Db,
   io: AdminIo,
@@ -132,10 +151,7 @@ async function audit(
   targetId: string,
   details: Record<string, unknown> = {},
 ): Promise<void> {
-  await db.query(
-    "INSERT INTO admin_audit_log (actor, action, target_type, target_id, details) VALUES ($1, $2, $3, $4, $5)",
-    [io.actor, action, targetType, targetId, details],
-  );
+  await writeAudit(db, ctxOf(io), action, targetType, targetId, details);
 }
 
 async function userByPublicId(
@@ -318,40 +334,22 @@ export async function runAdminCommand(
         const days = flag(p, "days");
         if (days !== undefined && !/^[1-9]\d{0,4}$/.test(days))
           throw new AdminUsageError("--days must be a positive whole number");
-        await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          await db.query(
-            `INSERT INTO bans (user_id, category, reason, expires_at)
-             VALUES ($1, $2, $3, CASE WHEN $4::int IS NULL THEN NULL ELSE now() + ($4::int || ' days')::interval END)`,
-            [user.id, category.trim(), reason, days ?? null],
-          );
-          // Signing out everywhere makes the ban take effect on the next request.
-          const revoked = await revokeAllForUser(db, user.id, "banned");
-          await audit(db, io, "user:ban", "user", publicId, {
+        await withTransaction(pool, (db) =>
+          banUser(db, ctxOf(io), publicId, {
             category,
             reason,
-            days: days ?? null,
-            sessionsRevoked: revoked,
-          });
-        });
+            days: days === undefined ? null : Number(days),
+          }),
+        );
         io.out(`banned ${publicId}; their sessions were revoked`);
         return 0;
       }
       case "user:unban": {
         const publicId = need(p, 0, "public id");
         const reason = reasonArg(p);
-        const count = await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const r = await db.query(
-            "UPDATE bans SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
-            [user.id],
-          );
-          await audit(db, io, "user:unban", "user", publicId, {
-            reason,
-            bansRevoked: r.rowCount,
-          });
-          return r.rowCount ?? 0;
-        });
+        const count = await withTransaction(pool, (db) =>
+          unbanUser(db, ctxOf(io), publicId, reason),
+        );
         io.out(`${count} ban(s) lifted for ${publicId}`);
         return 0;
       }
@@ -359,15 +357,9 @@ export async function runAdminCommand(
         requireYes(p, "revoking all sessions");
         const publicId = need(p, 0, "public id");
         const reason = reasonArg(p);
-        const count = await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const n = await revokeAllForUser(db, user.id, "admin_revoke");
-          await audit(db, io, "user:revoke-sessions", "user", publicId, {
-            reason,
-            sessionsRevoked: n,
-          });
-          return n;
-        });
+        const count = await withTransaction(pool, (db) =>
+          revokeSessions(db, ctxOf(io), publicId, reason),
+        );
         io.out(`${count} session(s) revoked for ${publicId}`);
         return 0;
       }
@@ -375,25 +367,20 @@ export async function runAdminCommand(
         requireYes(p, "changing a role");
         const publicId = need(p, 0, "public id");
         const role = need(p, 1, "role");
-        if (!(ROLES as readonly string[]).includes(role))
-          throw new AdminUsageError(`role must be one of: ${ROLES.join(", ")}`);
-        const reason = reasonArg(p);
-        await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const before = await db.query<{ role: string | null }>(
-            "SELECT role FROM users WHERE id = $1 FOR UPDATE",
-            [user.id],
+        if (!(ROLE_VALUES as readonly string[]).includes(role))
+          throw new AdminUsageError(
+            `role must be one of: ${ROLE_VALUES.join(", ")}`,
           );
-          await db.query("UPDATE users SET role = $2 WHERE id = $1", [
-            user.id,
-            role === "none" ? null : role,
-          ]);
-          await audit(db, io, "user:role", "user", publicId, {
-            from: before.rows[0]?.role ?? "none",
-            role,
+        const reason = reasonArg(p);
+        await withTransaction(pool, (db) =>
+          setRole(
+            db,
+            ctxOf(io),
+            publicId,
+            role as (typeof ROLE_VALUES)[number],
             reason,
-          });
-        });
+          ),
+        );
         io.out(`role of ${publicId} is now ${role}`);
         return 0;
       }
@@ -406,24 +393,9 @@ export async function runAdminCommand(
         );
         const publicId = need(p, 0, "public id");
         const reason = reasonArg(p);
-        const changed = await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const before = await db.query<{ verified: boolean }>(
-            "SELECT verified FROM users WHERE id = $1 FOR UPDATE",
-            [user.id],
-          );
-          if (before.rows[0].verified === verify) return false;
-          await db.query("UPDATE users SET verified = $2 WHERE id = $1", [
-            user.id,
-            verify,
-          ]);
-          await audit(db, io, command, "user", publicId, {
-            from: before.rows[0].verified,
-            verified: verify,
-            reason,
-          });
-          return true;
-        });
+        const changed = await withTransaction(pool, (db) =>
+          setVerified(db, ctxOf(io), publicId, verify, reason),
+        );
         io.out(
           changed
             ? `${publicId} is now ${verify ? "verified" : "unverified"}`
@@ -440,42 +412,9 @@ export async function runAdminCommand(
         );
         const publicId = need(p, 0, "public id");
         const reason = reasonArg(p);
-        const outcome = await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const before = await db.query<{
-            bare_username_enabled: boolean;
-            username_base: string | null;
-            username_discriminator: string | null;
-          }>(
-            `SELECT bare_username_enabled, username_base::text AS username_base, username_discriminator
-               FROM users WHERE id = $1 FOR UPDATE`,
-            [user.id],
-          );
-          const current = before.rows[0];
-          if (current.bare_username_enabled === grant) return null;
-          // A grant also clears the rename cooldown, so the first bare claim is
-          // not blocked by a recent change. A revoke leaves the name as it is.
-          await db.query(
-            grant
-              ? "UPDATE users SET bare_username_enabled = true, next_username_change_at = NULL WHERE id = $1"
-              : "UPDATE users SET bare_username_enabled = false WHERE id = $1",
-            [user.id],
-          );
-          const holdsBare =
-            current.username_base !== null &&
-            current.username_discriminator === null;
-          await audit(db, io, command, "user", publicId, {
-            from: current.bare_username_enabled,
-            bareUsernameEnabled: grant,
-            username: displayUsername(
-              current.username_base,
-              current.username_discriminator,
-            ),
-            holdsBareName: holdsBare,
-            reason,
-          });
-          return { holdsBare, name: current.username_base };
-        });
+        const outcome = await withTransaction(pool, (db) =>
+          setBareNameEntitlement(db, ctxOf(io), publicId, grant, reason),
+        );
         if (outcome === null) {
           io.out(
             `${publicId} ${grant ? "already may" : "already may not"} claim a bare username; nothing changed`,
@@ -660,51 +599,15 @@ export async function runAdminCommand(
         const publicId = need(p, 0, "public id");
         const amount = creditsArg(p, 1);
         const reason = reasonArg(p);
-        const outcome = await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const { rows } = await db.query<{ deleted_at: Date | null }>(
-            // No row lock here: a purchase takes the wallet lock first and then
-            // needs this row (foreign keys), so an admin command that held the
-            // user row while waiting for the wallet would deadlock with it.
-            "SELECT deleted_at FROM users WHERE id = $1",
-            [user.id],
-          );
-          if (rows[0].deleted_at !== null) {
-            throw new AdminUsageError(`${publicId} is a deleted account`);
-          }
-          // The audit row first: its id is what the ledger row points back to.
-          const log = await db.query<{ id: string }>(
-            `INSERT INTO admin_audit_log (actor, action, target_type, target_id, details)
-             VALUES ($1, $2, 'user', $3, $4) RETURNING id::text AS id`,
-            [io.actor, command, publicId, { amount, reason }],
-          );
-          const result = await adjustWallet(
+        const outcome = await withTransaction(pool, (db) =>
+          adjustCredits(
             db,
-            user.id,
+            ctxOf(io),
+            publicId,
             grant ? amount : -amount,
-            log.rows[0].id,
-          );
-          if (result.kind !== "adjusted") {
-            // Roll the audit row back too: nothing happened.
-            throw new AdminUsageError(
-              result.kind === "insufficient"
-                ? `${publicId} has only ${result.balance} Credits: cannot deduct ${amount}`
-                : `that would take the balance past the wallet maximum`,
-            );
-          }
-          await db.query(
-            "UPDATE admin_audit_log SET details = details || $2::jsonb WHERE id = $1",
-            [
-              log.rows[0].id,
-              {
-                before: result.before,
-                after: result.after,
-                ledgerId: result.ledgerId,
-              },
-            ],
-          );
-          return result;
-        });
+            reason,
+          ),
+        );
         io.out(
           `${grant ? "granted" : "deducted"} ${amount} Credits ${grant ? "to" : "from"} ${publicId}: ${outcome.before} -> ${outcome.after}`,
         );
@@ -733,30 +636,9 @@ export async function runAdminCommand(
         const publicId = need(p, 0, "public id");
         const flare = flareArg(p, 1);
         const catalog = catalogOf(io);
-        if (!catalog.validFlares.has(flare)) {
-          throw new AdminUsageError(`${flare} is not an item in the catalog`);
-        }
-        if (catalog.defaultFlares.includes(flare)) {
-          throw new AdminUsageError(
-            `${flare} is a default item: every account already owns it`,
-          );
-        }
-        const result = await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const { rows } = await db.query<{ deleted_at: Date | null }>(
-            "SELECT deleted_at FROM users WHERE id = $1 FOR UPDATE",
-            [user.id],
-          );
-          if (rows[0].deleted_at !== null) {
-            throw new AdminUsageError(`${publicId} is a deleted account`);
-          }
-          const outcome = await grantFlare(db, user.id, flare);
-          await audit(db, io, "item:grant", "user", publicId, {
-            flare,
-            result: outcome,
-          });
-          return outcome;
-        });
+        const result = await withTransaction(pool, (db) =>
+          grantItem(db, ctxOf(io), catalog, publicId, flare),
+        );
         io.out(
           result === "already_owned"
             ? `${publicId} already owns ${flare} (nothing changed)`
@@ -769,21 +651,9 @@ export async function runAdminCommand(
         const publicId = need(p, 0, "public id");
         const flare = flareArg(p, 1);
         const reason = reasonArg(p);
-        if (catalogOf(io).defaultFlares.includes(flare)) {
-          throw new AdminUsageError(
-            `${flare} is a default item owned by every account: it cannot be revoked per account (remove it from defaultFlares in the catalog instead)`,
-          );
-        }
-        const result = await withTransaction(pool, async (db) => {
-          const user = await userByPublicId(db, publicId);
-          const outcome = await revokeFlare(db, user.id, flare);
-          await audit(db, io, "item:revoke", "user", publicId, {
-            flare,
-            reason,
-            result: outcome,
-          });
-          return outcome;
-        });
+        const result = await withTransaction(pool, (db) =>
+          revokeItem(db, ctxOf(io), catalogOf(io), publicId, flare, reason),
+        );
         io.out(
           result === "revoked"
             ? `${flare} revoked from ${publicId}`
@@ -962,6 +832,11 @@ export async function runAdminCommand(
     }
   } catch (error) {
     if (error instanceof AdminUsageError) {
+      io.err(error.message);
+      return 2;
+    }
+    // A refused operation (shared with the HTTP API) reads as a usage error here.
+    if (error instanceof AdminOpError) {
       io.err(error.message);
       return 2;
     }

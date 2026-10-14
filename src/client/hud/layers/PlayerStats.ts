@@ -27,6 +27,7 @@ export class PlayerStats extends StatsTable {
         // The server-approved badge (resolveVerifiedJoin), never inferred from
         // the name.
         verified: player.showsVerifiedBadge(),
+        staffRole: player.staffBadgeRole(),
         values: columnValues(player, game, columns),
         emphasized:
           myPlayer !== null &&

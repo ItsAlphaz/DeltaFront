@@ -12,6 +12,7 @@ import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { staffBadge } from "../../components/ui/StaffBadge";
 import { verifiedBadge } from "../../components/ui/VerifiedBadge";
 import { Controller } from "../../Controller";
 import {
@@ -692,6 +693,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
                 >${player.displayName()}</span
               >
             </div>
+            ${staffBadge(player.staffBadgeRole(), "w-4 h-4 lg:w-5 lg:h-5")}
             ${player.showsVerifiedBadge()
               ? verifiedBadge("w-4 h-4 lg:w-5 lg:h-5")
               : nothing}

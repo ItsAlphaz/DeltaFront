@@ -28,6 +28,7 @@ import {
 import { isAdminRole } from "@openfront/shared/ApiSchemas";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
+import { hasPermission } from "@openfront/shared/Permissions";
 import { createPartialGameRecord } from "@openfront/shared/SharedUtil";
 import {
   ClientMessage,
@@ -63,6 +64,7 @@ import ipAnonymize from "ip-anonymize";
 import { Logger } from "winston";
 import WebSocket from "ws";
 import { z } from "zod";
+import { reportAdminAction, type AdminActionReport } from "./AdminAudit";
 import { archive, finalizeGameRecord } from "./Archive";
 import { Client } from "./Client";
 import { applyGameConfigPatch, hostCheatsEnabled } from "./ConfigPatch";
@@ -227,6 +229,10 @@ export class GameServer {
   private startDeferred = false;
   private ended = false;
   private paused = false;
+  // Set once a staff testing command has been relayed into this game. Such a
+  // game is for testing: the API leaves it out of stats, Credits and the
+  // leaderboard (it derives that from the recorded commands themselves).
+  private adminModified = false;
   private _startTime: number | null = null;
   private hasReachedMaxPlayerCount: boolean = false;
 
@@ -438,10 +444,19 @@ export class GameServer {
         if (stamped.clientID === target) {
           return finish({ status: 400, error: "cannot kick yourself" });
         }
-        const reason =
-          actor.isAdmin && !actor.isLobbyCreator
-            ? KICK_REASON_ADMIN
-            : KICK_REASON_LOBBY_CREATOR;
+        const staffKick =
+          !actor.isLobbyCreator &&
+          !actor.isAdminBot &&
+          (actor.isAdmin || hasPermission(actor.role, "game.admin.kick"));
+        const reason = staffKick
+          ? KICK_REASON_ADMIN
+          : KICK_REASON_LOBBY_CREATOR;
+        if (staffKick) {
+          this.auditStaffAction(actor, "game:kick", {
+            targetClientID: target,
+            targetPublicId: this.clients.get(target)?.publicId,
+          });
+        }
         this.log.info("player kicked", {
           kicker: stamped.clientID,
           target,
@@ -470,6 +485,11 @@ export class GameServer {
       }
 
       case "toggle_pause": {
+        if (!actor.isLobbyCreator && !actor.isAdminBot) {
+          this.auditStaffAction(actor, "game:pause", {
+            paused: stamped.paused,
+          });
+        }
         const outcome = finish({ status: 200 });
         // Pausing: flush the intent into a turn before isPaused short-circuits
         // endTurn(). Unpausing: clear the flag first so the next turn runs.
@@ -485,6 +505,21 @@ export class GameServer {
         return outcome;
       }
 
+      case "admin_command": {
+        // Authorized by authorizeIntent (permission per command, private test
+        // games only). From here the game is admin-modified for good.
+        this.adminModified = true;
+        this.auditStaffAction(actor, "game:command", {
+          command: stamped.command,
+          amount: stamped.amount ?? null,
+          targetPlayerId: stamped.target,
+        });
+        const paused = this.paused;
+        const outcome = finish({ status: 200 }, paused ? "paused" : undefined);
+        if (!paused) this.addIntent(stamped);
+        return outcome;
+      }
+
       default: {
         // Gameplay intents, into the turn queue.
         // While paused the intent is accepted at ingress but not queued into a
@@ -495,6 +530,43 @@ export class GameServer {
         return outcome;
       }
     }
+  }
+
+  /** Whether a staff testing command has changed this game's state. */
+  public isAdminModified(): boolean {
+    return this.adminModified;
+  }
+
+  // Reports a staff action to the account API's audit log (best effort, and
+  // always in this server's own log). The actor is the authenticated
+  // connection's account, never anything the message said.
+  private auditStaffAction(
+    actor: IntentActor,
+    action: AdminActionReport["action"],
+    extra: {
+      targetClientID?: string;
+      targetPublicId?: string;
+      [detail: string]: string | number | boolean | null | undefined;
+    } = {},
+  ): void {
+    const publicId = this.clients.get(actor.clientID)?.publicId;
+    if (publicId === undefined) return;
+    const { targetClientID, targetPublicId, ...details } = extra;
+    const clean: Record<string, string | number | boolean | null> = {};
+    for (const [k, v] of Object.entries(details)) {
+      if (v !== undefined) clean[k] = v;
+    }
+    void reportAdminAction(
+      {
+        gameID: this.id,
+        actorPublicId: publicId,
+        action,
+        targetClientID,
+        targetPublicId,
+        details: clean,
+      },
+      { log: this.log },
+    );
   }
 
   private isKicked(clientID: ClientID): boolean {
@@ -793,6 +865,7 @@ export class GameServer {
           isLobbyCreator: client.clientID === this.lobbyCreatorID,
           isAdmin: isAdminRole(client.role),
           isAdminBot: false,
+          role: client.role,
         });
         if (outcome.status !== 200) {
           this.log.warn(`intent rejected`, {

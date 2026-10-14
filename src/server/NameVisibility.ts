@@ -209,6 +209,7 @@ export class NameVisibility {
         clientID: c.clientID,
         friends: teammateOnly ? undefined : friendsFor(c),
         verified: c.cosmetics?.verified,
+        staffRole: c.cosmetics?.staffRole,
         spectator: c.spectator || undefined,
         teamIndex: this.view.teamIndex(c),
         // Only beside a real name — the anonymized branch above omits it, as a

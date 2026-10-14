@@ -140,4 +140,9 @@ export const ACCOUNT_RULES = deepFreeze({
   maxWalletCredits: 9_007_199_254_740_991,
   /** The most Credits one admin command may grant or deduct. */
   adminMaxCreditsPerCommand: 1_000_000_000,
+  /**
+   * Accounts that may hold the owner role at once. Owner is created only with
+   * the CLI on the server (never over HTTP) and the CLI refuses past this.
+   */
+  maxOwners: 3,
 } as const);

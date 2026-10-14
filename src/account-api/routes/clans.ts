@@ -16,7 +16,12 @@ import express, {
 } from "express";
 import * as ops from "../domain/clanOps";
 import { ClanError } from "../domain/clanOps";
-import { can, pageParams, tagFromRoute } from "../domain/clans";
+import {
+  can,
+  mayCreateOfficialClans,
+  pageParams,
+  tagFromRoute,
+} from "../domain/clans";
 import { CLAN_RULES } from "../domain/constants";
 import { clientIp } from "../http";
 import {
@@ -332,6 +337,11 @@ export function clansRouter(deps: AppDeps): Router {
         res.status(400).json({ code: "INVALID_REQUEST" });
         return;
       }
+      // Staff who may create official clans skip the account-age and
+      // completed-games thresholds and may use reserved tags and names. The
+      // right comes from the account's stored role, never from the request;
+      // verification and a bare-name entitlement grant no such right.
+      const official = mayCreateOfficialClans(user);
       const tag = await ops.createClan(
         pool,
         { id: user.id, createdAt: user.createdAt },
@@ -342,6 +352,8 @@ export function clansRouter(deps: AppDeps): Router {
           isOpen: input.isOpen,
         },
         reserved,
+        undefined,
+        { bypassEligibility: official, bypassReserved: official },
       );
       limiters.clanCreate.hit(user.id);
       const clan = await clanByTag(pool, tag);

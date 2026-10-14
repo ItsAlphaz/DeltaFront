@@ -9,7 +9,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { Emoji, flattenedEmojiTable } from "@openfront/engine-api/Schemas";
 import { renderNumber, renderTroops } from "@openfront/engine-lib/Format";
-import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
+import { isAdminRole, type UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
 import {
@@ -112,7 +112,8 @@ export class PlayerPanel extends LitElement implements Controller {
   }
 
   private get isAdminRole(): boolean {
-    return this.playerRole === "admin" || this.playerRole === "root";
+    // Admin or above (owner, and upstream's root), via the shared role helper.
+    return isAdminRole(this.playerRole);
   }
 
   private ctModal: ChatModal;

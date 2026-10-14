@@ -1,3 +1,4 @@
+import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
 import { LitElement, html, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
@@ -11,6 +12,7 @@ import { type ColumnId, type StatsTableKind } from "../StatsConstants";
 import { UserSettings } from "../UserSettings";
 import { translateText } from "../Utils";
 import type { GameView } from "../view";
+import { staffBadge } from "./ui/StaffBadge";
 import { verifiedBadge } from "./ui/VerifiedBadge";
 
 export interface StatsRow {
@@ -19,6 +21,8 @@ export interface StatsRow {
   clanTag?: string | null;
   /** Server-approved verified check, drawn beside the player name. */
   verified?: boolean;
+  /** Server-stamped staff role, drawn as its own badge beside the name. */
+  staffRole?: StaffRoleWire | null;
   values: ReadonlyMap<ColumnId, number>;
   emphasized?: boolean;
   pinned?: boolean;
@@ -247,6 +251,7 @@ export abstract class StatsTable extends LitElement {
     text: string,
     borderClass: string,
     verified = false,
+    staffRole: StaffRoleWire | null | undefined = undefined,
   ) {
     return html`
       <div
@@ -255,10 +260,11 @@ export abstract class StatsTable extends LitElement {
         ]} tabular-nums ${index > 0 ? DIVIDER_CLASS : ""} ${borderClass}"
         role="cell"
       >
-        ${verified
+        ${verified || staffRole
           ? html`<span class="flex w-full min-w-0 items-center gap-1">
               <span class="truncate">${text}</span>
-              ${verifiedBadge("w-3.5 h-3.5")}
+              ${staffBadge(staffRole, "w-3.5 h-3.5")}
+              ${verified ? verifiedBadge("w-3.5 h-3.5") : nothing}
             </span>`
           : html`<span class="block w-full truncate">${text}</span>`}
       </div>
@@ -296,6 +302,7 @@ export abstract class StatsTable extends LitElement {
               ),
               borderClass,
               column.id === "player" && row.verified === true,
+              column.id === "player" ? row.staffRole : undefined,
             ),
         )}
         <div

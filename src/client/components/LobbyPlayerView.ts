@@ -18,7 +18,7 @@ import {
 } from "@openfront/shared/LevelBadgeWire";
 import { createRandomName } from "@openfront/shared/SharedUtil";
 import { ClientInfo } from "@openfront/shared/WireSchemas";
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { Theme, themeProvider } from "../theme/ThemeProvider";
@@ -29,6 +29,7 @@ import {
   translateText,
 } from "../Utils";
 import "./LevelBadge";
+import { staffBadge } from "./ui/StaffBadge";
 
 export interface TeamPreviewData {
   team: Team;
@@ -590,7 +591,14 @@ export class LobbyTeamView extends LitElement {
   private renderVerifiedBadge(client: ClientInfo) {
     const anonymized =
       this.userSettings.anonymousNames() && !this.isCurrentPlayer(client);
-    if (client.verified !== true || anonymized) return html``;
+    if (anonymized) return html``;
+    return html`${staffBadge(
+      client.staffRole,
+      "inline-block w-3.5 h-3.5 align-[-2px]",
+    )}${client.verified === true ? this.verifiedCheck() : nothing}`;
+  }
+
+  private verifiedCheck() {
     return html`<svg
       viewBox="0 0 24 24"
       class="inline-block w-3.5 h-3.5 align-[-2px] text-df-red-bright shrink-0"

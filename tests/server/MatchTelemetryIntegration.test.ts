@@ -213,7 +213,7 @@ describe("GameServer match telemetry", () => {
       payload: {
         outcome: "rejected",
         reasonCode: "403",
-        reasonDetail: "only the lobby creator or an admin can kick players",
+        reasonDetail: "only the lobby creator or staff can kick players",
       },
     });
     vi.advanceTimersByTime(TURN_MS);

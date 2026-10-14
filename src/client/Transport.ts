@@ -1,3 +1,4 @@
+import type { AdminCommand } from "@openfront/engine-api/AdminCommands";
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
   AllPlayers,
@@ -61,6 +62,18 @@ import { LocalServer } from "./LocalServer";
 import { describeSocketClose } from "./SocketClose";
 import { homeHref, translateText } from "./Utils";
 import { PlayerView } from "./view";
+
+// A staff testing command on one player. Sent as an intent like any other, but
+// the game server relays it only for an account whose role holds the command's
+// permission (IntentAuthorization): the panel that emits this is only a way to
+// ask.
+export class SendAdminCommandIntentEvent implements GameEvent {
+  constructor(
+    public readonly command: AdminCommand,
+    public readonly target: PlayerView,
+    public readonly amount?: number,
+  ) {}
+}
 
 export class PauseGameIntentEvent implements GameEvent {
   constructor(public readonly paused: boolean) {}
@@ -320,6 +333,9 @@ export class Transport {
     this.subscribe(BuildUnitIntentEvent, (e) => this.onBuildUnitIntent(e));
 
     this.subscribe(PauseGameIntentEvent, (e) => this.onPauseGameIntent(e));
+    this.subscribe(SendAdminCommandIntentEvent, (e) =>
+      this.onSendAdminCommandIntent(e),
+    );
     this.subscribe(SendWinnerEvent, (e) => this.onSendWinnerEvent(e));
     this.subscribe(SendLiveStatsEvent, (e) => this.onSendLiveStatsEvent(e));
     this.subscribe(SendPlayerReportEvent, (e) =>
@@ -876,6 +892,15 @@ export class Transport {
       unit: event.unit,
       tile: event.tile,
       rocketDirectionUp: event.rocketDirectionUp,
+      amount: event.amount,
+    });
+  }
+
+  private onSendAdminCommandIntent(event: SendAdminCommandIntentEvent) {
+    this.sendIntent({
+      type: "admin_command",
+      command: event.command,
+      target: event.target.id(),
       amount: event.amount,
     });
   }

@@ -1,4 +1,5 @@
 import type { PlayerLeaderboardResponse } from "@openfront/shared/ApiSchemas";
+import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import express, {
   type NextFunction,
   type Request,
@@ -65,6 +66,7 @@ export function leaderboardRouter(deps: AppDeps): Router {
       public_id: string;
       username: string | null;
       verified: boolean;
+      role: string | null;
       games: number;
       wins: number;
       losses: number;
@@ -74,7 +76,7 @@ export function leaderboardRouter(deps: AppDeps): Router {
               CASE WHEN u.username_base IS NULL THEN NULL
                    WHEN u.username_discriminator IS NULL THEN u.username_base::text
                    ELSE u.username_base::text || '.' || u.username_discriminator END AS username,
-              u.verified, l.games, l.wins, l.losses, l.win_rate::float8 AS win_rate
+              u.verified, u.role, l.games, l.wins, l.losses, l.win_rate::float8 AS win_rate
          FROM leaderboard_players l
          JOIN users u ON u.id = l.user_id
         WHERE l.period = $1 AND ${LISTABLE_USER}
@@ -102,6 +104,9 @@ export function leaderboardRouter(deps: AppDeps): Router {
         playerId: r.public_id,
         accountUsername: r.username,
         verified: r.verified,
+        ...(staffRoleOf(r.role) === null
+          ? {}
+          : { staffRole: staffRoleOf(r.role) as StaffRole }),
         games: r.games,
         wins: r.wins,
         losses: r.losses,

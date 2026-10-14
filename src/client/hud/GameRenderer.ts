@@ -33,6 +33,7 @@ import { ChatModal } from "./layers/ChatModal";
 import { ControlPanel } from "./layers/ControlPanel";
 import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
+import { GameAdminPanel } from "./layers/GameAdminPanel";
 import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { GameRightSidebar } from "./layers/GameRightSidebar";
 import { HeadsUpMessage } from "./layers/HeadsUpMessage";
@@ -258,6 +259,16 @@ export function createRenderer(
 
   playerPanel.setRole(playerRole);
 
+  const gameAdminPanel = document.querySelector(
+    "game-admin-panel",
+  ) as GameAdminPanel;
+  if (!(gameAdminPanel instanceof GameAdminPanel)) {
+    console.error("game admin panel not found");
+  }
+  gameAdminPanel.game = game;
+  gameAdminPanel.eventBus = eventBus;
+  gameAdminPanel.setRole(playerRole);
+
   const chatModal = document.querySelector("chat-modal") as ChatModal;
   if (!(chatModal instanceof ChatModal)) {
     console.error("chat modal not found");
@@ -376,6 +387,7 @@ export function createRenderer(
     replayPanel,
     settingsModal,
     playerPanel,
+    gameAdminPanel,
     headsUpMessage,
     multiTabModal,
     inGamePromo,

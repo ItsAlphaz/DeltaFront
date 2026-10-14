@@ -4,6 +4,7 @@ import {
   type PlayerProfile,
   type PublicPlayerGamesResponse,
 } from "@openfront/shared/ApiSchemas";
+import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import express, {
   type NextFunction,
   type Request,
@@ -93,6 +94,9 @@ export function profileRouter(deps: AppDeps): Router {
       ...(discord === undefined ? {} : { user: discord }),
       username: displayUsername(user.usernameBase, user.usernameDiscriminator),
       verified: user.verified,
+      ...(staffRoleOf(user.role) === null
+        ? {}
+        : { staffRole: staffRoleOf(user.role) as StaffRole }),
       stats: buildStatsTree(aggregates, recent),
     } as unknown as PlayerProfile;
   }

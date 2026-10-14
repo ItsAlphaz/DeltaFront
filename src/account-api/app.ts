@@ -8,6 +8,7 @@ import type { AccountApiConfig } from "./config";
 import { cors } from "./http";
 import type { Logger } from "./logger";
 import type { Readiness } from "./readiness";
+import { adminRouter } from "./routes/admin";
 import { authRouter } from "./routes/auth";
 import { clansRouter } from "./routes/clans";
 import { clusterRouter } from "./routes/cluster";
@@ -15,6 +16,7 @@ import type { AppDeps } from "./routes/common";
 import { devOutboxRouter } from "./routes/devOutbox";
 import { feedsRouter } from "./routes/feeds";
 import { gameRouter } from "./routes/game";
+import { gameAdminRouter } from "./routes/gameAdmin";
 import { joinVerifyRouter } from "./routes/joinVerify";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { profileRouter } from "./routes/profile";
@@ -93,6 +95,7 @@ export function createApp(deps: {
       app.use(usersRouter(backend));
       app.use(profileRouter(backend));
       app.use(joinVerifyRouter(backend));
+      app.use(adminRouter(backend, deps.readiness));
       // Development only: read back the "sent" sign-in emails (see the router).
       if (
         config.env === "dev" &&
@@ -123,6 +126,7 @@ export function createApp(deps: {
     if (usesAccountApi(config.features)) {
       app.use(clusterRouter(backend));
       app.use(gameRouter(backend));
+      app.use(gameAdminRouter(backend));
       app.use(feedsRouter());
     }
   }

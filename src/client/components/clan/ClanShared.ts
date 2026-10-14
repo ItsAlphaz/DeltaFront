@@ -404,7 +404,10 @@ export function renderMemberRow(
         <div class="flex-1 min-w-0 flex flex-col">
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
-              ${playerNameLink(host, member.username, member.publicId)}
+              ${playerNameLink(host, member.username, member.publicId, {
+                verified: member.verified,
+                staffRole: member.staffRole,
+              })}
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <span

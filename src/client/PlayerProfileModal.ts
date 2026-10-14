@@ -4,6 +4,7 @@ import {
   type PlayerStatsTree,
   type PublicProgress,
 } from "@openfront/shared/ApiSchemas";
+import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
 import { html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { ClientEnv } from "src/client/ClientEnv";
@@ -17,6 +18,7 @@ import "./components/clan/ClanCard";
 import "./components/PlayerName";
 import "./components/ProfileCard";
 import { modalHeader } from "./components/ui/ModalHeader";
+import { staffBadge } from "./components/ui/StaffBadge";
 import { usernameText } from "./components/ui/UsernameText";
 import { verifiedBadge } from "./components/ui/VerifiedBadge";
 import "./GameStatsModal";
@@ -38,6 +40,8 @@ export class PlayerProfileModal extends BaseModal {
   @state() private username: string | null = null;
   // Operator-granted blue check, from the profile response.
   @state() private verified: boolean | undefined = undefined;
+  // Server-decided staff role, drawn as its own badge beside the name.
+  @state() private staffRole: StaffRoleWire | undefined = undefined;
   @state() private statsTree: PlayerStatsTree | null = null;
   @state() private clans: NonNullable<PlayerProfile["clans"]> = [];
   // Level / XP, when progression is on and the player has any.
@@ -73,7 +77,7 @@ export class PlayerProfileModal extends BaseModal {
       // like the default title, since name casing is meaningful — and the
       // right chip then always shows the publicId.
       titleContent:
-        this.username || this.verified === true
+        this.username || this.verified === true || this.staffRole !== undefined
           ? html`<span
               class="text-white text-xl lg:text-2xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
             >
@@ -82,6 +86,7 @@ export class PlayerProfileModal extends BaseModal {
                 : html`<span class="uppercase"
                     >${translateText("player_profile.title")}</span
                   >`}
+              ${staffBadge(this.staffRole, "w-5 h-5")}
               ${(this.verified ?? isVerifiedUsername(this.username))
                 ? verifiedBadge("w-5 h-5")
                 : nothing}
@@ -305,6 +310,7 @@ export class PlayerProfileModal extends BaseModal {
     this.publicId = publicId;
     this.username = null;
     this.verified = undefined;
+    this.staffRole = undefined;
     this.statsTree = null;
     this.clans = [];
     this.progress = null;
@@ -336,6 +342,7 @@ export class PlayerProfileModal extends BaseModal {
     this.statsTree = profile === false ? null : profile.stats;
     this.username = profile === false ? null : (profile.username ?? null);
     this.verified = profile === false ? undefined : profile.verified;
+    this.staffRole = profile === false ? undefined : profile.staffRole;
     this.clans = profile === false ? [] : (profile.clans ?? []);
   }
 

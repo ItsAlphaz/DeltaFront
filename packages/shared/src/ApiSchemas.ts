@@ -12,6 +12,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { z } from "zod";
 import { base64urlToUuid } from "./Base64";
+import { staffRoleOf } from "./Permissions";
 
 const RequiredClanTagSchema = ClanTagSchema.unwrap();
 
@@ -43,7 +44,7 @@ export const TokenPayloadSchema = z.object({
   aud: z.string(),
   exp: z.number(),
   role: z
-    .enum(["root", "admin", "mod", "flagged", "banned"])
+    .enum(["owner", "root", "admin", "mod", "flagged", "banned"])
     // In case new roles are added in the future.
     .or(z.string())
     .optional(),
@@ -51,9 +52,12 @@ export const TokenPayloadSchema = z.object({
 });
 export type TokenPayload = z.infer<typeof TokenPayloadSchema>;
 
-export const ADMIN_ROLES = ["admin", "root"] as const;
+// Admin or above (owner, and upstream's root). Not a way to decide what a role
+// may do: that is hasPermission in Permissions.ts.
+export const ADMIN_ROLES = ["owner", "admin", "root"] as const;
 export function isAdminRole(role: string | null | undefined): boolean {
-  return role === "admin" || role === "root";
+  const staff = staffRoleOf(role);
+  return staff === "owner" || staff === "admin";
 }
 
 export const DiscordUserSchema = z.object({
@@ -395,6 +399,10 @@ export const UserMeResponseSchema = z.object({
     // decided and independent of usernameStatus, so a verified account needs no
     // bare name. Optional so an API without it parses (absent = not verified).
     verified: z.boolean().optional(),
+    // The account's staff role (owner, admin or mod), explicit and server
+    // decided: it draws the staff badge. Absent for everyone else; never worked
+    // out from a username, from verification or from a token the client holds.
+    staffRole: z.enum(["owner", "admin", "mod"]).optional(),
     // Entitled to claim a bare username with no numeric suffix (DeltaFront admin
     // CLI user:grant-bare-name). Server decided; separate from verified, from
     // role and from usernameStatus. Optional: absent = not entitled.
@@ -959,6 +967,8 @@ export const PlayerProfileSchema = z.object({
   username: z.string().nullable().optional(),
   // Operator-granted blue check; see UserMeResponseSchema player.verified.
   verified: z.boolean().optional(),
+  // Staff badge; see UserMeResponseSchema player.staffRole.
+  staffRole: z.enum(["owner", "admin", "mod"]).optional(),
   stats: PlayerStatsTreeSchema,
   // Clans this player belongs to, tag-ordered. Optional so responses from an
   // API without the field still parse (→ no clans shown).
@@ -1041,6 +1051,8 @@ export const PlayerLeaderboardEntrySchema = z.object({
   // Optional so responses from an API without it parse (absent = no badge from
   // this field; the bare-name inference in isVerifiedUsername still applies).
   verified: z.boolean().optional(),
+  // Staff badge; see UserMeResponseSchema player.staffRole.
+  staffRole: z.enum(["owner", "admin", "mod"]).optional(),
   flag: z.string().optional(),
   // Absent on the basic (non-ranked) leaderboard, which has no rating; the
   // list hides the column then.

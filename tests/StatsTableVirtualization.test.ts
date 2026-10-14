@@ -20,6 +20,7 @@ function player(id: string, tiles: number): PlayerView {
     isAlive: () => true,
     isOnSameTeam: () => false,
     showsVerifiedBadge: () => false,
+    staffBadgeRole: () => null,
   } as unknown as PlayerView;
 }
 

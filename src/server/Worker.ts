@@ -5,6 +5,7 @@ import {
 } from "@openfront/shared/AccountFeatures";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
+import type { StaffRole } from "@openfront/shared/Permissions";
 import { generateID, replacer } from "@openfront/shared/SharedUtil";
 import {
   ClientMessage,
@@ -53,7 +54,11 @@ import {
 import { levelBadgeForPlayer } from "./LevelBadge";
 import { payForLobbyQueue, queueListedLobby } from "./LobbyQueuePayment";
 import { logger } from "./Logger";
-import { resolveVerifiedJoin } from "./Privilege";
+import {
+  effectiveRole,
+  resolveVerifiedJoin,
+  stampStaffRole,
+} from "./Privilege";
 
 import { MapPlaylist } from "./MapPlaylist";
 import { setNoStoreHeaders } from "./NoStoreHeaders";
@@ -762,6 +767,9 @@ export async function startWorker() {
         let ownedClanTags: string[] = [];
         let trusted = false;
         let levelBadge: LevelBadge | undefined;
+        // The account's staff role as the API says it is NOW (read from the
+        // database by /users/@me), not as the token claimed up to 15 minutes ago.
+        let staffRole: StaffRole | undefined;
         let accountUsername:
           | {
               username?: string | null;
@@ -795,6 +803,7 @@ export async function startWorker() {
           friends = result.response.player.friends;
           ownedClanTags = result.response.player.clans?.map((c) => c.tag) ?? [];
           accountUsername = result.response.player;
+          staffRole = result.response.player.staffRole;
           trusted = result.response.player.trustTier === "trusted";
           // Display-only: the roster badge comes from this lookup alone, never
           // from the join message. None when the player hides their level.
@@ -883,12 +892,25 @@ export async function startWorker() {
           );
         }
 
+        // The role this connection acts with. For a signed-in account it is the
+        // API's current answer (a demotion applies to the next join, not 15
+        // minutes late); a non-staff claim such as "flagged" is kept as is, and a
+        // staff claim the API no longer confirms is dropped.
+        const role = effectiveRole(
+          claims !== null,
+          claims?.role ?? null,
+          staffRole,
+        );
+        // The staff badge rides in the cosmetics, stamped here from the account
+        // and never from anything the client sent.
+        stampStaffRole(cosmeticResult.cosmetics, staffRole);
+
         // Create client and add to game
         const client = new Client(
           generateID(),
           persistentId,
           claims,
-          claims?.role ?? null,
+          role,
           flares,
           ip,
           username,

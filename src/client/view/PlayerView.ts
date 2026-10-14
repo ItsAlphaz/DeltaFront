@@ -24,6 +24,7 @@ import {
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
 import { PatternDecoder } from "@openfront/shared/PatternDecoder";
 import { createRandomName } from "@openfront/shared/SharedUtil";
+import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
 import { PlayerCosmetics } from "@openfront/shared/WireSchemas";
 import { Colord, colord } from "colord";
 import { base64url } from "jose";
@@ -408,6 +409,17 @@ export class PlayerView implements PlayerLike {
       this.cosmetics.verified === true &&
       !(this.anonymousName !== null && userSettings.anonymousNames())
     );
+  }
+  /**
+   * The staff badge to draw beside this player's name (owner, admin or mod),
+   * from what the server stamped at join; null for everyone else and while
+   * names are anonymized. Independent of showsVerifiedBadge: both can show.
+   */
+  staffBadgeRole(): StaffRoleWire | null {
+    if (this.anonymousName !== null && userSettings.anonymousNames()) {
+      return null;
+    }
+    return this.cosmetics.staffRole ?? null;
   }
   clanTag(): string | null {
     return this.anonymousName !== null && userSettings.anonymousNames()

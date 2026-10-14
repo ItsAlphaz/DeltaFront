@@ -1,4 +1,5 @@
 import { Progress, UserMeResponse } from "@openfront/shared/ApiSchemas";
+import { hasPermission } from "@openfront/shared/Permissions";
 import { html, LitElement, nothing, render, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
@@ -243,6 +244,17 @@ export class NavAccountMenu extends LitElement {
         onSelect: () => this.openModal("change-username"),
       },
     );
+
+    // Staff only, and only as presentation: the panel's API refuses anyone who
+    // is not staff however this item got here. The role is the API's answer.
+    if (hasPermission(player?.staffRole, "admin.panel.view")) {
+      items.push({
+        key: "admin-panel",
+        labelKey: "nav_account_menu.admin_panel",
+        icon: iconGear,
+        onSelect: () => this.openModal("admin"),
+      });
+    }
 
     if (subscribed) {
       items.push({

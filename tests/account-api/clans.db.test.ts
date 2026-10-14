@@ -1659,6 +1659,7 @@ describeDb("what the clan pages show", () => {
         "role",
         "stats",
         "username",
+        "verified",
       ]);
   });
 

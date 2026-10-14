@@ -344,7 +344,7 @@ The deletion job and the retention jobs run every 10 minutes while accounts are 
 
 ## 14. The admin command line
 
-There is no admin web panel and no admin HTTP route (a test asserts the API answers 404 to every admin-looking path). Everything is `npm run admin -- <command>` on the server, with the API's database access:
+The operator's tool is `npm run admin -- <command>` on the server, with the API's database access. There is also a staff web panel and an in-game admin panel, which use the `/admin` API and the same operations; they are described in [StaffAdmin.md](StaffAdmin.md). The CLI is the only way to create an **owner** (`user:role <publicId> owner`; at most `ACCOUNT_RULES.maxOwners`, and never the last owner removed), so a stolen web session cannot mint one:
 
 - destructive commands need `--yes` **and** a `--reason` (up to 200 characters): `user:ban`, `user:unban`, `user:revoke-sessions`, `user:role`, `item:revoke`, `server:key:revoke`, `server:state`, `clan:*` that remove or transfer, `wallet:revoke`; `wallet:grant` also needs a reason, and `item:grant` is idempotent; both are audited;
 - `user:verify` / `user:unverify` set the blue check (`users.verified`); `user:grant-bare-name` / `user:revoke-bare-name` set the bare-username entitlement (`users.bare_username_enabled`), after which that account can save a name with no `.1234` in the username form. The two are independent of each other and of the admin role. A grant also clears the account's rename cooldown. A revoke leaves the name the account already holds in place (its next rename gets a number); bare names are unique case-insensitively, and the numbered `Name.1234` namespace is separate, so a claim never takes a name from anyone;

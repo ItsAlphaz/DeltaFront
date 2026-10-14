@@ -26,6 +26,7 @@ import type {
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
+import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
 import { OWNER_MASK } from "../render/gl/utils/TileCodec";
 import type {
   NameEntry,
@@ -144,6 +145,10 @@ export class ReplayPlayerView {
         ? {}
         : { crown: { url: this.info.crown } }),
     };
+  }
+  /** The recorded staff badge (ReplayPalette), same question as PlayerView's. */
+  staffBadgeRole(): StaffRoleWire | null {
+    return this.info.staffRole ?? null;
   }
   /** The recorded check (ReplayPalette), same question as PlayerView's. */
   showsVerifiedBadge(): boolean {

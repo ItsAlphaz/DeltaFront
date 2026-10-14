@@ -7,6 +7,7 @@ import {
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { simpleHash } from "@openfront/engine-lib/Util";
 import { Execution, Game } from "../game/Game";
+import { AdminCommandExecution } from "./AdminCommandExecution";
 import { AllianceExtensionExecution } from "./alliance/AllianceExtensionExecution";
 import { AllianceRejectExecution } from "./alliance/AllianceRejectExecution";
 import { AllianceRequestExecution } from "./alliance/AllianceRequestExecution";
@@ -144,6 +145,13 @@ export class Executor {
         return new MarkDisconnectedExecution(player, intent.isDisconnected);
       case "toggle_pause":
         return new PauseExecution(player, intent.paused);
+      case "admin_command":
+        return new AdminCommandExecution(
+          player,
+          intent.command,
+          intent.target,
+          intent.amount,
+        );
       default:
         throw new Error(`intent type ${intent} not found`);
     }

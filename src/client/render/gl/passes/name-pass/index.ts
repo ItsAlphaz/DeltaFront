@@ -701,7 +701,7 @@ export class NamePass {
     d[off + 30] = slot.allianceFraction;
     d[off + 31] = slot.allianceRemainingTicks;
 
-    // Column 8: crownLayerIdx (crown cosmetic), verified badge, statusIconCount, free
+    // Column 8: crownLayerIdx (crown cosmetic), verified badge, statusIconCount, staffRole
     d[off + 32] = slot.crownLayerIdx;
     d[off + 33] = slot.static.verified === true ? 1.0 : 0.0;
     // Count of active status-row icons so shaders don't recompute it independently.
@@ -716,7 +716,15 @@ export class NamePass {
       slot.nukeActive,
       slot.inDoomsdayClock || slot.doomsdayClockDraining,
     ].filter(Boolean).length;
-    d[off + 35] = 0.0;
+    // Staff badge: 0 none, 1 moderator, 2 administrator, 3 owner (atlas 12..14).
+    d[off + 35] =
+      slot.static.staffRole === "owner"
+        ? 3
+        : slot.static.staffRole === "admin"
+          ? 2
+          : slot.static.staffRole === "mod"
+            ? 1
+            : 0;
 
     this.playerDataDirty = true;
   }

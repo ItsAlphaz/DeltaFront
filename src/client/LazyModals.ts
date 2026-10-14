@@ -13,6 +13,7 @@ import { whenPageIdle } from "./WhenPageIdle";
 const modules: Record<string, () => Promise<unknown>> = {
   "account-modal": () => import("./AccountModal"),
   "account-settings-modal": () => import("./AccountSettingsModal"),
+  "admin-modal": () => import("./AdminModal"),
   "change-username-modal": () => import("./ChangeUsernameModal"),
   "clan-modal": () => import("./ClanModal"),
   "detailed-view-modal": () => import("./components/DetailedGameViewModal"),

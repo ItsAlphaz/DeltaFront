@@ -90,10 +90,12 @@ vec4 cellUV(int idx) {
 
 void main() {
   // Decode instance ID → playerIdx + iconSlot (0..8 status row, 9 = verified
-  // badge to the right of the name)
-  int playerIdx = gl_InstanceID / 10;
-  int iconSlot  = gl_InstanceID - playerIdx * 10;
+  // badge at the name's top-right, 10 = staff badge at its top-left)
+  int playerIdx = gl_InstanceID / 11;
+  int iconSlot  = gl_InstanceID - playerIdx * 11;
   bool isVerifiedSlot = (iconSlot == 9);
+  bool isStaffSlot = (iconSlot == 10);
+  bool isBadgeSlot = isVerifiedSlot || isStaffSlot;
 
   // Read player data
   vec4 pd0 = texelFetch(uPlayerData, ivec2(0, playerIdx), 0); // srcX, srcY, srcScale, startTime
@@ -101,7 +103,7 @@ void main() {
   vec4 pd3 = texelFetch(uPlayerData, ivec2(3, playerIdx), 0); // nameLen, troopLen, nameShade, nameHalfWidth
   vec4 pd4 = texelFetch(uPlayerData, ivec2(4, playerIdx), 0); // flagIdx, emojiIdx, smallID, [free]
   vec4 pd7 = texelFetch(uPlayerData, ivec2(7, playerIdx), 0); // nukeTargetsMe, traitorRemainingTicks, allianceFraction, allianceRemainingTicks
-  vec4 pd8 = texelFetch(uPlayerData, ivec2(8, playerIdx), 0); // crownLayer, verified, [free]
+  vec4 pd8 = texelFetch(uPlayerData, ivec2(8, playerIdx), 0); // crownLayer, verified, statusIconCount, staffRole (0 none, 1 mod, 2 admin, 3 owner)
 
   // A crown cosmetic skins the first-place crown (slot 0).
   vCrownLayer = (iconSlot == 0 && pd8.x >= 0.0) ? int(pd8.x) : -1;
@@ -127,8 +129,10 @@ void main() {
   readStatusFlags(playerIdx);
 
   // Early out: this icon slot is inactive. The verified badge (slot 9) is
-  // driven by pd8.y, not the status-row flag array.
-  bool slotActive = isVerifiedSlot ? (pd8.y > 0.5) : (statusFlag[iconSlot] > 0.5);
+  // driven by pd8.y and the staff badge (slot 10) by pd8.w, not by the
+  // status-row flag array.
+  bool slotActive = isStaffSlot ? (pd8.w > 0.5)
+    : (isVerifiedSlot ? (pd8.y > 0.5) : (statusFlag[iconSlot] > 0.5));
   if (!slotActive) {
     gl_Position = vec4(0.0);
     vUV = vec2(0.0);
@@ -185,13 +189,20 @@ void main() {
 
   float iconX;
   float iconY;
-  if (isVerifiedSlot) {
+  if (isBadgeSlot) {
     // Verified badge: small mark tucked against the name's top-right corner,
     // like a superscript. The name line spans wy +- 0.5 * lineHeight; the
-    // badge is raised so its lower half overlaps the line's top edge.
+    // badge is raised so its lower half overlaps the line's top edge. The staff
+    // badge is the same idea at the top-left corner, a little larger so owner,
+    // admin and moderator read at a glance.
     float lineHeight = uFontBase * nameWorldScale;
-    iconWorldSize = lineHeight * 0.55;
-    iconX = wx + pd3.w * nameWorldScale - lineHeight * 0.04;
+    if (isStaffSlot) {
+      iconWorldSize = lineHeight * 0.7;
+      iconX = wx - pd3.w * nameWorldScale - iconWorldSize + lineHeight * 0.04;
+    } else {
+      iconWorldSize = lineHeight * 0.55;
+      iconX = wx + pd3.w * nameWorldScale - lineHeight * 0.04;
+    }
     iconY = wy - lineHeight * 0.5 - iconWorldSize * 0.5;
   } else {
     // Count active status icons and position of this one (left-to-right).
@@ -225,6 +236,9 @@ void main() {
   }
   if (isVerifiedSlot) {
     atlasIdx = 11; // blue verified check
+  }
+  if (isStaffSlot) {
+    atlasIdx = 11 + int(pd8.w); // 12 moderator, 13 administrator, 14 owner
   }
 
   // Only the alliance icon (slot 3) gets the dark outline.

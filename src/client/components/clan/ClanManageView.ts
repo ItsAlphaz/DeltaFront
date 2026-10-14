@@ -575,7 +575,10 @@ export class ClanManageView extends LitElement {
           >
             ${renderRoleIcon(member.role)}
           </div>
-          ${playerNameLink(this, member.username, member.publicId)}
+          ${playerNameLink(this, member.username, member.publicId, {
+            verified: member.verified,
+            staffRole: member.staffRole,
+          })}
           <span class="text-white/30 text-[10px] whitespace-nowrap">
             ${translateText("clan_modal.joined_date", {
               date: formatClanDate(member.joinedAt),

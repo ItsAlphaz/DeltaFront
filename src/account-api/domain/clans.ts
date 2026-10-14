@@ -1,4 +1,5 @@
 import { profanityMatcher } from "@openfront/shared/Censor";
+import { hasPermission } from "@openfront/shared/Permissions";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -108,6 +109,18 @@ const DAY_MS = 86_400_000;
  * The thresholds are inclusive: an account exactly that old, with exactly that
  * many games, qualifies. `current` is whole days, rounded down.
  */
+/**
+ * Whether this account may create OFFICIAL clans: skip the age and completed-games
+ * rules and use reserved tags and names. A staff right (Permissions.ts), read from
+ * the account's stored role; never from the request, and never granted by
+ * verification or a bare-name entitlement.
+ */
+export function mayCreateOfficialClans(account: {
+  role: string | null;
+}): boolean {
+  return hasPermission(account.role, "admin.clans.official");
+}
+
 export function checkCreateEligibility(
   accountCreatedAt: Date,
   completedGames: number,

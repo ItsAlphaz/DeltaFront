@@ -699,11 +699,17 @@ describeDb("admin hardening (M7)", () => {
     ).not.toContain(real.API_KEY);
   });
 
-  it("is not reachable over HTTP: there is no admin route at all", async () => {
+  it("exposes the admin API only behind a token: no token is 401, and everything else admin-looking is 404", async () => {
     const h = await harness();
+    // The /admin API exists (see tests/account-api/adminApi.db.test.ts) and
+    // refuses anonymous callers.
+    for (const route of ["/admin/me", "/admin/users", "/admin/audit"]) {
+      const res = await call(h, route, { origin: null });
+      expect(res.status, `GET ${route}`).toBe(401);
+    }
+    // Nothing else that looks like an admin or role route answers.
     for (const route of [
       "/admin",
-      "/admin/users",
       "/admin/ban",
       "/api/admin",
       "/users/@me/role",

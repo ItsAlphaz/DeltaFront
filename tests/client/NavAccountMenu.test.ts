@@ -121,6 +121,38 @@ describe("nav-account-menu", () => {
     expect(menu()).toBeNull();
   });
 
+  it("offers the admin panel only to staff, by the role the API reported", async () => {
+    const staffMe = (staffRole?: string, verified = false) =>
+      ({
+        user: { email: "player@example.com" },
+        player: {
+          publicId: "p",
+          verified,
+          ...(staffRole ? { staffRole } : {}),
+        },
+      }) as unknown as UserMeResponse;
+    for (const [me, shown] of [
+      [staffMe(), false],
+      // Verified and a bare name are not staff.
+      [staffMe(undefined, true), false],
+      [staffMe("mod"), true],
+      [staffMe("admin"), true],
+      [staffMe("owner"), true],
+    ] as const) {
+      fireUserMe(me);
+      await el.updateComplete;
+      await click(trigger());
+      expect(itemKeys().includes("admin-panel")).toBe(shown);
+      await click(trigger());
+    }
+    // The item opens the panel route.
+    fireUserMe(staffMe("owner"));
+    await el.updateComplete;
+    await click(trigger());
+    await click(document.querySelector('[data-menu-item="admin-panel"]')!);
+    expect(window.location.hash).toBe("#modal=admin");
+  });
+
   it("offers the subscription item only to subscribers", async () => {
     fireUserMe(userMe());
     await el.updateComplete;

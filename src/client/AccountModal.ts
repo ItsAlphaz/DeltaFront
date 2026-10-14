@@ -3,7 +3,6 @@ import {
   AUTH_PROVIDERS,
 } from "@openfront/shared/AccountFeatures";
 import {
-  isAdminRole,
   PlayerStatsTree,
   PrestigeResponse,
   UserMeResponse,
@@ -22,7 +21,6 @@ import {
   logOut,
   reauthAfterCrazyGamesChange,
   steamLogin,
-  userAuth,
 } from "./Auth";
 import "./components/baseComponents/stats/DiscordUserHeader";
 import "./components/baseComponents/stats/PlayerGameHistoryView";
@@ -44,6 +42,7 @@ import "./components/RewardsPanel";
 import type { RewardsChangedDetail } from "./components/RewardsPanel";
 import { googleLinkButton } from "./components/ui/GoogleLinkButton";
 import { modalHeader } from "./components/ui/ModalHeader";
+import { staffBadge, staffRoleLabel } from "./components/ui/StaffBadge";
 import { steamGlyph, steamLinkButton } from "./components/ui/SteamLinkButton";
 import { verifiedBadge } from "./components/ui/VerifiedBadge";
 import { crazyGamesSDK, type CrazyGamesUser } from "./CrazyGamesSDK";
@@ -102,11 +101,6 @@ export class AccountModal extends BaseModal {
   // from the `creatorCode=` router arg (a `/c/CODE` share-link visit).
   // Reassigned on every open, same as loginError above.
   @state() private prefillCreatorCode: string | undefined;
-
-  // The role claim of the signed-in token ("admin", "mod", ...), shown as its
-  // own chip: it is a separate thing from verification and from the linked
-  // sign-in identity.
-  @state() private sessionRole: string | null = null;
 
   private userMeResponse: UserMeResponse | null = null;
   private statsTree: PlayerStatsTree | null = null;
@@ -317,15 +311,17 @@ export class AccountModal extends BaseModal {
   // different facts, each from its own source and none implying another:
   //   - Verified: users.verified, via /users/@me (player.verified), set only by
   //     the admin CLI;
-  //   - Admin: the role claim of this session's token;
+  //   - the staff role (owner, admin, mod): player.staffRole, read by the API
+  //     from the database, a separate fact from verification;
   //   - the linked Discord/Google/email identity, rendered below.
   private renderAccountStatus(): TemplateResult | typeof nothing {
     const player = this.userMeResponse?.player;
     if (!player) return nothing;
     const verified = player.verified === true;
-    const admin = isAdminRole(this.sessionRole);
+    const staffRole = player.staffRole;
     const username = player.username ?? null;
-    if (!verified && !admin && username === null) return nothing;
+    if (!verified && staffRole === undefined && username === null)
+      return nothing;
     const chip =
       "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider";
     return html`
@@ -338,9 +334,10 @@ export class AccountModal extends BaseModal {
                 >${username}</span
               >`
             : nothing}
+          ${staffBadge(staffRole, "w-5 h-5")}
           ${verified ? verifiedBadge("w-5 h-5") : nothing}
         </div>
-        ${verified || admin
+        ${verified || staffRole !== undefined
           ? html`<div class="flex flex-wrap items-center justify-center gap-2">
               ${verified
                 ? html`<span
@@ -351,12 +348,14 @@ export class AccountModal extends BaseModal {
                     ${translateText("account_modal.verified_label")}
                   </span>`
                 : nothing}
-              ${admin
+              ${staffRole !== undefined
                 ? html`<span
-                    id="account-admin-chip"
+                    id="account-staff-chip"
+                    data-staff-role=${staffRole}
                     class="${chip} border-white/20 bg-white/10 text-white/80"
                   >
-                    ${translateText("account_modal.role_admin")}
+                    ${staffBadge(staffRole, "w-3.5 h-3.5", null)}
+                    ${staffRoleLabel(staffRole)}
                   </span>`
                 : nothing}
             </div>`
@@ -1112,7 +1111,6 @@ export class AccountModal extends BaseModal {
     this.prefillCreatorCode = this.consumeCreatorCodeArg(args);
 
     this.refreshCrazyGamesUser();
-    void this.loadRole();
 
     void getUserMe()
       .then((userMe) => {
@@ -1136,16 +1134,6 @@ export class AccountModal extends BaseModal {
     this.dispatchEvent(
       new CustomEvent("close", { bubbles: true, composed: true }),
     );
-  }
-
-  // The role is a claim of the session token, not a field of /users/@me.
-  private async loadRole(): Promise<void> {
-    try {
-      const auth = await userAuth();
-      this.sessionRole = auth === false ? null : (auth.claims.role ?? null);
-    } catch {
-      this.sessionRole = null;
-    }
   }
 
   private async handleLogout() {

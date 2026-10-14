@@ -1,3 +1,4 @@
+import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
 import { html, TemplateResult } from "lit";
 import "../PlayerName";
 
@@ -29,10 +30,14 @@ export function playerNameLink(
   host: HTMLElement,
   username: string | null | undefined,
   publicId: string,
+  // The server's own badges for this account, when the data carries them.
+  badges: { verified?: boolean; staffRole?: StaffRoleWire } = {},
 ): TemplateResult {
   return html`<player-name
     .username=${username}
     .publicId=${publicId}
+    .verified=${badges.verified}
+    .staffRole=${badges.staffRole}
     .nameClass=${NAME_CLASS}
     .onNameClick=${() => dispatchViewProfile(host, publicId)}
   ></player-name>`;

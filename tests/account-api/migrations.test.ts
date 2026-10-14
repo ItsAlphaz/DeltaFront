@@ -137,6 +137,24 @@ describe("the shipped migrations", () => {
     expect(sql).not.toMatch(/UPDATE users|DROP TABLE|DROP COLUMN/i);
   });
 
+  it("0006 adds the owner role, the audit columns and games.admin_modified, and rewrites nothing", () => {
+    expect(files[5].fileName).toBe("0006_staff_roles.sql");
+    const sql = files[5].sql.replace(/^\s*--.*$/gm, "");
+    // The role check grows by `owner` (and keeps upstream's `root`).
+    expect(sql).toMatch(
+      /CHECK \(role IN \('owner', 'root', 'admin', 'mod', 'flagged'\)\)/,
+    );
+    // Who acted as what and from where, and nothing else about the log changes.
+    expect(sql).toMatch(/ADD COLUMN actor_user_id\s+uuid REFERENCES users/);
+    expect(sql).toMatch(/ADD COLUMN actor_role\s+text/);
+    expect(sql).toMatch(/source\s+text NOT NULL DEFAULT 'cli'/);
+    expect(sql).toMatch(/CHECK \(source IN \('cli', 'web', 'game'\)\)/);
+    expect(sql).toMatch(
+      /ALTER TABLE games ADD COLUMN admin_modified boolean NOT NULL DEFAULT false;/,
+    );
+    expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time

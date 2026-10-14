@@ -128,6 +128,13 @@ async function addToAggregate(
   );
 }
 
+/** Whether the record holds an in-game admin command (an `admin_command` intent in any turn). */
+export function isAdminModified(record: Pick<GameRecord, "turns">): boolean {
+  return record.turns.some((turn) =>
+    turn.intents.some((intent) => intent.type === "admin_command"),
+  );
+}
+
 export async function ingestGameRecord(
   pool: Pool,
   record: GameRecord,
@@ -145,22 +152,29 @@ export async function ingestGameRecord(
   const durationSeconds = Math.max(0, Math.floor(info.duration));
 
   const players = await resolvePlayers(pool, record);
-  const counted = countsForStats({
-    source: "server",
-    type: type ?? undefined,
-    rankedType,
-    durationSeconds,
-    accountHolders: players.length,
-  });
+  // A game in which an admin command changed the state (the staff testing
+  // tools) is for testing: it feeds no stats, no Credits, no leaderboard and no
+  // clan threshold. Decided here from the record's own turns, the one thing a
+  // client cannot influence, and stored so the panel can show it.
+  const adminModified = isAdminModified(record);
+  const counted =
+    !adminModified &&
+    countsForStats({
+      source: "server",
+      type: type ?? undefined,
+      rankedType,
+      durationSeconds,
+      accountHolders: players.length,
+    });
   const endedAt = new Date(info.end);
 
   return withTransaction(pool, async (tx) => {
     const inserted = await tx.query<{ id: string }>(
       `INSERT INTO games
          (game_code, source, type, mode, difficulty, map, player_teams, ranked_type, public_game_type,
-          started_at, ended_at, duration_s, human_players, winner, git_commit, server_letter, counts_for_stats)
+          started_at, ended_at, duration_s, human_players, winner, git_commit, server_letter, counts_for_stats, admin_modified)
        VALUES ($1, 'server', $2, $3, $4, $5, $6, $7, $8, to_timestamp($9::double precision / 1000),
-               to_timestamp($10::double precision / 1000), $11, $12, $13, $14, $15, $16)
+               to_timestamp($10::double precision / 1000), $11, $12, $13, $14, $15, $16, $17)
        ON CONFLICT (game_code) DO NOTHING
        RETURNING id`,
       [
@@ -180,6 +194,7 @@ export async function ingestGameRecord(
         gitCommit,
         info.gameID.charAt(0).toLowerCase(),
         counted,
+        adminModified,
       ],
     );
     // A repeat of a stored game (the server retried, or two submissions raced
@@ -195,7 +210,8 @@ export async function ingestGameRecord(
     );
 
     const aggregated =
-      type === GameType.Private || (counted && type === GameType.Public);
+      !adminModified &&
+      (type === GameType.Private || (counted && type === GameType.Public));
     for (const player of players) {
       const completed = isCompleted(record, player.clientID, counted);
       if (aggregated && type !== null) {
@@ -209,7 +225,9 @@ export async function ingestGameRecord(
           player.stats,
         );
       }
-      const earned = gameReward(completed, player.result === "victory");
+      const earned = adminModified
+        ? 0
+        : gameReward(completed, player.result === "victory");
       const granted =
         earned > 0
           ? await applyGameReward(

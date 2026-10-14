@@ -478,6 +478,13 @@ class Client {
         "account",
         { tag: "account-modal", pageId: "page-account" },
       ],
+      // Staff only. The page opens for anyone who types the hash, and shows
+      // "not authorized": every call it makes is refused by the API.
+      [
+        ACCOUNT_FEATURES.accounts,
+        "admin",
+        { tag: "admin-modal", pageId: "page-admin" },
+      ],
       // Profile-menu modals: popup style, so no pageId.
       [
         ACCOUNT_FEATURES.accounts,
@@ -1794,6 +1801,7 @@ class Client {
         "matchmaking-modal",
         "clan-modal",
         "account-settings-modal",
+        "admin-modal",
         "change-username-modal",
         "subscription-modal",
         "lang-selector",
