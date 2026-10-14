@@ -43,6 +43,9 @@ export interface PlayerSpec {
   clientID?: string;
   username?: string;
   stats?: Record<string, unknown>;
+  /** Took a gameplay action (an attack). Default: the game's `allAct`. */
+  acts?: boolean;
+  clanTag?: string | null;
 }
 
 export interface GameSpec {
@@ -57,6 +60,12 @@ export interface GameSpec {
   /** When the game ended, in ms since the epoch. */
   endMs?: number;
   lastTurn?: number;
+  /** Every player took a gameplay action unless their spec says otherwise. */
+  allAct?: boolean;
+  /** Extra stamped intents, placed in turn 2 (e.g. admin commands). */
+  extraIntents?: unknown[];
+  /** The server's record of staff commands (info.adminActions). */
+  adminActions?: unknown[];
   disconnects?: Array<{
     clientID: string;
     turn: number;
@@ -77,16 +86,14 @@ export function buildRecord(gameID: string, spec: GameSpec): GameRecord {
   const players = spec.players.map((p, i) => {
     const clientID = p.clientID ?? clientIdOf(i);
     const fate = p.fate ?? "survives";
-    const stats: Record<string, unknown> = {
-      attacks: ["100", "40", "0"],
-      ...p.stats,
-    };
+    const stats: Record<string, unknown> = { attacks: ["100", "40", "0"] };
     if (fate === "survives") stats.finalTiles = "500";
     else if (fate !== "never-spawned") stats.killedAt = String(fate.killedAt);
+    Object.assign(stats, p.stats);
     return {
       clientID,
       username: p.username ?? `Player${i + 1}`,
-      clanTag: null,
+      clanTag: p.clanTag ?? null,
       persistentID: p.user?.id ?? randomUUID(),
       stats,
     };
@@ -100,6 +107,22 @@ export function buildRecord(gameID: string, spec: GameSpec): GameRecord {
     [0, []],
     [lastTurn, []],
   ]);
+  const acting = players.filter(
+    (_, i) => spec.players[i].acts ?? spec.allAct ?? false,
+  );
+  if (acting.length > 0 || (spec.extraIntents ?? []).length > 0) {
+    intents.set(1, [
+      ...acting.map((p) => ({
+        type: "attack",
+        targetID: null,
+        troops: null,
+        clientID: p.clientID,
+      })),
+    ]);
+    if ((spec.extraIntents ?? []).length > 0) {
+      intents.set(2, [...(spec.extraIntents ?? [])]);
+    }
+  }
   for (const d of spec.disconnects ?? []) {
     const list = intents.get(d.turn) ?? [];
     list.push({
@@ -130,6 +153,9 @@ export function buildRecord(gameID: string, spec: GameSpec): GameRecord {
       ...(winner === undefined ? {} : { winner }),
       publicGameType: "ffa",
       reports: [],
+      ...(spec.adminActions === undefined
+        ? {}
+        : { adminActions: spec.adminActions }),
       config: {
         gameMap: "Africa",
         difficulty: spec.difficulty ?? "Medium",

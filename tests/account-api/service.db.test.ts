@@ -77,7 +77,7 @@ describeDb("the account API against PostgreSQL", () => {
     await expect(
       startAccountApi(config, silentLogger, { pool: refused }),
     ).rejects.toThrow(
-      /6 pending migration\(s\) \(next: 0001_init\.sql\); run "npm run account-api:migrate" first/,
+      /7 pending migration\(s\) \(next: 0001_init\.sql\); run "npm run account-api:migrate" first/,
     );
 
     const pool = createPool(config.database, silentLogger);
@@ -127,7 +127,7 @@ describeDb("npm run account-api:migrate and npm run start:account-api", () => {
     const up = await runScript(work.dir, "src/account-api/migrate.ts", [], env);
     expect(up.code).toBe(0);
     expect(up.stdout).toContain(
-      "applied 6 migration(s): 0001, 0002, 0003, 0004, 0005, 0006",
+      "applied 7 migration(s): 0001, 0002, 0003, 0004, 0005, 0006, 0007",
     );
     const again = await runScript(
       work.dir,

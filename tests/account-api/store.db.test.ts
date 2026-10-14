@@ -808,6 +808,7 @@ describeDb("POST /shop/purchase", () => {
       ).toEqual([
         "src/account-api/domain/adminOps.ts",
         "src/account-api/domain/economy.ts",
+        "src/account-api/domain/progression.ts",
         "src/account-api/repo/inventory.ts",
       ]);
     });

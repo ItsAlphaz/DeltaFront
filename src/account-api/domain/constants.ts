@@ -33,6 +33,79 @@ export const ECONOMY = deepFreeze({
   minEliminationTick: 1_200,
 } as const);
 
+/**
+ * How XP is earned (the approved progression plan, docs/Progression.md). Every
+ * multiplier is a whole number in permille (1000 = 1x) so the arithmetic is
+ * exact; the level curve and the ranks are shared rules (ProgressionRules.ts).
+ * Changing a value changes future awards only: each game stores its own
+ * breakdown and the XP ledger is never rewritten.
+ */
+/** The unit of every XP multiplier: 1,000 permille is 1x. */
+export const PERMILLE = 1_000;
+
+export const PROGRESSION = deepFreeze({
+  /** XP for a completed (eligible) game. */
+  completedMatch: 100,
+  /** FFA placement: the highest tier a finish qualifies for (no stacking). */
+  placementTopHalf: 50,
+  placementTopQuarter: 100,
+  placementTopTenth: 150,
+  /** XP for winning. */
+  victory: 250,
+  /** XP for each elimination, and how many count in one game. */
+  eliminationXp: 25,
+  maxEliminations: 6,
+  /** UTC-daily bonuses: the first eligible game, and the first eligible win. */
+  firstGameBonus: 100,
+  firstWinBonus: 150,
+  /** A game with a smaller player-count multiplier than this cannot use a daily bonus. */
+  dailyBonusMinPermille: 500,
+  /** The most match XP one game can pay (a tripwire: the real maximum is 1,125). */
+  matchXpCap: 1_250,
+  /** Match XP per UTC day paid in full; above it XP is paid at the soft rate. */
+  dailySoftCap: 6_000,
+  softCapRatePermille: 250,
+  /**
+   * Eligible humans -> multiplier. A game with `players <= upTo` uses the first
+   * band that fits; anything larger uses the last.
+   */
+  playerCountBands: [
+    { upTo: 2, permille: 100 },
+    { upTo: 5, permille: 500 },
+    { upTo: 15, permille: 1_000 },
+    { upTo: 30, permille: 1_150 },
+    { upTo: Number.MAX_SAFE_INTEGER, permille: 1_250 },
+  ],
+  /** Reserved for ranked games (they do not count yet, so it never applies). */
+  rankedPermille: 1_100,
+  /** Repeated opponents: games both completed in the window, among a small group. */
+  repeat: {
+    windowHours: 24,
+    /** Only checked when this many other eligible players or fewer took part. */
+    maxOthers: 15,
+    /** Shared prior games that make an opponent "familiar", and "very familiar". */
+    sharedLow: 5,
+    sharedHigh: 10,
+    /** The multiplier when more than half the others are familiar / very familiar. */
+    lowPermille: 500,
+    highPermille: 250,
+  },
+  /** Clan XP is this share of the member's match XP, on top of their own. */
+  clanXpPermille: 100,
+  /** The most XP one admin command may grant or take. */
+  adminMaxXpPerCommand: 100_000,
+  /** A finished season waits this long for late game results before it is archived. */
+  seasonGraceMinutes: 30,
+  /** How often the season job looks for a season to archive. */
+  seasonJobMs: 5 * 60 * 1000,
+  /** Rows of recent XP history on the account page. */
+  historyRows: 20,
+  /** Rows of an admin's XP history page. */
+  adminHistoryPageSize: 25,
+  /** Prestige confirmation keys are this long at most. */
+  idempotencyKeyMaxLength: 100,
+} as const);
+
 /** D2: who may create a clan, and the limits on clans. */
 export const CLAN_RULES = deepFreeze({
   /** Minimum account age to create a clan. */

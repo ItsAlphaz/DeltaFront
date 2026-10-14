@@ -46,23 +46,58 @@ export interface CountedFacts {
   durationSeconds: number;
   /** Distinct, live accounts among the players. */
   accountHolders: number;
+  /** Staff commands made this a test (isAdminModified in ingest.ts). */
+  adminModified?: boolean;
+}
+
+/** Why a game does not count, in the order the rules are checked. */
+export type NotCountedReason =
+  | "not_server"
+  | "private_game"
+  | "ranked"
+  | "admin_modified"
+  | "too_few_humans"
+  | "too_short";
+
+export interface CountedVerdict {
+  counted: boolean;
+  /** Null when the game counts. */
+  reason: NotCountedReason | null;
 }
 
 /**
- * Whether a game feeds the Public stats, Credits and (later) leaderboards and
- * the clan threshold: submitted by a game server, Public, not ranked, with at
- * least two account holders, and lasting at least two minutes.
+ * Whether a game feeds the Public stats, Credits, the leaderboards, the clan
+ * threshold AND progression (XP): submitted by a game server, Public, not
+ * ranked, not a staff test, with at least two account holders, and lasting at
+ * least two minutes. The ONE game-level eligibility rule: nothing else decides
+ * whether a game counts, and the reason is what the player is told.
  */
-export function countsForStats(facts: CountedFacts): boolean {
-  return (
-    facts.source === "server" &&
-    facts.type === GameType.Public &&
-    (facts.rankedType === undefined ||
+export function countedVerdict(facts: CountedFacts): CountedVerdict {
+  const no = (reason: NotCountedReason): CountedVerdict => ({
+    counted: false,
+    reason,
+  });
+  if (facts.source !== "server") return no("not_server");
+  if (facts.type !== GameType.Public) return no("private_game");
+  if (
+    !(
+      facts.rankedType === undefined ||
       facts.rankedType === null ||
-      facts.rankedType === "") &&
-    facts.accountHolders >= ACCOUNT_RULES.countedGameMinAccountHolders &&
-    facts.durationSeconds >= ACCOUNT_RULES.countedGameMinSeconds
-  );
+      facts.rankedType === ""
+    )
+  )
+    return no("ranked");
+  if (facts.adminModified === true) return no("admin_modified");
+  if (facts.accountHolders < ACCOUNT_RULES.countedGameMinAccountHolders)
+    return no("too_few_humans");
+  if (facts.durationSeconds < ACCOUNT_RULES.countedGameMinSeconds)
+    return no("too_short");
+  return { counted: true, reason: null };
+}
+
+/** `countedVerdict(...).counted`. */
+export function countsForStats(facts: CountedFacts): boolean {
+  return countedVerdict(facts).counted;
 }
 
 /**

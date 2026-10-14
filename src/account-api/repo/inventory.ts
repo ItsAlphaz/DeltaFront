@@ -49,15 +49,18 @@ export async function flareRowsOf(db: Db, userId: string): Promise<FlareRow[]> {
 export type GrantResult = "granted" | "restored" | "already_owned";
 
 /**
- * Gives the account a flare, by the admin (the default) or as the result of a
- * purchase (`purchaseId`). Granting what it already owns changes nothing; a
+ * Gives the account a flare, by the admin (the default), as a progression
+ * reward, or as the result of a purchase (`purchaseId`). Granting what it already owns changes nothing; a
  * previously revoked flare comes back (one row per account and flare, ever).
  */
 export async function grantFlare(
   db: Db,
   userId: string,
   flare: string,
-  how: { source: "admin" } | { source: "purchase"; purchaseId: string } = {
+  how:
+    | { source: "admin" }
+    | { source: "reward" }
+    | { source: "purchase"; purchaseId: string } = {
     source: "admin",
   },
 ): Promise<GrantResult> {

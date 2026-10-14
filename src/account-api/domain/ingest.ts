@@ -7,7 +7,13 @@ import { withTransaction } from "../db/tx";
 import { ACCOUNT_RULES } from "./constants";
 import { applyGameReward, gameReward } from "./economy";
 import {
-  countsForStats,
+  awardPlayerXp,
+  completedByClient,
+  seasonAt,
+  type GameXpContext,
+} from "./progression";
+import {
+  countedVerdict,
   isCompleted,
   modeBucket,
   resultFor,
@@ -16,6 +22,12 @@ import {
   type GameResult,
   type StatsJson,
 } from "./stats";
+import {
+  adminCommandSenders,
+  clientsWhoActed,
+  isFreeForAll,
+  placements,
+} from "./xp";
 
 /**
  * Turns a finished game, as the game server submits it, into stored stats and
@@ -53,6 +65,7 @@ export function recordProblem(
 
 interface ResolvedPlayer {
   userId: string;
+  kind: "guest" | "registered";
   clientID: string;
   username: string;
   clanTag: string | null;
@@ -69,19 +82,24 @@ async function resolvePlayers(
     (p) => p.persistentID !== null && UUID.test(p.persistentID),
   );
   if (candidates.length === 0) return [];
-  const { rows } = await pool.query<{ id: string }>(
-    "SELECT id FROM users WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL",
+  const { rows } = await pool.query<{
+    id: string;
+    kind: "guest" | "registered";
+  }>(
+    "SELECT id, kind FROM users WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL",
     [candidates.map((p) => (p.persistentID as string).toLowerCase())],
   );
-  const live = new Set(rows.map((r) => r.id));
+  const live = new Map(rows.map((r) => [r.id, r.kind]));
   const seen = new Set<string>();
   const resolved: ResolvedPlayer[] = [];
   for (const player of candidates) {
     const userId = (player.persistentID as string).toLowerCase();
-    if (!live.has(userId) || seen.has(userId)) continue;
+    const kind = live.get(userId);
+    if (kind === undefined || seen.has(userId)) continue;
     seen.add(userId);
     resolved.push({
       userId,
+      kind,
       clientID: player.clientID,
       username: player.username,
       clanTag: player.clanTag,
@@ -167,10 +185,22 @@ export function isAdminModified(
   );
 }
 
+export interface IngestOptions {
+  /**
+   * Present while the `progression` feature is on: games award XP. Absent, a
+   * game is stored exactly as before and its players' `xp_result` stays null.
+   */
+  progression?: {
+    /** Catalog flares that can be granted as rewards; null with no catalog. */
+    validFlares: ReadonlySet<string> | null;
+  };
+}
+
 export async function ingestGameRecord(
   pool: Pool,
   record: GameRecord,
   rawJson: string,
+  options: IngestOptions = {},
 ): Promise<IngestOutcome> {
   const { info, gitCommit } = record;
   const config = info.config as unknown as Record<string, unknown>;
@@ -190,15 +220,15 @@ export async function ingestGameRecord(
   // what the game server recorded (see isAdminModified), never from a client,
   // and stored so the panel can show it.
   const adminModified = isAdminModified(record);
-  const counted =
-    !adminModified &&
-    countsForStats({
-      source: "server",
-      type: type ?? undefined,
-      rankedType,
-      durationSeconds,
-      accountHolders: players.length,
-    });
+  const verdict = countedVerdict({
+    source: "server",
+    type: type ?? undefined,
+    rankedType,
+    durationSeconds,
+    accountHolders: players.length,
+    adminModified,
+  });
+  const counted = verdict.counted;
   const endedAt = new Date(info.end);
 
   return withTransaction(pool, async (tx) => {
@@ -245,6 +275,18 @@ export async function ingestGameRecord(
     const aggregated =
       !adminModified &&
       (type === GameType.Private || (counted && type === GameType.Public));
+    const xpContext =
+      options.progression === undefined
+        ? null
+        : await buildXpContext(tx, {
+            record,
+            verdict,
+            players,
+            endedAt,
+            map: text(config.gameMap),
+            isFfa: isFreeForAll(config),
+            validFlares: options.progression.validFlares,
+          });
     for (const player of players) {
       const completed = isCompleted(record, player.clientID, counted);
       if (aggregated && type !== null) {
@@ -271,14 +313,15 @@ export async function ingestGameRecord(
               earned,
             )
           : 0;
-      await tx.query(
+      const stored = await tx.query<{ clan_id: string | null }>(
         `INSERT INTO game_players
            (game_id, client_id, user_id, username, clan_tag, clan_id, result, completed, credits_awarded, stats)
          VALUES ($1, $2, $3, $4, $5::text,
                  (SELECT c.id FROM clans c JOIN clan_members m ON m.clan_id = c.id
                    WHERE c.tag = $5::text::citext AND c.disbanded_at IS NULL AND m.user_id = $3::uuid),
                  $6, $7, $8, $9::jsonb)
-         ON CONFLICT (game_id, client_id) DO NOTHING`,
+         ON CONFLICT (game_id, client_id) DO NOTHING
+         RETURNING clan_id::text AS clan_id`,
         [
           gameId,
           player.clientID,
@@ -291,7 +334,73 @@ export async function ingestGameRecord(
           JSON.stringify(player.stats),
         ],
       );
+      if (xpContext !== null && stored.rows.length > 0) {
+        const outcome = await awardPlayerXp(tx, xpContext, gameId, {
+          userId: player.userId,
+          clientID: player.clientID,
+          kind: player.kind,
+          clanId: stored.rows[0].clan_id,
+        });
+        await tx.query(
+          `UPDATE game_players
+              SET xp_result = $5::jsonb,
+                  xp_awarded = $3,
+                  clan_xp = $4
+            WHERE game_id = $1 AND client_id = $2`,
+          [
+            gameId,
+            player.clientID,
+            outcome.xpAwarded,
+            outcome.clanXp,
+            JSON.stringify(outcome.result),
+          ],
+        );
+      }
     }
     return { duplicate: false };
   });
+}
+
+/**
+ * Facts about the finished game that every player's XP reads, worked out once:
+ * who completed it, who acted, who sent staff commands, the placements and the
+ * season it counts for. Nothing here comes from a client.
+ */
+async function buildXpContext(
+  tx: PoolClient,
+  input: {
+    record: GameRecord;
+    verdict: ReturnType<typeof countedVerdict>;
+    players: ResolvedPlayer[];
+    endedAt: Date;
+    map: string | null;
+    isFfa: boolean;
+    validFlares: ReadonlySet<string> | null;
+  },
+): Promise<GameXpContext> {
+  const { record, verdict, players } = input;
+  const completed = completedByClient(
+    record,
+    players.map((p) => p.clientID),
+    verdict.counted,
+  );
+  const acted = clientsWhoActed(record.turns);
+  const eligible = players
+    .filter((p) => completed.get(p.clientID) === true && acted.has(p.clientID))
+    .map((p) => ({ userId: p.userId, clientID: p.clientID }));
+  return {
+    record,
+    gameCode: record.info.gameID,
+    endedAt: input.endedAt,
+    verdict,
+    isFfa: input.isFfa,
+    placement: placements(record, input.isFfa),
+    acted,
+    adminSenders: adminCommandSenders(record.turns),
+    completed,
+    eligible,
+    map: input.map,
+    season: verdict.counted ? await seasonAt(tx, input.endedAt) : null,
+    env: { validFlares: input.validFlares },
+  };
 }

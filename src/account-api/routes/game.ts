@@ -16,6 +16,11 @@ import { requireServerKey } from "./server";
 export function gameRouter(deps: AppDeps): Router {
   const { pool, log } = deps;
   const router = express.Router();
+  // XP is awarded while the progression feature is on; rewards that are
+  // cosmetics are granted from the catalog when one is loaded.
+  const progression = deps.config.features.progression
+    ? { validFlares: deps.catalog?.validFlares ?? null }
+    : undefined;
 
   // Result submission is server-to-server. Browsers always add an Origin
   // header (and cannot remove it), and a game server never does, so a request
@@ -65,6 +70,7 @@ export function gameRouter(deps: AppDeps): Router {
           pool,
           parsed.data,
           JSON.stringify(req.body),
+          { progression },
         );
         if (outcome.duplicate)
           log.info("game record repeated", { id: id.data });
