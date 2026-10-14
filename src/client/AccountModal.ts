@@ -5,6 +5,7 @@ import {
 import {
   PlayerStatsTree,
   PrestigeResponse,
+  ProgressionMe,
   UserMeResponse,
 } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
@@ -22,7 +23,7 @@ import {
   reauthAfterCrazyGamesChange,
   steamLogin,
 } from "./Auth";
-import "./components/baseComponents/stats/DiscordUserHeader";
+import { accountProfileHeader } from "./components/AccountProfileHeader";
 import "./components/baseComponents/stats/PlayerGameHistoryView";
 import type { PlayerGameHistoryCache } from "./components/baseComponents/stats/PlayerGameHistoryView";
 import "./components/baseComponents/stats/PlayerStatsTable";
@@ -44,9 +45,7 @@ import "./components/RewardsPanel";
 import type { RewardsChangedDetail } from "./components/RewardsPanel";
 import { googleLinkButton } from "./components/ui/GoogleLinkButton";
 import { modalHeader } from "./components/ui/ModalHeader";
-import { staffBadge, staffRoleLabel } from "./components/ui/StaffBadge";
 import { steamGlyph, steamLinkButton } from "./components/ui/SteamLinkButton";
-import { verifiedBadge } from "./components/ui/VerifiedBadge";
 import { crazyGamesSDK, type CrazyGamesUser } from "./CrazyGamesSDK";
 import { desktopLinkGate, isDesktopShell } from "./DesktopShell";
 import "./GameStatsModal";
@@ -54,6 +53,7 @@ import { showInGameAlert } from "./InGameModal";
 import { consumeLinkResult } from "./LinkResult";
 import { consumeLoginResult, LoginResult } from "./LoginResult";
 import "./PlayerProfileModal";
+import { putDisplayTitle } from "./ProgressionApi";
 import { steamSDK } from "./SteamSDK";
 import { playerProfileUrl } from "./utilities/PlayerProfileUrl";
 import { currentPagePath, translateText } from "./Utils";
@@ -103,6 +103,11 @@ export class AccountModal extends BaseModal {
   // from the `creatorCode=` router arg (a `/c/CODE` share-link visit).
   // Reassigned on every open, same as loginError above.
   @state() private prefillCreatorCode: string | undefined;
+
+  // What /progression/me last said, for the header's title choices and next
+  // milestone (the panel reads it and announces it: progression-loaded).
+  @state() private progressionMe: ProgressionMe | null = null;
+  @state() private savingTitle = false;
 
   private userMeResponse: UserMeResponse | null = null;
   private statsTree: PlayerStatsTree | null = null;
@@ -164,6 +169,7 @@ export class AccountModal extends BaseModal {
     const publicId = this.userMeResponse?.player?.publicId ?? "";
     return modalHeader({
       title: translateText("account_modal.title"),
+      titleClassName: "font-display",
       onBack: () => this.close(),
       ariaLabel: translateText("common.back"),
       rightContent:
@@ -280,110 +286,45 @@ export class AccountModal extends BaseModal {
     }
     return html`
       <div class="flex flex-col gap-6">
-        ${this.renderProfileCard("compact")} ${this.renderProgressionPanel()}
-        <div class="bg-white/5 rounded-xl border border-white/10 p-6">
-          <div class="flex flex-col items-center gap-4">
-            <div
-              class="text-xs text-white/40 uppercase tracking-widest font-bold border-b border-white/5 pb-2 px-8"
-            >
-              ${translateText("account_modal.connected_as")}
-            </div>
-            ${this.renderAccountStatus()}
-            <div class="flex items-center gap-8 justify-center flex-wrap">
-              <discord-user-header
-                .data=${this.userMeResponse?.user?.discord ?? null}
-              ></discord-user-header>
-              ${this.userMeResponse?.user?.steam
-                ? html`<steam-user-header
-                    .data=${this.userMeResponse.user.steam}
-                  ></steam-user-header>`
-                : null}
-              ${this.renderLoggedInAs()}
-            </div>
-          </div>
-        </div>
-        ${this.renderRewardsPanel()} ${this.renderCreatorCodePanel()}
-        ${this.renderDesktopLinkGateAction()}
+        ${this.renderAccountHeader()} ${this.renderProgressionPanel()}
+        ${this.renderLinkedAccounts()} ${this.renderRewardsPanel()}
+        ${this.renderCreatorCodePanel()} ${this.renderDesktopLinkGateAction()}
       </div>
     `;
   }
 
-  // The DeltaFront account itself, apart from the sign-in identity under it:
-  // its username with the verified check, and one chip per status. Three
-  // different facts, each from its own source and none implying another:
-  //   - Verified: users.verified, via /users/@me (player.verified), set only by
-  //     the admin CLI;
-  //   - the staff role (owner, admin, mod): player.staffRole, read by the API
-  //     from the database, a separate fact from verification;
-  //   - the linked Discord/Google/email identity, rendered below.
-  private renderAccountStatus(): TemplateResult | typeof nothing {
+  // Who the player is and where they stand, as one card (see
+  // AccountProfileHeader): avatar, name, badges, Credits, level, rank, XP,
+  // the next milestone and the title shown in lobbies.
+  private renderAccountHeader(): TemplateResult | typeof nothing {
     const player = this.userMeResponse?.player;
     if (!player) return nothing;
-    const verified = player.verified === true;
-    const staffRole = player.staffRole;
-    const username = player.username ?? null;
-    if (!verified && staffRole === undefined && username === null)
-      return nothing;
-    const chip =
-      "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider";
-    return html`
-      <div id="account-status" class="flex flex-col items-center gap-2">
-        <div
-          class="flex items-center justify-center gap-2 text-white text-xl font-semibold"
-        >
-          ${username !== null
-            ? html`<span id="account-username" class="break-all"
-                >${username}</span
-              >`
-            : nothing}
-          ${staffBadge(staffRole, "w-5 h-5")}
-          ${verified ? verifiedBadge("w-5 h-5") : nothing}
-        </div>
-        ${verified || staffRole !== undefined
-          ? html`<div class="flex flex-wrap items-center justify-center gap-2">
-              ${verified
-                ? html`<span
-                    id="account-verified-chip"
-                    class="${chip} border-df-red/40 bg-df-red/10 text-white"
-                  >
-                    ${verifiedBadge("w-3.5 h-3.5", "text-df-red-bright", null)}
-                    ${translateText("account_modal.verified_label")}
-                  </span>`
-                : nothing}
-              ${staffRole !== undefined
-                ? html`<span
-                    id="account-staff-chip"
-                    data-staff-role=${staffRole}
-                    class="${chip} border-white/20 bg-white/10 text-white/80"
-                  >
-                    ${staffBadge(staffRole, "w-3.5 h-3.5", null)}
-                    ${staffRoleLabel(staffRole)}
-                  </span>`
-                : nothing}
-            </div>`
-          : nothing}
-        ${verified && username === null
-          ? html`<div
-              id="account-verified-needs-username"
-              class="flex flex-col items-center gap-2 text-center"
-            >
-              <span class="text-white/70 text-sm"
-                >${translateText("account_modal.verified_needs_username")}</span
-              >
-              <button
-                type="button"
-                class="df-btn"
-                @click=${() => {
-                  window.location.hash = "modal=change-username";
-                }}
-              >
-                ${translateText("account_modal.set_username")}
-              </button>
-            </div>`
-          : nothing}
-      </div>
-    `;
+    return accountProfileHeader({
+      player,
+      identity: this.userMeResponse?.user,
+      progression: this.progressionMe,
+      prestigeable: true,
+      savingTitle: this.savingTitle,
+      onTitleChange: (title) => void this.chooseTitle(title),
+      onPrestige: () => void this.handlePrestigeRequest(),
+    });
   }
+
+  private chooseTitle = async (title: string | null): Promise<void> => {
+    if (this.savingTitle) return;
+    this.savingTitle = true;
+    try {
+      if (await putDisplayTitle(title)) {
+        this.refreshProgressionPanel();
+        void this.refreshUserMe();
+      } else {
+        // Put the select back on what the server still has.
+        this.requestUpdate();
+      }
+    } finally {
+      this.savingTitle = false;
+    }
+  };
 
   // Re-entry to the desktop shell's account-linking gate shown at first
   // launch. Absent entirely on plain web (no window.openfrontDesktop there),
@@ -595,7 +536,9 @@ export class AccountModal extends BaseModal {
     if (!ACCOUNT_FEATURES.progression) return nothing;
     if (!this.userMeResponse?.player?.progress) return nothing;
     return html`<progression-panel
-      @title-changed=${() => void this.refreshUserMe()}
+      @progression-loaded=${(e: CustomEvent<ProgressionMe>) => {
+        this.progressionMe = e.detail;
+      }}
     ></progression-panel>`;
   }
 
@@ -700,72 +643,153 @@ export class AccountModal extends BaseModal {
     `;
   }
 
-  private renderLoggedInAs(): TemplateResult {
+  // The sign-in identities tied to this account, as a card of their own: one
+  // row per linked provider (its mark, who it is, and that it is linked) and,
+  // under them, what can still be linked. Linking is untouched: the Google and
+  // Steam buttons are the same ones, only moved here.
+  private renderLinkedAccounts(): TemplateResult | typeof nothing {
     const me = this.userMeResponse?.user;
-    if (me?.discord) {
-      return html`
-        <div class="flex flex-col items-center gap-3 w-full">
-          ${this.renderCurrency()} ${this.renderGoogleLink()}
-          ${this.renderSteamLink()}
-        </div>
-      `;
-    } else if (me?.google) {
-      return html`
-        <div class="flex flex-col items-center gap-3 w-full">
-          <div class="text-white text-lg font-medium">
-            ${translateText("account_modal.linked_account", {
-              account_name: me.google.email,
-            })}
-          </div>
-          ${this.renderCurrency()} ${this.renderSteamLink()}
-        </div>
-      `;
-    } else if (me?.email) {
-      return html`
-        <div class="flex flex-col items-center gap-3 w-full">
-          <div class="text-white text-lg font-medium">
-            ${translateText("account_modal.linked_account", {
-              account_name: me.email,
-            })}
-          </div>
-          ${this.renderCurrency()} ${this.renderGoogleLink()}
-          ${this.renderSteamLink()}
-        </div>
-      `;
-    } else if (me?.steam) {
-      // Steam is the primary login and v1 does not support linking a second
-      // identity or unlinking Steam itself, so no Discord/Google CTA here —
-      // just the currency balance and (session) logout.
-      return html`
-        <div class="flex flex-col items-center gap-3 w-full">
-          ${this.renderCurrency()}
-        </div>
-      `;
+    if (!me) return nothing;
+    const rows: TemplateResult[] = [];
+    if (me.discord) {
+      rows.push(
+        this.renderLinkedRow(
+          "discord",
+          "account_modal.provider_discord",
+          `@${me.discord.username}`,
+          html`<span
+            class="grid h-12 w-12 shrink-0 place-items-center bg-[#5865F2]"
+            ><img
+              src=${assetUrl("images/DiscordLogo.svg")}
+              alt=""
+              class="h-7 w-7"
+          /></span>`,
+        ),
+      );
     }
-    return html``;
+    if (me.google) {
+      rows.push(
+        this.renderLinkedRow(
+          "google",
+          "account_modal.provider_google",
+          me.google.email,
+          html`<span class="grid h-12 w-12 shrink-0 place-items-center bg-white"
+            ><img
+              src=${assetUrl("images/GoogleLogo.svg")}
+              alt=${translateText("account_modal.google_alt")}
+              class="h-7 w-7"
+          /></span>`,
+        ),
+      );
+    }
+    if (me.email) {
+      rows.push(
+        this.renderLinkedRow(
+          "email",
+          "account_modal.provider_email",
+          me.email,
+          html`<span
+            class="grid h-12 w-12 shrink-0 place-items-center bg-white/10"
+            ><img
+              src=${assetUrl("images/EmailIcon.svg")}
+              alt=""
+              class="h-6 w-6"
+          /></span>`,
+        ),
+      );
+    }
+    if (me.steam) {
+      // The attached account is NAMED, not merely reported as linked: a wrong
+      // link — the player's browser was signed into someone else's Steam when
+      // they clicked — cannot be undone by them, so noticing it immediately is
+      // the difference between a quick support fix and a permanent one.
+      // Steam's own consent page is the first defence; this is the second.
+      //
+      // The one <steam-user-header> of the page lives here (the persona and
+      // avatar). The permanence note stays beside the row: there is no unlink,
+      // and the player should know why.
+      rows.push(
+        this.renderLinkedRow(
+          "steam",
+          "account_modal.provider_steam",
+          html`<steam-user-header .data=${me.steam}></steam-user-header>`,
+          html`<span
+            class="grid h-12 w-12 shrink-0 place-items-center bg-[#1b2838] text-white"
+            >${steamGlyph("h-6 w-6")}</span
+          >`,
+          translateText("account_modal.link_steam_permanent"),
+        ),
+      );
+    }
+    const ctas = [this.renderLinkGoogleCta(), this.renderLinkSteamCta()].filter(
+      (c) => c !== nothing,
+    );
+    if (rows.length === 0 && ctas.length === 0) return nothing;
+    return html`<section
+      data-linked-accounts
+      class="flex flex-col gap-4 rounded-xl border border-white/10 bg-df-panel p-5 sm:p-7"
+    >
+      <h3
+        class="m-0 font-display text-lg font-bold uppercase tracking-[0.25em] text-white"
+      >
+        ${translateText("account_modal.linked_accounts_heading")}
+      </h3>
+      ${rows}
+      ${ctas.length > 0
+        ? html`<div class="flex flex-col gap-4">${ctas}</div>`
+        : nothing}
+    </section>`;
   }
 
-  // Show the Google link state: a confirmation line when a Google account is
-  // already linked, otherwise the button to link one.
-  private renderGoogleLink(): TemplateResult {
-    const google = this.userMeResponse?.user?.google;
-    if (google) {
-      const label = google.email
-        ? translateText("account_modal.linked_to_google_email", {
-            email: google.email,
-          })
-        : translateText("account_modal.linked_to_google");
-      return html`
-        <div class="flex items-center gap-2 text-white/70 text-sm">
-          <img
-            src=${assetUrl("images/GoogleLogo.svg")}
-            alt=${translateText("account_modal.google_alt")}
-            class="w-4 h-4"
-          />
-          <span>${label}</span>
+  private renderLinkedRow(
+    provider: string,
+    nameKey: string,
+    identity: string | TemplateResult,
+    mark: TemplateResult,
+    note?: string,
+  ): TemplateResult {
+    return html`<div
+      data-linked-provider=${provider}
+      class="flex flex-col gap-2 border border-white/10 bg-white/[0.04] p-3 sm:p-4"
+    >
+      <div class="flex items-center gap-4">
+        ${mark}
+        <div class="min-w-0 flex-1">
+          <div class="text-base font-bold text-white">
+            ${translateText(nameKey)}
+          </div>
+          <div class="min-w-0 truncate text-sm text-white/60">${identity}</div>
         </div>
-      `;
-    }
+        <span
+          data-linked-status
+          class="inline-flex shrink-0 items-center gap-1.5 font-display text-xs font-bold uppercase tracking-[0.18em] text-white/60"
+        >
+          <svg
+            class="h-3.5 w-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12.5l4.5 4.5L19 7.5"></path>
+          </svg>
+          ${translateText("account_modal.link_status_linked")}
+        </span>
+      </div>
+      ${note === undefined
+        ? nothing
+        : html`<span class="text-xs text-white/40">${note}</span>`}
+    </div>`;
+  }
+
+  // Attach Google to an existing account (we never auto-merge by email): for
+  // a Discord- or email-primary account that has none yet.
+  private renderLinkGoogleCta(): TemplateResult | typeof nothing {
+    const me = this.userMeResponse?.user;
+    if (!me || me.google || !(me.discord || me.email)) return nothing;
     return this.renderLinkGoogleButton();
   }
 
@@ -783,8 +807,7 @@ export class AccountModal extends BaseModal {
     );
   }
 
-  // Steam link state (OPE-115): the linked account when there is one,
-  // otherwise the button to link one.
+  // Steam link button (OPE-115), for an account without Steam.
   //
   // NOTE THE ASYMMETRY WITH GOOGLE, WHICH IS DELIBERATE: there is no unlink
   // control here, and there is a permanence warning on the button. Steam
@@ -792,40 +815,20 @@ export class AccountModal extends BaseModal {
   // so this is a one-way change that only support can reverse — the warning
   // has to be readable BEFORE the click, because afterwards the link exists.
   //
-  // Not shown inside the desktop shell: a shell player already holds this
-  // identity through the native Steam ticket.
-  private renderSteamLink(): TemplateResult {
-    // Also hidden wherever Steam is not an offered sign-in method (AUTH_PROVIDERS).
-    if (isDesktopShell() || !AUTH_PROVIDERS.steam) return html``;
-    const steam = this.userMeResponse?.user?.steam;
-    if (steam) {
-      // The attached account is NAMED, not merely reported as linked: a wrong
-      // link — the player's browser was signed into someone else's Steam when
-      // they clicked — cannot be undone by them, so noticing it immediately is
-      // the difference between a quick support fix and a permanent one.
-      // Steam's own consent page is the first defence; this is the second.
-      //
-      // The persona and avatar come from the <steam-user-header> that
-      // renderAccountTab already renders whenever user.steam is set, for every
-      // branch including Steam-primary. Rendering a second one here showed it
-      // TWICE to exactly the players this row is for — anyone Discord-,
-      // Google- or email-primary with Steam linked.
-      return html`
-        <div class="flex flex-col items-center gap-1">
-          <div class="flex items-center gap-2 text-white/70 text-sm">
-            ${steamGlyph("w-4 h-4 shrink-0")}
-            <span>${translateText("account_modal.linked_to_steam")}</span>
-          </div>
-          <span class="text-white/40 text-xs text-center">
-            ${translateText("account_modal.link_steam_permanent")}
-          </span>
-        </div>
-      `;
+  // Not shown inside the desktop shell (a shell player already holds this
+  // identity through the native Steam ticket) or where Steam is not an offered
+  // sign-in method (AUTH_PROVIDERS), and not for a Steam-primary account (v1
+  // links no second identity to it).
+  private renderLinkSteamCta(): TemplateResult | typeof nothing {
+    const me = this.userMeResponse?.user;
+    if (isDesktopShell() || !AUTH_PROVIDERS.steam) return nothing;
+    if (!me || me.steam || !(me.discord || me.google || me.email)) {
+      return nothing;
     }
     return html`
-      <div class="w-full flex flex-col gap-1">
+      <div class="flex w-full flex-col gap-1">
         ${steamLinkButton(this.handleLinkSteam)}
-        <span class="text-white/40 text-xs text-center">
+        <span class="text-center text-xs text-white/40">
           ${translateText("account_modal.link_steam_permanent")}
         </span>
       </div>
@@ -886,6 +889,7 @@ export class AccountModal extends BaseModal {
   }
 
   private resetPlayerData(): void {
+    this.progressionMe = null;
     this.statsTree = null;
     this.gameHistoryCache = null;
     this.gamesScrollTop = 0;

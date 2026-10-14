@@ -191,6 +191,29 @@ own, only for a player who was in the clan and wore its tag when the game starte
 clan page shows the total, the member list each member's contribution and level badge.
 Clan levels and unlocks are not built.
 
+## The account page
+
+The Account tab is three cards, top to bottom, all drawn from `GET /users/@me` and
+`GET /progression/me`:
+
+1. **Profile header** (`components/AccountProfileHeader.ts`): one card in three bands. The
+   identity band holds the avatar with a level chip, the clan tag, the username with its
+   verified check, the linked handle, the Verified / owner / admin / mod chips and the Credits
+   balance. Under a rule, the progression band reads `LEVEL n · RANK` (and Prestige), the next
+   milestone and `xp / next XP`, with the segmented XP bar on its own row, and Prestige at level 100. Under another rule, the display title selector. The XP is never beside the avatar, and
+   on a phone every group stacks while names, tags and handles truncate.
+2. **Challenges and season** (`components/ProgressionPanel.ts`): the Challenges card with
+   "n of 6 complete", the daily and weekly sets each with their reset timer, and per row the
+   name, `progress / target`, a thin bar and a reward column (`+XP`, and Credits where the
+   challenge pays them); then the season card and a collapsed recent-XP list (a reduced game
+   says why, see above).
+3. **Linked accounts** (`AccountModal.renderLinkedAccounts`): one row per linked provider with
+   its mark and who it is, marked Linked, and the link buttons for what is still free.
+
+The header and the panel never fetch for each other: the panel announces what it read
+(`progression-loaded`) and the modal hands the titles and the milestone to the header. Without
+the `progression` feature only the identity band and the Linked accounts card show.
+
 ## API
 
 | Endpoint                                                 | Purpose                                                    |

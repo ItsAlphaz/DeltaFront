@@ -136,6 +136,11 @@ describe("AccountModal — after a prestige", () => {
   });
 
   const flow = () => modal.querySelector("prestige-flow")!;
+  // The Prestige button of the account header's progression band.
+  const pressPrestige = () =>
+    modal
+      .querySelector<HTMLButtonElement>("[data-account-prestige-button]")!
+      .click();
   const own = () =>
     (modal as unknown as { userMeResponse: UserMeResponse }).userMeResponse;
   const settle = async () => {
@@ -147,11 +152,7 @@ describe("AccountModal — after a prestige", () => {
     // Already on its way: the card offers Prestige.
     await modal.loadPrestigeFlow();
     expect(customElements.get("prestige-flow")).toBeDefined();
-    modal
-      .querySelector("profile-card")!
-      .dispatchEvent(
-        new CustomEvent("prestige-request", { bubbles: true, composed: true }),
-      );
+    pressPrestige();
     await vi.waitFor(() =>
       expect((flow() as unknown as PrestigeFlow).isOpen).toBe(true),
     );
@@ -162,7 +163,7 @@ describe("AccountModal — after a prestige", () => {
     modal.loadPrestigeFlow = load;
     modal.requestUpdate();
     await modal.updateComplete;
-    expect(modal.querySelector("profile-card")).not.toBeNull();
+    expect(modal.querySelector("[data-account-header]")).not.toBeNull();
     expect(load).not.toHaveBeenCalled();
 
     // Opening reads /users/@me: a player who can prestige.
@@ -192,11 +193,7 @@ describe("AccountModal — after a prestige", () => {
   it("says so when the prestige flow can't be fetched", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     modal.loadPrestigeFlow = () => Promise.reject(new Error("offline"));
-    modal
-      .querySelector("profile-card")!
-      .dispatchEvent(
-        new CustomEvent("prestige-request", { bubbles: true, composed: true }),
-      );
+    pressPrestige();
     await vi.waitFor(() =>
       expect(showInGameAlert).toHaveBeenCalledWith("prestige.load_failed"),
     );

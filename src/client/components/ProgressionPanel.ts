@@ -1,17 +1,21 @@
 import type { ProgressionMe } from "@openfront/shared/ApiSchemas";
-import { html, LitElement, nothing, TemplateResult } from "lit";
+import { html, LitElement, nothing, svg, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { challengeLabelKey, rankLabelKey, titleText } from "../Progression";
-import { fetchProgressionMe, putDisplayTitle } from "../ProgressionApi";
+import { challengeLabelKey } from "../Progression";
+import { fetchProgressionMe } from "../ProgressionApi";
 import { translateText } from "../Utils";
 import "./CreditsIcon";
 import { formatXp, xpBar } from "./XpBar";
 
 /**
- * The account page's progression section: the title shown beside your name,
- * the next milestone, the running season, today's and this week's challenges,
- * and your recent XP. Everything comes from GET /progression/me; this element
- * only draws it (and sends the title choice).
+ * The account page's progression cards under the profile header: today's and
+ * this week's challenges (one card, with how many are done and when each set
+ * resets), the running season, and your recent XP. Everything comes from
+ * GET /progression/me; this element only draws it.
+ *
+ * It announces what it read (`progression-loaded`, the ProgressionMe as
+ * detail) so the page can give the header the titles to choose from and the
+ * next milestone, which are drawn there.
  */
 
 /** "5h 20m", "2d 3h", "12m": how long until a challenge period resets. */
@@ -41,21 +45,49 @@ const SOURCE_KEYS: Record<string, string> = {
 /** The line's label: a reduced match says why ("Private Match"), never an internal name. */
 function historyKey(entry: { source: string; detail?: string | null }): string {
   const specific =
-    entry.detail == null
+    entry.detail === undefined || entry.detail === null
       ? undefined
       : SOURCE_KEYS[`${entry.source}_${entry.detail}`];
   return specific ?? SOURCE_KEYS[entry.source] ?? "progression.history_other";
 }
 
+const CARD = "rounded-xl border border-white/10 bg-df-panel p-5 sm:p-7";
+const CARD_HEADING =
+  "m-0 font-display text-lg font-bold uppercase tracking-[0.25em] text-white";
+
+const CLOCK = svg`<svg
+  class="h-4 w-4 shrink-0"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  aria-hidden="true"
+>
+  <circle cx="12" cy="12" r="9"></circle>
+  <path d="M12 7v5l3 2"></path>
+</svg>`;
+
+const CHECK = svg`<svg
+  class="h-3.5 w-3.5 shrink-0"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="3"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d="M5 12.5l4.5 4.5L19 7.5"></path>
+</svg>`;
+
 @customElement("progression-panel")
 export class ProgressionPanel extends LitElement {
   @state() private me: ProgressionMe | null = null;
   @state() private failed = false;
-  @state() private saving = false;
 
   // Replaceable for tests.
   load: () => Promise<ProgressionMe | false> = fetchProgressionMe;
-  saveTitle: (title: string | null) => Promise<boolean> = putDisplayTitle;
   now: () => number = Date.now;
 
   createRenderRoot() {
@@ -67,25 +99,19 @@ export class ProgressionPanel extends LitElement {
     void this.refresh();
   }
 
-  /** Reads the section again (after a claim, a prestige or a game). */
+  /** Reads the section again (after a claim, a prestige, a title or a game). */
   public async refresh(): Promise<void> {
     const me = await this.load();
     this.failed = me === false;
-    if (me !== false) this.me = me;
-  }
-
-  private async chooseTitle(value: string): Promise<void> {
-    if (this.saving) return;
-    this.saving = true;
-    try {
-      if (await this.saveTitle(value === "" ? null : value)) {
-        await this.refresh();
-        this.dispatchEvent(
-          new CustomEvent("title-changed", { bubbles: true, composed: true }),
-        );
-      }
-    } finally {
-      this.saving = false;
+    if (me !== false) {
+      this.me = me;
+      this.dispatchEvent(
+        new CustomEvent<ProgressionMe>("progression-loaded", {
+          detail: me,
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
   }
 
@@ -96,66 +122,9 @@ export class ProgressionPanel extends LitElement {
   render(): TemplateResult | typeof nothing {
     const me = this.me;
     if (me === null) return nothing;
-    return html`<section
-      data-progression-panel
-      class="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/5 p-5"
-    >
-      ${this.renderIdentity(me)} ${this.renderSeason(me)}
-      ${this.renderChallenges(me)} ${this.renderHistory(me)}
-    </section>`;
-  }
-
-  private heading(key: string): TemplateResult {
-    return html`<h3
-      class="m-0 text-xs font-bold uppercase tracking-widest text-white/40"
-    >
-      ${translateText(key)}
-    </h3>`;
-  }
-
-  private renderIdentity(me: ProgressionMe): TemplateResult {
-    const milestone = me.nextMilestone;
-    return html`<div data-progression-identity class="flex flex-col gap-2">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div class="text-lg font-black uppercase tracking-wider text-white">
-            <span data-progression-rank
-              >${translateText(rankLabelKey(me.progress.level))}</span
-            >
-          </div>
-          ${milestone === null
-            ? nothing
-            : html`<div
-                data-progression-milestone
-                class="text-xs text-white/60"
-              >
-                ${translateText("progression.next_milestone", {
-                  level: milestone.level,
-                  credits: formatXp(milestone.credits),
-                })}
-              </div>`}
-        </div>
-        <label class="flex items-center gap-2 text-xs text-white/60">
-          <span>${translateText("progression.title_label")}</span>
-          <select
-            data-progression-title
-            class="df-input text-sm"
-            ?disabled=${this.saving}
-            @change=${(e: Event) =>
-              void this.chooseTitle((e.target as HTMLSelectElement).value)}
-          >
-            <option value="" ?selected=${me.selectedTitle === null}>
-              ${translateText("progression.title_none")}
-            </option>
-            ${me.titles.map(
-              (id) =>
-                html`<option value=${id} ?selected=${me.selectedTitle === id}>
-                  ${titleText(id, translateText)}
-                </option>`,
-            )}
-          </select>
-        </label>
-      </div>
+    return html`<div data-progression-panel class="flex flex-col gap-6">
+      ${this.renderChallenges(me)} ${this.renderSeason(me)}
+      ${this.renderHistory(me)}
     </div>`;
   }
 
@@ -166,27 +135,35 @@ export class ProgressionPanel extends LitElement {
     const into = season.xp % season.xpPerLevel;
     const percent = maxed ? 100 : (into / season.xpPerLevel) * 100;
     const unclaimed = me.seasonTrack.filter((t) => t.rewardId !== null).length;
-    return html`<div data-progression-season class="flex flex-col gap-2">
-      ${this.heading("progression.season_heading")}
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="text-sm font-bold text-white">
-          ${translateText("progression.season_summary", {
-            name: season.name,
-            level: season.level,
-          })}
-          <span class="font-normal text-white/60"
-            >· ${formatXp(season.xp)} XP</span
-          >
-        </div>
-        <div class="text-xs text-white/50">
+    return html`<section
+      data-progression-season
+      class="${CARD} flex flex-col gap-4"
+    >
+      <div
+        class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
+      >
+        <h3 class="${CARD_HEADING}">
+          ${translateText("progression.season_heading")}
+        </h3>
+        <span class="inline-flex items-center gap-1.5 text-sm text-white/50">
+          ${CLOCK}
           ${translateText("progression.season_ends_in", {
             time: compactDuration(Date.parse(season.endsAt) - this.now()),
           })}
-        </div>
+        </span>
+      </div>
+      <div class="text-base font-bold text-white">
+        ${translateText("progression.season_summary", {
+          name: season.name,
+          level: season.level,
+        })}
+        <span class="font-normal text-white/60"
+          >· ${formatXp(season.xp)} XP</span
+        >
       </div>
       ${xpBar(percent, { heightClass: "h-2" })}
-      <div class="flex items-center justify-between gap-2">
-        <span class="text-xs text-white/50"
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <span class="text-sm text-white/55"
           >${maxed
             ? translateText("progression.max_level")
             : translateText("progression.xp_progress", {
@@ -209,6 +186,68 @@ export class ProgressionPanel extends LitElement {
             : nothing}
         </button>
       </div>
+    </section>`;
+  }
+
+  // One row: the name and "2 / 3" over a thin bar, and the reward in a column
+  // of its own behind a short rule. The column keeps its width on a phone (the
+  // name wraps instead), so "+1,500 XP" and the Credits line never collide
+  // with the progress.
+  private renderChallenge(
+    c: ProgressionMe["challenges"]["daily"]["items"][number],
+  ): TemplateResult {
+    const percent = Math.min(100, (c.progress / c.target) * 100);
+    const count = `${formatXp(Math.min(c.progress, c.target))} / ${formatXp(c.target)}`;
+    return html`<div
+      data-progression-challenge=${c.id}
+      data-complete=${c.completed ? "true" : nothing}
+      class="flex items-stretch border border-white/10 bg-white/[0.04]"
+    >
+      <div class="flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-5">
+        <div class="flex items-baseline justify-between gap-3">
+          <span
+            class="min-w-0 break-words text-base font-medium sm:text-lg ${c.completed
+              ? "text-white/55"
+              : "text-white"}"
+            >${translateText(challengeLabelKey(c.id))}</span
+          >
+          <span
+            data-progression-count
+            class="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums ${c.completed
+              ? "font-bold text-green-400"
+              : "text-white/55"}"
+            >${c.completed
+              ? html`${CHECK}${translateText("progression.challenge_completed")}`
+              : count}</span
+          >
+        </div>
+        ${xpBar(percent, {
+          heightClass: "h-1.5",
+          valueText: count,
+        })}
+      </div>
+      <div
+        data-progression-reward
+        class="my-4 flex w-28 shrink-0 flex-col items-center justify-center gap-1 border-l border-white/10 px-3 sm:w-36"
+      >
+        <span class="whitespace-nowrap text-base font-extrabold text-yellow-300"
+          >${translateText("progression.xp_total", {
+            xp: formatXp(c.xp),
+          })}</span
+        >
+        ${c.credits > 0
+          ? html`<span
+              data-progression-credits
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-sm text-white/60"
+              title=${translateText("progression.credits")}
+            >
+              <credits-icon .size=${14}></credits-icon>
+              ${translateText("progression.reward_credits", {
+                credits: formatXp(c.credits),
+              })}
+            </span>`
+          : nothing}
+      </div>
     </div>`;
   }
 
@@ -217,67 +256,58 @@ export class ProgressionPanel extends LitElement {
       ["daily", me.challenges.daily, "progression.challenges_daily"],
       ["weekly", me.challenges.weekly, "progression.challenges_weekly"],
     ] as const;
-    return html`<div data-progression-challenges class="flex flex-col gap-4">
+    const all = [...me.challenges.daily.items, ...me.challenges.weekly.items];
+    const done = all.filter((c) => c.completed).length;
+    return html`<section
+      data-progression-challenges
+      class="${CARD} flex flex-col gap-6"
+    >
+      <div
+        class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
+      >
+        <h3 class="${CARD_HEADING}">
+          ${translateText("progression.challenges_title")}
+        </h3>
+        <span data-progression-total class="text-sm text-white/55"
+          >${translateText("progression.challenges_complete", {
+            done,
+            total: all.length,
+          })}</span
+        >
+      </div>
       ${periods.map(
         ([period, data, key]) =>
           html`<div
             data-progression-period=${period}
-            class="flex flex-col gap-2"
+            class="flex flex-col gap-3"
           >
-            <div class="flex items-center justify-between">
-              ${this.heading(key)}
-              <span class="text-xs text-white/40"
-                >${translateText("progression.resets_in", {
+            <div class="flex items-center justify-between gap-3">
+              <h4
+                class="m-0 text-xs font-bold uppercase tracking-[0.18em] text-white/55"
+              >
+                ${translateText(key)}
+              </h4>
+              <span
+                data-progression-resets
+                class="inline-flex items-center gap-1.5 text-sm text-white/50"
+              >
+                ${CLOCK}
+                ${translateText("progression.resets_in", {
                   time: compactDuration(Date.parse(data.resetsAt) - this.now()),
-                })}</span
-              >
-            </div>
-            ${data.items.map((c) => {
-              const percent = Math.min(100, (c.progress / c.target) * 100);
-              return html`<div
-                data-progression-challenge=${c.id}
-                data-complete=${c.completed ? "true" : nothing}
-                class="flex flex-col gap-1 rounded-lg border border-white/10 bg-black/20 px-3 py-2"
-              >
-                <div class="flex items-center justify-between gap-3 text-sm">
-                  <span
-                    class="min-w-0 truncate ${c.completed
-                      ? "text-white/50 line-through"
-                      : "text-white"}"
-                    >${translateText(challengeLabelKey(c.id))}</span
-                  >
-                  <span class="shrink-0 text-xs font-bold text-yellow-300">
-                    ${translateText("progression.xp_total", {
-                      xp: formatXp(c.xp),
-                    })}${c.credits > 0
-                      ? html` <span class="text-white/60"
-                          >+${formatXp(c.credits)}
-                          ${translateText("progression.credits")}</span
-                        >`
-                      : nothing}
-                  </span>
-                </div>
-                ${xpBar(percent, {
-                  heightClass: "h-1.5",
-                  valueText: `${formatXp(c.progress)} / ${formatXp(c.target)}`,
                 })}
-                <div class="text-[11px] text-white/40">
-                  ${c.completed
-                    ? translateText("progression.challenge_completed")
-                    : `${formatXp(c.progress)} / ${formatXp(c.target)}`}
-                </div>
-              </div>`;
-            })}
+              </span>
+            </div>
+            ${data.items.map((c) => this.renderChallenge(c))}
           </div>`,
       )}
-    </div>`;
+    </section>`;
   }
 
   private renderHistory(me: ProgressionMe): TemplateResult | typeof nothing {
     if (me.history.length === 0) return nothing;
-    return html`<details data-progression-history>
+    return html`<details data-progression-history class="${CARD}">
       <summary
-        class="cursor-pointer text-xs font-bold uppercase tracking-widest text-white/40"
+        class="cursor-pointer font-display text-sm font-bold uppercase tracking-[0.25em] text-white/60"
       >
         ${translateText("progression.history_heading")}
       </summary>

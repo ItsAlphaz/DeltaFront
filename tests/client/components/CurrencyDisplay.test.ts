@@ -156,3 +156,33 @@ describe("Credits (the one currency of DeltaFront V1)", () => {
     );
   });
 });
+
+describe("<currency-display large> (the account header's Credits)", () => {
+  it("shows the balance as the big number, with the Credits coin", async () => {
+    const el = await renderDisplay({ soft: 998_200, hard: 0, large: true });
+    expect(el.textContent).toContain((998_200).toLocaleString());
+    const number = [...el.querySelectorAll("span")].find((s) =>
+      s.textContent?.includes((998_200).toLocaleString()),
+    )!;
+    expect(number.className).toContain("text-3xl");
+    expect(number.className).toContain("tabular-nums");
+    expect(el.querySelector("credits-icon")).not.toBeNull();
+  });
+
+  it("keeps the standard size without it, and ignores it in compact mode", async () => {
+    const plain = await renderDisplay({ soft: 5 });
+    expect(plain.innerHTML).not.toContain("text-3xl");
+    const compact = await renderDisplay({
+      soft: 5,
+      large: true,
+      compact: true,
+    });
+    expect(compact.innerHTML).not.toContain("text-3xl");
+  });
+
+  it("still shows a zero balance", async () => {
+    const el = await renderDisplay({ soft: 0, large: true });
+    expect(el.textContent).toContain("0");
+    expect(el.querySelector("credits-icon")).not.toBeNull();
+  });
+});

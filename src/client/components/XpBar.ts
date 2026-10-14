@@ -61,6 +61,50 @@ export function xpProgressText(xpInLevel: number, xpForNext: number): string {
 }
 
 /**
+ * The XP bar cut into equal square segments, the account header's look: each
+ * segment is one tenth of the way to the next level and fills left to right,
+ * so a partly filled one still shows exactly how far along the player is. The
+ * same progressbar semantics as `xpBar`, so a screen reader hears one value
+ * and not ten pieces.
+ */
+export function segmentedXpBar(
+  percent: number,
+  opts: { segments?: number; heightClass?: string; valueText?: string } = {},
+): TemplateResult {
+  const fill = Number.isFinite(percent)
+    ? Math.min(100, Math.max(0, percent))
+    : 0;
+  const count = Math.max(1, Math.floor(opts.segments ?? 10));
+  const size = 100 / count;
+  return html`<div
+    data-xp-bar
+    data-xp-segmented
+    class="flex w-full gap-1.5 ${opts.heightClass ?? "h-2.5"}"
+    role="progressbar"
+    aria-label=${translateText("progression.xp_bar_label")}
+    aria-valuemin="0"
+    aria-valuemax="100"
+    aria-valuenow=${Math.round(fill)}
+    aria-valuetext=${opts.valueText ?? nothing}
+  >
+    ${Array.from({ length: count }, (_, i) => {
+      const part = Math.min(100, Math.max(0, ((fill - i * size) / size) * 100));
+      return html`<div
+        data-xp-segment
+        data-filled=${part >= 100 ? "full" : part > 0 ? "partial" : "empty"}
+        class="h-full min-w-0 flex-1 overflow-hidden bg-white/10"
+      >
+        <div
+          data-xp-segment-fill
+          class="h-full bg-df-red"
+          style="width: ${part}%"
+        ></div>
+      </div>`;
+    })}
+  </div>`;
+}
+
+/**
  * A thin XP bar. `percent` is clamped to 0..100. `valueText` is what a
  * screen reader announces for the value (typically xpProgressText); without
  * it, the percentage.

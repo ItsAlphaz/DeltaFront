@@ -6,7 +6,6 @@ vi.mock("../../src/client/Utils", () => ({
 }));
 vi.mock("../../src/client/ProgressionApi", () => ({
   fetchProgressionMe: vi.fn(async () => false),
-  putDisplayTitle: vi.fn(async () => true),
 }));
 
 import type { ProgressionMe } from "@openfront/shared/ApiSchemas";
@@ -177,38 +176,45 @@ describe("<progression-panel>", () => {
     expect(panel.querySelector("[data-progression-panel]")).toBeNull();
   });
 
-  it("shows the rank, the next milestone and the chosen title", async () => {
+  it("draws the progression cards, not the identity (that is the account header's)", async () => {
     await mount(me());
-    expect(q("[data-progression-rank]")?.textContent).toBe(
-      "progression.rank_lieutenant",
-    );
-    expect(q("[data-progression-milestone]")?.textContent).toContain(
-      '"level":50',
-    );
-    const select = q("[data-progression-title]") as HTMLSelectElement;
-    expect([...select.options].map((o) => o.value)).toEqual([
-      "",
-      "veteran",
-      "prestige:1",
-    ]);
-    expect(select.selectedOptions[0].value).toBe("veteran");
+    expect(q("[data-progression-challenges]")).not.toBeNull();
+    expect(q("[data-progression-season]")).not.toBeNull();
+    expect(q("[data-progression-rank]")).toBeNull();
+    expect(q("[data-progression-milestone]")).toBeNull();
+    expect(q("[data-progression-title]")).toBeNull();
+    // each section is a card of its own, stacked
+    expect(q("[data-progression-panel]")?.className).toContain("flex-col");
   });
 
-  it("saves a title choice and tells the page", async () => {
-    const saveTitle = vi.fn(async () => true);
-    await mount(me(), { saveTitle });
-    const changed = vi.fn();
-    panel.addEventListener("title-changed", changed);
-    const select = q("[data-progression-title]") as HTMLSelectElement;
-    select.value = "prestige:1";
-    select.dispatchEvent(new Event("change"));
-    await vi.waitFor(() =>
-      expect(saveTitle).toHaveBeenCalledWith("prestige:1"),
+  it("announces what it read, with the titles and the next milestone", async () => {
+    panel = document.createElement("progression-panel") as ProgressionPanel;
+    const loaded = vi.fn();
+    panel.addEventListener("progression-loaded", (e) =>
+      loaded((e as CustomEvent<ProgressionMe>).detail),
     );
-    await vi.waitFor(() => expect(changed).toHaveBeenCalled());
-    select.value = "";
-    select.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(saveTitle).toHaveBeenCalledWith(null));
+    panel.load = vi.fn(async () => me());
+    panel.now = () => NOW;
+    document.body.appendChild(panel);
+    await vi.waitFor(() => expect(loaded).toHaveBeenCalledTimes(1));
+    const detail = loaded.mock.calls[0][0] as ProgressionMe;
+    expect(detail.titles).toEqual(["veteran", "prestige:1"]);
+    expect(detail.selectedTitle).toBe("veteran");
+    expect(detail.nextMilestone?.level).toBe(50);
+    // and again on a refresh
+    await panel.refresh();
+    expect(loaded).toHaveBeenCalledTimes(2);
+  });
+
+  it("announces nothing when the read fails", async () => {
+    panel = document.createElement("progression-panel") as ProgressionPanel;
+    const loaded = vi.fn();
+    panel.addEventListener("progression-loaded", loaded);
+    panel.load = vi.fn(async () => false as const);
+    document.body.appendChild(panel);
+    await vi.waitFor(() => expect(panel.load).toHaveBeenCalled());
+    await panel.updateComplete;
+    expect(loaded).not.toHaveBeenCalled();
   });
 
   it("lists the season with its XP and when it ends", async () => {
@@ -252,11 +258,115 @@ describe("<progression-panel>", () => {
       open.querySelector("[data-xp-bar]")?.getAttribute("aria-valuenow"),
     ).toBe("50");
     const weekly = q('[data-progression-challenge="w_wins_5"]')!;
-    expect(weekly.textContent).toContain("progression.credits");
+    expect(weekly.querySelector("[data-progression-credits]")).not.toBeNull();
+    expect(weekly.textContent).toContain('"credits":"150"');
     expect(
       weekly.querySelector("[data-xp-bar]")?.getAttribute("aria-valuenow"),
     ).toBe("40");
-    expect(open.textContent).not.toContain("progression.credits");
+    expect(open.querySelector("[data-progression-credits]")).toBeNull();
+  });
+
+  it("heads the card with how many challenges are complete", async () => {
+    await mount(me());
+    const card = q("[data-progression-challenges]")!;
+    expect(card.querySelector("h3")?.textContent).toContain(
+      "progression.challenges_title",
+    );
+    // one of the four is done
+    expect(q("[data-progression-total]")?.textContent).toBe(
+      'progression.challenges_complete:{"done":1,"total":4}',
+    );
+  });
+
+  it("counts none done, and all done", async () => {
+    const data = me();
+    for (const c of [
+      ...data.challenges.daily.items,
+      ...data.challenges.weekly.items,
+    ]) {
+      c.completed = false;
+      c.progress = 0;
+    }
+    await mount(data);
+    expect(q("[data-progression-total]")?.textContent).toContain('"done":0');
+    for (const c of [
+      ...data.challenges.daily.items,
+      ...data.challenges.weekly.items,
+    ]) {
+      c.completed = true;
+      c.progress = c.target;
+    }
+    // a fresh read, as the server would answer it
+    (panel.load as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      structuredClone(data),
+    );
+    await panel.refresh();
+    await panel.updateComplete;
+    expect(q("[data-progression-total]")?.textContent).toContain('"done":4');
+  });
+
+  it("gives the daily and the weekly set each their own heading and reset timer", async () => {
+    await mount(me());
+    const daily = q('[data-progression-period="daily"]')!;
+    const weekly = q('[data-progression-period="weekly"]')!;
+    expect(daily.querySelector("h4")?.textContent).toContain(
+      "progression.challenges_daily",
+    );
+    expect(weekly.querySelector("h4")?.textContent).toContain(
+      "progression.challenges_weekly",
+    );
+    // 12h to the next UTC midnight, 5d 12h to the next Monday
+    expect(
+      daily.querySelector("[data-progression-resets]")?.textContent,
+    ).toContain('"time":"12h 0m"');
+    expect(
+      weekly.querySelector("[data-progression-resets]")?.textContent,
+    ).toContain('"time":"4d 12h"');
+  });
+
+  it("shows each row's name, count and a reward column of its own", async () => {
+    await mount(me());
+    const open = q('[data-progression-challenge="d_games_2"]')!;
+    expect(open.textContent).toContain("progression.challenge_d_games_2");
+    // progress / target over the bar, the reward in a separate column
+    expect(open.querySelector("[data-progression-count]")?.textContent).toBe(
+      "1 / 2",
+    );
+    const reward = open.querySelector("[data-progression-reward]")!;
+    expect(reward.textContent).toContain('"xp":"200"');
+    expect(reward.className).toContain("border-l");
+    expect(reward.className).toContain("shrink-0");
+    expect(reward.contains(open.querySelector("[data-xp-bar]"))).toBe(false);
+    // a long name wraps inside its column instead of pushing the reward out
+    const name = open.querySelector("span.min-w-0")!;
+    expect(name.className).toContain("break-words");
+  });
+
+  it("marks a completed row and clamps its count", async () => {
+    const data = me();
+    data.challenges.daily.items[1].progress = 3;
+    await mount(data);
+    const done = q('[data-progression-challenge="d_win_1"]')!;
+    expect(
+      done.querySelector("[data-progression-count]")?.textContent,
+    ).toContain("progression.challenge_completed");
+    expect(
+      done.querySelector("[data-xp-bar]")?.getAttribute("aria-valuenow"),
+    ).toBe("100");
+  });
+
+  it("puts the Credits reward under the XP only where there is one", async () => {
+    await mount(me());
+    const weekly = q('[data-progression-challenge="w_wins_5"]')!;
+    const reward = weekly.querySelector("[data-progression-reward]")!;
+    const xp = reward.firstElementChild!;
+    expect(xp.textContent).toContain("progression.xp_total");
+    expect(reward.querySelector("credits-icon")).not.toBeNull();
+    expect(
+      [...reward.children].indexOf(
+        reward.querySelector("[data-progression-credits]")!,
+      ),
+    ).toBe(1);
   });
 
   it("lists recent XP, a revoke as a negative amount", async () => {
@@ -284,6 +394,6 @@ describe("<progression-panel>", () => {
     load.mockResolvedValueOnce(me({ selectedTitle: null }));
     await panel.refresh();
     await panel.updateComplete;
-    expect((q("[data-progression-title]") as HTMLSelectElement).value).toBe("");
+    expect(load).toHaveBeenCalledTimes(2);
   });
 });

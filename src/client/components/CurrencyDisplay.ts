@@ -41,6 +41,10 @@ export class CurrencyDisplay extends LitElement {
   @property({ type: Boolean })
   compact = false;
 
+  // The account header's figure: Credits as the big number of the card.
+  @property({ type: Boolean })
+  large = false;
+
   createRenderRoot() {
     return this;
   }
@@ -55,15 +59,22 @@ export class CurrencyDisplay extends LitElement {
     if (hard === null && soft === null) return html``;
 
     const compact = this.compact;
+    const large = this.large && !compact;
     const row = compact
       ? "flex items-center gap-3 text-xs"
-      : "flex gap-3 justify-center";
+      : large
+        ? "flex flex-wrap items-center gap-x-5 gap-y-1 sm:justify-end"
+        : "flex gap-3 justify-center";
     const hardText = compact
       ? "text-xs text-green-400/70"
-      : "text-sm font-bold text-green-400";
+      : large
+        ? "text-2xl font-black leading-none tabular-nums text-green-400"
+        : "text-sm font-bold text-green-400";
     const softText = compact
       ? "text-xs text-df-text-secondary"
-      : "text-sm font-bold text-white";
+      : large
+        ? "text-3xl font-black leading-none tabular-nums text-white"
+        : "text-sm font-bold text-white";
 
     return html`
       <div class="${row}">
@@ -73,7 +84,9 @@ export class CurrencyDisplay extends LitElement {
               class="flex items-center gap-1.5"
               title=${translateText("cosmetics.hard")}
             >
-              <plutonium-icon .size=${compact ? 12 : 16}></plutonium-icon>
+              <plutonium-icon
+                .size=${compact ? 12 : large ? 24 : 16}
+              ></plutonium-icon>
               <span class="${hardText}">${hard}</span>
             </div>`}
         ${soft === null
@@ -83,8 +96,8 @@ export class CurrencyDisplay extends LitElement {
               title=${translateText("cosmetics.soft")}
             >
               <credits-icon
-                .size=${compact ? 14 : 20}
-                style=${compact ? "" : "margin-top:3px"}
+                .size=${compact ? 14 : large ? 30 : 20}
+                style=${compact || large ? "" : "margin-top:3px"}
               ></credits-icon>
               <span class="${softText}">${soft}</span>
             </div>`}

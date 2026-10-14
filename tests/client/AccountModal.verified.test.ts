@@ -174,9 +174,15 @@ describe("AccountModal — verified account status", () => {
 
     expect(modal.querySelector("#account-verified-chip")).not.toBeNull();
     expect(modal.querySelector("#account-staff-chip")).not.toBeNull();
-    // The sign-in identity is rendered outside the status block.
+    // The sign-in identity is rendered outside the status block: under the
+    // name in the header, and as a row of the Linked accounts card.
     expect(status()?.textContent).not.toContain("owner@example.com");
-    expect(modal.textContent).toContain("account_modal.linked_account");
+    expect(
+      modal.querySelector("[data-account-handle]")?.textContent?.trim(),
+    ).toBe("owner@example.com");
+    expect(
+      modal.querySelector('[data-linked-provider="google"]')?.textContent,
+    ).toContain("owner@example.com");
   });
 
   it("each staff role gets its own chip and badge, never another role's", async () => {

@@ -448,8 +448,11 @@ describe("AccountModal — rendering", () => {
     );
 
     const text = modal.textContent ?? "";
-    // The linked state, not the CTA.
-    expect(text).toContain("account_modal.linked_to_steam");
+    // The linked state, not the CTA: a Steam row marked Linked.
+    const row = modal.querySelector('[data-linked-provider="steam"]')!;
+    expect(row.querySelector("[data-linked-status]")?.textContent).toContain(
+      "account_modal.link_status_linked",
+    );
     // The attached account is NAMED, not just reported as linked: a wrong link
     // cannot be undone by the player, so noticing it immediately is what makes
     // a support fix possible.
