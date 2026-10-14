@@ -140,6 +140,91 @@ describe("the post-game XP breakdown", () => {
   });
 });
 
+describe("a reduced game (private, unlisted or low-population)", () => {
+  function reduced(reason: string): GameXpEligible {
+    const base = result();
+    return result({
+      mode: "reduced",
+      breakdown: {
+        ...base.breakdown,
+        placement: 0,
+        win: 0,
+        eliminations: 25,
+        eliminationCount: 1,
+        firstGame: 0,
+        firstWin: 0,
+        subtotal: 125,
+        gamePermille: 250,
+        playerCount: 0,
+        reducedReason: reason,
+        total: 31,
+      },
+      before: { prestige: 0, level: 29, xpInLevel: 100, xpForNext: 3000 },
+      after: { ...base.after, level: 29, xpInLevel: 131 },
+      levelsReached: [],
+    });
+  }
+
+  it("names the multiplier for why the game was reduced, with ×0.25", () => {
+    for (const [reason, key] of [
+      ["private_game", "reduced_private"],
+      ["unlisted_game", "reduced_unlisted"],
+      ["public_too_few_humans", "reduced_low_pop"],
+    ] as const) {
+      expect(visibleMultipliers(reduced(reason).breakdown), reason).toEqual([
+        { key, permille: 250 },
+      ]);
+    }
+  });
+
+  it("shows only the lines a reduced game pays: completed match and eliminations", () => {
+    expect(
+      visibleXpLines(reduced("private_game").breakdown).map((l) => [
+        l.key,
+        l.amount,
+      ]),
+    ).toEqual([
+      ["played", 100],
+      ["eliminations", 25],
+    ]);
+  });
+
+  it("is shown as an earned result, never as an ineligible game", async () => {
+    await show(reduced("private_game"));
+    expect(q('[data-xp-state="result"]')).not.toBeNull();
+    expect(q('[data-xp-state="ineligible"]')).toBeNull();
+    expect(q('[data-xp-multiplier="reduced_private"]')?.textContent).toContain(
+      'progression.reduced_line:{"source":"progression.multiplier_reduced_private","multiplier":"0.25"}',
+    );
+    expect(q("[data-xp-total]")?.textContent).toContain('"xp":"31"');
+    expect(q('[data-xp-note="reduced"]')?.textContent).toContain(
+      "progression.note_reduced",
+    );
+    // no competitive extras
+    expect(q("[data-xp-challenges]")).toBeNull();
+    expect(q("[data-xp-season]")).toBeNull();
+  });
+
+  it("labels each reduced reason", async () => {
+    for (const [reason, label] of [
+      ["unlisted_game", "multiplier_reduced_unlisted"],
+      ["public_too_few_humans", "multiplier_reduced_low_pop"],
+    ]) {
+      await show(reduced(reason));
+      expect(q('[data-xp-multiplier^="reduced_"]')?.textContent).toContain(
+        `progression.${label}`,
+      );
+    }
+  });
+
+  it("leaves a full game's breakdown and notes unchanged", async () => {
+    await show(result());
+    expect(q('[data-xp-note="reduced"]')).toBeNull();
+    expect(q('[data-xp-multiplier="game"]')).not.toBeNull();
+    expect(q('[data-xp-multiplier^="reduced_"]')).toBeNull();
+  });
+});
+
 describe("rank promotion", () => {
   it("is found from the levels a game crossed", () => {
     expect(

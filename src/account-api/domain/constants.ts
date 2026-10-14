@@ -76,6 +76,12 @@ export const PROGRESSION = deepFreeze({
     { upTo: 30, permille: 1_150 },
     { upTo: Number.MAX_SAFE_INTEGER, permille: 1_250 },
   ],
+  /**
+   * The multiplier of a REDUCED game (a private or unlisted game, or a public
+   * one with too few humans): completed-match and elimination XP only, to
+   * lifetime XP only. Nothing else is paid and nothing competitive advances.
+   */
+  reducedPermille: 250,
   /** Reserved for ranked games (they do not count yet, so it never applies). */
   rankedPermille: 1_100,
   /** Repeated opponents: games both completed in the window, among a small group. */

@@ -27,6 +27,8 @@ import {
   clientsWhoActed,
   isFreeForAll,
   placements,
+  progressionEligibility,
+  type ProgressionEligibility,
 } from "./xp";
 
 /**
@@ -229,6 +231,17 @@ export async function ingestGameRecord(
     adminModified,
   });
   const counted = verdict.counted;
+  // How far the game advances progression: the stats rule decides "full", and a
+  // private, unlisted or low-population game is "reduced" instead of nothing.
+  const eligibility = progressionEligibility({
+    source: "server",
+    type: type ?? undefined,
+    rankedType,
+    durationSeconds,
+    accountHolders: players.length,
+    adminModified,
+    listed: info.listed ?? null,
+  });
   const endedAt = new Date(info.end);
 
   return withTransaction(pool, async (tx) => {
@@ -280,7 +293,7 @@ export async function ingestGameRecord(
         ? null
         : await buildXpContext(tx, {
             record,
-            verdict,
+            eligibility,
             players,
             endedAt,
             map: text(config.gameMap),
@@ -370,7 +383,7 @@ async function buildXpContext(
   tx: PoolClient,
   input: {
     record: GameRecord;
-    verdict: ReturnType<typeof countedVerdict>;
+    eligibility: ProgressionEligibility;
     players: ResolvedPlayer[];
     endedAt: Date;
     map: string | null;
@@ -378,11 +391,13 @@ async function buildXpContext(
     validFlares: ReadonlySet<string> | null;
   },
 ): Promise<GameXpContext> {
-  const { record, verdict, players } = input;
+  const { record, eligibility, players } = input;
+  // The completed-game rule is the Credits one; a reduced game is judged by it
+  // too (there was a winner, the player survived or lasted two minutes).
   const completed = completedByClient(
     record,
     players.map((p) => p.clientID),
-    verdict.counted,
+    eligibility.mode !== "none",
   );
   const acted = clientsWhoActed(record.turns);
   const eligible = players
@@ -392,7 +407,7 @@ async function buildXpContext(
     record,
     gameCode: record.info.gameID,
     endedAt: input.endedAt,
-    verdict,
+    eligibility,
     isFfa: input.isFfa,
     placement: placements(record, input.isFfa),
     acted,
@@ -400,7 +415,9 @@ async function buildXpContext(
     completed,
     eligible,
     map: input.map,
-    season: verdict.counted ? await seasonAt(tx, input.endedAt) : null,
+    // Only a full game counts for a season: reduced XP is lifetime XP only.
+    season:
+      eligibility.mode === "full" ? await seasonAt(tx, input.endedAt) : null,
     env: { validFlares: input.validFlares },
   };
 }

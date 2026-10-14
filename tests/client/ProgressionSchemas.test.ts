@@ -331,3 +331,24 @@ describe("progression response schemas added with seasons and challenges", () =>
     ).toBeUndefined();
   });
 });
+
+describe("reduced XP results", () => {
+  it("reads the mode and the reason, and an old result without them", () => {
+    const reduced = GameXpResponseSchema.parse({
+      ...eligible,
+      mode: "reduced",
+      breakdown: { ...eligible.breakdown, reducedReason: "private_game" },
+    });
+    if (!reduced.eligible) throw new Error("expected eligible");
+    expect(reduced.mode).toBe("reduced");
+    expect(reduced.breakdown.reducedReason).toBe("private_game");
+    const old = GameXpResponseSchema.parse(eligible);
+    if (!old.eligible) throw new Error("expected eligible");
+    expect(old.mode).toBeUndefined();
+    expect(old.breakdown.reducedReason).toBeUndefined();
+    // an unknown mode from a newer API does not fail the result
+    const future = GameXpResponseSchema.parse({ ...eligible, mode: "bonus" });
+    if (!future.eligible) throw new Error("expected eligible");
+    expect(future.mode).toBeUndefined();
+  });
+});

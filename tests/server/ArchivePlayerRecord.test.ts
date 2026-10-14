@@ -166,6 +166,41 @@ describe("archived game records", () => {
     ).toBe(true);
   });
 
+  it("carries the game's listed flag into the record, so the API can tell an unlisted game", async () => {
+    for (const listed of [false, true]) {
+      archive.mockClear();
+      const game = makeGame({
+        config: { gameType: GameType.Private },
+        deps: { archive },
+      });
+      const a = makeClient({
+        clientID: cid(`a${listed}`),
+        persistentID: "a-pid",
+        ip: "1.1.1.1",
+      });
+      const b = makeClient({
+        clientID: cid(`b${listed}`),
+        persistentID: "b-pid",
+        ip: "2.2.2.2",
+      });
+      game.joinClient(a);
+      game.joinClient(b);
+      startGame(game);
+      // what the server stamped at start is what the record carries
+      (
+        game as unknown as { gameStartInfo: { listed?: boolean } }
+      ).gameStartInfo.listed = listed;
+      for (const c of [a, b]) {
+        await mockWsOf(c).emit({
+          type: "winner",
+          winner: ["player", cid(`a${listed}`)],
+          allPlayersStats: {},
+        });
+      }
+      expect(archived().info.listed, `listed=${listed}`).toBe(listed);
+    }
+  });
+
   it("a game with no staff commands carries no adminActions", async () => {
     const game = makeGame({
       config: { gameType: GameType.Public },

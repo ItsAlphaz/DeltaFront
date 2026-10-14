@@ -1306,19 +1306,30 @@ export class GameXpPanel extends LitElement {
   // What changed the award beyond its lines: a cap that held it back.
   private renderNotes(data: GameXpEligible): TemplateResult | typeof nothing {
     const b = data.breakdown;
-    if (!b.softCapped && !b.capped) return nothing;
+    const reduced = data.mode === "reduced";
+    if (!b.softCapped && !b.capped && !reduced) return nothing;
     return this.collapsible(
       this.awardSettled(),
-      html`<p
-        data-xp-note=${b.softCapped ? "soft_cap" : "cap"}
-        class="m-0 mt-3 text-center text-xs text-amber-300"
-      >
-        ${translateText(
-          b.softCapped
-            ? "progression.note_soft_cap"
-            : "progression.note_match_cap",
-        )}
-      </p>`,
+      html`${reduced
+        ? html`<p
+            data-xp-note="reduced"
+            class="m-0 mt-3 text-center text-xs text-white/60"
+          >
+            ${translateText("progression.note_reduced")}
+          </p>`
+        : nothing}
+      ${b.softCapped || b.capped
+        ? html`<p
+            data-xp-note=${b.softCapped ? "soft_cap" : "cap"}
+            class="m-0 mt-3 text-center text-xs text-amber-300"
+          >
+            ${translateText(
+              b.softCapped
+                ? "progression.note_soft_cap"
+                : "progression.note_match_cap",
+            )}
+          </p>`
+        : nothing}`,
     );
   }
 

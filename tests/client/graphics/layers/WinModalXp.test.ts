@@ -328,6 +328,46 @@ describe("WinModal XP section", () => {
     );
   });
 
+  it("shows a reduced (private) game as earned XP with its reason, not as an ineligible game", async () => {
+    stubXpEndpoint([
+      () =>
+        json(
+          eligible({
+            mode: "reduced",
+            breakdown: {
+              leftEarly: false,
+              played: 100,
+              time: 0,
+              placement: 0,
+              win: 0,
+              eliminations: 25,
+              eliminationCount: 1,
+              firstGame: 0,
+              firstWin: 0,
+              feats: 0,
+              subtotal: 125,
+              gamePermille: 250,
+              subscriberPermille: 1000,
+              repeatPermille: 1000,
+              playerCount: 0,
+              capped: false,
+              softCapped: false,
+              reducedReason: "private_game",
+              total: 31,
+            },
+          }),
+        ),
+    ]);
+    await mount(makeGame({ ended: true, gameType: GameType.Private }));
+    await finishReveal();
+    expect(xpState()).toBe("result");
+    expect(
+      panel()!.querySelector('[data-xp-multiplier="reduced_private"]')
+        ?.textContent,
+    ).toContain("progression.multiplier_reduced_private");
+    expect(panel()!.textContent).not.toContain("progression.ineligible");
+  });
+
   it("doesn't ask the API about a singleplayer game at all", async () => {
     const fetchMock = stubXpEndpoint([
       () => json({ gameId: GAME_ID, eligible: false, reason: "unverified" }),

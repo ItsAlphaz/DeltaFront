@@ -180,7 +180,25 @@ export function visibleXpLines(
   return lines;
 }
 
-export type XpMultiplierKey = "game" | "subscriber" | "repeat";
+export type XpMultiplierKey =
+  | "game"
+  | "subscriber"
+  | "repeat"
+  // A reduced game (lifetime XP only): why it was reduced.
+  | "reduced_private"
+  | "reduced_unlisted"
+  | "reduced_low_pop";
+
+/** The multiplier key of a reduced game's reason (an unknown reason reads as private). */
+export function reducedKey(reason: string | undefined): XpMultiplierKey {
+  if (reason === "unlisted_game") return "reduced_unlisted";
+  if (reason === "public_too_few_humans") return "reduced_low_pop";
+  return "reduced_private";
+}
+
+export function isReducedKey(key: XpMultiplierKey): boolean {
+  return key.startsWith("reduced_");
+}
 
 /**
  * The multipliers worth showing: anything other than 1x. "game" is the
@@ -191,7 +209,15 @@ export function visibleMultipliers(
 ): { key: XpMultiplierKey; permille: number }[] {
   const out: { key: XpMultiplierKey; permille: number }[] = [];
   if (breakdown.gamePermille !== 1000) {
-    out.push({ key: "game", permille: breakdown.gamePermille });
+    // A reduced game's multiplier is named for why it was reduced, not for the
+    // player count.
+    out.push({
+      key:
+        breakdown.reducedReason === undefined
+          ? "game"
+          : reducedKey(breakdown.reducedReason),
+      permille: breakdown.gamePermille,
+    });
   }
   if (breakdown.repeatPermille !== 1000) {
     out.push({ key: "repeat", permille: breakdown.repeatPermille });
@@ -266,6 +292,7 @@ const INELIGIBLE_REASON_KEYS: Record<string, string> = {
   custom_settings: "progression.ineligible_custom_settings",
   too_few_humans: "progression.ineligible_too_few_humans",
   daily_cap: "progression.ineligible_daily_cap",
+  singleplayer: "progression.ineligible_singleplayer",
   private_game: "progression.ineligible_private_game",
   ranked: "progression.ineligible_ranked",
   admin_modified: "progression.ineligible_admin_modified",

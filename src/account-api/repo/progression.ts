@@ -231,19 +231,25 @@ export async function recentXp(
   db: Db,
   userId: string,
   limit: number = PROGRESSION.historyRows,
-): Promise<Array<{ amount: number; source: string; at: string }>> {
+): Promise<
+  Array<{ amount: number; source: string; detail: string | null; at: string }>
+> {
   const { rows } = await db.query<{
     delta: string;
     source: string;
+    reason: string | null;
     created_at: Date;
   }>(
-    `SELECT delta::text AS delta, source, created_at FROM xp_ledger
+    `SELECT delta::text AS delta, source, reason, created_at FROM xp_ledger
       WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`,
     [userId, limit],
   );
   return rows.map((r) => ({
     amount: Number(r.delta),
     source: r.source,
+    // Only a match carries one (why it was reduced); a staff change's reason is
+    // staff's own note and is not shown to the player.
+    detail: r.source === "match" ? r.reason : null,
     at: r.created_at.toISOString(),
   }));
 }

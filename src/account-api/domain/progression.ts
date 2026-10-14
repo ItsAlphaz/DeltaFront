@@ -22,10 +22,11 @@ import {
   type GameMetrics,
 } from "./challenges";
 import { ECONOMY, PERMILLE, PROGRESSION } from "./constants";
-import { isCompleted, resultFor, type CountedVerdict } from "./stats";
+import { isCompleted, resultFor } from "./stats";
 import {
   alliancesFormed,
   computeMatchXp,
+  computeReducedXp,
   goldEarned,
   repeatPermille,
   secondsSurvived,
@@ -33,6 +34,7 @@ import {
   validEliminations,
   type PlacementTable,
   type PlayerIneligibleReason,
+  type ProgressionEligibility,
 } from "./xp";
 
 /**
@@ -367,7 +369,8 @@ export interface GameXpContext {
   record: GameRecord;
   gameCode: string;
   endedAt: Date;
-  verdict: CountedVerdict;
+  /** How far this game advances progression (see progressionEligibility). */
+  eligibility: ProgressionEligibility;
   isFfa: boolean;
   placement: PlacementTable;
   acted: ReadonlySet<string>;
@@ -392,6 +395,8 @@ export type StoredXpResult =
   | { eligible: false; reason: string }
   | {
       eligible: true;
+      /** "reduced": lifetime XP only (see progressionEligibility). */
+      mode: "full" | "reduced";
       breakdown: ReturnType<typeof computeMatchXp>["breakdown"] & {
         leftEarly: false;
         time: 0;
@@ -640,6 +645,89 @@ async function progressChallenges(
 }
 
 /**
+ * A reduced game (private, unlisted, or public with too few humans): completed
+ * match and valid eliminations at a quarter, to lifetime XP ONLY. It is not
+ * an exception inside the full path: nothing here touches the season, the
+ * challenges, clan XP or the daily first-game and first-win bonuses.
+ */
+async function awardReducedXp(
+  tx: PoolClient,
+  ctx: GameXpContext,
+  player: GamePlayer,
+): Promise<PlayerXpOutcome> {
+  const startRow = await lockProgress(tx, player.userId);
+  const before = position(startRow);
+  const day = utcDay(ctx.endedAt);
+  await tx.query(
+    `INSERT INTO xp_daily (user_id, day) VALUES ($1, $2::date) ON CONFLICT DO NOTHING`,
+    [player.userId, day],
+  );
+  const daily = await tx.query<{ match_xp: string }>(
+    `SELECT match_xp::text AS match_xp FROM xp_daily
+      WHERE user_id = $1 AND day = $2::date FOR UPDATE`,
+    [player.userId, day],
+  );
+  const reduced = computeReducedXp({
+    reason: ctx.eligibility.reason,
+    eliminations: validEliminations(ctx.record, player.clientID),
+    earnedToday: Number(daily.rows[0].match_xp),
+  });
+  const paid = reduced.breakdown.total;
+  let progress = startRow;
+  const levels: LevelUp[] = [];
+  if (paid > 0) {
+    const applied = await applyXp(
+      tx,
+      player.userId,
+      progress,
+      paid,
+      {
+        source: "match",
+        refType: "game",
+        refId: ctx.gameCode,
+        rewardDay: day,
+        // No season: reduced XP is lifetime XP only. The ledger remembers why.
+        season: null,
+        seasonDelta: 0,
+        reason: ctx.eligibility.reason,
+      },
+      ctx.env,
+    );
+    if (!applied.applied) return ineligible("duplicate");
+    progress = applied.after;
+    levels.push(...applied.levels);
+  }
+  // Counts towards the day's soft cap, but spends no daily bonus.
+  await tx.query(
+    `UPDATE xp_daily SET match_xp = match_xp + $3 WHERE user_id = $1 AND day = $2::date`,
+    [player.userId, day, paid],
+  );
+  const flags = [...reduced.flags];
+  if (ctx.adminSenders.size > 0) flags.push("admin_counted");
+  return {
+    xpAwarded: paid,
+    clanXp: 0,
+    result: {
+      eligible: true,
+      mode: "reduced",
+      breakdown: {
+        ...reduced.breakdown,
+        leftEarly: false,
+        time: 0,
+        feats: 0,
+        subscriberPermille: PERMILLE,
+      },
+      before,
+      after: stateOf(progress),
+      levelsReached: levels,
+      challenges: [],
+      season: null,
+      flags,
+    },
+  };
+}
+
+/**
  * What one player's part in a finished game is worth, written on the caller's
  * transaction. Returns what to store on their `game_players` row. A game that
  * does not count, or a player who does not qualify, gets a stored reason and
@@ -651,10 +739,14 @@ export async function awardPlayerXp(
   gameId: string,
   player: GamePlayer,
 ): Promise<PlayerXpOutcome> {
-  if (!ctx.verdict.counted)
-    return ineligible(ctx.verdict.reason ?? "not_counted");
+  if (ctx.eligibility.mode === "none") {
+    return ineligible(ctx.eligibility.reason);
+  }
   const reason = playerIneligibleReason(ctx, player);
   if (reason !== null) return ineligible(reason);
+  if (ctx.eligibility.mode === "reduced") {
+    return awardReducedXp(tx, ctx, player);
+  }
 
   const startRow = await lockProgress(tx, player.userId);
   const before = position(startRow);
@@ -763,6 +855,7 @@ export async function awardPlayerXp(
         : Math.floor((paid * PROGRESSION.clanXpPermille) / PERMILLE),
     result: {
       eligible: true,
+      mode: "full",
       breakdown: {
         ...match.breakdown,
         leftEarly: false,

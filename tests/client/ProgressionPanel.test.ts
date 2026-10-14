@@ -114,6 +114,24 @@ function me(over: Partial<ProgressionMe> = {}): ProgressionMe {
     selectedTitle: "veteran",
     history: [
       { amount: 620, source: "match", at: "2026-10-14T10:00:00Z" },
+      {
+        amount: 31,
+        source: "match",
+        detail: "private_game",
+        at: "2026-10-14T09:30:00Z",
+      },
+      {
+        amount: 25,
+        source: "match",
+        detail: "public_too_few_humans",
+        at: "2026-10-14T09:20:00Z",
+      },
+      {
+        amount: 25,
+        source: "match",
+        detail: "unlisted_game",
+        at: "2026-10-14T09:10:00Z",
+      },
       { amount: -50, source: "admin_revoke", at: "2026-10-14T09:00:00Z" },
     ],
     levelHidden: false,
@@ -245,9 +263,19 @@ describe("<progression-panel>", () => {
     await mount(me());
     const history = q("[data-progression-history]")!;
     expect(history.textContent).toContain("progression.history_match");
-    expect(history.textContent).toContain('progression.xp_plus:{"xp":"620"}');
+    expect(history.textContent).toContain(
+      'progression.history_plus:{"xp":"620"}',
+    );
     expect(history.textContent).toContain("progression.history_admin_revoke");
-    expect(history.textContent).toContain('progression.xp_minus:{"xp":"50"}');
+    expect(history.textContent).toContain(
+      'progression.history_minus:{"xp":"50"}',
+    );
+    // a reduced match says why, in words, never an internal name
+    expect(history.textContent).toContain("progression.history_match_private");
+    expect(history.textContent).toContain("progression.history_match_low_pop");
+    expect(history.textContent).toContain("progression.history_match_unlisted");
+    expect(history.textContent).not.toContain("private_game");
+    expect(history.textContent).not.toContain("reduced");
   });
 
   it("refresh() reads it again", async () => {

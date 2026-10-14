@@ -52,19 +52,37 @@ numbers.
 Decided when the game server submits the finished game (`domain/ingest.ts`, the same
 transaction that stores the game and pays Credits). Nothing comes from a browser.
 
-**Game-level eligibility is the existing "counts for stats" rule** (`countedVerdict` in
-`domain/stats.ts`): a Public, unranked game, submitted by a game server, not changed by
-staff tests (the owner's commands in a public or listed game leave the result intact,
-see [StaffAdmin.md](StaffAdmin.md)), with at least two account holders and at least two
-minutes. There is no second eligibility rule. A game that does not count stores the
-reason (`private_game`, `ranked`, `admin_modified`, `too_few_humans`, `too_short`).
+### How far a game progresses: full, reduced, none
 
-**Player-level**, for a game that counts: a registered account (guests earn nothing but
-count towards the player-count multiplier), who completed the game (the Credits rule:
-there was a winner and they survived to the end, or were eliminated after two minutes,
-and were connected), took a gameplay action, and did not send an admin command in this
-game (`admin_actor`: the owner cannot farm XP with their tools; everyone else in the
-game is still paid).
+One authoritative answer per game, `progressionEligibility` in `domain/xp.ts`
+(`{ mode: "full" | "reduced" | "none", reason }`), built on the stats rule
+(`countedVerdict` in `domain/stats.ts`):
+
+| Game                                                                    | Mode        | Reason                  |
+| ----------------------------------------------------------------------- | ----------- | ----------------------- |
+| A qualifying public game (the stats rule)                               | **full**    | `normal_public`         |
+| A public game with too few eligible humans                              | **reduced** | `public_too_few_humans` |
+| A private lobby that was publicly listed (or a record that doesn't say) | **reduced** | `private_game`          |
+| An unlisted private lobby                                               | **reduced** | `unlisted_game`         |
+| Singleplayer                                                            | none        | `singleplayer`          |
+| Ranked (not served yet)                                                 | none        | `ranked`                |
+| A game staff tests changed (whatever kind it was)                       | none        | `admin_modified`        |
+| A game shorter than the stats minimum (two minutes), reduced or not     | none        | `too_short`             |
+
+The owner's commands in a counted public or listed game leave the result intact (see
+[StaffAdmin.md](StaffAdmin.md)). The game server records whether a private lobby was
+listed (`info.listed`); the client never decides any of this.
+
+**Player-level**, for a game that is full or reduced: a registered account (guests earn
+nothing, but count towards the player-count multiplier of a full game), who completed the
+game (the Credits rule: there was a winner and they survived to the end, or were
+eliminated after two minutes, and were connected), took a gameplay action, and did not
+send an admin command in this game (`admin_actor`: nobody farms XP with their tools;
+everyone else in the game is still paid). A player who does not qualify has a stored reason
+(`guest`, `no_action`, `left_early`, `eliminated_early`, `not_spawned`, `no_winner`,
+`admin_actor`).
+
+### Full progression
 
 | Line                               | XP                                                                                         |
 | ---------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -77,7 +95,8 @@ game is still paid).
 
 `subtotal × player-count × repeated-opponents`, rounded down, then capped at **1,250**
 per match, then the **daily soft cap**: match XP above 6,000 in a UTC day is paid at
-25% (the game that crosses the line is split; there is no hard stop).
+25% (the game that crosses the line is split; there is no hard stop). Full games also
+advance the season, the challenges and clan XP.
 
 **Player-count multiplier**, by eligible humans (account holders who completed the game
 and acted; bots, nations, leavers and idle players do not count): 1–2 ×0.10 · 3–5 ×0.50 ·
@@ -88,12 +107,24 @@ least ×0.5.
 half of them have completed 5+ counted games with the player in the previous 24 hours the
 award is ×0.5, and ×0.25 if more than half have 10+. Flagged `repeat_group`.
 
+### Reduced progression
+
+Completed-match XP plus valid elimination XP (same rules and limit of 6), × **0.25**,
+rounded down, to **lifetime XP only**: `(100 + 25) × 0.25 = 31`. Nothing else is paid:
+no placement, victory, first-game or first-win XP (and none of the day's bonuses is
+used up), no season XP and no season leaderboard entry, no daily or weekly challenge
+progress, no clan XP. It still counts towards the per-match cap and the daily soft cap,
+and a level milestone reached because lifetime XP crossed a level still unlocks its
+reward. The ledger row records why (`private_game`, `unlisted_game`,
+`public_too_few_humans`), and the post-game screen and the XP history say so in words
+("Private Match ×0.25", "Low-population Match").
+
 Review flags stored with each game (`xp_result.flags`, shown on the admin user page):
-`repeat_group`, `soft_cap`, `cap_hit`, `admin_counted`, `tiny_win`.
+`reduced`, `repeat_group`, `soft_cap`, `cap_hit`, `admin_counted`, `tiny_win`.
 
 ## Anti-farming
 
-Counted-game gate, no private, ranked or singleplayer XP, no XP for leavers or players
+Counted-game gate for the full award (private, unlisted and low-population games pay only the reduced, lifetime-only one; ranked and singleplayer pay nothing), no XP for leavers or players
 who never acted, bots and nations excluded, elimination limit and victim survival
 rule, the player-count and repeated-opponent multipliers, the per-match cap, the daily
 soft cap, one transaction per game keyed on the game code with unique ledger rows. No

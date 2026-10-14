@@ -1,5 +1,6 @@
 import { html, nothing, TemplateResult } from "lit";
 import {
+  isReducedKey,
   multiplierPercent,
   subscriberTierOf,
   type XpMultiplierKey,
@@ -16,6 +17,9 @@ export function formatXp(amount: number): string {
 // Spelled out in full so the translation checks can see every key.
 const MULTIPLIER_KEYS = {
   game: "progression.multiplier_game",
+  reduced_private: "progression.multiplier_reduced_private",
+  reduced_unlisted: "progression.multiplier_reduced_unlisted",
+  reduced_low_pop: "progression.multiplier_reduced_low_pop",
   repeat: "progression.multiplier_repeat",
   subscriber: "progression.multiplier_subscriber",
   sovereign: "progression.multiplier_sovereign",
@@ -29,6 +33,13 @@ const MULTIPLIER_KEYS = {
  * no known tier, or "−50% XP (GAME TYPE)" for a cut.
  */
 export function xpBonusText(key: XpMultiplierKey, permille: number): string {
+  // A reduced game reads "Private Match ×0.25", not a percentage.
+  if (isReducedKey(key)) {
+    return translateText("progression.reduced_line", {
+      source: translateText(MULTIPLIER_KEYS[key]),
+      multiplier: String(permille / 1000),
+    });
+  }
   const percent = multiplierPercent(permille);
   const tier = key === "subscriber" ? subscriberTierOf(permille) : null;
   return translateText(

@@ -2188,6 +2188,7 @@ export class GameServer {
         [...this.reports.values()],
         this.publicGameType,
         this.adminActionRecords(),
+        this.gameStartInfo.listed,
       ),
     );
   }

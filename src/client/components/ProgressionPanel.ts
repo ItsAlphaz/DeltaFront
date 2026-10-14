@@ -28,12 +28,24 @@ export function compactDuration(ms: number): string {
 // Spelled out in full so the translation checks can see every key.
 const SOURCE_KEYS: Record<string, string> = {
   match: "progression.history_match",
+  match_private_game: "progression.history_match_private",
+  match_unlisted_game: "progression.history_match_unlisted",
+  match_public_too_few_humans: "progression.history_match_low_pop",
   daily_challenge: "progression.history_daily_challenge",
   weekly_challenge: "progression.history_weekly_challenge",
   admin_grant: "progression.history_admin_grant",
   admin_revoke: "progression.history_admin_revoke",
   admin_set: "progression.history_admin_set",
 };
+
+/** The line's label: a reduced match says why ("Private Match"), never an internal name. */
+function historyKey(entry: { source: string; detail?: string | null }): string {
+  const specific =
+    entry.detail == null
+      ? undefined
+      : SOURCE_KEYS[`${entry.source}_${entry.detail}`];
+  return specific ?? SOURCE_KEYS[entry.source] ?? "progression.history_other";
+}
 
 @customElement("progression-panel")
 export class ProgressionPanel extends LitElement {
@@ -273,17 +285,15 @@ export class ProgressionPanel extends LitElement {
         ${me.history.map(
           (h) =>
             html`<li class="flex items-center justify-between gap-3">
-              <span class="text-white/70"
-                >${translateText(
-                  SOURCE_KEYS[h.source] ?? "progression.history_other",
-                )}</span
-              >
+              <span class="text-white/70">${translateText(historyKey(h))}</span>
               <span
                 class="font-bold tabular-nums ${h.amount < 0
                   ? "text-sky-300"
                   : "text-yellow-300"}"
                 >${translateText(
-                  h.amount < 0 ? "progression.xp_minus" : "progression.xp_plus",
+                  h.amount < 0
+                    ? "progression.history_minus"
+                    : "progression.history_plus",
                   { xp: formatXp(Math.abs(h.amount)) },
                 )}</span
               >

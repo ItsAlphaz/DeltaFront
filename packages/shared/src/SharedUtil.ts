@@ -82,6 +82,9 @@ export function createPartialGameRecord(
   publicGameType?: PublicGameType,
   // Staff commands the game server relayed (GameServer.adminActionRecords).
   adminActions?: AdminActionRecord[],
+  // Whether a private lobby was publicly listed (GameStartInfo.listed). The
+  // API tells an unlisted game from a listed one by it.
+  listed?: boolean,
 ): PartialGameRecord {
   const duration = Math.floor((end - start) / 1000);
   const num_turns = allTurns.length;
@@ -112,6 +115,7 @@ export function createPartialGameRecord(
       tribes,
       reports,
       publicGameType,
+      ...(listed === undefined ? {} : { listed }),
       ...(adminActions !== undefined && adminActions.length > 0
         ? { adminActions }
         : {}),

@@ -52,7 +52,9 @@ export interface GameSpec {
   players: PlayerSpec[];
   /** Default: the first player wins. null: the game ended without a winner. */
   winner?: string[] | null;
-  type?: "Public" | "Private";
+  type?: "Public" | "Private" | "Singleplayer";
+  /** Whether a private lobby was publicly listed (info.listed). */
+  listed?: boolean;
   mode?: "Free For All" | "Team";
   difficulty?: "Easy" | "Medium" | "Hard" | "Impossible";
   playerTeams?: string;
@@ -153,6 +155,7 @@ export function buildRecord(gameID: string, spec: GameSpec): GameRecord {
       ...(winner === undefined ? {} : { winner }),
       publicGameType: "ffa",
       reports: [],
+      ...(spec.listed === undefined ? {} : { listed: spec.listed }),
       ...(spec.adminActions === undefined
         ? {}
         : { adminActions: spec.adminActions }),

@@ -178,6 +178,9 @@ export const XpBreakdownSchema = z.object({
   // The per-match cap cut the award, or the daily soft cap reduced it.
   capped: z.boolean().default(false),
   softCapped: z.boolean().default(false),
+  // Set when the game earned a REDUCED award (lifetime XP only): why it was
+  // reduced (private_game, unlisted_game, public_too_few_humans).
+  reducedReason: z.string().optional().catch(undefined),
   // XP actually awarded.
   total: z.number(),
 });
@@ -189,6 +192,8 @@ export type XpBreakdown = z.infer<typeof XpBreakdownSchema>;
 export const GameXpEligibleSchema = z.object({
   gameId: z.string(),
   eligible: z.literal(true),
+  // "reduced": private, unlisted or low-population game; absent reads as full.
+  mode: z.enum(["full", "reduced"]).optional().catch(undefined),
   breakdown: XpBreakdownSchema,
   before: ProgressPositionSchema,
   after: ProgressSchema,
@@ -425,6 +430,9 @@ export const SeasonSummarySchema = z.object({
 export const XpHistoryEntrySchema = z.object({
   amount: z.number(),
   source: z.string(),
+  // Why, for a match: private_game, unlisted_game or public_too_few_humans for
+  // a reduced one. Absent otherwise.
+  detail: z.string().nullable().optional().catch(undefined),
   at: z.string(),
 });
 

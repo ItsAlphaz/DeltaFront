@@ -7,9 +7,11 @@ import {
   applySoftCap,
   clientsWhoActed,
   computeMatchXp,
+  computeReducedXp,
   placements,
   placementXp,
   playerCountPermille,
+  progressionEligibility,
   repeatPermille,
   validEliminations,
   type MatchXpInput,
@@ -347,5 +349,123 @@ describe("one eligibility rule for the game", () => {
     expect(countedVerdict({ ...facts, source: "singleplayer" }).reason).toBe(
       "not_server",
     );
+  });
+});
+
+describe("how far a game advances progression", () => {
+  const facts = {
+    source: "server" as const,
+    type: "Public",
+    rankedType: null,
+    durationSeconds: 600,
+    accountHolders: 4,
+  };
+  const model = (over: Record<string, unknown>) =>
+    progressionEligibility({ ...facts, ...over } as never);
+
+  it("is full for a qualifying public game, and only then", () => {
+    expect(model({})).toEqual({ mode: "full", reason: "normal_public" });
+  });
+
+  it("is reduced for a public game short of humans, a private one and an unlisted one", () => {
+    expect(model({ accountHolders: 1 })).toEqual({
+      mode: "reduced",
+      reason: "public_too_few_humans",
+    });
+    expect(model({ type: "Private" })).toEqual({
+      mode: "reduced",
+      reason: "private_game",
+    });
+    expect(model({ type: "Private", listed: true })).toEqual({
+      mode: "reduced",
+      reason: "private_game",
+    });
+    expect(model({ type: "Private", listed: false })).toEqual({
+      mode: "reduced",
+      reason: "unlisted_game",
+    });
+  });
+
+  it("is none for singleplayer, ranked, a staff test, and a game that was too short", () => {
+    expect(model({ source: "singleplayer" })).toEqual({
+      mode: "none",
+      reason: "singleplayer",
+    });
+    expect(model({ type: "Singleplayer" })).toEqual({
+      mode: "none",
+      reason: "singleplayer",
+    });
+    expect(model({ rankedType: "1v1" })).toEqual({
+      mode: "none",
+      reason: "ranked",
+    });
+    expect(model({ adminModified: true })).toEqual({
+      mode: "none",
+      reason: "admin_modified",
+    });
+    // a staff test is none whatever kind of game it was
+    expect(model({ adminModified: true, type: "Private" }).mode).toBe("none");
+    expect(model({ durationSeconds: 90 })).toEqual({
+      mode: "none",
+      reason: "too_short",
+    });
+    // even a reduced award needs a game that lasted
+    expect(model({ type: "Private", durationSeconds: 90 })).toEqual({
+      mode: "none",
+      reason: "too_short",
+    });
+    expect(model({ accountHolders: 1, durationSeconds: 90 }).mode).toBe("none");
+  });
+
+  it("agrees with the stats rule: full exactly when the game counts", () => {
+    for (const type of ["Public", "Private"]) {
+      for (const accountHolders of [0, 1, 2, 9]) {
+        for (const durationSeconds of [30, 120, 900]) {
+          const f = { ...facts, type, accountHolders, durationSeconds };
+          expect(progressionEligibility(f).mode === "full").toBe(
+            countedVerdict(f).counted,
+          );
+        }
+      }
+    }
+  });
+});
+
+describe("the reduced award", () => {
+  const reduced = (eliminations: number, earnedToday = 0) =>
+    computeReducedXp({
+      reason: "private_game",
+      eliminations,
+      earnedToday,
+    });
+
+  it("is completed match plus eliminations at a quarter, rounded down", () => {
+    expect(reduced(0).breakdown.total).toBe(25); // 100 x 0.25
+    expect(reduced(1).breakdown.total).toBe(31); // 125 x 0.25 = 31.25
+    expect(reduced(2).breakdown.total).toBe(37); // 150 x 0.25 = 37.5
+    expect(reduced(6).breakdown.total).toBe(62); // 250 x 0.25
+    expect(reduced(40).breakdown.total).toBe(62); // six at most
+  });
+
+  it("pays nothing else: no placement, victory, bonus, or player-count factor", () => {
+    const r = reduced(1);
+    expect(r.breakdown).toMatchObject({
+      placement: 0,
+      win: 0,
+      firstGame: 0,
+      firstWin: 0,
+      subtotal: 125,
+      gamePermille: 250,
+      repeatPermille: 1000,
+      reducedReason: "private_game",
+    });
+    expect(r.usedFirstGame).toBe(false);
+    expect(r.usedFirstWin).toBe(false);
+    expect(r.flags).toContain("reduced");
+  });
+
+  it("still meets the daily soft cap", () => {
+    expect(reduced(1, 6_000).breakdown.total).toBe(7); // 31 at a quarter
+    expect(reduced(1, 6_000).flags).toContain("soft_cap");
   });
 });

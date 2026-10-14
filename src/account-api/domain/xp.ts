@@ -1,11 +1,11 @@
-import { GameMode } from "@openfront/engine-api/game/GameTypes";
+import { GameMode, GameType } from "@openfront/engine-api/game/GameTypes";
 import {
   ALLIANCE_INDEX_FORMED,
   OTHER_INDEX_BUILT,
 } from "@openfront/engine-api/StatsSchemas";
 import type { GameRecord } from "@openfront/shared/WireSchemas";
-import { ECONOMY, PERMILLE, PROGRESSION } from "./constants";
-import { winnerClientIds } from "./stats";
+import { ACCOUNT_RULES, ECONOMY, PERMILLE, PROGRESSION } from "./constants";
+import { countedVerdict, winnerClientIds, type CountedFacts } from "./stats";
 
 /**
  * Match XP: the pure rules that turn one player's part in a counted game into
@@ -20,6 +20,78 @@ import { winnerClientIds } from "./stats";
  *   capped   = min(base, matchXpCap)
  *   paid     = capped, with what passes the daily soft cap at the soft rate
  */
+
+// ------------------------------------------------- how much a game progresses
+
+/**
+ * How far a finished game advances progression, decided by the server and
+ * nowhere else:
+ *  - "full": a qualifying public game (the same rule as stats and Credits):
+ *    every XP line, season XP, challenges, clan XP.
+ *  - "reduced": a private or unlisted game, or a public one with too few
+ *    humans: completed-match and elimination XP at a quarter, to lifetime XP
+ *    only (no placement, victory or daily bonus, no season, challenge or clan).
+ *  - "none": singleplayer, ranked, a game staff tests changed, or one too short.
+ */
+export type ProgressionMode = "full" | "reduced" | "none";
+
+export type ProgressionReason =
+  | "normal_public"
+  | "public_too_few_humans"
+  | "private_game"
+  | "unlisted_game"
+  | "singleplayer"
+  | "admin_modified"
+  | "ranked"
+  | "too_short";
+
+export interface ProgressionEligibility {
+  mode: ProgressionMode;
+  reason: ProgressionReason;
+}
+
+/**
+ * The game-level progression answer. Built on `countedVerdict`, so "full" is
+ * exactly "counts for stats"; what differs is that a private game, an
+ * unlisted one and a public game short of humans now earn a reduced award
+ * instead of nothing.
+ */
+export function progressionEligibility(
+  facts: CountedFacts & { listed?: boolean | null },
+): ProgressionEligibility {
+  const none = (reason: ProgressionReason): ProgressionEligibility => ({
+    mode: "none",
+    reason,
+  });
+  // Staff tests are never rewarded, whatever kind of game they were in.
+  if (facts.adminModified === true) return none("admin_modified");
+  if (facts.type === GameType.Singleplayer) return none("singleplayer");
+  const verdict = countedVerdict(facts);
+  if (verdict.counted) return { mode: "full", reason: "normal_public" };
+  let reduced: ProgressionEligibility;
+  switch (verdict.reason) {
+    case "not_server":
+      return none("singleplayer");
+    case "ranked":
+      return none("ranked");
+    case "private_game":
+      reduced = {
+        mode: "reduced",
+        reason: facts.listed === false ? "unlisted_game" : "private_game",
+      };
+      break;
+    case "too_few_humans":
+      reduced = { mode: "reduced", reason: "public_too_few_humans" };
+      break;
+    default:
+      return none("too_short");
+  }
+  // Even a reduced award needs a game that lasted (the same minimum as stats).
+  if (facts.durationSeconds < ACCOUNT_RULES.countedGameMinSeconds) {
+    return none("too_short");
+  }
+  return reduced;
+}
 
 /** Why a player earned nothing from a game that otherwise counted. */
 export type PlayerIneligibleReason =
@@ -248,6 +320,8 @@ export interface MatchXpBreakdown {
   playerCount: number;
   capped: boolean;
   softCapped: boolean;
+  /** Set on a reduced game: why (private_game, unlisted_game, public_too_few_humans). */
+  reducedReason?: ProgressionReason;
   /** Match XP actually paid. */
   total: number;
 }
@@ -312,6 +386,58 @@ export function computeMatchXp(input: MatchXpInput): MatchXpResult {
     },
     usedFirstGame,
     usedFirstWin,
+    flags,
+  };
+}
+
+export interface ReducedXpInput {
+  reason: ProgressionReason;
+  /** Counted eliminations (validEliminations), before the per-game limit. */
+  eliminations: number;
+  /** Match XP already paid today (the soft cap still applies to lifetime XP). */
+  earnedToday: number;
+}
+
+/**
+ * A reduced game's award: completed match plus valid eliminations, times the
+ * reduced multiplier, in whole numbers (100 + 25 = 125 → 31). No placement,
+ * victory, daily bonus, player-count or repeated-opponent factor, and it does not
+ * use up the day's first-game or first-win bonus.
+ */
+export function computeReducedXp(input: ReducedXpInput): MatchXpResult {
+  const played = PROGRESSION.completedMatch;
+  const eliminationCount = Math.min(
+    Math.max(0, input.eliminations),
+    PROGRESSION.maxEliminations,
+  );
+  const eliminations = eliminationCount * PROGRESSION.eliminationXp;
+  const subtotal = played + eliminations;
+  const base = Math.floor((subtotal * PROGRESSION.reducedPermille) / PERMILLE);
+  const cappedAmount = Math.min(base, PROGRESSION.matchXpCap);
+  const soft = applySoftCap(cappedAmount, input.earnedToday);
+  const flags = ["reduced"];
+  if (base > PROGRESSION.matchXpCap) flags.push("cap_hit");
+  if (soft.softCapped) flags.push("soft_cap");
+  return {
+    breakdown: {
+      played,
+      placement: 0,
+      win: 0,
+      eliminations,
+      eliminationCount,
+      firstGame: 0,
+      firstWin: 0,
+      subtotal,
+      gamePermille: PROGRESSION.reducedPermille,
+      repeatPermille: PERMILLE,
+      playerCount: 0,
+      capped: base > PROGRESSION.matchXpCap,
+      softCapped: soft.softCapped,
+      reducedReason: input.reason,
+      total: soft.paid,
+    },
+    usedFirstGame: false,
+    usedFirstWin: false,
     flags,
   };
 }

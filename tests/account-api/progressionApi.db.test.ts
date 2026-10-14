@@ -185,10 +185,11 @@ describeDb("GET /users/@me/xp/:gameId", () => {
     const users = [];
     for (let i = 0; i < 4; i++) users.push(await makeUser(h));
     const priv = gameId();
+    // a game that was too short to earn anything, even a reduced award
     await submitGame(
       h,
       key,
-      buildRecord(priv, { ...ffa(users), type: "Private" }),
+      buildRecord(priv, { ...ffa(users), durationSeconds: 60 }),
     );
     const res = GameXpResponseSchema.parse(
       await (await get(h, users[0], `/users/@me/xp/${priv}`)).json(),
@@ -196,7 +197,7 @@ describeDb("GET /users/@me/xp/:gameId", () => {
     expect(res).toEqual({
       gameId: priv,
       eligible: false,
-      reason: "private_game",
+      reason: "too_short",
     });
 
     const old = gameId();

@@ -177,16 +177,18 @@ describeDb("XP from a finished game", () => {
     ).rejects.toThrow(/xp_ledger_award_once/);
   });
 
-  it("pays nothing for private games, and says why", async () => {
+  it("pays a game that is too short nothing, whatever kind it was", async () => {
     const { h, key, users } = await setup();
-    const id = await play(h, key, ffa6(users, { type: "Private" }));
-    for (const user of users) {
-      expect(await progressOf(h, user)).toBeNull();
-      expect((await resultOf(h, id, user))?.xp_result).toEqual({
-        eligible: false,
-        reason: "private_game",
-      });
+    for (const type of ["Public", "Private"] as const) {
+      const id = await play(h, key, ffa6(users, { type, durationSeconds: 60 }));
+      for (const user of users) {
+        expect((await resultOf(h, id, user))?.xp_result).toEqual({
+          eligible: false,
+          reason: "too_short",
+        });
+      }
     }
+    expect(await progressOf(h, users[0])).toBeNull();
   });
 
   it("pays nothing for a game staff tests changed, but counts an owner's commands in a public game", async () => {
@@ -262,16 +264,8 @@ describeDb("XP from a finished game", () => {
     expect(await creditsOf(h, users[0])).toBeGreaterThan(0);
   });
 
-  it("pays nothing when too few accounts played, and nothing to a player who did not act", async () => {
+  it("pays nothing to a player who did not act", async () => {
     const { h, key, users } = await setup(2);
-    const solo = await play(h, key, {
-      allAct: true,
-      players: [{ user: users[0] }, { user: null }],
-    });
-    expect((await resultOf(h, solo, users[0]))?.xp_result).toEqual({
-      eligible: false,
-      reason: "too_few_humans",
-    });
 
     const idle = await play(h, key, {
       players: [
