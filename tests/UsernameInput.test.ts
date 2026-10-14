@@ -897,6 +897,32 @@ describe("UsernameInput operator-verified account", () => {
     expect(custom.name).not.toBe("Aydin.4821");
   });
 
+  it("a verified account holding a bare username plays under it with the check", async () => {
+    const el = await mount();
+    await signIn(
+      el,
+      verifiedUser({ username: "Alphaz", usernameBase: "Alphaz" }),
+    );
+    expect(el.isVerified()).toBe(true);
+    expect(el.getUsername()).toBe("Alphaz");
+  });
+
+  it("a bare username alone is not verification: an unverified holder still sees the subscription prompt", async () => {
+    localStorage.setItem("username", "MyCoolName");
+    const el = await mount();
+    await signIn(el, {
+      player: {
+        username: "Alphaz",
+        usernameBase: "Alphaz",
+        usernameStatus: "unclaimed",
+        bareUsernameEnabled: true,
+        verified: false,
+      },
+    } as unknown as UserMeResponse);
+    expect(el.isVerified()).toBe(false);
+    expect(el.getUsername()).toBe("MyCoolName");
+  });
+
   it("does not depend on a bare name or a premium status", async () => {
     const el = await mount();
     await signIn(

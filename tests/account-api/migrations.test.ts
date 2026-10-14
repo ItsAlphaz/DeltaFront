@@ -123,6 +123,20 @@ describe("the shipped migrations", () => {
     );
   });
 
+  it("0005 adds the bare-username entitlement (false by default) and the bare-name uniqueness, rewriting no username", () => {
+    expect(files[4].fileName).toBe("0005_bare_usernames.sql");
+    const sql = files[4].sql.replace(/^\s*--.*$/gm, "");
+    expect(sql).toMatch(
+      /ALTER TABLE users ADD COLUMN bare_username_enabled boolean NOT NULL DEFAULT false;/,
+    );
+    expect(sql).toMatch(
+      /CREATE UNIQUE INDEX users_bare_username_unique\s+ON users \(username_base\)\s+WHERE username_discriminator IS NULL AND username_base IS NOT NULL;/,
+    );
+    // Existing names are never rewritten, and nothing is dropped but the old
+    // base-and-discriminator-together CHECK.
+    expect(sql).not.toMatch(/UPDATE users|DROP TABLE|DROP COLUMN/i);
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time

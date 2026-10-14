@@ -13,6 +13,7 @@ import {
 import { loadReservedClanNames, tagFromRoute } from "../domain/clans";
 import { ACCOUNT_RULES } from "../domain/constants";
 import { adjustWallet } from "../domain/economy";
+import { displayUsername } from "../domain/usernames";
 import { sha256 } from "../http";
 import { clanByTag, clansOfUser } from "../repo/clans";
 import { flareRowsOf, grantFlare, revokeFlare } from "../repo/inventory";
@@ -102,6 +103,8 @@ export const ADMIN_COMMANDS = [
   "user:role <publicId> <admin|mod|flagged|none> --reason <text> --yes",
   "user:verify <publicId> --reason <text> --yes",
   "user:unverify <publicId> --reason <text> --yes",
+  "user:grant-bare-name <publicId> --reason <text> --yes",
+  "user:revoke-bare-name <publicId> --reason <text> --yes",
   "clan:list [search]",
   "clan:show <TAG>",
   "clan:rename <TAG> <new name> --reason <text>",
@@ -238,7 +241,7 @@ export async function runAdminCommand(
         const user = await userByPublicId(pool, need(p, 0, "public id"));
         const [u, ids, sessions, bans] = await Promise.all([
           pool.query(
-            "SELECT id, public_id, kind, role, verified, created_at, last_seen_at, deletion_requested_at FROM users WHERE id = $1",
+            "SELECT id, public_id, kind, role, verified, bare_username_enabled, username_base::text AS username_base, username_discriminator, next_username_change_at, created_at, last_seen_at, deletion_requested_at FROM users WHERE id = $1",
             [user.id],
           ),
           pool.query(
@@ -261,6 +264,12 @@ export async function runAdminCommand(
           `kind:        ${row.kind}${row.role ? `  role: ${row.role}` : ""}`,
         );
         io.out(`verified:    ${row.verified ? "yes" : "no"}`);
+        io.out(
+          `username:    ${displayUsername(row.username_base, row.username_discriminator) ?? "(not set)"}${row.username_base !== null && row.username_discriminator === null ? "  (bare name held)" : ""}`,
+        );
+        io.out(
+          `bare name:   ${row.bare_username_enabled ? "entitled" : "not entitled"}`,
+        );
         io.out(
           `created:     ${row.created_at.toISOString()}   last seen: ${row.last_seen_at.toISOString()}`,
         );
@@ -420,6 +429,69 @@ export async function runAdminCommand(
             ? `${publicId} is now ${verify ? "verified" : "unverified"}`
             : `${publicId} was already ${verify ? "verified" : "unverified"}; nothing changed`,
         );
+        return 0;
+      }
+      case "user:grant-bare-name":
+      case "user:revoke-bare-name": {
+        const grant = command === "user:grant-bare-name";
+        requireYes(
+          p,
+          grant ? "granting a bare username" : "revoking a bare username",
+        );
+        const publicId = need(p, 0, "public id");
+        const reason = reasonArg(p);
+        const outcome = await withTransaction(pool, async (db) => {
+          const user = await userByPublicId(db, publicId);
+          const before = await db.query<{
+            bare_username_enabled: boolean;
+            username_base: string | null;
+            username_discriminator: string | null;
+          }>(
+            `SELECT bare_username_enabled, username_base::text AS username_base, username_discriminator
+               FROM users WHERE id = $1 FOR UPDATE`,
+            [user.id],
+          );
+          const current = before.rows[0];
+          if (current.bare_username_enabled === grant) return null;
+          // A grant also clears the rename cooldown, so the first bare claim is
+          // not blocked by a recent change. A revoke leaves the name as it is.
+          await db.query(
+            grant
+              ? "UPDATE users SET bare_username_enabled = true, next_username_change_at = NULL WHERE id = $1"
+              : "UPDATE users SET bare_username_enabled = false WHERE id = $1",
+            [user.id],
+          );
+          const holdsBare =
+            current.username_base !== null &&
+            current.username_discriminator === null;
+          await audit(db, io, command, "user", publicId, {
+            from: current.bare_username_enabled,
+            bareUsernameEnabled: grant,
+            username: displayUsername(
+              current.username_base,
+              current.username_discriminator,
+            ),
+            holdsBareName: holdsBare,
+            reason,
+          });
+          return { holdsBare, name: current.username_base };
+        });
+        if (outcome === null) {
+          io.out(
+            `${publicId} ${grant ? "already may" : "already may not"} claim a bare username; nothing changed`,
+          );
+        } else if (grant) {
+          io.out(
+            `${publicId} may now claim a bare username (rename cooldown cleared): they set it in the username form`,
+          );
+        } else {
+          io.out(
+            `${publicId} may no longer claim a bare username` +
+              (outcome.holdsBare
+                ? `; they keep holding the bare name "${outcome.name}" until they rename (their next name gets a number)`
+                : ""),
+          );
+        }
         return 0;
       }
       case "clan:list": {

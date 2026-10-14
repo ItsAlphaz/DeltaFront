@@ -31,6 +31,48 @@ async function mount(
   return el;
 }
 
+describe("username panel for a bare-name entitlement", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("tells an entitled account it can claim a bare username", async () => {
+    const el = await mount({ bareUsernameEnabled: true });
+    expect(el.textContent).toContain(
+      "account_modal.username_bare_entitled_notice",
+    );
+  });
+
+  it("shows ordinary accounts nothing of the kind, whatever their role or verification", async () => {
+    for (const extra of [{}, { verified: true }, { role: "admin" }]) {
+      document.body.innerHTML = "";
+      const el = await mount({ bareUsernameEnabled: false, ...extra });
+      expect(el.textContent).not.toContain(
+        "account_modal.username_bare_entitled_notice",
+      );
+    }
+  });
+
+  it("stops nagging once the bare name is held", async () => {
+    const el = await mount({
+      bareUsernameEnabled: true,
+      username: "Alphaz",
+      usernameBase: "Alphaz",
+    });
+    expect(el.textContent).not.toContain(
+      "account_modal.username_bare_entitled_notice",
+    );
+  });
+
+  it("an entitled, verified account without a name sees both notes", async () => {
+    const el = await mount({ bareUsernameEnabled: true, verified: true });
+    expect(el.textContent).toContain("account_modal.verified_needs_username");
+    expect(el.textContent).toContain(
+      "account_modal.username_bare_entitled_notice",
+    );
+  });
+});
+
 describe("username panel for a verified account", () => {
   afterEach(() => {
     document.body.innerHTML = "";

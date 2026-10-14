@@ -102,6 +102,7 @@ export function buildUserMe(
       // Decided by the database alone (admin CLI user:verify); the game server
       // reads it from here at join (resolveVerifiedJoin).
       verified: user.verified,
+      bareUsernameEnabled: user.bareUsernameEnabled,
       nextUsernameChangeAt: user.nextUsernameChangeAt?.toISOString() ?? null,
       // Credits ride in the contract's "soft" slot; the premium slot stays 0.
       currency: { soft: credits, hard: 0 },
@@ -149,8 +150,9 @@ export function usersRouter(deps: AppDeps): Router {
     res.json(buildUserMe(user, identities, ban, credits, flares, clans));
   });
 
-  // Sets the account username: a base the player picks plus a random
-  // four-digit suffix, at most once every cooldown period.
+  // Sets the account username, at most once every cooldown period: a base the
+  // player picks plus a random four-digit suffix, or, for an account the
+  // operator entitled to one (users.bare_username_enabled), the bare name.
   router.put(
     "/users/@me/username",
     express.json({ limit: "2kb" }),
@@ -190,6 +192,83 @@ export function usersRouter(deps: AppDeps): Router {
         res.status(429).json({ code: "RATE_LIMITED" });
         return;
       }
+      // The 429 for a rename inside the cooldown (two requests at once, or a
+      // rename on another device).
+      const rejectCooldown = async (): Promise<void> => {
+        const current = await getUser(pool, user.id);
+        const next = current?.nextUsernameChangeAt ?? null;
+        const wait =
+          next === null
+            ? 1
+            : Math.max(1, Math.ceil((next.getTime() - Date.now()) / 1000));
+        res.setHeader("Retry-After", String(wait));
+        res.status(429).json({
+          code: "USERNAME_COOLDOWN",
+          nextUsernameChangeAt: next?.toISOString() ?? null,
+        });
+      };
+
+      // "unavailable" is the one bareClaim value a client must announce: an
+      // entitled account was given the numbered form because the bare name is
+      // held by someone else.
+      let bareClaim: PutUsernameResponse["bareClaim"] = "not_eligible";
+
+      // An account the operator entitled to a bare name gets one: the name as
+      // typed, no discriminator, unique among bare names (case-insensitively).
+      // The entitlement is re-checked inside the UPDATE, so a revoke that lands
+      // between the read above and this write cannot be raced.
+      if (user.bareUsernameEnabled) {
+        try {
+          const { rows } = await pool.query<{
+            next_username_change_at: Date;
+          }>(
+            `UPDATE users
+                SET username_base = $2, username_discriminator = NULL,
+                    next_username_change_at = now() + make_interval(days => $3)
+              WHERE id = $1 AND deleted_at IS NULL AND bare_username_enabled
+                AND (next_username_change_at IS NULL OR next_username_change_at <= now())
+          RETURNING next_username_change_at`,
+            [user.id, verdict.base, ACCOUNT_RULES.usernameChangeCooldownDays],
+          );
+          if (rows.length > 0) {
+            const response: PutUsernameResponse = {
+              username: verdict.base,
+              base: verdict.base,
+              discriminator: null,
+              usernameStatus: "unclaimed",
+              nextUsernameChangeAt:
+                rows[0].next_username_change_at.toISOString(),
+              bareClaim: "claimed",
+            };
+            res.json(response);
+            return;
+          }
+          // Nothing written: still cooling down, or the entitlement was just
+          // withdrawn (then this is an ordinary rename below).
+          if ((await getUser(pool, user.id))?.bareUsernameEnabled === true) {
+            await rejectCooldown();
+            return;
+          }
+        } catch (error) {
+          const e = error as { code?: string; constraint?: string };
+          if (
+            e.code !== "23505" ||
+            e.constraint !== "users_bare_username_unique"
+          )
+            throw error;
+          // Another account holds this bare name. Nothing is taken from them:
+          // ask first (the client's existing dialog), or give the numbered form
+          // when the client already said yes.
+          if (body.data.acceptSuffixed !== true) {
+            res
+              .status(409)
+              .json({ code: "BARE_NAME_TAKEN", base: verdict.base });
+            return;
+          }
+          bareClaim = "unavailable";
+        }
+      }
+
       for (let attempt = 0; attempt < 20; attempt++) {
         const discriminator = randomDiscriminator();
         try {
@@ -212,17 +291,7 @@ export function usersRouter(deps: AppDeps): Router {
             ],
           );
           if (rows.length === 0) {
-            const current = await getUser(pool, user.id);
-            const next = current?.nextUsernameChangeAt ?? null;
-            const wait =
-              next === null
-                ? 1
-                : Math.max(1, Math.ceil((next.getTime() - Date.now()) / 1000));
-            res.setHeader("Retry-After", String(wait));
-            res.status(429).json({
-              code: "USERNAME_COOLDOWN",
-              nextUsernameChangeAt: next?.toISOString() ?? null,
-            });
+            await rejectCooldown();
             return;
           }
           const response: PutUsernameResponse = {
@@ -231,6 +300,7 @@ export function usersRouter(deps: AppDeps): Router {
             discriminator,
             usernameStatus: "unclaimed",
             nextUsernameChangeAt: rows[0].next_username_change_at.toISOString(),
+            bareClaim,
           };
           res.json(response);
           return;

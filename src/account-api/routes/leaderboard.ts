@@ -72,6 +72,7 @@ export function leaderboardRouter(deps: AppDeps): Router {
     }>(
       `SELECT l.rank, u.public_id,
               CASE WHEN u.username_base IS NULL THEN NULL
+                   WHEN u.username_discriminator IS NULL THEN u.username_base::text
                    ELSE u.username_base::text || '.' || u.username_discriminator END AS username,
               u.verified, l.games, l.wins, l.losses, l.win_rate::float8 AS win_rate
          FROM leaderboard_players l

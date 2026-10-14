@@ -284,12 +284,32 @@ export class UsernamePanel extends LitElement {
       );
     }
     // An operator-verified account (users.verified) has no name for the check
-    // to go with until it saves one here.
+    // to go with until it saves one here. Shown beside, not instead of, the
+    // bare-name notice: the two are independent.
+    const notices: TemplateResult[] = [];
     if (this.player.verified === true && !this.player.username) {
-      return this.renderNotice(
-        translateText("account_modal.verified_needs_username"),
+      notices.push(
+        this.renderNotice(
+          translateText("account_modal.verified_needs_username"),
+        ),
       );
     }
+    // An account the operator entitled to a bare name (it is never shown to
+    // anyone else): what is saved here is used as typed, with no number.
+    if (
+      this.player.bareUsernameEnabled === true &&
+      !(
+        this.player.username &&
+        this.player.username === this.player.usernameBase
+      )
+    ) {
+      notices.push(
+        this.renderNotice(
+          translateText("account_modal.username_bare_entitled_notice"),
+        ),
+      );
+    }
+    if (notices.length > 0) return html`${notices}`;
     const claimExpiresAt = this.player.usernameClaimExpiresAt;
     if (this.player.usernameStatus === "claimed" && claimExpiresAt) {
       return this.renderNotice(

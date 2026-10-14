@@ -395,6 +395,10 @@ export const UserMeResponseSchema = z.object({
     // decided and independent of usernameStatus, so a verified account needs no
     // bare name. Optional so an API without it parses (absent = not verified).
     verified: z.boolean().optional(),
+    // Entitled to claim a bare username with no numeric suffix (DeltaFront admin
+    // CLI user:grant-bare-name). Server decided; separate from verified, from
+    // role and from usernameStatus. Optional: absent = not entitled.
+    bareUsernameEnabled: z.boolean().optional(),
     // Only non-null in `claimed`: when the exclusive right to the bare name
     // becomes takeable by another subscriber. A past date means "at risk",
     // not "lost" — it stays set until the name is actually taken.
@@ -645,7 +649,9 @@ export type BareClaim = z.infer<typeof BareClaimSchema>;
 export const PutUsernameResponseSchema = z.object({
   username: z.string(),
   base: z.string(),
-  discriminator: z.string(),
+  // null for a bare username (an account entitled to one, DeltaFront admin CLI
+  // user:grant-bare-name); the suffix is exactly 4 digits otherwise.
+  discriminator: z.string().nullable(),
   usernameStatus: UsernameStatusSchema,
   nextUsernameChangeAt: z.iso.datetime().nullable(),
   // Optional because this client ships BEFORE the API that sends it. The

@@ -83,7 +83,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     const { applied } = await applyMigrations(pool, {
       log: silentLogger as never,
     });
-    expect(applied).toEqual(["0001", "0002", "0003", "0004"]);
+    expect(applied).toEqual(["0001", "0002", "0003", "0004", "0005"]);
 
     expect(await tablesOf(pool)).toEqual(
       [
@@ -108,6 +108,11 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         name: "verified_accounts",
         checksum: files[3].checksum,
       },
+      {
+        version: "0005",
+        name: "bare_usernames",
+        checksum: files[4].checksum,
+      },
     ]);
   });
 
@@ -119,7 +124,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(4);
+    ).toBe(5);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -136,6 +141,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0002",
         "0003",
         "0004",
+        "0005",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -158,6 +164,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0002",
       "0003",
       "0004",
+      "0005",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -168,6 +175,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0002",
       "0003",
       "0004",
+      "0005",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -257,11 +265,12 @@ describeDb("migration safety", () => {
       "0002",
       "0003",
       "0004",
+      "0005",
     ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(4);
+    ).toBe(5);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -285,6 +294,7 @@ describeDb("migration safety", () => {
       "0002",
       "0003",
       "0004",
+      "0005",
     ]);
   });
 });
@@ -385,11 +395,23 @@ describeDb("schema constraints", () => {
         "INSERT INTO users (public_id, kind) VALUES ('short', 'guest')",
       ),
     ).toBe(CHECK);
+    // a discriminator needs a base; a base without one is a BARE name (0005),
+    // unique among bare names and case-insensitively, separate from "Ann.0042"
     expect(
       await sqlState(
-        "INSERT INTO users (public_id, kind, username_base) VALUES ('nodisc01', 'guest', 'Ann')",
+        "INSERT INTO users (public_id, kind, username_discriminator) VALUES ('nobase01', 'guest', '0042')",
       ),
     ).toBe(CHECK);
+    expect(
+      await sqlState(
+        "INSERT INTO users (public_id, kind, username_base) VALUES ('bare0001', 'registered', 'Ann')",
+      ),
+    ).toBe("ok");
+    expect(
+      await sqlState(
+        "INSERT INTO users (public_id, kind, username_base) VALUES ('bare0002', 'registered', 'ANN')",
+      ),
+    ).toBe(UNIQUE);
     expect(
       await sqlState(
         "INSERT INTO users (public_id, kind, username_base, username_discriminator) VALUES ('ann00001', 'registered', 'Ann', '0042')",

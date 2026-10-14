@@ -119,6 +119,7 @@
     "tab_stats": "Stats",
     "title": "Account",
     "unclaimed_rewards": "Unclaimed Rewards",
+    "username_bare_entitled_notice": "Your account can claim a bare username. The name you save here is used exactly as typed, with no number after it.",
     "username_bare_taken_body": "\"{requested}\" is held by another subscriber. You can use it with a number added, like \"{requested}.1234\", but it won't show the verified check. This uses your name change. Use it with a number?",
     "username_bare_taken_confirm": "Use it with a number",
     "username_bare_taken_heading": "Name taken",

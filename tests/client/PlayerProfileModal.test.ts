@@ -165,8 +165,19 @@ describe("public player profile route", () => {
       expect(header().querySelector(BADGE)).toBeNull();
     });
 
-    it("still recognises a bare-name (premium) username", async () => {
+    it("still recognises a bare-name (premium) username when the profile carries no flag", async () => {
       await openWith({ username: "RyanTheGreat" });
+      expect(header().querySelector(BADGE)).not.toBeNull();
+    });
+
+    it("a bare username is not verification when the profile says it is not", async () => {
+      await openWith({ username: "Alphaz", verified: false });
+      expect(header().querySelector(BADGE)).toBeNull();
+    });
+
+    it("a verified account holding a bare username shows the check", async () => {
+      await openWith({ username: "Alphaz", verified: true });
+      expect(header().textContent).toContain("Alphaz");
       expect(header().querySelector(BADGE)).not.toBeNull();
     });
   });

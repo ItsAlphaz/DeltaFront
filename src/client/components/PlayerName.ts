@@ -20,9 +20,12 @@ import { verifiedBadge } from "./ui/VerifiedBadge";
 export class PlayerName extends LitElement {
   @property({ attribute: false }) username: string | null | undefined = null;
   @property({ type: String }) publicId = "";
-  // Server-approved blue check (operator-verified accounts). A bare-name claim
-  // is still recognised from the username itself (isVerifiedUsername).
-  @property({ type: Boolean }) verified = false;
+  // The server's own answer on the blue check. When the API sent one (true OR
+  // false) it is the only thing that counts, so a bare username held through
+  // the operator entitlement is not mistaken for verification. Left undefined
+  // by callers whose data carries no flag; those fall back to recognising a
+  // premium bare-name claim from the username itself (isVerifiedUsername).
+  @property({ attribute: false }) verified: boolean | undefined = undefined;
   // Copy payload override (e.g. a share URL).
   @property({ type: String }) copyText = "";
   // When set, clicking the name runs this instead of copying.
@@ -74,7 +77,7 @@ export class PlayerName extends LitElement {
               .showVisibilityToggle=${false}
               .showCopyIcon=${false}
             ></copy-button>`}
-        ${this.verified || isVerifiedUsername(this.username)
+        ${(this.verified ?? isVerifiedUsername(this.username))
           ? verifiedBadge()
           : nothing}
       </span>

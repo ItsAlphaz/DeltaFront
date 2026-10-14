@@ -65,14 +65,16 @@ export function randomDiscriminator(): string {
   return String(randomInt(10_000)).padStart(4, "0");
 }
 
-/** The pre-rendered name the client shows as is: `base.1234`, or null when never set. */
+/**
+ * The pre-rendered name the client shows as is: `base.1234`, the bare `base`
+ * for an account holding a bare name (no discriminator), or null when never set.
+ */
 export function displayUsername(
   base: string | null,
   discriminator: string | null,
 ): string | null {
-  return base === null || discriminator === null
-    ? null
-    : `${base}.${discriminator}`;
+  if (base === null) return null;
+  return discriminator === null ? base : `${base}.${discriminator}`;
 }
 
 /** When a change made at `now` lets the player rename again. */

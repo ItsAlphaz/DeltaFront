@@ -37,7 +37,7 @@ export class PlayerProfileModal extends BaseModal {
   @state() private publicId: string | null = null;
   @state() private username: string | null = null;
   // Operator-granted blue check, from the profile response.
-  @state() private verified = false;
+  @state() private verified: boolean | undefined = undefined;
   @state() private statsTree: PlayerStatsTree | null = null;
   @state() private clans: NonNullable<PlayerProfile["clans"]> = [];
   // Level / XP, when progression is on and the player has any.
@@ -73,7 +73,7 @@ export class PlayerProfileModal extends BaseModal {
       // like the default title, since name casing is meaningful — and the
       // right chip then always shows the publicId.
       titleContent:
-        this.username || this.verified
+        this.username || this.verified === true
           ? html`<span
               class="text-white text-xl lg:text-2xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
             >
@@ -82,7 +82,7 @@ export class PlayerProfileModal extends BaseModal {
                 : html`<span class="uppercase"
                     >${translateText("player_profile.title")}</span
                   >`}
-              ${this.verified || isVerifiedUsername(this.username)
+              ${(this.verified ?? isVerifiedUsername(this.username))
                 ? verifiedBadge("w-5 h-5")
                 : nothing}
             </span>`
@@ -304,7 +304,7 @@ export class PlayerProfileModal extends BaseModal {
     this.openCount++;
     this.publicId = publicId;
     this.username = null;
-    this.verified = false;
+    this.verified = undefined;
     this.statsTree = null;
     this.clans = [];
     this.progress = null;
@@ -335,7 +335,7 @@ export class PlayerProfileModal extends BaseModal {
     this.loading = false;
     this.statsTree = profile === false ? null : profile.stats;
     this.username = profile === false ? null : (profile.username ?? null);
-    this.verified = profile === false ? false : profile.verified === true;
+    this.verified = profile === false ? undefined : profile.verified;
     this.clans = profile === false ? [] : (profile.clans ?? []);
   }
 

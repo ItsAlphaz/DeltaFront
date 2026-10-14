@@ -204,13 +204,13 @@ describe("<player-name> on account surfaces", () => {
   }) {
     const el = document.createElement("player-name") as HTMLElement & {
       username: string | null;
-      verified: boolean;
+      verified: boolean | undefined;
       publicId: string;
       updateComplete: Promise<boolean>;
     };
     el.publicId = "9EKyqPa9rm";
     el.username = props.username;
-    el.verified = props.verified ?? false;
+    el.verified = props.verified;
     document.body.append(el);
     await el.updateComplete;
     return el;
@@ -226,7 +226,17 @@ describe("<player-name> on account surfaces", () => {
     expect(el.querySelector(BADGE)).toBeNull();
   });
 
-  it("still recognises the bare-name (premium) claim", async () => {
+  it("an explicit false beats the name: a bare username is not verification", async () => {
+    const el = await render({ username: "Alphaz", verified: false });
+    expect(el.querySelector(BADGE)).toBeNull();
+  });
+
+  it("an explicit true shows the check on a bare username too", async () => {
+    const el = await render({ username: "Alphaz", verified: true });
+    expect(el.querySelector(BADGE)).not.toBeNull();
+  });
+
+  it("still recognises the bare-name (premium) claim when the data carries no flag", async () => {
     const el = await render({ username: "RyanTheGreat" });
     expect(el.querySelector(BADGE)).not.toBeNull();
   });
