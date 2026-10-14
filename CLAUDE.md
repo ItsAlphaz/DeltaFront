@@ -101,7 +101,7 @@ The game server only serves `index.html` and the WebSocket. All other assets (JS
 
 ## Production deployment
 
-`docs/Deployment.md` is the single-server runbook (nginx, the account API, the game container, PostgreSQL, backups, key rotation, the Terms/Privacy gate); `deploy/` holds the reference files; `docs/OpenFrontAudit.md` lists every remaining OpenFront reference and third-party host (`tests/ThirdPartyHosts.test.ts` fails on a new one). Outside dev, only the launch features (`accounts,store,inventory,clans,leaderboards`) may run, and the production game server refuses to start while the Terms/Privacy pages are placeholders. Never log a secret: the account API's logger redacts, but keep calling code clean.
+`docs/Deployment.md` is the single-server runbook (nginx, the account API, the game container, PostgreSQL, backups, key rotation, the Terms/Privacy gate); `deploy/` holds the reference files; `docs/OpenFrontAudit.md` lists every remaining OpenFront reference and third-party host (`tests/ThirdPartyHosts.test.ts` fails on a new one). Outside dev, only the launch features (`accounts,store,inventory,clans,leaderboards,progression`) may run, and the production game server refuses to start while the Terms/Privacy pages are placeholders. Never log a secret: the account API's logger redacts, but keep calling code clean.
 
 ## Account backend features
 

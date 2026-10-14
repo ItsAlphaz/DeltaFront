@@ -37,7 +37,7 @@ ARG GIT_COMMIT=unknown
 ENV GIT_COMMIT="$GIT_COMMIT"
 # Which account features the client shows, baked into the bundle at build time
 # (packages/shared/src/AccountFeatures.ts). Pass the launch set:
-#   docker build --build-arg DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards .
+#   docker build --build-arg DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards,progression .
 # Only known feature names reach the bundle, an unknown one stops the build, and
 # the game server refuses to start if its own DF_ACCOUNT_FEATURES differs
 # (static/account-features.txt, written by build-prod). Not a secret.

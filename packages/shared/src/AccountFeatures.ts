@@ -303,9 +303,10 @@ export const LAUNCH_FEATURES = [
   "inventory",
   "clans",
   "leaderboards",
+  "progression",
 ] as const satisfies readonly AccountFeatureName[];
 
-/** `accounts,store,inventory,clans,leaderboards`, the string deployments set. */
+/** `accounts,store,inventory,clans,leaderboards,progression`, the string deployments set. */
 export const LAUNCH_FEATURES_VALUE = LAUNCH_FEATURES.join(",");
 
 /** The enabled flags that are not part of the launch profile (to refuse outside dev). */

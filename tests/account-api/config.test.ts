@@ -557,7 +557,7 @@ describe("loadConfig: M7 production rules", () => {
   });
 
   it("outside dev, only the launch features may be enabled", () => {
-    const launch = "accounts,store,inventory,clans,leaderboards";
+    const launch = "accounts,store,inventory,clans,leaderboards,progression";
     expect(
       loadConfig(prodWithAccounts({ DF_ACCOUNT_FEATURES: launch })).features,
     ).toMatchObject({ accounts: true, clans: true, payments: false });
@@ -565,7 +565,6 @@ describe("loadConfig: M7 production rules", () => {
       "ranked",
       "payments",
       "friends",
-      "progression",
       "tribes",
       "trustedLobbies",
     ]) {

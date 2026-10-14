@@ -95,8 +95,8 @@ describe("npm run launch:check (offline checks)", () => {
   it("requires exactly the launch feature set", async () => {
     for (const value of [
       "accounts",
-      "accounts,store,inventory,clans,leaderboards,payments",
-      "accounts,store,inventory,clans,leaderboards,ranked",
+      "accounts,store,inventory,clans,leaderboards,progression,payments",
+      "accounts,store,inventory,clans,leaderboards,progression,ranked",
       "accounts,store,inventory,clans,leaderbords",
       "",
     ]) {
@@ -119,7 +119,7 @@ describe("npm run launch:check (offline checks)", () => {
     for (const quote of ["'", "`"]) {
       fs.writeFileSync(
         path.join(fx.root, "static/assets/index-abc.js"),
-        `function f(){try{return ${quote}accounts,store,inventory,clans,leaderboards${quote}}catch{}}`,
+        `function f(){try{return ${quote}accounts,store,inventory,clans,leaderboards,progression${quote}}catch{}}`,
       );
       expect(failing(await run()), quote).not.toContain("client-flags");
     }
@@ -128,7 +128,7 @@ describe("npm run launch:check (offline checks)", () => {
   it("fails if a secret value is in the built client, and never prints it", async () => {
     fs.writeFileSync(
       path.join(fx.root, "static/assets/leak.js"),
-      `var f="accounts,store,inventory,clans,leaderboards";var k="${SECRETS.API_KEY}";var s="${SECRETS.TURNSTILE_SECRET_KEY}";var d="${SECRETS.DB_PASSWORD}"`,
+      `var f="accounts,store,inventory,clans,leaderboards,progression";var k="${SECRETS.API_KEY}";var s="${SECRETS.TURNSTILE_SECRET_KEY}";var d="${SECRETS.DB_PASSWORD}"`,
     );
     const report = await run();
     expect(failing(report)).toContain("bundle-secrets");
@@ -144,7 +144,7 @@ describe("npm run launch:check (offline checks)", () => {
   it("fails if the built client names an OpenFront service", async () => {
     fs.writeFileSync(
       path.join(fx.root, "static/assets/api.js"),
-      'var f="accounts,store,inventory,clans,leaderboards";fetch("https://api.openfront.io/users/@me")',
+      'var f="accounts,store,inventory,clans,leaderboards,progression";fetch("https://api.openfront.io/users/@me")',
     );
     expect(failing(await run())).toContain("bundle-openfront");
   });
@@ -354,7 +354,7 @@ describe("email sign-in in the launch check", () => {
     if (built !== null) {
       fs.writeFileSync(
         path.join(fx.root, "static/account-features.txt"),
-        `accounts,store,inventory,clans,leaderboards\nemail-auth=${built}\n`,
+        `accounts,store,inventory,clans,leaderboards,progression\nemail-auth=${built}\n`,
       );
     }
   };
@@ -435,7 +435,7 @@ describe("email sign-in in the launch check", () => {
     // fixture pages as shipped by createFixture (no email paragraph), build says on
     fs.writeFileSync(
       path.join(fx.root, "static/account-features.txt"),
-      "accounts,store,inventory,clans,leaderboards\nemail-auth=on\n",
+      "accounts,store,inventory,clans,leaderboards,progression\nemail-auth=on\n",
     );
     const report = await run({}, emailEnv());
     expect(failing(report)).toEqual(
@@ -454,7 +454,7 @@ describe("email sign-in in the launch check", () => {
     prepare("on");
     fs.writeFileSync(
       path.join(fx.root, "static/assets/leak.js"),
-      `var f="accounts,store,inventory,clans,leaderboards";var k="${EMAIL_SECRET}"`,
+      `var f="accounts,store,inventory,clans,leaderboards,progression";var k="${EMAIL_SECRET}"`,
     );
     const report = await run({}, emailEnv());
     expect(failing(report)).toContain("bundle-secrets");

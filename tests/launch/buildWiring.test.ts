@@ -36,23 +36,23 @@ const staticWith = (content: string | null): string => {
 const features = (value: string) => resolveAccountFeatures(value).features;
 
 describe("the launch feature profile", () => {
-  it("is accounts, store, inventory, clans and leaderboards, and nothing unfinished", () => {
+  it("is accounts, store, inventory, clans, leaderboards and progression, and nothing unfinished", () => {
     expect([...LAUNCH_FEATURES]).toEqual([
       "accounts",
       "store",
       "inventory",
       "clans",
       "leaderboards",
+      "progression",
     ]);
     expect(LAUNCH_FEATURES_VALUE).toBe(
-      "accounts,store,inventory,clans,leaderboards",
+      "accounts,store,inventory,clans,leaderboards,progression",
     );
     expect(unfinishedFeatures(features(LAUNCH_FEATURES_VALUE))).toEqual([]);
     for (const name of [
       "ranked",
       "payments",
       "friends",
-      "progression",
       "tribes",
       "trustedLobbies",
     ]) {

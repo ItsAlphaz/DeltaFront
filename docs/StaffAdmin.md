@@ -31,6 +31,9 @@ role name.
 | `admin.users.view_email`, `.sessions`, `.verify`, `.bare_name`, `.role`                               |     |   x   |   x   |
 | `admin.wallet.grant`, `admin.inventory.grant`, `admin.clans.manage`, `admin.clans.official`           |     |   x   |   x   |
 | `admin.audit.view` (everything), `admin.server.view`                                                  |     |   x   |   x   |
+| `admin.xp.view` (an account's progression)                                                            |  x  |   x   |   x   |
+| `admin.xp.history`, `admin.xp.grant`, `admin.xp.revoke`                                               |     |   x   |   x   |
+| `admin.xp.set`, `admin.seasons.manage`                                                                |     |       |   x   |
 | `game.admin.pause`, `.kill`, `.debug`                                                                 |     |   x   |   x   |
 | `admin.roles.manage_admins`, `admin.clans.delete`, `admin.server.manage`                              |     |       |   x   |
 | `game.admin.resources`, `.force_end`, `.impersonate_ai` (arbitrary game state)                        |     |       |   x   |
@@ -82,11 +85,26 @@ a token, hash or key.
 | `POST /admin/clans/:tag/delete`                                                                                     | `admin.clans.delete` (owner)                                   |
 | `GET /admin/audit`                                                                                                  | all, or moderation actions only                                |
 | `GET /admin/server`                                                                                                 | `admin.server.view`                                            |
+| `GET /admin/users/:id/progression`, `GET .../xp-history`                                                            | `admin.xp.view`, `admin.xp.history`                            |
+| `POST /admin/users/:id/xp` (`grant`, `revoke`, `set`)                                                               | `admin.xp.grant`, `.revoke`, `.set`                            |
+| `POST /admin/users/:id/season-reset`, `GET/POST /admin/seasons`, `PATCH /admin/seasons/:id`, `POST .../close`       | `admin.seasons.manage` (owner)                                 |
 | `POST /game_admin/audit`                                                                                            | game-server key (not a browser)                                |
 
 The CLI and the API call the same functions (`src/account-api/domain/adminOps.ts`),
 so a rule is written once. Opening the panel: profile menu > Admin panel
 (`#modal=admin`); what it shows follows the role, but that is presentation only.
+
+## XP and seasons
+
+See [Progression.md](Progression.md). XP changes follow the wallet pattern: a reason
+(required), the audit row written first (`xp:grant`, `xp:revoke`, `xp:set`,
+`season:create|update|close|reset-user`) with actor, role, target, amount and
+before/after, and an `xp_ledger` row whose reference is the audit id. `canActOnTarget`
+applies and nobody changes their own XP from the web panel (the CLI is the operator). A
+grant is at most 100,000 XP per command; a revoke larger than the run is refused; `set`
+moves lifetime XP by the difference. A revoke never takes back a reward already
+unlocked. CLI: `xp:show`, `xp:grant`, `xp:revoke`, `xp:set`, `season:list`,
+`season:create`, `season:close`.
 
 ## Audit log
 

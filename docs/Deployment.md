@@ -95,7 +95,7 @@ npm run account-api:migrate -- status        # everything "applied", nothing "pe
 # GIT_COMMIT is baked into the image by this build argument; never put it in game.env
 # (an --env-file value overrides the image's, and the footer would show a stale commit).
 docker build --build-arg GIT_COMMIT=$(git rev-parse HEAD) \
-  --build-arg DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards \
+  --build-arg DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards,progression \
   -t deltafront-game:current .
 
 # 9. Start the API, register the game server's key, then start the game
@@ -138,7 +138,7 @@ The client build bakes in **only** `DF_ACCOUNT_FEATURES` (a list of feature name
 
 ## 4. Feature flags
 
-`DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards` is the launch set, identical in the client build (`docker build --build-arg`), the game server (`game.env`) and the account API (`api.env`). It differs from the plan's list (`accounts,leaderboards,store,clans`) by one name: **`inventory`**, because the store and clans read the cosmetic catalog and the Inventory page is part of the launch.
+`DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards,progression` is the launch set, identical in the client build (`docker build --build-arg`), the game server (`game.env`) and the account API (`api.env`). It differs from the plan's list (`accounts,leaderboards,store,clans`) by one name: **`inventory`**, because the store and clans read the cosmetic catalog and the Inventory page is part of the launch.
 
 Everything else (`ranked`, `payments`, `friends`, `progression`, `tribes`, `trustedLobbies`) has no backend yet and stays off. This is enforced, not just documented:
 
