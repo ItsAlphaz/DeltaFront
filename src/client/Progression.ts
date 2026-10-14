@@ -1,5 +1,6 @@
 import { GameType } from "@openfront/engine-api/game/GameTypes";
 import type { XpBreakdown } from "@openfront/shared/ApiSchemas";
+import { rankForLevel, type RankKey } from "@openfront/shared/ProgressionRules";
 
 // Pure helpers behind the level / XP UI. No DOM, no fetches — so the rules the
 // components follow are unit-testable on their own.
@@ -52,7 +53,7 @@ export function prestigeTier(prestige: number): PrestigeTier {
 // this game its own "new milestone" card (100 is the Legend card at the last
 // prestige). Must match the server's milestone list, which dates them on the
 // profile.
-export const MILESTONE_LEVELS: readonly number[] = [10, 25, 50, 75, 100];
+export const MILESTONE_LEVELS: readonly number[] = [5, 10, 25, 50, 75, 100];
 
 export function isMilestoneLevel(level: number): boolean {
   return MILESTONE_LEVELS.includes(level);
@@ -130,7 +131,9 @@ type XpSourceKey =
   | "time"
   | "placement"
   | "win"
+  | "eliminations"
   | "firstGame"
+  | "firstWin"
   | "feats";
 
 // "other" is XP in the subtotal that no known source accounts for: a source
@@ -142,7 +145,9 @@ export const XP_LINE_KEYS: readonly XpSourceKey[] = [
   "time",
   "placement",
   "win",
+  "eliminations",
   "firstGame",
+  "firstWin",
   "feats",
 ];
 
@@ -152,7 +157,9 @@ export const XP_LINE_LABEL_KEYS: Record<XpLineKey, string> = {
   time: "progression.line_time",
   placement: "progression.line_placement",
   win: "progression.line_win",
+  eliminations: "progression.line_eliminations",
   firstGame: "progression.line_first_game",
+  firstWin: "progression.line_first_win",
   feats: "progression.line_feats",
   other: "progression.line_other",
 };
@@ -173,13 +180,21 @@ export function visibleXpLines(
   return lines;
 }
 
-/** The multipliers worth showing: anything other than 1x. */
+export type XpMultiplierKey = "game" | "subscriber" | "repeat";
+
+/**
+ * The multipliers worth showing: anything other than 1x. "game" is the
+ * player-count multiplier, "repeat" the repeated-opponents one.
+ */
 export function visibleMultipliers(
   breakdown: XpBreakdown,
-): { key: "game" | "subscriber"; permille: number }[] {
-  const out: { key: "game" | "subscriber"; permille: number }[] = [];
+): { key: XpMultiplierKey; permille: number }[] {
+  const out: { key: XpMultiplierKey; permille: number }[] = [];
   if (breakdown.gamePermille !== 1000) {
     out.push({ key: "game", permille: breakdown.gamePermille });
+  }
+  if (breakdown.repeatPermille !== 1000) {
+    out.push({ key: "repeat", permille: breakdown.repeatPermille });
   }
   if (breakdown.subscriberPermille !== 1000) {
     out.push({ key: "subscriber", permille: breakdown.subscriberPermille });
@@ -200,9 +215,12 @@ export function visibleMultipliers(
  */
 export function multiplierAmounts(
   breakdown: XpBreakdown,
-): { key: "game" | "subscriber"; permille: number; amount: number | null }[] {
+): { key: XpMultiplierKey; permille: number; amount: number | null }[] {
   const multipliers = visibleMultipliers(breakdown);
-  const exact = multipliers.length === 1;
+  // A cap changes the total beyond what the multiplier did, so no line is
+  // credited with an amount that would not add up.
+  const exact =
+    multipliers.length === 1 && !breakdown.capped && !breakdown.softCapped;
   return multipliers.map((m) => ({
     ...m,
     amount: exact ? breakdown.total - breakdown.subtotal : null,
@@ -248,6 +266,15 @@ const INELIGIBLE_REASON_KEYS: Record<string, string> = {
   custom_settings: "progression.ineligible_custom_settings",
   too_few_humans: "progression.ineligible_too_few_humans",
   daily_cap: "progression.ineligible_daily_cap",
+  private_game: "progression.ineligible_private_game",
+  ranked: "progression.ineligible_ranked",
+  admin_modified: "progression.ineligible_admin_modified",
+  left_early: "progression.ineligible_left_early",
+  eliminated_early: "progression.ineligible_eliminated_early",
+  no_winner: "progression.ineligible_no_winner",
+  admin_actor: "progression.ineligible_admin_actor",
+  guest: "progression.ineligible_guest",
+  duplicate: "progression.ineligible_generic",
   // The game's stats were not agreed on by the players' votes.
   unverified: "progression.ineligible_unverified",
   // Played before player levels launched: never scored.
@@ -274,10 +301,111 @@ const LEVEL_REWARD_REASON_KEYS: Record<string, string> = {
   level_up: "account_modal.reward_level_up",
   level_milestone: "account_modal.reward_level_milestone",
   prestige: "account_modal.reward_prestige",
+  season_track: "account_modal.reward_season_track",
+  challenge: "account_modal.reward_challenge",
 };
 
 export function levelRewardReasonKey(reason: string): string | undefined {
   return Object.prototype.hasOwnProperty.call(LEVEL_REWARD_REASON_KEYS, reason)
     ? LEVEL_REWARD_REASON_KEYS[reason]
     : undefined;
+}
+
+// Military ranks (display only). The key is the shared rule's; the label is
+// translated here.
+const RANK_LABEL_KEYS: Record<RankKey, string> = {
+  recruit: "progression.rank_recruit",
+  private: "progression.rank_private",
+  corporal: "progression.rank_corporal",
+  sergeant: "progression.rank_sergeant",
+  lieutenant: "progression.rank_lieutenant",
+  captain: "progression.rank_captain",
+  major: "progression.rank_major",
+  colonel: "progression.rank_colonel",
+  general: "progression.rank_general",
+  supreme_commander: "progression.rank_supreme_commander",
+};
+
+export function rankLabelKey(level: number): string {
+  return RANK_LABEL_KEYS[rankForLevel(level)];
+}
+
+/**
+ * The rank change a game caused: the ranks before and after and the level the
+ * new one starts at, or null if the rank is the same. A rank only ever goes up
+ * within one prestige run.
+ */
+export function promotionInGame(data: {
+  before: { level: number };
+  after: { level: number };
+  levelsReached: readonly { level: number }[];
+}): { from: RankKey; to: RankKey; atLevel: number } | null {
+  const from = rankForLevel(data.before.level);
+  const to = rankForLevel(data.after.level);
+  if (from === to) return null;
+  const crossed = data.levelsReached
+    .map((l) => l.level)
+    .find((level) => rankForLevel(level) === to);
+  return { from, to, atLevel: crossed ?? data.after.level };
+}
+
+// Title ids -> translation (a title is a collectible, separate from the rank).
+// Keys are spelled out in full so the translation checks can see them.
+const TITLE_KEYS: Record<string, string> = {
+  veteran: "progression.title_veteran",
+  elite: "progression.title_elite",
+  supreme_commander: "progression.title_supreme_commander",
+  conqueror: "progression.title_conqueror",
+  legend: "progression.title_legend",
+};
+
+/** A title id as text: "Veteran", "Prestige III", "Season 2 Elite". Unknown ids read as their raw name. */
+export function titleText(
+  id: string,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  if (Object.prototype.hasOwnProperty.call(TITLE_KEYS, id)) {
+    return translate(TITLE_KEYS[id]);
+  }
+  const prestige = /^prestige:(\d+)$/.exec(id);
+  if (prestige !== null) {
+    return translate("progression.title_prestige", { rank: prestige[1] });
+  }
+  const season = /^season_(veteran|elite):(\d+)$/.exec(id);
+  if (season !== null) {
+    return translate(
+      season[1] === "veteran"
+        ? "progression.title_season_veteran"
+        : "progression.title_season_elite",
+      { season: season[2] },
+    );
+  }
+  return id;
+}
+
+// Challenge ids -> translation keys, spelled out so the scanner sees them.
+const CHALLENGE_KEYS: Record<string, string> = {
+  d_games_2: "progression.challenge_d_games_2",
+  d_games_3: "progression.challenge_d_games_3",
+  d_top_half_2: "progression.challenge_d_top_half_2",
+  d_top_quarter_1: "progression.challenge_d_top_quarter_1",
+  d_win_1: "progression.challenge_d_win_1",
+  d_elim_1: "progression.challenge_d_elim_1",
+  d_survive_15m: "progression.challenge_d_survive_15m",
+  d_build_10: "progression.challenge_d_build_10",
+  d_gold_500k: "progression.challenge_d_gold_500k",
+  w_games_15: "progression.challenge_w_games_15",
+  w_games_10: "progression.challenge_w_games_10",
+  w_wins_5: "progression.challenge_w_wins_5",
+  w_top_quarter_10: "progression.challenge_w_top_quarter_10",
+  w_top_half_15: "progression.challenge_w_top_half_15",
+  w_elim_10: "progression.challenge_w_elim_10",
+  w_maps_5: "progression.challenge_w_maps_5",
+  w_alliances_10: "progression.challenge_w_alliances_10",
+};
+
+export function challengeLabelKey(id: string): string {
+  return Object.prototype.hasOwnProperty.call(CHALLENGE_KEYS, id)
+    ? CHALLENGE_KEYS[id]
+    : "progression.challenge_generic";
 }

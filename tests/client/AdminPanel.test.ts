@@ -4,8 +4,11 @@ import type {
   AdminClanList,
   AdminDashboard,
   AdminMe,
+  AdminProgression,
+  AdminSeasonList,
   AdminUserDetail,
   AdminUserList,
+  AdminXpHistory,
 } from "@openfront/shared/AdminSchemas";
 import { permissionsOf } from "@openfront/shared/Permissions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +42,14 @@ const { api, showInGameConfirm } = vi.hoisted(() => {
       clanBan: fn(),
       clanDelete: fn(),
       audit: fn(),
+      progression: fn(),
+      xpHistory: fn(),
+      adjustXp: fn(),
+      resetSeasonXp: fn(),
+      seasons: fn(),
+      createSeason: fn(),
+      updateSeason: fn(),
+      closeSeason: fn(),
     },
     showInGameConfirm: vi.fn(async (_m: string, _o?: unknown) => true),
   };
@@ -53,6 +64,8 @@ import { AdminModal } from "../../src/client/AdminModal";
 import "../../src/client/admin/AdminAuditView";
 import "../../src/client/admin/AdminClansView";
 import "../../src/client/admin/AdminDashboardView";
+import "../../src/client/admin/AdminProgressionCard";
+import "../../src/client/admin/AdminSeasonsView";
 import "../../src/client/admin/AdminServerView";
 import "../../src/client/admin/AdminUsersView";
 
@@ -151,6 +164,73 @@ const DASH: AdminDashboard = {
   servers: [],
 };
 const AUDIT: AdminAuditList = { entries: [], nextBefore: null };
+const PROGRESSION: AdminProgression = {
+  registered: true,
+  lifetimeXp: 123_456,
+  runXp: 23_060,
+  level: 20,
+  rank: "corporal",
+  prestige: 1,
+  legend: false,
+  title: "veteran",
+  season: { number: 1, name: "Opening", xp: 7850, level: 4 },
+  challenges: [
+    {
+      id: "d_win_1",
+      period: "daily",
+      progress: 0,
+      target: 1,
+      completed: false,
+    },
+  ],
+  flaggedGames: [
+    { gameId: "ab123456", flags: ["repeat_group"], xp: 60, at: NOW },
+  ],
+};
+const HISTORY: AdminXpHistory = {
+  entries: [
+    {
+      id: "1",
+      amount: 750,
+      source: "match",
+      refType: "game",
+      refId: "ab123456",
+      reason: null,
+      actor: null,
+      lifetimeAfter: 750,
+      runAfter: 750,
+      createdAt: NOW,
+    },
+  ],
+  page: 1,
+  hasMore: false,
+};
+const SEASONS: AdminSeasonList = {
+  seasons: [
+    {
+      id: "2",
+      number: 2,
+      name: "Winter",
+      startsAt: NOW,
+      endsAt: "2030-01-01T00:00:00.000Z",
+      archivedAt: null,
+      current: true,
+      rewardFlares: {},
+      players: 12,
+    },
+    {
+      id: "1",
+      number: 1,
+      name: "Opening",
+      startsAt: "2026-01-01T00:00:00.000Z",
+      endsAt: "2026-03-01T00:00:00.000Z",
+      archivedAt: "2026-03-02T00:00:00.000Z",
+      current: false,
+      rewardFlares: {},
+      players: 90,
+    },
+  ],
+};
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
@@ -163,6 +243,18 @@ beforeEach(() => {
   api.clan.mockResolvedValue(ok(CLAN));
   api.dashboard.mockResolvedValue(ok(DASH));
   api.audit.mockResolvedValue(ok(AUDIT));
+  api.progression.mockResolvedValue(ok(PROGRESSION));
+  api.xpHistory.mockResolvedValue(ok(HISTORY));
+  api.seasons.mockResolvedValue(ok(SEASONS));
+  for (const f of [
+    api.adjustXp,
+    api.resetSeasonXp,
+    api.createSeason,
+    api.updateSeason,
+    api.closeSeason,
+  ]) {
+    f.mockResolvedValue(ok({ ok: true, message: "done", changed: true }));
+  }
   for (const f of [
     api.setVerified,
     api.setBareName,
@@ -261,12 +353,14 @@ describe("<admin-modal>", () => {
       "audit",
       "server",
     ]);
+    // seasons are the owner's alone
     expect(tabs(await open(ok(me("owner"))))).toEqual([
       "dashboard",
       "users",
       "clans",
       "audit",
       "server",
+      "seasons",
     ]);
   });
 
@@ -389,6 +483,225 @@ describe("<admin-users-view>", () => {
     const detail = el.querySelector("#admin-user-detail")!;
     expect(detail.textContent).toContain("admin_panel.chip_owner");
     expect(detail.textContent).toContain("admin_panel.chip_verified");
+  });
+});
+
+describe("<admin-progression-card>", () => {
+  async function mountCard(role: Role) {
+    const el = document.createElement(
+      "admin-progression-card",
+    ) as HTMLElement & {
+      me: AdminMe;
+      publicId: string;
+      updateComplete: Promise<boolean>;
+    };
+    el.me = me(role);
+    el.publicId = "TARGET0001";
+    document.body.append(el);
+    await el.updateComplete;
+    await tick();
+    await el.updateComplete;
+    return el;
+  }
+  const fill = async (
+    el: HTMLElement & { updateComplete: Promise<boolean> },
+    amount: string,
+    reason: string,
+  ) => {
+    const [xp, why] = [
+      ...el.querySelectorAll<HTMLInputElement>("[data-admin-xp-tools] input"),
+    ];
+    xp.value = amount;
+    xp.dispatchEvent(new Event("input"));
+    why.value = reason;
+    why.dispatchEvent(new Event("input"));
+    await el.updateComplete;
+  };
+
+  it("shows level, rank, prestige, XP, season, challenges and review flags", async () => {
+    const el = await mountCard("mod");
+    expect(el.querySelector("[data-admin-level]")?.textContent).toContain("20");
+    expect(el.querySelector("[data-admin-level]")?.textContent).toContain(
+      "progression.rank_corporal",
+    );
+    expect(el.querySelector("[data-admin-run-xp]")?.textContent).toBe("23,060");
+    expect(el.querySelector("[data-admin-lifetime-xp]")?.textContent).toBe(
+      "123,456",
+    );
+    expect(el.textContent).toContain("Opening");
+    expect(el.textContent).toContain("d_win_1");
+    expect(el.textContent).toContain("repeat_group");
+  });
+
+  it("a moderator can look but has no tools and no history", async () => {
+    const el = await mountCard("mod");
+    expect(el.querySelector("[data-admin-xp-tools]")).toBeNull();
+    expect(el.querySelector("[data-admin-xp-history]")).toBeNull();
+    expect(api.xpHistory).not.toHaveBeenCalled();
+  });
+
+  it("an admin can grant and revoke but not set; the owner can do all three", async () => {
+    let el = await mountCard("admin");
+    expect(el.querySelector("[data-admin-xp-grant]")).not.toBeNull();
+    expect(el.querySelector("[data-admin-xp-revoke]")).not.toBeNull();
+    expect(el.querySelector("[data-admin-xp-set]")).toBeNull();
+    expect(el.querySelector("[data-admin-xp-history]")).not.toBeNull();
+    el.remove();
+    el = await mountCard("owner");
+    expect(el.querySelector("[data-admin-xp-set]")).not.toBeNull();
+  });
+
+  it("nothing is sent without a reason or with a bad amount", async () => {
+    const el = await mountCard("admin");
+    await fill(el, "100", "");
+    (el.querySelector("[data-admin-xp-grant]") as HTMLButtonElement).click();
+    await tick();
+    expect(api.adjustXp).not.toHaveBeenCalled();
+    expect(el.textContent).toContain("admin_panel.reason_required");
+    await fill(el, "abc", "because");
+    (el.querySelector("[data-admin-xp-grant]") as HTMLButtonElement).click();
+    await tick();
+    expect(api.adjustXp).not.toHaveBeenCalled();
+    expect(el.textContent).toContain("admin_panel.xp_invalid");
+  });
+
+  it("sends a grant with its reason, and reloads", async () => {
+    const el = await mountCard("admin");
+    await fill(el, "500", "tournament prize");
+    (el.querySelector("[data-admin-xp-grant]") as HTMLButtonElement).click();
+    await tick();
+    expect(api.adjustXp).toHaveBeenCalledWith(
+      "TARGET0001",
+      "grant",
+      500,
+      "tournament prize",
+      false,
+    );
+    expect(api.progression).toHaveBeenCalledTimes(2);
+    expect(showInGameConfirm).not.toHaveBeenCalled();
+  });
+
+  it("a revoke asks first, and a no sends nothing", async () => {
+    const el = await mountCard("admin");
+    await fill(el, "50", "cheating");
+    showInGameConfirm.mockResolvedValueOnce(false);
+    (el.querySelector("[data-admin-xp-revoke]") as HTMLButtonElement).click();
+    await tick();
+    expect(showInGameConfirm).toHaveBeenCalledOnce();
+    expect(api.adjustXp).not.toHaveBeenCalled();
+    (el.querySelector("[data-admin-xp-revoke]") as HTMLButtonElement).click();
+    await tick();
+    expect(api.adjustXp).toHaveBeenCalledWith(
+      "TARGET0001",
+      "revoke",
+      50,
+      "cheating",
+      false,
+    );
+  });
+
+  it("an API refusal is shown, not reported as success", async () => {
+    api.adjustXp.mockResolvedValue({
+      ok: false,
+      status: 409,
+      error: "INSUFFICIENT",
+    });
+    const el = await mountCard("admin");
+    await fill(el, "50", "cheating");
+    (el.querySelector("[data-admin-xp-revoke]") as HTMLButtonElement).click();
+    await tick();
+    expect(el.querySelector("[role=status]")?.className).toContain("df-red");
+  });
+
+  it("says so for a guest", async () => {
+    api.progression.mockResolvedValue(
+      ok({ ...PROGRESSION, registered: false }),
+    );
+    const el = await mountCard("owner");
+    expect(el.textContent).toContain("admin_panel.xp_guest");
+    expect(el.querySelector("[data-admin-xp-tools]")).toBeNull();
+  });
+});
+
+describe("<admin-seasons-view>", () => {
+  async function mountSeasons() {
+    const el = document.createElement("admin-seasons-view") as HTMLElement & {
+      updateComplete: Promise<boolean>;
+    };
+    document.body.append(el);
+    await el.updateComplete;
+    await tick();
+    await el.updateComplete;
+    return el;
+  }
+  const typeInto = async (
+    el: HTMLElement & { updateComplete: Promise<boolean> },
+    index: number,
+    value: string,
+  ) => {
+    const input = el.querySelectorAll<HTMLInputElement>("#admin-seasons input")[
+      index
+    ];
+    input.value = value;
+    input.dispatchEvent(new Event("input"));
+    await el.updateComplete;
+  };
+
+  it("lists the running and archived seasons, and closing is offered for the running one only", async () => {
+    const el = await mountSeasons();
+    expect(el.querySelectorAll("[data-admin-season]")).toHaveLength(2);
+    const running = el.querySelector('[data-admin-season="2"]')!;
+    const archived = el.querySelector('[data-admin-season="1"]')!;
+    expect(running.textContent).toContain("admin_panel.season_running");
+    expect(running.querySelector("button")).not.toBeNull();
+    expect(archived.textContent).toContain("admin_panel.season_archived");
+    expect(archived.querySelector("button")).toBeNull();
+  });
+
+  it("creates a season from a name and two dates", async () => {
+    const el = await mountSeasons();
+    await typeInto(el, 0, "Spring");
+    await typeInto(el, 1, "2031-03-01T00:00");
+    await typeInto(el, 2, "2031-06-01T00:00");
+    (
+      el.querySelector("[data-admin-season-create]") as HTMLButtonElement
+    ).click();
+    await tick();
+    expect(api.createSeason).toHaveBeenCalledWith({
+      name: "Spring",
+      startsAt: new Date("2031-03-01T00:00").toISOString(),
+      endsAt: new Date("2031-06-01T00:00").toISOString(),
+    });
+  });
+
+  it("refuses to create without a name or dates", async () => {
+    const el = await mountSeasons();
+    (
+      el.querySelector("[data-admin-season-create]") as HTMLButtonElement
+    ).click();
+    await tick();
+    expect(api.createSeason).not.toHaveBeenCalled();
+    expect(el.textContent).toContain("admin_panel.season_invalid");
+  });
+
+  it("closing needs a reason and a confirmation", async () => {
+    const el = await mountSeasons();
+    const close = () =>
+      (
+        el.querySelector('[data-admin-season="2"] button') as HTMLButtonElement
+      ).click();
+    close();
+    await tick();
+    expect(api.closeSeason).not.toHaveBeenCalled();
+    expect(el.textContent).toContain("admin_panel.reason_required");
+    await typeInto(el, 3, "wrapping up early");
+    showInGameConfirm.mockResolvedValueOnce(false);
+    close();
+    await tick();
+    expect(api.closeSeason).not.toHaveBeenCalled();
+    close();
+    await tick();
+    expect(api.closeSeason).toHaveBeenCalledWith("2", "wrapping up early");
   });
 });
 

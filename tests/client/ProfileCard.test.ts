@@ -118,6 +118,40 @@ describe("<profile-card>", () => {
     await render({ username: "Player", progress: null });
     expect(card.querySelector("[data-profile-card]")).toBeNull();
   });
+
+  it("shows the military rank and the chosen title beside the level", async () => {
+    await render({
+      username: "Iamlewis",
+      progress: { ...PRESTIGE_3, title: "veteran" },
+    });
+    expect(text("[data-profile-rank]")).toBe("progression.rank_lieutenant");
+    expect(text("[data-profile-title]")).toBe("progression.title_veteran");
+  });
+
+  it("shows the rank alone without a title, and the running season on the full card only", async () => {
+    await render({
+      username: "Iamlewis",
+      progress: {
+        ...PRESTIGE_3,
+        season: { name: "Opening", level: 18, xp: 7850 },
+      },
+    });
+    expect(card.querySelector("[data-profile-title]")).toBeNull();
+    expect(text("[data-profile-season]")).toContain(
+      'progression.profile_season:{"name":"Opening","level":18,"xp":"7,850"}',
+    );
+    card.remove();
+    await render({
+      variant: "compact",
+      username: "Iamlewis",
+      progress: {
+        ...PRESTIGE_3,
+        season: { name: "Opening", level: 18, xp: 7850 },
+      },
+    });
+    expect(card.querySelector("[data-profile-season]")).toBeNull();
+    expect(text("[data-profile-rank]")).toBe("progression.rank_lieutenant");
+  });
 });
 
 describe("<profile-card> opening flourish", () => {

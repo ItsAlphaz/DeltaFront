@@ -28,6 +28,7 @@ const modules: Record<string, () => Promise<unknown>> = {
   "player-profile-modal": () => import("./PlayerProfileModal"),
   "ranked-modal": () => import("./components/RankedModal"),
   "rewards-modal": () => import("./RewardsModal"),
+  "season-track-modal": () => import("./SeasonTrackModal"),
   "single-player-modal": () => import("./SinglePlayerModal"),
   "steam-handoff-modal": () => import("./SteamHandoffModal"),
   "steam-link-modal": () => import("./SteamLinkModal"),

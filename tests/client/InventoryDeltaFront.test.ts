@@ -487,8 +487,6 @@ describe("no Caps or Plutonium anywhere a V1 player can reach", () => {
     "cosmetics.hard": "premium currency label: rendered only with payments",
     "clan_modal.donate_irreversible_hard": "clan donations: clans + payments",
     "host_modal.queue_confirm_body": "paid lobby queue: payments",
-    "prestige.caps": "prestige rewards: progression",
-    "prestige.gain_caps": "prestige rewards: progression",
     "store.custom_currency_purchase_success": "currency packs: payments",
     "store.pack_debt": "cosmetic packs: payments",
     "store.plutonium_amount": "currency packs: payments",

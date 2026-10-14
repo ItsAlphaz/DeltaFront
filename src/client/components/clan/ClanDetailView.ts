@@ -644,6 +644,12 @@ export class ClanDetailView extends LitElement {
         translateText("clan_modal.members"),
         `${clan.memberCount ?? 0}`,
       )}
+      ${clan.xp === undefined
+        ? ""
+        : renderStat(
+            translateText("clan_modal.clan_xp"),
+            clan.xp.toLocaleString(),
+          )}
       ${renderStat(
         translateText("clan_modal.status"),
         clan.isOpen

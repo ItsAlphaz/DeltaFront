@@ -428,7 +428,26 @@ export class NavAccountMenu extends LitElement {
     const title = `${label} · ${xpProgressText(progress.xpInLevel, progress.xpForNext)}`;
     const percent = levelFraction(progress.xpInLevel, progress.xpForNext) * 100;
     const mobile = variant === "mobile";
+    // Something waiting for the player: Credits to claim, or a prestige to take.
+    const rewards =
+      this.userMeResponse === false
+        ? 0
+        : (this.userMeResponse.player.rewards?.length ?? 0);
+    const attention = progress.canPrestige || rewards > 0;
     return html`
+      ${attention
+        ? html`<span
+            data-account-attention
+            class="pointer-events-none absolute z-10 h-2.5 w-2.5 rounded-full bg-df-red ring-2 ring-black ${mobile
+              ? "-top-1 -right-1"
+              : "top-1 right-1"}"
+            title=${translateText(
+              progress.canPrestige
+                ? "nav_account_menu.prestige_ready"
+                : "nav_account_menu.rewards_waiting",
+            )}
+          ></span>`
+        : nothing}
       <span
         data-account-level
         class=${mobile ? "absolute -top-1 -left-1 z-10" : "flex items-center"}

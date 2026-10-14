@@ -759,6 +759,8 @@ describe("LeaderboardModal", () => {
       ).modalConfig().tabs;
       expect(tabs.map((t) => t.key)).toEqual([
         "basic",
+        "xp",
+        "season",
         "players",
         "players2v2",
         "playersFfa",
@@ -1004,6 +1006,7 @@ describe("LeaderboardModal", () => {
         ranked: false,
         clans: false,
         tribes: false,
+        progression: false,
       });
       await rebuild();
       expect(tabKeys()).toEqual(["basic"]);
@@ -1023,6 +1026,7 @@ describe("LeaderboardModal", () => {
         ranked: true,
         clans: false,
         tribes: false,
+        progression: false,
       });
       await rebuild();
       expect(tabKeys()).toEqual([
@@ -1035,6 +1039,7 @@ describe("LeaderboardModal", () => {
         ranked: false,
         clans: true,
         tribes: false,
+        progression: false,
       });
       await rebuild();
       expect(tabKeys()).toEqual(["basic", "clans"]);
@@ -1042,9 +1047,26 @@ describe("LeaderboardModal", () => {
         ranked: false,
         clans: false,
         tribes: true,
+        progression: false,
       });
       await rebuild();
       expect(tabKeys()).toEqual(["basic", "tribes"]);
+    });
+
+    it("progression adds the lifetime XP and season tabs, right after the basic board, and nothing else", async () => {
+      Object.assign(ACCOUNT_FEATURES, {
+        ranked: false,
+        clans: false,
+        tribes: false,
+        progression: true,
+      });
+      await rebuild();
+      expect(tabKeys()).toEqual(["basic", "xp", "season"]);
+      expect(modal.querySelectorAll("leaderboard-xp-table")).toHaveLength(2);
+      Object.assign(ACCOUNT_FEATURES, { progression: false });
+      await rebuild();
+      expect(tabKeys()).toEqual(["basic"]);
+      expect(modal.querySelector("leaderboard-xp-table")).toBeNull();
     });
 
     it("opening the board loads only the basic board, and never calls a ranked, clan or tribe endpoint", async () => {
@@ -1052,6 +1074,7 @@ describe("LeaderboardModal", () => {
         ranked: false,
         clans: false,
         tribes: false,
+        progression: false,
       });
       await rebuild();
       const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
@@ -1068,6 +1091,7 @@ describe("LeaderboardModal", () => {
         ranked: false,
         clans: false,
         tribes: false,
+        progression: false,
       });
       await rebuild();
       (modal as unknown as { activeTab: string }).activeTab = "";

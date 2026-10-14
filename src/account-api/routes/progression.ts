@@ -420,7 +420,9 @@ export function progressionRouter(deps: AppDeps): Router {
     const size = ACCOUNT_RULES.leaderboardPageSize;
     const rows = await lifetimeBoard(pool, (n - 1) * size, size, WINDOW);
     if (rows.length === 0 && n > 1) {
-      res.status(400).json({ message: "Page past the end" });
+      res.status(400).json({
+        message: `Page must be between 1 and ${Math.max(1, n - 1)}`,
+      });
       return;
     }
     const body: XpLeaderboardResponse = { players: rows.map(entry) };

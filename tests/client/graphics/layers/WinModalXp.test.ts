@@ -282,7 +282,10 @@ describe("WinModal XP section", () => {
     await finishReveal();
     expect(xpState()).toBe("calculating");
 
+    // The game server replays a game before archiving it, so the wait is long.
     await settle(60_000);
+    expect(xpState()).toBe("calculating");
+    await settle(90_000);
     expect(xpState()).toBe("hidden");
     expect(modal.querySelector("[data-xp-panel]")).toBeNull();
     const calls = fetchMock.mock.calls.length;
@@ -325,6 +328,19 @@ describe("WinModal XP section", () => {
     );
   });
 
+  it("doesn't ask the API about a singleplayer game at all", async () => {
+    const fetchMock = stubXpEndpoint([
+      () => json({ gameId: GAME_ID, eligible: false, reason: "unverified" }),
+    ]);
+    await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
+    await finishReveal();
+    await settle(10_000);
+    expect(xpState()).toBe("ineligible");
+    expect(
+      fetchMock.mock.calls.filter((c) => String(c[0]).includes("/xp/")),
+    ).toHaveLength(0);
+  });
+
   it("still says a multiplayer game's results couldn't be verified", async () => {
     stubXpEndpoint([
       () => json({ gameId: GAME_ID, eligible: false, reason: "unverified" }),
@@ -364,17 +380,17 @@ describe("WinModal XP section", () => {
       () =>
         json(
           eligible({
-            before: { prestige: 0, level: 4, xpInLevel: 300, xpForNext: 400 },
+            before: { prestige: 0, level: 6, xpInLevel: 300, xpForNext: 400 },
             after: {
               ...eligible().after,
-              level: 7,
+              level: 9,
               xpInLevel: 50,
               xpForNext: 600,
             },
             levelsReached: [
-              { prestige: 0, level: 5 },
-              { prestige: 0, level: 6 },
               { prestige: 0, level: 7 },
+              { prestige: 0, level: 8 },
+              { prestige: 0, level: 9 },
             ],
           }),
         ),
@@ -383,7 +399,7 @@ describe("WinModal XP section", () => {
     await finishReveal();
     expect(panel()!.querySelector("[data-xp-levelup]")).toBeNull();
     expect(panel()!.querySelector("[data-xp-caption]")!.textContent).toContain(
-      'progression.level_reached:{"level":7}',
+      'progression.level_reached:{"level":9}',
     );
     // The bar runs from the level the player is now on to the next one.
     const badgeLevel = (sel: string) =>
@@ -392,8 +408,8 @@ describe("WinModal XP section", () => {
           level: number;
         }
       ).level;
-    expect(badgeLevel("[data-xp-current-badge]")).toBe(7);
-    expect(badgeLevel("[data-xp-next-badge]")).toBe(8);
+    expect(badgeLevel("[data-xp-current-badge]")).toBe(9);
+    expect(badgeLevel("[data-xp-next-badge]")).toBe(10);
   });
 
   it("gives a milestone reached this game its own card", async () => {

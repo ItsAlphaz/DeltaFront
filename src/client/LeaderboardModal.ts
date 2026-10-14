@@ -9,6 +9,8 @@ import "./components/leaderboard/LeaderboardPlayerList";
 import type { LeaderboardPlayerList } from "./components/leaderboard/LeaderboardPlayerList";
 import "./components/leaderboard/LeaderboardTribeTable";
 import type { LeaderboardTribeTable } from "./components/leaderboard/LeaderboardTribeTable";
+import "./components/leaderboard/LeaderboardXpTable";
+import type { LeaderboardXpTable } from "./components/leaderboard/LeaderboardXpTable";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { translateText } from "./Utils";
 
@@ -23,6 +25,7 @@ const RANKED_TAB_KEYS = ["players", "players2v2", "playersFfa"] as const;
 function availableTabKeys(): string[] {
   return [
     BASIC_TAB,
+    ...(ACCOUNT_FEATURES.progression ? ["xp", "season"] : []),
     ...(ACCOUNT_FEATURES.ranked ? RANKED_TAB_KEYS : []),
     ...(ACCOUNT_FEATURES.clans ? ["clans"] : []),
     ...(ACCOUNT_FEATURES.tribes ? ["tribes"] : []),
@@ -49,6 +52,10 @@ export class LeaderboardModal extends BaseModal {
   private playerList?: LeaderboardPlayerList;
   @query("leaderboard-player-list[data-board='basic']")
   private basicList?: LeaderboardPlayerList;
+  @query("leaderboard-xp-table[data-board='xp']")
+  private xpTable?: LeaderboardXpTable;
+  @query("leaderboard-xp-table[data-board='season']")
+  private seasonTable?: LeaderboardXpTable;
   @query("leaderboard-clan-table")
   private clanTable?: LeaderboardClanTable;
   @query("leaderboard-tribe-table")
@@ -60,6 +67,8 @@ export class LeaderboardModal extends BaseModal {
   protected modalConfig() {
     const labels: Record<string, string> = {
       [BASIC_TAB]: translateText("leaderboard_modal.basic_tab"),
+      xp: translateText("leaderboard_modal.xp_tab"),
+      season: translateText("leaderboard_modal.season_tab"),
       players: translateText("leaderboard_modal.ranked_tab"),
       players2v2: translateText("leaderboard_modal.ranked_2v2_tab"),
       playersFfa: translateText("leaderboard_modal.ranked_ffa_tab"),
@@ -77,6 +86,8 @@ export class LeaderboardModal extends BaseModal {
 
   private tabComponent(tab: string) {
     if (tab === BASIC_TAB) return this.basicList;
+    if (tab === "xp") return this.xpTable;
+    if (tab === "season") return this.seasonTable;
     if (this.rankedTypeFor(tab) !== null) return this.playerList;
     if (tab === "clans") return this.clanTable;
     return this.tribeTable;
@@ -196,6 +207,18 @@ export class LeaderboardModal extends BaseModal {
           class=${this.activeTab === BASIC_TAB ? "h-full" : "hidden"}
           .basic=${true}
         ></leaderboard-player-list>
+        ${ACCOUNT_FEATURES.progression
+          ? html`<leaderboard-xp-table
+                data-board="xp"
+                mode="lifetime"
+                class=${this.activeTab === "xp" ? "h-full" : "hidden"}
+              ></leaderboard-xp-table>
+              <leaderboard-xp-table
+                data-board="season"
+                mode="season"
+                class=${this.activeTab === "season" ? "h-full" : "hidden"}
+              ></leaderboard-xp-table>`
+          : ""}
         ${ACCOUNT_FEATURES.clans
           ? html`<leaderboard-clan-table
               class=${this.activeTab === "clans" ? "h-full" : "hidden"}

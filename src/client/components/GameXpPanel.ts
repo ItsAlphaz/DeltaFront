@@ -3,22 +3,31 @@ import type {
   GameXpEligible,
   GameXpResponse,
 } from "@openfront/shared/ApiSchemas";
+import {
+  MAX_RUN_XP,
+  runProgress,
+  xpForLevel,
+} from "@openfront/shared/ProgressionRules";
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 import {
   apportionXp,
+  challengeLabelKey,
   ineligibleReasonKey,
   isMilestoneLevel,
   levelFraction,
   levelsReachedInGame,
   MAX_LEVEL,
+  promotionInGame,
+  rankLabelKey,
   reachedLegendThisGame,
   subscriberTierOf,
   visibleMultipliers,
   visibleXpLines,
   XP_LINE_LABEL_KEYS,
   type XpLineKey,
+  type XpMultiplierKey,
 } from "../Progression";
 import { translateText } from "../Utils";
 import "./LevelBadge";
@@ -76,7 +85,8 @@ function prefersReducedMotion(): boolean {
 // lives in the counter under the bar, never in two places.
 type Caption =
   | { kind: "line"; key: XpLineKey; amount: number }
-  | { kind: "multiplier"; key: "game" | "subscriber"; permille: number }
+  | { kind: "multiplier"; key: XpMultiplierKey; permille: number }
+  | { kind: "challenge"; id: string; xp: number }
   | { kind: "heading" }
   | { kind: "level_up"; level: number }
   | { kind: "legend" };
@@ -116,6 +126,18 @@ interface RevealFrame {
 function positionOf(level: number, xpInLevel: number, xpForNext: number) {
   if (level >= MAX_LEVEL) return MAX_LEVEL;
   return level + Math.min(1 - 1e-6, levelFraction(xpInLevel, xpForNext));
+}
+
+// Where the bar rests once the match's own XP is in, before any challenge XP
+// (which is part of `after` but is paid separately): the challenge cards then
+// move it the rest of the way.
+function positionAfterMatch(data: GameXpEligible): number {
+  const beforeRun =
+    data.before.level >= MAX_LEVEL
+      ? MAX_RUN_XP
+      : xpForLevel(data.before.level) + data.before.xpInLevel;
+  const p = runProgress(Math.min(MAX_RUN_XP, beforeRun + data.breakdown.total));
+  return positionOf(p.level, p.xpInLevel, p.xpForNext);
 }
 
 // The source cards' final values: the award split across them, so a
@@ -222,6 +244,9 @@ export class GameXpPanel extends LitElement {
       data.after.xpInLevel,
       data.after.xpForNext,
     );
+    const challenges = data.challenges ?? [];
+    const challengeXp = challenges.reduce((sum, c) => sum + c.xp, 0);
+    const matchEnd = challengeXp > 0 ? positionAfterMatch(data) : end;
     // The bar climbs in proportion to XP. When the multipliers cut the award
     // (private and singleplayer games), each source moves the bar its scaled
     // share, so the bar never goes backwards; when they boost it, the sources
@@ -230,7 +255,7 @@ export class GameXpPanel extends LitElement {
     const subtotal = Math.max(1, breakdown.subtotal);
     const scale = total < subtotal ? total / subtotal : 1;
     const positionAfterXp = (xp: number) =>
-      total <= 0 ? start : start + ((end - start) * xp) / total;
+      total <= 0 ? start : start + ((matchEnd - start) * xp) / total;
 
     this.barAnimate = false;
     this.reveal = {
@@ -436,9 +461,27 @@ export class GameXpPanel extends LitElement {
       t += MULTIPLIER_HOLD_MS;
     });
 
+    // Challenges this game completed: each one's caption lands and the bar
+    // moves on by its XP (it is paid on top of the award above).
+    let challengeDone = 0;
+    for (const c of challenges) {
+      const caption: Caption = { kind: "challenge", id: c.id, xp: c.xp };
+      showCaption(t, caption);
+      t += MULTIPLIER_LEAD_MS;
+      challengeDone += c.xp;
+      t = climb(
+        t,
+        matchEnd + ((end - matchEnd) * challengeDone) / challengeXp,
+        caption,
+        () => ({}),
+        true,
+      );
+      t += GAP_MS;
+    }
+
     // Land exactly on the award, whatever rounding happened on the way.
     const last: Caption | null =
-      multipliers.length > 0
+      multipliers.length > 0 && challenges.length === 0
         ? {
             kind: "multiplier",
             key: multipliers[multipliers.length - 1].key,
@@ -519,7 +562,7 @@ export class GameXpPanel extends LitElement {
   // The colours of a multiplier's bonus: a subscription tier's own (see
   // SUBSCRIBER_TIERS), or null for the default lime.
   private accentOf(m: {
-    key: "game" | "subscriber";
+    key: XpMultiplierKey;
     permille: number;
   }): readonly [string, string] | null {
     if (m.key !== "subscriber") return null;
@@ -615,6 +658,13 @@ export class GameXpPanel extends LitElement {
           >`;
       case "multiplier":
         return html`${xpBonusText(caption.key, caption.permille)}`;
+      case "challenge":
+        return html`${translateText(challengeLabelKey(caption.id))}
+          <span class="text-yellow-300"
+            >${translateText("progression.xp_total", {
+              xp: formatXp(caption.xp),
+            })}</span
+          >`;
       case "heading":
         return html`${translateText("progression.xp_heading")}`;
       case "level_up":
@@ -1191,7 +1241,10 @@ export class GameXpPanel extends LitElement {
   private renderRecap(data: GameXpEligible): TemplateResult {
     const r = this.reveal;
     return html`
-      ${this.renderLevelUp(data)} ${this.renderBreakdown(data)}
+      ${this.renderLevelUp(data)} ${this.renderPromotion(data)}
+      ${this.renderBreakdown(data)} ${this.renderNotes(data)}
+      ${this.renderChallenges(data)} ${this.renderSeason(data)}
+      ${this.renderPrestigeReady(data)}
       ${data.breakdown.leftEarly
         ? this.collapsible(
             r === null,
@@ -1201,6 +1254,155 @@ export class GameXpPanel extends LitElement {
           )
         : nothing}
     `;
+  }
+
+  // Whether the reveal has got to the end of the award (the counter has
+  // settled), or there is no reveal.
+  private awardSettled(): boolean {
+    const r = this.reveal;
+    return r === null || r.xpText === "after";
+  }
+
+  // "PROMOTED  Sergeant -> Lieutenant", when this game raised the player's
+  // rank. During the reveal it lands when the bar reaches that level.
+  private renderPromotion(
+    data: GameXpEligible,
+  ): TemplateResult | typeof nothing {
+    const promotion = promotionInGame({
+      before: data.before,
+      after: data.after,
+      levelsReached: levelsReachedInGame(data),
+    });
+    if (promotion === null) return nothing;
+    const r = this.reveal;
+    const shown = r === null || r.level >= promotion.atLevel;
+    return this.collapsible(
+      shown,
+      html`<div
+        data-xp-promotion
+        data-xp-rank-to=${promotion.to}
+        data-xp-slot-hidden=${shown ? nothing : "true"}
+        class="xp-shine mt-3 flex items-center justify-center gap-3 rounded-xl border border-df-red/50 bg-gradient-to-r from-transparent via-df-red/15 to-transparent px-3 py-2 ${this.slideSlotClass(
+          shown,
+        )}"
+      >
+        <div class="min-w-0 text-center">
+          <div
+            class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-red-bright"
+          >
+            ${translateText("progression.promoted")}
+          </div>
+          <div class="text-base font-black leading-tight text-white">
+            ${translateText("progression.promotion_line", {
+              from: translateText(rankLabelKey(data.before.level)),
+              to: translateText(rankLabelKey(data.after.level)),
+            })}
+          </div>
+        </div>
+      </div>`,
+    );
+  }
+
+  // What changed the award beyond its lines: a cap that held it back.
+  private renderNotes(data: GameXpEligible): TemplateResult | typeof nothing {
+    const b = data.breakdown;
+    if (!b.softCapped && !b.capped) return nothing;
+    return this.collapsible(
+      this.awardSettled(),
+      html`<p
+        data-xp-note=${b.softCapped ? "soft_cap" : "cap"}
+        class="m-0 mt-3 text-center text-xs text-amber-300"
+      >
+        ${translateText(
+          b.softCapped
+            ? "progression.note_soft_cap"
+            : "progression.note_match_cap",
+        )}
+      </p>`,
+    );
+  }
+
+  // One card for each daily or weekly challenge this game completed.
+  private renderChallenges(
+    data: GameXpEligible,
+  ): TemplateResult | typeof nothing {
+    const done = data.challenges ?? [];
+    if (done.length === 0) return nothing;
+    return this.collapsible(
+      this.awardSettled(),
+      html`<div data-xp-challenges class="mt-3 flex flex-col gap-1.5">
+        ${done.map(
+          (c) =>
+            html`<div
+              data-xp-challenge=${c.id}
+              data-xp-challenge-period=${c.period}
+              class="flex items-center justify-between gap-3 rounded-lg border border-yellow-400/25 bg-yellow-400/5 px-3 py-1.5 text-sm"
+            >
+              <span class="min-w-0 truncate"
+                ><span
+                  class="mr-2 text-[10px] font-bold uppercase tracking-wider text-yellow-300"
+                  >${translateText(
+                    c.period === "daily"
+                      ? "progression.challenge_daily_done"
+                      : "progression.challenge_weekly_done",
+                  )}</span
+                >${translateText(challengeLabelKey(c.id))}</span
+              >
+              <span class="shrink-0 font-bold tabular-nums text-yellow-300"
+                >${translateText("progression.xp_total", {
+                  xp: formatXp(c.xp),
+                })}${(c.credits ?? 0) > 0
+                  ? html` <span class="text-white/70"
+                      >+${formatXp(c.credits ?? 0)}
+                      ${translateText("progression.credits")}</span
+                    >`
+                  : nothing}</span
+              >
+            </div>`,
+        )}
+      </div>`,
+    );
+  }
+
+  // Where the player stands in the running season after this game.
+  private renderSeason(data: GameXpEligible): TemplateResult | typeof nothing {
+    const season = data.season;
+    if (season === null || season === undefined || season.added <= 0) {
+      return nothing;
+    }
+    return this.collapsible(
+      this.awardSettled(),
+      html`<p data-xp-season class="m-0 mt-3 text-center text-xs text-white/70">
+        ${translateText("progression.season_line", {
+          name: season.name,
+          level: season.level,
+          xp: formatXp(season.added),
+        })}
+      </p>`,
+    );
+  }
+
+  // Level 100 with a prestige to take: say so, the button is on the account page.
+  private renderPrestigeReady(
+    data: GameXpEligible,
+  ): TemplateResult | typeof nothing {
+    if (!data.after.canPrestige) return nothing;
+    return this.collapsible(
+      this.awardSettled(),
+      html`<div
+        data-xp-prestige-ready
+        class="xp-shine mt-3 rounded-xl border border-yellow-300/50 bg-gradient-to-r from-transparent via-yellow-400/15 to-transparent px-3 py-2 text-center"
+      >
+        <div
+          class="text-[10px] font-bold uppercase tracking-[0.18em] text-yellow-300"
+        >
+          ${translateText("progression.prestige_available")}
+        </div>
+        <div class="text-xs text-white/80">
+          ${translateText("progression.prestige_available_body")}
+        </div>
+      </div>`,
+    );
   }
 
   // Classes for a slot that waits for the reveal: hidden until it lands, then

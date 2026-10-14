@@ -278,3 +278,56 @@ describe("public progression schemas", () => {
     expect(parsed.flares).toEqual([]);
   });
 });
+
+describe("progression response schemas added with seasons and challenges", () => {
+  it("parses an old XP result (no challenges, season or flags) and a new one", () => {
+    const old = GameXpResponseSchema.parse(eligible);
+    if (!old.eligible) throw new Error("expected eligible");
+    expect(old.challenges).toBeUndefined();
+    expect(old.season).toBeUndefined();
+    const next = GameXpResponseSchema.parse({
+      ...eligible,
+      challenges: [{ id: "d_win_1", period: "daily", xp: 400 }],
+      season: { number: 1, name: "Opening", xp: 100, level: 1, added: 100 },
+      flags: ["soft_cap"],
+    });
+    if (!next.eligible) throw new Error("expected eligible");
+    expect(next.challenges).toEqual([
+      { id: "d_win_1", period: "daily", xp: 400, credits: 0 },
+    ]);
+    expect(next.season?.name).toBe("Opening");
+    expect(next.flags).toEqual(["soft_cap"]);
+  });
+
+  it("drops a malformed challenge list instead of failing the whole result", () => {
+    const parsed = GameXpResponseSchema.parse({
+      ...eligible,
+      challenges: "no",
+    });
+    if (!parsed.eligible) throw new Error("expected eligible");
+    expect(parsed.challenges).toBeUndefined();
+  });
+
+  it("reads public progress with a rank, a title and a season", () => {
+    const parsed = PublicProgressSchema.parse({
+      prestige: 1,
+      level: 50,
+      lifetimeXp: 200_000,
+      legend: false,
+      rank: "captain",
+      title: "veteran",
+      season: { number: 2, name: "Winter", level: 7, xp: 12_000 },
+    });
+    expect(parsed.rank).toBe("captain");
+    expect(parsed.season?.level).toBe(7);
+    // a response without them still parses
+    expect(
+      PublicProgressSchema.parse({
+        prestige: 0,
+        level: 1,
+        lifetimeXp: 0,
+        legend: false,
+      }).season,
+    ).toBeUndefined();
+  });
+});

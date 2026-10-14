@@ -1,4 +1,4 @@
-import { RankedType } from "@openfront/engine-api/game/GameTypes";
+import { GameType, RankedType } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import type { GameXpEligible } from "@openfront/shared/ApiSchemas";
@@ -44,6 +44,9 @@ type LegendCeremonyModule = typeof import("../../components/LegendCeremony");
 // starts (see init), long before the game ends, so the reveal never waits on
 // it. Should it still be on its way, the section shows the moment it lands.
 let xpPanelModule: Promise<unknown> | null = null;
+// How long the end-of-game XP is waited for before the section gives up.
+const XP_POLL_TIMEOUT_MS = 150_000;
+
 function loadGameXpPanel(): void {
   xpPanelModule ??= import("../../components/GameXpPanel").catch(
     (err: unknown) => {
@@ -532,6 +535,19 @@ export class WinModal extends LitElement implements Controller {
       // before a first scored game); absent means off: no section at all.
       const progress = account.me.player.progress;
       if (progress === undefined) return;
+      // A singleplayer game is never sent to the account API, so there is no
+      // XP to wait for: say so at once instead of polling for a minute.
+      if (game.config().gameConfig().gameType === GameType.Singleplayer) {
+        this.xpView = {
+          kind: "result",
+          data: {
+            gameId: game.gameID(),
+            eligible: false,
+            reason: "unverified",
+          },
+        };
+        return;
+      }
       this.xpPublicId = account.me.player.publicId ?? null;
       if (!progress.legend) void this.preloadIfLastRun(progress.prestige);
       // The game may have ended while this was resolving; the end-of-game
@@ -544,8 +560,11 @@ export class WinModal extends LitElement implements Controller {
       this.xpPolling = true;
       this.xpView = { kind: "calculating" };
       this.xpAbort = new AbortController();
+      // The game server replays the game to check the winner before it
+      // archives it, which can take a while for a long game.
       const result = await pollGameXp(game.gameID(), {
         signal: this.xpAbort.signal,
+        timeoutMs: XP_POLL_TIMEOUT_MS,
       });
       if (result?.eligible && reachedLegendThisGame(result)) {
         this.preloadLegendCeremony();

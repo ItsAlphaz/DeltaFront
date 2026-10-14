@@ -485,6 +485,11 @@ class Client {
         "admin",
         { tag: "admin-modal", pageId: "page-admin" },
       ],
+      [
+        ACCOUNT_FEATURES.accounts && ACCOUNT_FEATURES.progression,
+        "season",
+        { tag: "season-track-modal", pageId: "page-season" },
+      ],
       // Profile-menu modals: popup style, so no pageId.
       [
         ACCOUNT_FEATURES.accounts,
@@ -1802,6 +1807,7 @@ class Client {
         "clan-modal",
         "account-settings-modal",
         "admin-modal",
+        "season-track-modal",
         "change-username-modal",
         "subscription-modal",
         "lang-selector",

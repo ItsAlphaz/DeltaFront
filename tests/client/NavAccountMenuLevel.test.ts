@@ -121,4 +121,34 @@ describe("nav-account-menu level", () => {
     await mount("desktop", false);
     expect(el.querySelector("[data-account-level]")).toBeNull();
   });
+
+  for (const variant of ["desktop", "mobile"] as const) {
+    it(`flags something waiting on the ${variant} trigger: rewards to claim, or a prestige`, async () => {
+      await mount(variant, userMe({ progress }));
+      expect(el.querySelector("[data-account-attention]")).toBeNull();
+
+      const withRewards = userMe({ progress });
+      withRewards.player.rewards = [
+        {
+          id: "1",
+          currencyType: "soft",
+          amount: "250",
+          reason: "level_milestone",
+          note: null,
+        },
+      ];
+      await mount(variant, withRewards);
+      expect(
+        el.querySelector("[data-account-attention]")?.getAttribute("title"),
+      ).toBe("nav_account_menu.rewards_waiting");
+
+      await mount(
+        variant,
+        userMe({ progress: { ...progress, level: 100, canPrestige: true } }),
+      );
+      expect(
+        el.querySelector("[data-account-attention]")?.getAttribute("title"),
+      ).toBe("nav_account_menu.prestige_ready");
+    });
+  }
 });

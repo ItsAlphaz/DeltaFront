@@ -38,6 +38,8 @@ import "./components/EmailSignIn";
 import "./components/FriendsList";
 import type { PrestigeFlow } from "./components/PrestigeFlow";
 import "./components/ProfileCard";
+import "./components/ProgressionPanel";
+import type { ProgressionPanel } from "./components/ProgressionPanel";
 import "./components/RewardsPanel";
 import type { RewardsChangedDetail } from "./components/RewardsPanel";
 import { googleLinkButton } from "./components/ui/GoogleLinkButton";
@@ -278,7 +280,7 @@ export class AccountModal extends BaseModal {
     }
     return html`
       <div class="flex flex-col gap-6">
-        ${this.renderProfileCard("compact")}
+        ${this.renderProfileCard("compact")} ${this.renderProgressionPanel()}
         <div class="bg-white/5 rounded-xl border border-white/10 p-6">
           <div class="flex flex-col items-center gap-4">
             <div
@@ -548,6 +550,8 @@ export class AccountModal extends BaseModal {
       this.userMeResponse.player.currency = event.detail.currency;
     }
     this.requestUpdate();
+    // A claimed reward may be a season track level.
+    this.refreshProgressionPanel();
   };
 
   // The panel already re-fetched /users/@me itself (its mutating calls
@@ -583,6 +587,22 @@ export class AccountModal extends BaseModal {
       prestigeable
       @prestige-request=${this.handlePrestigeRequest}
     ></profile-card>`;
+  }
+
+  // Titles, the running season, today's and this week's challenges and recent
+  // XP. Nothing while progression is off.
+  private renderProgressionPanel(): TemplateResult | typeof nothing {
+    if (!ACCOUNT_FEATURES.progression) return nothing;
+    if (!this.userMeResponse?.player?.progress) return nothing;
+    return html`<progression-panel
+      @title-changed=${() => void this.refreshUserMe()}
+    ></progression-panel>`;
+  }
+
+  private refreshProgressionPanel(): void {
+    this.querySelector<ProgressionPanel>("progression-panel")
+      ?.refresh()
+      .catch(() => undefined);
   }
 
   // Fetches the prestige flow when /users/@me says the card will offer
@@ -623,6 +643,7 @@ export class AccountModal extends BaseModal {
       player.rewards = [...(player.rewards ?? []), ...added];
     }
     this.requestUpdate();
+    this.refreshProgressionPanel();
     // Then the real thing, for the header and everything else showing the
     // account.
     void this.refreshUserMe();

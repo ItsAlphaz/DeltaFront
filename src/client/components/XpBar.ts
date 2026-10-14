@@ -1,5 +1,9 @@
 import { html, nothing, TemplateResult } from "lit";
-import { multiplierPercent, subscriberTierOf } from "../Progression";
+import {
+  multiplierPercent,
+  subscriberTierOf,
+  type XpMultiplierKey,
+} from "../Progression";
 import { translateText } from "../Utils";
 
 // Shared bits of the level / XP UI: number formatting, multiplier lines and
@@ -9,22 +13,29 @@ export function formatXp(amount: number): string {
   return Math.round(amount).toLocaleString();
 }
 
+// Spelled out in full so the translation checks can see every key.
+const MULTIPLIER_KEYS = {
+  game: "progression.multiplier_game",
+  repeat: "progression.multiplier_repeat",
+  subscriber: "progression.multiplier_subscriber",
+  sovereign: "progression.multiplier_sovereign",
+  warlord: "progression.multiplier_warlord",
+  vanguard: "progression.multiplier_vanguard",
+} as const;
+
 /**
  * A multiplier as a line of its own, the way Overwatch shows a group bonus:
  * "+100% XP (SOVEREIGN BONUS)", "+20% XP (SUBSCRIBER BONUS)" for a boost from
  * no known tier, or "−50% XP (GAME TYPE)" for a cut.
  */
-export function xpBonusText(
-  key: "game" | "subscriber",
-  permille: number,
-): string {
+export function xpBonusText(key: XpMultiplierKey, permille: number): string {
   const percent = multiplierPercent(permille);
   const tier = key === "subscriber" ? subscriberTierOf(permille) : null;
   return translateText(
     percent >= 0 ? "progression.bonus_line" : "progression.penalty_line",
     {
       percent: Math.abs(percent),
-      source: translateText(`progression.multiplier_${tier?.tier ?? key}`),
+      source: translateText(MULTIPLIER_KEYS[tier?.tier ?? key]),
     },
   );
 }

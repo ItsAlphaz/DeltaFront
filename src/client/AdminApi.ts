@@ -5,18 +5,24 @@ import {
   AdminClanListSchema,
   AdminDashboardSchema,
   AdminMeSchema,
+  AdminProgressionSchema,
+  AdminSeasonListSchema,
   AdminServerInfoSchema,
   AdminUserDetailSchema,
   AdminUserListSchema,
+  AdminXpHistorySchema,
   type AdminActionResult,
   type AdminAuditList,
   type AdminClanDetail,
   type AdminClanList,
   type AdminDashboard,
   type AdminMe,
+  type AdminProgression,
+  type AdminSeasonList,
   type AdminServerInfo,
   type AdminUserDetail,
   type AdminUserList,
+  type AdminXpHistory,
 } from "@openfront/shared/AdminSchemas";
 import type { z } from "zod";
 import { getApiBase } from "./ApiBase";
@@ -37,7 +43,7 @@ export type AdminResult<T> =
   | { ok: false; status: number; error: string; message?: string };
 
 async function request<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH",
   path: string,
   schema: z.ZodType<T>,
   body?: Record<string, unknown>,
@@ -157,6 +163,64 @@ export const adminApi = {
     reason: string,
   ): Promise<AdminResult<AdminActionResult>> =>
     post(`/admin/users/${enc(id)}/revoke-sessions`, { reason, confirm: true }),
+
+  progression: (publicId: string): Promise<AdminResult<AdminProgression>> =>
+    request(
+      "GET",
+      `/admin/users/${enc(publicId)}/progression`,
+      AdminProgressionSchema,
+    ),
+  xpHistory: (
+    publicId: string,
+    page: number,
+  ): Promise<AdminResult<AdminXpHistory>> =>
+    request(
+      "GET",
+      `/admin/users/${enc(publicId)}/xp-history?page=${page}`,
+      AdminXpHistorySchema,
+    ),
+  adjustXp: (
+    id: string,
+    action: "grant" | "revoke" | "set",
+    amount: number,
+    reason: string,
+    countsForSeason: boolean,
+  ): Promise<AdminResult<AdminActionResult>> =>
+    post(`/admin/users/${enc(id)}/xp`, {
+      action,
+      amount,
+      reason,
+      countsForSeason,
+      confirm: action === "grant" ? undefined : true,
+    }),
+  resetSeasonXp: (
+    id: string,
+    reason: string,
+  ): Promise<AdminResult<AdminActionResult>> =>
+    post(`/admin/users/${enc(id)}/season-reset`, { reason, confirm: true }),
+
+  seasons: (): Promise<AdminResult<AdminSeasonList>> =>
+    request("GET", "/admin/seasons", AdminSeasonListSchema),
+  createSeason: (input: {
+    name: string;
+    startsAt: string;
+    endsAt: string;
+  }): Promise<AdminResult<AdminActionResult>> => post("/admin/seasons", input),
+  updateSeason: (
+    id: string,
+    patch: { name?: string; startsAt?: string; endsAt?: string },
+  ): Promise<AdminResult<AdminActionResult>> =>
+    request(
+      "PATCH",
+      `/admin/seasons/${enc(id)}`,
+      AdminActionResultSchema,
+      patch,
+    ),
+  closeSeason: (
+    id: string,
+    reason: string,
+  ): Promise<AdminResult<AdminActionResult>> =>
+    post(`/admin/seasons/${enc(id)}/close`, { reason, confirm: true }),
 
   clans: (q: string): Promise<AdminResult<AdminClanList>> =>
     request("GET", `/admin/clans?q=${enc(q)}`, AdminClanListSchema),

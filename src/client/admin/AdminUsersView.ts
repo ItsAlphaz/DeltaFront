@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import type {
   AdminAuditEntry,
   AdminMe,
@@ -9,6 +10,7 @@ import { html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { adminApi, type AdminResult } from "../AdminApi";
 import { showInGameConfirm } from "../InGameModal";
+import "./AdminProgressionCard";
 import {
   accountChips,
   ago,
@@ -369,6 +371,12 @@ export class AdminUsersView extends LitElement {
             ? chip(t("chip_bare_name"), "white")
             : nothing}
         </div>
+        ${ACCOUNT_FEATURES.progression && this.can("admin.xp.view")
+          ? html`<admin-progression-card
+              .me=${this.me}
+              .publicId=${d.publicId}
+            ></admin-progression-card>`
+          : nothing}
         <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           <dt class="text-df-text-muted">${t("public_id")}</dt>
           <dd class="font-mono">${d.publicId}</dd>

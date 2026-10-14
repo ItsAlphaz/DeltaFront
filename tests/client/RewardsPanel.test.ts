@@ -44,6 +44,12 @@ describe("<rewards-panel> reward labels", () => {
     );
   }
 
+  it("labels season track and challenge rewards", async () => {
+    expect(await labels([reward("season_track"), reward("challenge")])).toEqual(
+      ["account_modal.reward_season_track", "account_modal.reward_challenge"],
+    );
+  });
+
   it("gives the progression reasons their own copy", async () => {
     expect(
       await labels([

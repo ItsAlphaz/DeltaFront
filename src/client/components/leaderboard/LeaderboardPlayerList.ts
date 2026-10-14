@@ -13,6 +13,7 @@ import {
 } from "../../Api";
 import { loadModal } from "../../LazyModals";
 import { translateText } from "../../Utils";
+import "../LevelBadge";
 import "../PlayerName";
 
 /** One ranked ladder's loaded rows. */
@@ -251,6 +252,21 @@ export class LeaderboardPlayerList extends LitElement {
     this.schedulePlayerFillCheck();
   }
 
+  // The player's level badge, when the API sent one (progression on).
+  private renderLevel(player: {
+    level?: number;
+    prestige?: number;
+    legend?: boolean;
+  }) {
+    if (player.level === undefined) return nothing;
+    return html`<level-badge
+      .level=${player.level}
+      .prestige=${player.prestige ?? 0}
+      .legend=${player.legend ?? false}
+      .size=${24}
+    ></level-badge>`;
+  }
+
   // Same handoff as the clan views: the profile modal's back button reopens
   // the leaderboard (its loaded pages survive the close).
   private openProfile(publicId: string) {
@@ -432,6 +448,7 @@ export class LeaderboardPlayerList extends LitElement {
         </td>
         <td class="py-3 px-4">
           <div class="flex items-center gap-2">
+            ${this.renderLevel(player)}
             <player-name
               .username=${player.accountUsername}
               .verified=${player.verified}

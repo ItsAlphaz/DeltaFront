@@ -6,8 +6,12 @@ import {
   PrestigeResponseSchema,
   type ProgressionConfig,
   ProgressionConfigSchema,
+  type ProgressionMe,
+  ProgressionMeSchema,
   type PublicProgress,
   PublicProgressSchema,
+  type XpLeaderboardResponse,
+  XpLeaderboardResponseSchema,
 } from "@openfront/shared/ApiSchemas";
 // ApiBase rather than Api: this module is imported by in-game UI (WinModal)
 // whose tests stub Api wholesale.
@@ -257,4 +261,112 @@ export function fetchProgressionConfig(): Promise<ProgressionConfig | false> {
     else entry.at = Date.now();
   });
   return request;
+}
+
+// GET /progression/me — everything the account page shows about progression:
+// challenges, the season and its track, titles and recent XP. False when it is
+// off, signed out or fails (the section is then left out).
+export async function fetchProgressionMe(): Promise<ProgressionMe | false> {
+  if (!ACCOUNT_FEATURES.progression) return false;
+  try {
+    const authorization = await getAuthHeader();
+    if (authorization === "") return false;
+    const res = await fetch(`${getApiBase()}/progression/me`, {
+      headers: { Accept: "application/json", Authorization: authorization },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return false;
+    const parsed = ProgressionMeSchema.safeParse(await res.json());
+    if (!parsed.success) {
+      console.warn("fetchProgressionMe: Zod validation failed", parsed.error);
+      return false;
+    }
+    return parsed.data;
+  } catch (err) {
+    console.warn("fetchProgressionMe: request failed", err);
+    return false;
+  }
+}
+
+// PUT /users/@me/title — chooses the title shown beside the player's name
+// (null clears it). True when the server accepted it.
+export async function putDisplayTitle(title: string | null): Promise<boolean> {
+  if (!ACCOUNT_FEATURES.progression) return false;
+  try {
+    const authorization = await getAuthHeader();
+    if (authorization === "") return false;
+    const res = await fetch(`${getApiBase()}/users/@me/title`, {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify({ title }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("putDisplayTitle: request failed", err);
+    return false;
+  }
+}
+
+// A page past the end of a board is a 400 with this message (the same wording
+// the other leaderboards use).
+const PAGE_BOUNDS = /^Page must be between \d+ and \d+$/;
+
+async function fetchBoard(
+  path: string,
+  page: number,
+  extra: Record<string, string> = {},
+): Promise<XpLeaderboardResponse | "reached_limit" | false> {
+  if (!ACCOUNT_FEATURES.progression) return false;
+  try {
+    const url = new URL(`${getApiBase()}${path}`);
+    url.searchParams.set("page", String(page));
+    for (const [k, v] of Object.entries(extra)) url.searchParams.set(k, v);
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      if (res.status === 400) {
+        const body = (await res.json().catch(() => null)) as {
+          message?: unknown;
+        } | null;
+        if (
+          typeof body?.message === "string" &&
+          PAGE_BOUNDS.test(body.message)
+        ) {
+          return "reached_limit";
+        }
+      }
+      return false;
+    }
+    const parsed = XpLeaderboardResponseSchema.safeParse(await res.json());
+    if (!parsed.success) {
+      console.warn("fetchBoard: Zod validation failed", parsed.error);
+      return false;
+    }
+    return parsed.data;
+  } catch (err) {
+    console.warn("fetchBoard: request failed", err);
+    return false;
+  }
+}
+
+// GET /leaderboard/xp — lifetime XP.
+export function fetchXpLeaderboard(page: number) {
+  return fetchBoard("/leaderboard/xp", page);
+}
+
+// GET /leaderboard/season — the running season, or `season` (a number) for an
+// archived one.
+export function fetchSeasonLeaderboard(page: number, season?: number) {
+  return fetchBoard(
+    "/leaderboard/season",
+    page,
+    season === undefined ? {} : { season: String(season) },
+  );
 }

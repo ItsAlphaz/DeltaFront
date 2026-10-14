@@ -8,7 +8,12 @@ import {
   TemplateResult,
 } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { clampPrestige, levelFraction } from "../Progression";
+import {
+  clampPrestige,
+  levelFraction,
+  rankLabelKey,
+  titleText,
+} from "../Progression";
 import { translateText } from "../Utils";
 import { prefersReducedMotion } from "../utilities/ReducedMotion";
 import "./LevelBadge";
@@ -40,6 +45,10 @@ export interface ProfileCardProgress {
   xpForNext?: number;
   // At level 100 with ranks left: the Prestige button shows on your own card.
   canPrestige?: boolean;
+  // The title the player chose to show (a title id, see Progression.titleText).
+  title?: string | null;
+  // The running season: where the player stands in it. Left out between seasons.
+  season?: { name: string; level: number; xp: number } | null;
 }
 
 // Segments the XP bar is drawn in, as on the end-of-game screen.
@@ -201,8 +210,47 @@ export class ProfileCard extends LitElement {
     if (e.animationName === end) this.stopPulse();
   };
 
-  // "PRESTIGE 3 · LEVEL 47", "LEVEL 47", or "LEGEND · PRESTIGE 10".
+  // The military rank and the chosen title, and (on the full card) the
+  // running season: "Captain · Veteran", "Season One · level 18 · 7,850 XP".
+  private renderRankLine(progress: ProfileCardProgress): TemplateResult {
+    const title =
+      progress.title === undefined || progress.title === null
+        ? null
+        : titleText(progress.title, translateText);
+    const season = this.compact ? null : (progress.season ?? null);
+    return html`<div
+        data-profile-rank-line
+        class="mt-0.5 text-xs font-bold uppercase tracking-wider text-white/70"
+      >
+        <span data-profile-rank
+          >${translateText(rankLabelKey(progress.level))}</span
+        >${title === null
+          ? nothing
+          : html` <span class="text-white/30">·</span>
+              <span data-profile-title class="text-yellow-300">${title}</span>`}
+      </div>
+      ${season === null
+        ? nothing
+        : html`<div
+            data-profile-season
+            class="mt-0.5 text-[11px] normal-case tracking-normal text-white/60"
+          >
+            ${translateText("progression.profile_season", {
+              name: season.name,
+              level: season.level,
+              xp: formatXp(season.xp),
+            })}
+          </div>`}`;
+  }
+
   private renderLevelLine(progress: ProfileCardProgress): TemplateResult {
+    return html`${this.renderLevelCore(progress)}${this.renderRankLine(
+      progress,
+    )}`;
+  }
+
+  // "PRESTIGE 3 · LEVEL 47", "LEVEL 47", or "LEGEND · PRESTIGE 10".
+  private renderLevelCore(progress: ProfileCardProgress): TemplateResult {
     const size = this.compact
       ? "text-sm tracking-wider"
       : "text-lg tracking-widest sm:text-xl";

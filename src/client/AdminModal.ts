@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import type { AdminMe } from "@openfront/shared/AdminSchemas";
 import {
   hasPermission,
@@ -10,6 +11,7 @@ import { adminApi } from "./AdminApi";
 import "./admin/AdminAuditView";
 import "./admin/AdminClansView";
 import "./admin/AdminDashboardView";
+import "./admin/AdminSeasonsView";
 import "./admin/AdminServerView";
 import { chip, errorText, t } from "./admin/AdminUi";
 import "./admin/AdminUsersView";
@@ -17,11 +19,12 @@ import { BaseModal } from "./components/BaseModal";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { staffBadge, staffRoleLabel } from "./components/ui/StaffBadge";
 
-const TABS: ReadonlyArray<{
+// Built per call: whether Seasons exists follows the progression feature.
+const allTabs = (): ReadonlyArray<{
   key: string;
   label: string;
   permission: Permission;
-}> = [
+}> => [
   {
     key: "dashboard",
     label: "tab_dashboard",
@@ -35,6 +38,15 @@ const TABS: ReadonlyArray<{
     permission: "admin.audit.view_moderation",
   },
   { key: "server", label: "tab_server", permission: "admin.server.view" },
+  ...(ACCOUNT_FEATURES.progression
+    ? [
+        {
+          key: "seasons",
+          label: "tab_seasons",
+          permission: "admin.seasons.manage" as Permission,
+        },
+      ]
+    : []),
 ];
 
 /**
@@ -55,9 +67,9 @@ export class AdminModal extends BaseModal {
     if (this.status !== "ready" || this.me === null) return {};
     const me = this.me;
     return {
-      tabs: TABS.filter((tab) => hasPermission(me.role, tab.permission)).map(
-        (tab) => ({ key: tab.key, label: t(tab.label) }),
-      ),
+      tabs: allTabs()
+        .filter((tab) => hasPermission(me.role, tab.permission))
+        .map((tab) => ({ key: tab.key, label: t(tab.label) })),
     };
   }
 
@@ -113,6 +125,8 @@ export class AdminModal extends BaseModal {
         return html`<admin-audit-view .me=${this.me}></admin-audit-view>`;
       case "server":
         return html`<admin-server-view></admin-server-view>`;
+      case "seasons":
+        return html`<admin-seasons-view></admin-seasons-view>`;
       default:
         return html`<admin-dashboard-view></admin-dashboard-view>`;
     }

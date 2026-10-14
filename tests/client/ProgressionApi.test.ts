@@ -13,10 +13,14 @@ import { getAuthHeader } from "../../src/client/Auth";
 import {
   fetchMyGameXp,
   fetchProgressionConfig,
+  fetchProgressionMe,
   fetchPublicPlayerProgress,
+  fetchSeasonLeaderboard,
+  fetchXpLeaderboard,
   type GameXpFetchResult,
   pollGameXp,
   prestigeMe,
+  putDisplayTitle,
 } from "../../src/client/ProgressionApi";
 
 const ineligible: GameXpResponse = {
@@ -475,5 +479,89 @@ describe("fetchProgressionConfig", () => {
     await expect(fetchConfig()).resolves.toBe(false);
     answers([() => jsonResponse({ version: "one" })]);
     await expect(fetchConfig()).resolves.toBe(false);
+  });
+});
+
+describe("account page and leaderboard calls", () => {
+  const jsonResponse = (body: unknown, status = 200) =>
+    ({
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body,
+    }) as Response;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("fetchProgressionMe sends the session and returns false on any failure", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ nope: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await fetchProgressionMe()).toBe(false);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toBe("https://api.test/progression/me");
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      "Bearer test-token",
+    );
+    fetchMock.mockResolvedValue(jsonResponse({}, 401));
+    expect(await fetchProgressionMe()).toBe(false);
+    fetchMock.mockRejectedValue(new Error("offline"));
+    expect(await fetchProgressionMe()).toBe(false);
+  });
+
+  it("putDisplayTitle sends the title, or null to clear it", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ title: "veteran" }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await putDisplayTitle("veteran")).toBe(true);
+    const [url, first] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toBe("https://api.test/users/@me/title");
+    expect(first.method).toBe("PUT");
+    expect(JSON.parse(String(first.body))).toEqual({ title: "veteran" });
+    await putDisplayTitle(null);
+    const [, second] = fetchMock.mock.calls[1] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(String(second.body))).toEqual({ title: null });
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: "title_not_earned" }, 400),
+    );
+    expect(await putDisplayTitle("elite")).toBe(false);
+  });
+
+  it("the boards ask for a page (and a season), and treat the bounds error as the end", async () => {
+    const entry = {
+      rank: 1,
+      playerId: "a",
+      accountUsername: "ann",
+      prestige: 0,
+      level: 3,
+      legend: false,
+      xp: 5,
+    };
+    const fetchMock = vi.fn(async () => jsonResponse({ players: [entry] }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await fetchXpLeaderboard(2)) !== false).toBe(true);
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe(
+      "https://api.test/leaderboard/xp?page=2",
+    );
+    await fetchSeasonLeaderboard(1, 3);
+    expect(String((fetchMock.mock.calls[1] as unknown[])[0])).toBe(
+      "https://api.test/leaderboard/season?page=1&season=3",
+    );
+    fetchMock.mockResolvedValue(
+      jsonResponse({ message: "Page must be between 1 and 4" }, 400),
+    );
+    expect(await fetchXpLeaderboard(5)).toBe("reached_limit");
+    fetchMock.mockResolvedValue(jsonResponse({ message: "nope" }, 400));
+    expect(await fetchXpLeaderboard(5)).toBe(false);
+    fetchMock.mockResolvedValue(jsonResponse({ players: "bad" }));
+    expect(await fetchXpLeaderboard(1)).toBe(false);
   });
 });

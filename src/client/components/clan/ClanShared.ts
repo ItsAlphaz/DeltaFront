@@ -1,4 +1,4 @@
-import { html, type TemplateResult } from "lit";
+import { html, nothing, type TemplateResult } from "lit";
 import type {
   ClanJoinRequest,
   ClanMember,
@@ -7,6 +7,7 @@ import type {
   ClanMemberStats,
 } from "../../ClanApi";
 import { showToast, translateText } from "../../Utils";
+import "../LevelBadge";
 import { playerNameLink } from "../ui/PlayerNameLink";
 import "./ClanStatsBreakdown";
 export { renderLoadingSpinner } from "../BaseModal";
@@ -403,13 +404,30 @@ export function renderMemberRow(
         </div>
         <div class="flex-1 min-w-0 flex flex-col">
           <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0">
+            <div class="flex min-w-0 items-center gap-2">
+              ${member.level === undefined
+                ? nothing
+                : html`<level-badge
+                    .level=${member.level}
+                    .prestige=${member.prestige ?? 0}
+                    .legend=${member.legend ?? false}
+                    .size=${22}
+                  ></level-badge>`}
               ${playerNameLink(host, member.username, member.publicId, {
                 verified: member.verified,
                 staffRole: member.staffRole,
               })}
             </div>
             <div class="flex items-center gap-2 shrink-0">
+              ${member.xp === undefined
+                ? nothing
+                : html`<span
+                    data-member-clan-xp
+                    class="text-yellow-300/80 text-[10px] whitespace-nowrap"
+                    >${translateText("clan_modal.member_xp", {
+                      xp: member.xp.toLocaleString(),
+                    })}</span
+                  >`}
               <span
                 class="text-white/30 text-[10px] text-right whitespace-nowrap"
                 >${translateText("clan_modal.joined_date", {
