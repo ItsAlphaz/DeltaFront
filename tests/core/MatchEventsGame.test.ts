@@ -129,6 +129,8 @@ const TURNS = SPAWN_TURNS + 30;
 
 test("a game's real transitions produce its events, in order, on the right ticks", async () => {
   const { events, runner } = await playTurns(script, TURNS);
+  // A public game: the owner's staff action is announced there too.
+  expect(runner.game.config().gameConfig().gameType).toBe("Public");
   const a = runner.game.playerByClientID("client001")!.smallID();
   const b = runner.game.playerByClientID("client002")!.smallID();
   const summary = events.map((e) => [

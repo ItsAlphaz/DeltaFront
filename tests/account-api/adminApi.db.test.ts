@@ -7,6 +7,7 @@ import {
 import { ACCOUNT_RULES } from "../../src/account-api/domain/constants";
 import { isAdminModified } from "../../src/account-api/domain/ingest";
 import { rebuildLeaderboard } from "../../src/account-api/jobs/leaderboard";
+import { memberStatsFor } from "../../src/account-api/repo/clans";
 import {
   buildRecord,
   clientIdOf,
@@ -1138,6 +1139,64 @@ describeDb("games with admin commands never count", () => {
     expect(total[0].total).toBe(1); // the control game only
   });
 
+  it("a PUBLIC game the owner modified is a test: no stats, Credits, leaderboard, clan threshold or ranked result", async () => {
+    const h = await harness();
+    const key = await createServerKey(h);
+    const a = await makeUser(h);
+    const b = await makeUser(h);
+    // Enough owner-modified public games that, if they counted, both would be on the board.
+    for (let g = 0; g < ACCOUNT_RULES.leaderboardMinGames; g++) {
+      const tested = buildRecord(`op${String(g).padStart(6, "0")}`, {
+        players: [{ user: a }, { user: b }],
+        type: "Public",
+      });
+      tested.turns[1].intents.push(admin(clientIdOf(0)) as never);
+      expect((await submitGame(h, key, tested)).status).toBeLessThan(300);
+    }
+    const games = await rows(
+      h,
+      "SELECT DISTINCT type, counts_for_stats, admin_modified FROM games",
+    );
+    expect(games).toEqual([
+      { type: "Public", counts_for_stats: false, admin_modified: true },
+    ]);
+    expect(await creditsOf(h, a)).toBe(0);
+    expect(await creditsOf(h, b)).toBe(0);
+    const players = await rows(
+      h,
+      "SELECT count(*) FILTER (WHERE completed)::int AS completed, coalesce(sum(credits_awarded), 0)::int AS credits FROM game_players",
+    );
+    expect(players).toEqual([{ completed: 0, credits: 0 }]);
+    expect(
+      await rows(h, "SELECT 1 FROM player_stat_aggregates WHERE user_id = $1", [
+        a.id,
+      ]),
+    ).toHaveLength(0);
+    // The leaderboard job and the clan threshold read counted games only.
+    await rebuildLeaderboard(h.db.pool);
+    const board = await (
+      await call(h, "/leaderboard/players", { origin: null })
+    ).json();
+    expect(
+      board.players.filter((p: { playerId: string }) =>
+        [a.publicId, b.publicId].includes(p.playerId),
+      ),
+    ).toEqual([]);
+    const stats = (await memberStatsFor(h.db.pool, [a.id])).get(a.id)!;
+    expect(stats.total).toEqual({ wins: 0, losses: 0 });
+    // The same query does see an unmodified public game, so the zero is the rule's doing.
+    await submitGame(
+      h,
+      key,
+      buildRecord("op900001", {
+        players: [{ user: a }, { user: b }],
+        type: "Public",
+      }),
+    );
+    const after = (await memberStatsFor(h.db.pool, [a.id])).get(a.id)!;
+    expect(after.total.wins + after.total.losses).toBe(1);
+  });
+
   it("an admin-modified PRIVATE game is not aggregated either", async () => {
     const h = await harness();
     const key = await createServerKey(h);
@@ -1230,6 +1289,43 @@ describeDb("the game server's staff audit report", () => {
       (await report(h, key, { ...body, details: { token: { nested: 1 } } }))
         .status,
     ).toBe(400);
+  });
+
+  it("records an owner's command in a public game, with the public and listed state and no secrets", async () => {
+    const h = await harness();
+    const key = await createServerKey(h);
+    const owner = await account(h, "owner");
+    const res = await report(h, key, {
+      ...body,
+      actorPublicId: owner.publicId,
+      targetClientID: "victim00",
+      details: { command: "eliminate", public: true, listed: false },
+    });
+    expect(res.status).toBe(204);
+    const entry = (
+      await rows(
+        h,
+        "SELECT actor, actor_role, source, action, target_id, details, created_at FROM admin_audit_log",
+      )
+    )[0];
+    expect(entry).toMatchObject({
+      actor: owner.publicId,
+      actor_role: "owner",
+      source: "game",
+      action: "game:command",
+      target_id: "abcd1234",
+    });
+    expect(entry.details).toMatchObject({
+      gameID: "abcd1234",
+      command: "eliminate",
+      public: true,
+      listed: false,
+      targetClientID: "victim00",
+    });
+    expect(entry.created_at).toBeInstanceOf(Date);
+    expect(JSON.stringify(entry.details)).not.toMatch(
+      /token|key|secret|password/i,
+    );
   });
 
   it("notes when the account is no longer staff", async () => {

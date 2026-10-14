@@ -506,8 +506,9 @@ export class GameServer {
       }
 
       case "admin_command": {
-        // Authorized by authorizeIntent (permission per command, private test
-        // games only). From here the game is admin-modified for good.
+        // Authorized by authorizeIntent (permission per command; in a public or
+        // listed game only the owner's game.admin.public). From here the game is
+        // admin-modified for good.
         this.adminModified = true;
         this.auditStaffAction(actor, "game:command", {
           command: stamped.command,
@@ -552,7 +553,12 @@ export class GameServer {
     const publicId = this.clients.get(actor.clientID)?.publicId;
     if (publicId === undefined) return;
     const { targetClientID, targetPublicId, ...details } = extra;
-    const clean: Record<string, string | number | boolean | null> = {};
+    // Whether the game was one real players recruited from the public browser or
+    // matchmaker, so the log shows an owner's command in one at a glance.
+    const clean: Record<string, string | number | boolean | null> = {
+      public: this.isPublic(),
+      listed: this.isListed(),
+    };
     for (const [k, v] of Object.entries(details)) {
       if (v !== undefined) clean[k] = v;
     }

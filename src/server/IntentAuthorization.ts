@@ -156,7 +156,7 @@ export function authorizeIntent(
 
     case "admin_command": {
       // A staff testing command. Authorized per command against the sender's
-      // permissions; the engine applies whatever the server relays, so this
+      // permissions (and, in a public or listed game, game.admin.public); the engine applies whatever the server relays, so this
       // is the only gate and nothing a client claims reaches it.
       if (actor.isAdminBot) {
         return { status: 400, error: "intent not permitted for admin bot" };
@@ -165,12 +165,18 @@ export function authorizeIntent(
       if (!hasPermission(actor.role, needed)) {
         return { status: 403, error: `missing permission ${needed}` };
       }
-      // Testing tools stay out of games real players recruited from the public
-      // browser or the matchmaker: they change the outcome for everyone in it.
-      if (game.isPublic || game.isListed) {
+      // Real players recruited from the public browser or the matchmaker are in
+      // a public or listed game, and a command changes the outcome for all of
+      // them. Only the owner may do it there (game.admin.public); the game is
+      // then admin-modified and counts for nothing (the API decides that from
+      // the recorded command). The command's own permission was checked above.
+      if (
+        (game.isPublic || game.isListed) &&
+        !hasPermission(actor.role, "game.admin.public")
+      ) {
         return {
           status: 403,
-          error: "admin commands are only available in private test games",
+          error: "admin commands in public games are owner-only",
         };
       }
       if (!game.hasStarted) {

@@ -34,6 +34,7 @@ role name.
 | `game.admin.pause`, `.kill`, `.debug`                                                                 |     |   x   |   x   |
 | `admin.roles.manage_admins`, `admin.clans.delete`, `admin.server.manage`                              |     |       |   x   |
 | `game.admin.resources`, `.force_end`, `.impersonate_ai` (arbitrary game state)                        |     |       |   x   |
+| `game.admin.public` (state-changing commands in public or listed games)                               |     |       |   x   |
 
 `tests/Permissions.test.ts` spells the whole table out; moving a permission between
 roles means changing that test, on purpose.
@@ -114,12 +115,16 @@ server** authorizes against the sender's permission before relaying it
 client (`AdminCommandExecution`). The role the server acts on is the API's current
 answer at join, so a demotion applies to the next join.
 
-- Commands that change the game (`admin_command`) are refused in public or listed
-  games; kicks and the camera still work there.
+- Commands that change the game (`admin_command`) need their own permission, and in a
+  public or listed game also `game.admin.public`, which only the owner holds. An admin
+  or moderator is refused there (403, "owner-only") exactly as before; kicks, pauses and
+  the camera still work for them. The panel offers an admin "Admin tools are disabled in
+  public games" instead of the tools. The owner's command in a public game makes it
+  admin-modified like any other, so it counts as no one's result.
 - A game that receives one is **admin-modified**: the API derives that from the recorded
   turns and gives it no stats, Credits, clan-threshold credit or leaderboard entry.
 - Staff kicks, pauses and commands are reported to `/game_admin/audit` (best effort,
-  always in the game server's own log).
+  always in the game server's own log), with whether the game was `public` or `listed`.
 - Every command that runs also appears to the players in that game as a public match
   event ("Owner Alphaz used admin tools on RedFox", "Alphaz forced the winner") with no
   amounts, reason or audit detail; see [MatchEvents.md](MatchEvents.md). The event is a

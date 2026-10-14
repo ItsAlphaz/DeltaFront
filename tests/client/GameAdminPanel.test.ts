@@ -52,7 +52,11 @@ function player(
 }
 
 function setup(
-  opts: { role: string | null; gameType?: GameType } = { role: null },
+  opts: {
+    role: string | null;
+    gameType?: GameType;
+    listed?: boolean;
+  } = { role: null },
 ) {
   const me = player("meplayer", { staffRole: "owner" });
   const victim = player("victim01");
@@ -64,6 +68,7 @@ function setup(
     ticks: () => 42,
     config: () => ({
       gameConfig: () => ({ gameType: opts.gameType ?? GameType.Private }),
+      listed: opts.listed ?? false,
       maxTroops: () => 9999,
     }),
   } as unknown as GameView;
@@ -251,15 +256,59 @@ describe("<game-admin-panel>", () => {
     expect(panel.querySelector("#game-admin-modified")).not.toBeNull();
   });
 
-  it("in a public game the state-changing tools are not offered, and kicking still is", async () => {
-    const { panel } = setup({ role: "owner", gameType: GameType.Public });
+  it("in a public game an admin is not offered state-changing tools, and is told why; kicking still is", async () => {
+    const { panel } = setup({ role: "admin", gameType: GameType.Public });
     await open(panel);
     await select(panel, "victim01");
-    expect(panel.querySelector("#game-admin-public-note")).not.toBeNull();
+    expect(
+      panel.querySelector("#game-admin-public-note")?.textContent,
+    ).toContain("game_admin.public_note");
+    expect(
+      panel.querySelector("#game-admin-public-note")?.textContent,
+    ).not.toContain("public_note_owner");
     expect(button(panel, "game_admin.kick")).toBeDefined();
     expect(button(panel, "game_admin.eliminate")).toBeUndefined();
     expect(button(panel, "game_admin.force_win")).toBeUndefined();
     expect(panel.querySelector("#game-admin-amount")).toBeNull();
+  });
+
+  it("a moderator in a public game gets no mutation controls either", async () => {
+    const { panel } = setup({ role: "mod", gameType: GameType.Public });
+    await open(panel);
+    await select(panel, "victim01");
+    expect(button(panel, "game_admin.eliminate")).toBeUndefined();
+    expect(panel.querySelector("#game-admin-amount")).toBeNull();
+  });
+
+  it("the owner is offered every tool in a public game, with a note that it marks the game", async () => {
+    const { panel, emitted } = setup({
+      role: "owner",
+      gameType: GameType.Public,
+    });
+    await open(panel);
+    await select(panel, "victim01");
+    expect(
+      panel.querySelector("#game-admin-public-note")?.textContent,
+    ).toContain("game_admin.public_note_owner");
+    expect(button(panel, "game_admin.eliminate")).toBeDefined();
+    expect(button(panel, "game_admin.force_win")).toBeDefined();
+    expect(panel.querySelector("#game-admin-amount")).not.toBeNull();
+    button(panel, "game_admin.gold_give")!.click();
+    expect(emitted.some((e) => e instanceof SendAdminCommandIntentEvent)).toBe(
+      true,
+    );
+  });
+
+  it("a listed game counts as public for the panel too", async () => {
+    const { panel } = setup({
+      role: "admin",
+      gameType: GameType.Private,
+      listed: true,
+    });
+    await open(panel);
+    await select(panel, "victim01");
+    expect(button(panel, "game_admin.eliminate")).toBeUndefined();
+    expect(panel.querySelector("#game-admin-public-note")).not.toBeNull();
   });
 
   it("the game tab shows the facts, and pause only for those who may pause", async () => {

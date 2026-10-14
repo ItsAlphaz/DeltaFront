@@ -53,8 +53,8 @@ interface Row {
  * server relays ONLY if the sender's account holds the matching permission
  * (src/server/IntentAuthorization.ts), so a panel opened by someone who is not
  * staff, or a hand-built message, does nothing. Commands that change state are
- * refused outright in public games; a game that received one is marked
- * admin-modified and never counts for stats, Credits or the leaderboard.
+ * refused in public and listed games unless the sender is the owner; a game that
+ * received one is marked admin-modified and never counts for stats, Credits or the leaderboard.
  *
  * What is drawn follows the role, from the same permission table the server
  * uses (@openfront/shared/Permissions).
@@ -147,8 +147,22 @@ export class GameAdminPanel extends LitElement implements Controller {
     return this.rows.find((r) => r.id === this.selectedId) ?? null;
   }
 
+  /** A public or listed game: real players recruited from the browser or matchmaker. */
   private get isPublic(): boolean {
-    return this.game?.config().gameConfig().gameType === GameType.Public;
+    const config = this.game?.config();
+    return (
+      config?.gameConfig().gameType === GameType.Public ||
+      config?.listed === true
+    );
+  }
+
+  /**
+   * Whether commands that change the game may be drawn at all: any game for the
+   * owner, private games only for everyone else. The server decides for real
+   * (authorizeIntent); this only keeps the panel from offering what it refuses.
+   */
+  private get commandsAllowed(): boolean {
+    return !this.isPublic || this.canUse("game.admin.public");
   }
 
   private amountValue(): number | null {
@@ -238,7 +252,7 @@ export class GameAdminPanel extends LitElement implements Controller {
     const me = this.game?.myPlayer() ?? null;
     const isMe = me !== null && me.id() === sel.id;
     const amount = this.amountValue();
-    const commands = !this.isPublic;
+    const commands = this.commandsAllowed;
     return html`
       <div
         class="flex flex-col gap-2 border border-white/10 rounded p-2"
@@ -412,7 +426,8 @@ export class GameAdminPanel extends LitElement implements Controller {
 
   private renderTools() {
     const me = this.game?.myPlayer() ?? null;
-    const commands = !this.isPublic && this.canUse("game.admin.resources");
+    const commands =
+      this.commandsAllowed && this.canUse("game.admin.resources");
     if (!commands) {
       return html`<p class="text-xs text-white/50">
         ${t("tools_unavailable")}
@@ -482,7 +497,9 @@ export class GameAdminPanel extends LitElement implements Controller {
                   class="text-[11px] text-amber-300"
                   id="game-admin-public-note"
                 >
-                  ${t("public_note")}
+                  ${this.commandsAllowed
+                    ? t("public_note_owner")
+                    : t("public_note")}
                 </p>`
               : nothing}
             ${this.adminModified

@@ -1149,7 +1149,8 @@
     "modified_banner": "ADMIN-MODIFIED GAME: it will not count for stats, Credits or the leaderboard.",
     "pause": "Pause",
     "players": "Players",
-    "public_note": "Public game: kicks and the camera work, but commands that change the game are refused here.",
+    "public_note": "Admin tools are disabled in public games. Kicks and the camera still work.",
+    "public_note_owner": "Public game: as the owner you may use commands that change it. The game is then marked admin-modified and counts for no one.",
     "refill_gold": "Refill my gold",
     "refill_troops": "Refill my troops",
     "resume": "Resume",
@@ -1163,7 +1164,7 @@
     "title": "Admin",
     "toggle_hint": "Staff tools (backquote key)",
     "tools_note": "Changes the state of this game for everyone in it. The game is then marked admin-modified.",
-    "tools_unavailable": "Not available here: needs the resources permission, and a private game.",
+    "tools_unavailable": "Not available here: needs the resources permission, and admin tools are disabled in public games.",
     "troops_give": "+ Troops",
     "troops_set": "= Troops",
     "troops_take": "− Troops"

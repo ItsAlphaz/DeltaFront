@@ -8,6 +8,7 @@ const { reportAdminAction } = vi.hoisted(() => ({
 }));
 vi.mock("../../src/server/AdminAudit", () => ({ reportAdminAction }));
 
+import { hasPermission } from "@openfront/shared/Permissions";
 import {
   authorizeIntent,
   type IntentActor,
@@ -111,11 +112,46 @@ describe("authorizeIntent: staff commands, by role", () => {
     }
   });
 
-  it("commands that change the game never run in public or listed games", () => {
-    expect(status(give, roles.owner, running({ isPublic: true }))).toBe(403);
-    expect(status(give, roles.owner, running({ isListed: true }))).toBe(403);
+  it("in a public or listed game only the owner may run a command that changes it", () => {
+    const publicGame = running({ isPublic: true });
+    const listedGame = running({ isListed: true });
+    for (const game of [publicGame, listedGame]) {
+      // The owner (and upstream's root, which reads as owner): every command.
+      for (const who of [roles.owner, roles.root]) {
+        for (const command of [give, eliminate, forceWin]) {
+          expect(
+            status(command, who, game),
+            `${who.role} ${command.type}`,
+          ).toBeNull();
+        }
+      }
+      // An admin may eliminate in a private game, but never here.
+      expect(status(eliminate, roles.admin, game)).toBe(403);
+      expect(status(give, roles.admin, game)).toBe(403);
+      expect(status(forceWin, roles.admin, game)).toBe(403);
+      expect(status(eliminate, roles.mod, game)).toBe(403);
+      expect(status(give, roles.player, game)).toBe(403);
+      // The legacy flag and non-staff role claims buy nothing.
+      expect(
+        status(give, actor({ isAdmin: true, role: "flagged" }), game),
+      ).toBe(403);
+    }
+    // Private and unlisted: the admin's elimination still works, as before.
+    expect(status(eliminate, roles.admin, running())).toBeNull();
+    // The refusal names the reason, not a permission the admin is missing.
+    expect(authorizeIntent(eliminate, roles.admin, publicGame)?.error).toMatch(
+      /owner-only/,
+    );
     // Moderation (kick) still reaches a public game.
-    expect(status(kick, roles.mod, running({ isPublic: true }))).toBeNull();
+    expect(status(kick, roles.mod, publicGame)).toBeNull();
+  });
+
+  it("the public-game right is its own permission, held by the owner alone", () => {
+    expect(hasPermission("owner", "game.admin.public")).toBe(true);
+    expect(hasPermission("root", "game.admin.public")).toBe(true);
+    for (const role of ["admin", "mod", "flagged", null, undefined, "OWNER"]) {
+      expect(hasPermission(role, "game.admin.public")).toBe(false);
+    }
   });
 
   it("commands need a started game", () => {
@@ -175,8 +211,10 @@ describe("GameServer: staff intents over the socket", () => {
     vi.clearAllTimers();
   });
 
-  function setup(config = {}) {
+  function setup(config = {}, opts: { listed?: boolean } = {}) {
     const game = makeGame({ config: { maxPlayers: 10, ...config } });
+    // A listed lobby is listed before it starts, as a host does it.
+    if (opts.listed === true) game.setListed(true);
     const joined = (role: string | null, tag: string) => {
       const client = makeClient({
         clientID: cid(tag),
@@ -265,9 +303,92 @@ describe("GameServer: staff intents over the socket", () => {
     expect(relayed(added, "admin_command")).toHaveLength(1);
   });
 
-  it("commands are refused in a public game, which stays unmodified", async () => {
+  it("the owner may run a command in a private, an unlisted and a listed game", async () => {
+    for (const [config, opts] of [
+      [{ gameType: GameType.Private }, {}],
+      [{ gameType: GameType.Private }, { listed: false }],
+      [{ gameType: GameType.Private }, { listed: true }],
+    ] as const) {
+      const { game, owner, victim, added } = setup(config, opts);
+      expect(game.isListed()).toBe(opts.listed === true);
+      await send(owner, { ...give, target: victim.clientID } as Intent);
+      expect(relayed(added, "admin_command")).toHaveLength(1);
+      expect(game.isAdminModified()).toBe(true);
+    }
+  });
+
+  it("an owner's command in a public game is relayed, marks the game admin-modified, and is audited as one", async () => {
     const { game, owner, victim, added } = setup({ gameType: GameType.Public });
+    expect(game.isPublic()).toBe(true);
     await send(owner, { ...give, target: victim.clientID } as Intent);
+    expect(relayed(added, "admin_command")).toHaveLength(1);
+    expect(game.isAdminModified()).toBe(true);
+    expect(reportAdminAction).toHaveBeenCalledTimes(1);
+    const report = reportAdminAction.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(report).toMatchObject({
+      gameID: game.id,
+      actorPublicId: "pubowner",
+      action: "game:command",
+      details: {
+        command: "give_gold",
+        amount: 500,
+        public: true,
+        listed: false,
+      },
+    });
+    // Identifiers and numbers only: no token, key or address.
+    expect(JSON.stringify(report)).not.toMatch(
+      /token|apikey|secret|password|ip/i,
+    );
+  });
+
+  it("an owner's command in a listed game is audited with the listed flag", async () => {
+    const { owner, victim, added } = setup({}, { listed: true });
+    await send(owner, { ...eliminate, target: victim.clientID } as Intent);
+    expect(relayed(added, "admin_command")).toHaveLength(1);
+    expect(reportAdminAction.mock.calls[0][0]).toMatchObject({
+      details: { command: "eliminate", listed: true, public: false },
+    });
+  });
+
+  it("in a public or listed game an admin, a moderator and a player are refused, and the game stays unmodified", async () => {
+    for (const [config, opts] of [
+      [{ gameType: GameType.Public }, {}],
+      [{}, { listed: true }],
+    ] as const) {
+      const { game, admin, mod, player, victim, added } = setup(config, opts);
+      for (const who of [admin, mod, player]) {
+        await send(who, { ...eliminate, target: victim.clientID } as Intent);
+        await send(who, { ...give, target: victim.clientID } as Intent);
+      }
+      expect(relayed(added, "admin_command")).toHaveLength(0);
+      expect(game.isAdminModified()).toBe(false);
+      expect(reportAdminAction).not.toHaveBeenCalled();
+    }
+  });
+
+  it("an admin's elimination still works in a private game, and is audited as not public", async () => {
+    const { admin, victim, added } = setup({ gameType: GameType.Private });
+    await send(admin, { ...eliminate, target: victim.clientID } as Intent);
+    expect(relayed(added, "admin_command")).toHaveLength(1);
+    expect(reportAdminAction.mock.calls[0][0]).toMatchObject({
+      actorPublicId: "pubadmin",
+      details: { public: false, listed: false },
+    });
+  });
+
+  it("a client claiming to be the owner in a public game is refused: the server's stored role decides", async () => {
+    const { game, admin, victim, added } = setup({ gameType: GameType.Public });
+    await mockWsOf(admin).emit({
+      type: "intent",
+      intent: { ...give, target: victim.clientID },
+      role: "owner",
+      staffRole: "owner",
+      isAdmin: true,
+    } as never);
     expect(relayed(added, "admin_command")).toHaveLength(0);
     expect(game.isAdminModified()).toBe(false);
   });

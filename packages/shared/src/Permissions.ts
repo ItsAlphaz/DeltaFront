@@ -85,6 +85,10 @@ export const PERMISSIONS = [
   "game.admin.resources",
   "game.admin.force_end",
   "game.admin.impersonate_ai",
+  // Using a state-changing admin command in a public or listed game (real
+  // players recruited from the browser or matchmaker). Owner only; the game is
+  // then admin-modified and counts for nothing.
+  "game.admin.public",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
