@@ -74,6 +74,13 @@ export const PERMISSIONS = [
   "admin.audit.view_moderation",
   "admin.server.view",
   "admin.server.manage",
+  // Progression: XP and seasons
+  "admin.xp.view",
+  "admin.xp.history",
+  "admin.xp.grant",
+  "admin.xp.revoke",
+  "admin.xp.set",
+  "admin.seasons.manage",
   // In-game admin
   "game.admin.panel",
   "game.admin.spectate",
@@ -107,6 +114,7 @@ const MOD_GRANTS: readonly Permission[] = [
   "game.admin.spectate",
   "game.admin.kick",
   "game.admin.nations",
+  "admin.xp.view",
 ];
 
 // Operational powers. What an admin lacks is owner-only on purpose: managing
@@ -125,6 +133,9 @@ const ADMIN_GRANTS: readonly Permission[] = [
   "admin.clans.official",
   "admin.audit.view",
   "admin.server.view",
+  "admin.xp.history",
+  "admin.xp.grant",
+  "admin.xp.revoke",
   "game.admin.pause",
   "game.admin.kill",
   "game.admin.debug",

@@ -134,6 +134,14 @@ describe("GameXpResponseSchema", () => {
     const parsed = GameXpResponseSchema.parse({ ...eligible, breakdown: v1 });
     if (!parsed.eligible) throw new Error("expected eligible");
     expect(parsed.breakdown).toEqual({
+      // the fields later rules added read as "none"
+      eliminations: 0,
+      eliminationCount: 0,
+      firstWin: 0,
+      repeatPermille: 1000,
+      playerCount: 0,
+      capped: false,
+      softCapped: false,
       ...eligible.breakdown,
       played: 0,
       leftEarly: false,

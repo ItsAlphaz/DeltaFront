@@ -50,6 +50,9 @@ export const ClanInfoSchema = z.object({
   // which the UI hides rather than rendering as zero.
   softBalance: z.string().optional(),
   hardBalance: z.string().optional(),
+  // Total clan XP: the members' contributions (10% of their match XP, on top
+  // of their own). Only the clan page carries it; absent = hide.
+  xp: z.number().optional(),
 });
 export type ClanInfo = z.infer<typeof ClanInfoSchema>;
 
@@ -145,6 +148,12 @@ export const ClanMemberSchema = z.object({
   verified: z.boolean().optional(),
   staffRole: z.enum(["owner", "admin", "mod"]).optional(),
   stats: ClanMemberStatsSchema.optional(),
+  // The member's level badge, and the clan XP they contributed. Absent while
+  // progression is off.
+  level: z.number().optional(),
+  prestige: z.number().optional(),
+  legend: z.boolean().optional(),
+  xp: z.number().optional(),
 });
 export type ClanMember = z.infer<typeof ClanMemberSchema>;
 

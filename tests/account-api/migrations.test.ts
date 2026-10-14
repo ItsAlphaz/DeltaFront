@@ -155,6 +155,35 @@ describe("the shipped migrations", () => {
     expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
   });
 
+  it("0007 adds the progression tables and widens two allowed-value checks, rewriting no row", () => {
+    expect(files[6].fileName).toBe("0007_progression.sql");
+    const sql = files[6].sql.replace(/^\s*--.*$/gm, "");
+    for (const table of [
+      "seasons",
+      "user_progress",
+      "xp_ledger",
+      "xp_daily",
+      "prestige_events",
+      "user_season_progress",
+      "progression_rewards",
+      "challenge_progress",
+    ]) {
+      expect(sql, table).toMatch(new RegExp(`CREATE TABLE ${table} \\(`));
+    }
+    // A game or a challenge pays a player once; so does a reward claim.
+    expect(sql).toMatch(
+      /CREATE UNIQUE INDEX xp_ledger_award_once\s+ON xp_ledger \(user_id, source, ref_id\)/,
+    );
+    expect(sql).toMatch(/UNIQUE \(user_id, to_prestige\)/);
+    expect(sql).toMatch(/currency_ledger_progression_reward_once/);
+    expect(sql).toMatch(/'progression_reward'/);
+    expect(sql).toMatch(
+      /CHECK \(source IN \('purchase', 'admin', 'reward'\)\)/,
+    );
+    // Additive only: nothing is dropped but the two old checks, nothing rewritten.
+    expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time

@@ -125,6 +125,10 @@ export const ProgressSchema = z.object({
   lifetimeXp: z.number(),
   legend: z.boolean(),
   canPrestige: z.boolean(),
+  // The military rank key of the level (ProgressionRules RANK_KEYS) and the
+  // title the player chose to show. Optional: an API without them still parses.
+  rank: z.string().optional().catch(undefined),
+  title: z.string().nullable().optional().catch(undefined),
 });
 export type Progress = z.infer<typeof ProgressSchema>;
 
@@ -155,13 +159,25 @@ export const XpBreakdownSchema = z.object({
   time: z.number().default(0),
   placement: z.number().default(0),
   win: z.number().default(0),
+  // Eliminations of other players (25 each, at most 6) and how many counted.
+  eliminations: z.number().default(0),
+  eliminationCount: z.number().default(0),
   firstGame: z.number().default(0),
+  // The first eligible victory of the UTC day.
+  firstWin: z.number().default(0),
   feats: z.number().default(0),
   // Before multipliers.
   subtotal: z.number(),
-  // Multipliers in permille: 1000 is 1x.
+  // Multipliers in permille: 1000 is 1x. `gamePermille` is the player-count
+  // multiplier; `repeatPermille` the repeated-opponents one.
   gamePermille: z.number(),
-  subscriberPermille: z.number(),
+  subscriberPermille: z.number().default(1000),
+  repeatPermille: z.number().default(1000),
+  // Eligible humans in the game (what the player-count multiplier read).
+  playerCount: z.number().default(0),
+  // The per-match cap cut the award, or the daily soft cap reduced it.
+  capped: z.boolean().default(false),
+  softCapped: z.boolean().default(false),
   // XP actually awarded.
   total: z.number(),
 });
@@ -181,6 +197,33 @@ export const GameXpEligibleSchema = z.object({
     .array(z.object({ prestige: z.number(), level: z.number() }))
     .optional()
     .default([]),
+  // Daily and weekly challenges this game completed (their XP is NOT in
+  // `breakdown.total`; it is paid separately and is already in `after`).
+  challenges: z
+    .array(
+      z.object({
+        id: z.string(),
+        period: z.enum(["daily", "weekly"]),
+        xp: z.number(),
+        credits: z.number().optional().default(0),
+      }),
+    )
+    .optional()
+    .catch(undefined),
+  // The season the game counted for and where the player stands in it.
+  season: z
+    .object({
+      number: z.number(),
+      name: z.string(),
+      xp: z.number(),
+      level: z.number(),
+      added: z.number(),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
+  // Review markers (repeat_group, soft_cap, cap_hit, admin_counted, tiny_win).
+  flags: z.array(z.string()).optional().catch(undefined),
 });
 export const GameXpIneligibleSchema = z.object({
   gameId: z.string(),
@@ -206,6 +249,20 @@ export const PublicProgressSchema = z.object({
   // is left out.
   xpInLevel: z.number().optional(),
   xpForNext: z.number().optional(),
+  // Military rank key and the title the player chose to show.
+  rank: z.string().optional().catch(undefined),
+  title: z.string().nullable().optional().catch(undefined),
+  // The running season, when there is one.
+  season: z
+    .object({
+      number: z.number(),
+      name: z.string(),
+      level: z.number(),
+      xp: z.number(),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
 });
 export type PublicProgress = z.infer<typeof PublicProgressSchema>;
 
@@ -270,8 +327,46 @@ export const ProgressionConfigSchema = z.object({
     })
     .optional()
     .catch(undefined),
-  // The Caps every prestige grants.
+  // The Credits every prestige grants (the `caps` name is upstream's).
   prestige: z.object({ caps: z.number() }).optional().catch(undefined),
+  // The military ranks, by first level.
+  ranks: z
+    .array(z.object({ key: z.string(), fromLevel: z.number() }))
+    .optional()
+    .catch(undefined),
+  // Level milestones: what each pays (Credits repeat every prestige run).
+  milestones: z
+    .array(
+      z.object({
+        level: z.number(),
+        credits: z.number(),
+        flare: z.string().nullable(),
+        title: z.string().nullable(),
+      }),
+    )
+    .optional()
+    .catch(undefined),
+  // The running season and its free track, null between seasons.
+  season: z
+    .object({
+      number: z.number(),
+      name: z.string(),
+      startsAt: z.string(),
+      endsAt: z.string(),
+      xpPerLevel: z.number(),
+      maxLevel: z.number(),
+      rewards: z.array(
+        z.object({
+          level: z.number(),
+          credits: z.number(),
+          title: z.string().nullable(),
+          flare: z.string().nullable(),
+        }),
+      ),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
   // In track order. An entry that doesn't parse is dropped, not the list.
   flares: z
     .array(TrackFlareSchema.nullable().catch(null))
@@ -282,6 +377,111 @@ export const ProgressionConfigSchema = z.object({
     ),
 });
 export type ProgressionConfig = z.infer<typeof ProgressionConfigSchema>;
+
+// ---- progression: the account page, challenges, seasons and leaderboards
+
+export const ChallengeStatusSchema = z.object({
+  id: z.string(),
+  period: z.enum(["daily", "weekly"]),
+  slot: z.number(),
+  metric: z.string(),
+  target: z.number(),
+  progress: z.number(),
+  xp: z.number(),
+  credits: z.number(),
+  completed: z.boolean(),
+});
+export type ChallengeStatus = z.infer<typeof ChallengeStatusSchema>;
+
+export const ChallengePeriodSchema = z.object({
+  periodKey: z.string(),
+  // When the period ends (UTC), for the reset countdown.
+  resetsAt: z.string(),
+  items: ChallengeStatusSchema.array(),
+});
+
+export const SeasonTrackEntrySchema = z.object({
+  level: z.number(),
+  credits: z.number(),
+  title: z.string().nullable(),
+  flare: z.string().nullable(),
+  unlocked: z.boolean(),
+  claimed: z.boolean(),
+  // The reward row to claim (POST /rewards/:id/claim), once unlocked and unclaimed.
+  rewardId: z.string().nullable(),
+});
+
+export const SeasonSummarySchema = z.object({
+  number: z.number(),
+  name: z.string(),
+  startsAt: z.string(),
+  endsAt: z.string(),
+  xp: z.number(),
+  level: z.number(),
+  maxLevel: z.number(),
+  xpPerLevel: z.number(),
+});
+
+export const XpHistoryEntrySchema = z.object({
+  amount: z.number(),
+  source: z.string(),
+  at: z.string(),
+});
+
+// GET /progression/me — everything the account page shows about progression.
+export const ProgressionMeSchema = z.object({
+  progress: ProgressSchema,
+  rank: z.string(),
+  nextMilestone: z
+    .object({
+      level: z.number(),
+      credits: z.number(),
+      flare: z.string().nullable(),
+      title: z.string().nullable(),
+    })
+    .nullable(),
+  season: SeasonSummarySchema.nullable(),
+  seasonTrack: SeasonTrackEntrySchema.array(),
+  challenges: z.object({
+    daily: ChallengePeriodSchema,
+    weekly: ChallengePeriodSchema,
+  }),
+  titles: z.string().array(),
+  selectedTitle: z.string().nullable(),
+  history: XpHistoryEntrySchema.array(),
+  levelHidden: z.boolean(),
+});
+export type ProgressionMe = z.infer<typeof ProgressionMeSchema>;
+
+export const PutTitleResponseSchema = z.object({
+  title: z.string().nullable(),
+});
+
+export const XpLeaderboardEntrySchema = z.object({
+  rank: z.number(),
+  playerId: z.string(),
+  accountUsername: z.string().nullable(),
+  verified: z.boolean().optional(),
+  staffRole: z.enum(["owner", "admin", "mod"]).optional(),
+  prestige: z.number(),
+  level: z.number(),
+  legend: z.boolean(),
+  xp: z.number(),
+});
+export type XpLeaderboardEntry = z.infer<typeof XpLeaderboardEntrySchema>;
+
+export const XpLeaderboardResponseSchema = z.object({
+  players: XpLeaderboardEntrySchema.array(),
+  // The season a season board is about (absent on the lifetime board).
+  season: z
+    .object({ number: z.number(), name: z.string(), archived: z.boolean() })
+    .optional(),
+  // Every season that can be asked for, newest first (season board only).
+  seasons: z
+    .array(z.object({ number: z.number(), name: z.string() }))
+    .optional(),
+});
+export type XpLeaderboardResponse = z.infer<typeof XpLeaderboardResponseSchema>;
 
 const CurrencyBalancesSchema = z.object({
   soft: z.coerce.number(),
@@ -1061,6 +1261,10 @@ export const PlayerLeaderboardEntrySchema = z.object({
   wins: z.number(),
   losses: z.number(),
   winRate: z.number(),
+  // The level badge (absent while progression is off).
+  level: z.number().optional(),
+  prestige: z.number().optional(),
+  legend: z.boolean().optional(),
 });
 export type PlayerLeaderboardEntry = z.infer<
   typeof PlayerLeaderboardEntrySchema

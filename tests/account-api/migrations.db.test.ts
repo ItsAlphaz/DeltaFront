@@ -77,13 +77,32 @@ afterEach(async () => {
   for (const db of databases.splice(0)) await db.drop();
 });
 
+const PROGRESSION_TABLES = [
+  "challenge_progress",
+  "prestige_events",
+  "progression_rewards",
+  "seasons",
+  "user_progress",
+  "user_season_progress",
+  "xp_daily",
+  "xp_ledger",
+];
+
 describeDb("applying the shipped migrations to PostgreSQL", () => {
   it("builds the whole M0 schema on an empty database, and records it", async () => {
     const { pool } = await freshDb();
     const { applied } = await applyMigrations(pool, {
       log: silentLogger as never,
     });
-    expect(applied).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
+    expect(applied).toEqual([
+      "0001",
+      "0002",
+      "0003",
+      "0004",
+      "0005",
+      "0006",
+      "0007",
+    ]);
 
     expect(await tablesOf(pool)).toEqual(
       [
@@ -91,6 +110,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "leaderboard_players",
         "magic_link_tokens",
         "schema_migrations",
+        ...PROGRESSION_TABLES,
       ].sort(),
     );
     const files = loadMigrationFiles();
@@ -118,6 +138,11 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         name: "staff_roles",
         checksum: files[5].checksum,
       },
+      {
+        version: "0007",
+        name: "progression",
+        checksum: files[6].checksum,
+      },
     ]);
   });
 
@@ -129,7 +154,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(6);
+    ).toBe(7);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -148,6 +173,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0004",
         "0005",
         "0006",
+        "0007",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -172,6 +198,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0004",
       "0005",
       "0006",
+      "0007",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -184,6 +211,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0004",
       "0005",
       "0006",
+      "0007",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -275,11 +303,12 @@ describeDb("migration safety", () => {
       "0004",
       "0005",
       "0006",
+      "0007",
     ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(6);
+    ).toBe(7);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -305,6 +334,7 @@ describeDb("migration safety", () => {
       "0004",
       "0005",
       "0006",
+      "0007",
     ]);
   });
 });
