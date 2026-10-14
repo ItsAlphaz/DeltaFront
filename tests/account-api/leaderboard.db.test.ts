@@ -2,6 +2,7 @@
 import {
   PlayerLeaderboardResponseSchema,
   PlayerProfileSchema,
+  type PlayerLeaderboardEntry,
 } from "@openfront/shared/ApiSchemas";
 import fs from "node:fs";
 import path from "node:path";
@@ -660,6 +661,7 @@ describeDb("what a row exposes, and how it links to the profile", () => {
         "losses",
         "playerId",
         "rank",
+        "verified",
         "winRate",
         "wins",
       ],
@@ -669,6 +671,7 @@ describeDb("what a row exposes, and how it links to the profile", () => {
         "losses",
         "playerId",
         "rank",
+        "verified",
         "winRate",
         "wins",
       ],
@@ -690,6 +693,42 @@ describeDb("what a row exposes, and how it links to the profile", () => {
     expect(res.headers.get("cache-control")).toBe(
       `public, max-age=${ACCOUNT_RULES.leaderboardCacheSeconds}`,
     );
+  });
+
+  it("exposes the operator-verified flag, default false, without inferring it from the name", async () => {
+    const h = await harness();
+    const u = await bulkUsers(h, 2);
+    await seedGames(h, [
+      { ...u[0], wins: MIN, losses: 0 },
+      { ...u[1], wins: MIN - 1, losses: 1 },
+    ]);
+    await rebuild(h);
+    const names = (rows: PlayerLeaderboardEntry[]) =>
+      Object.fromEntries(rows.map((r) => [r.playerId, r]));
+    let players = names(
+      PlayerLeaderboardResponseSchema.parse((await board(h)).body).players,
+    );
+    expect(players[u[0].publicId].verified).toBe(false);
+    expect(players[u[1].publicId].verified).toBe(false);
+
+    // A suffixed name that is verified by the operator; the other a dotless
+    // name that is not. Only the column decides.
+    await h.db.pool.query(
+      "UPDATE users SET verified = true, username_base = 'Aydin', username_discriminator = '4821' WHERE id = $1",
+      [u[0].userId],
+    );
+    await h.db.pool.query(
+      "UPDATE users SET username_base = 'Plain', username_discriminator = '0001' WHERE id = $1",
+      [u[1].userId],
+    );
+    players = names(
+      PlayerLeaderboardResponseSchema.parse((await board(h)).body).players,
+    );
+    expect(players[u[0].publicId]).toMatchObject({
+      accountUsername: "Aydin.4821",
+      verified: true,
+    });
+    expect(players[u[1].publicId].verified).toBe(false);
   });
 
   it("a rename shows on the next read without a rebuild", async () => {

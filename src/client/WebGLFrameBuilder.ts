@@ -559,7 +559,7 @@ export class WebGLFrameBuilder {
       displayName: p.displayName(),
       flag: flagUrl,
       crown: crownUrl,
-      verified: p.cosmetics.verified === true,
+      verified: p.showsVerifiedBadge(),
       color: p.territoryColor().toHex(),
     };
   }

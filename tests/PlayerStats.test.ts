@@ -31,6 +31,7 @@ function player(
     totalUnitLevels: () => tiles,
     isAlive: () => true,
     isOnSameTeam: () => false,
+    showsVerifiedBadge: () => false,
   } as unknown as PlayerView;
 }
 

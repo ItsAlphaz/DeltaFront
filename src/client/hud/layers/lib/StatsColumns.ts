@@ -49,6 +49,8 @@ export interface ColumnRow {
   readonly position: number;
   readonly name: string;
   readonly clanTag?: string | null;
+  /** Server-approved verified check (see PlayerStats.buildRows). */
+  readonly verified?: boolean;
   readonly value: number;
 }
 

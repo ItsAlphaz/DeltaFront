@@ -1031,6 +1031,10 @@ export const PlayerLeaderboardEntrySchema = z.object({
   // Account username (null = never set). The leaderboard displays this or
   // the playerId.
   accountUsername: z.string().nullable(),
+  // Operator-granted blue check (see UserMeResponseSchema player.verified).
+  // Optional so responses from an API without it parse (absent = no badge from
+  // this field; the bare-name inference in isVerifiedUsername still applies).
+  verified: z.boolean().optional(),
   flag: z.string().optional(),
   // Absent on the basic (non-ranked) leaderboard, which has no rating; the
   // list hides the column then.

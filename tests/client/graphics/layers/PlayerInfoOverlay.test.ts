@@ -87,6 +87,7 @@ describe("PlayerInfoOverlay", () => {
     team: () => null,
     displayName: () => "Bob",
     cosmetics: {},
+    showsVerifiedBadge: () => false,
     id: () => "bob",
     smallID: () => 2,
   };

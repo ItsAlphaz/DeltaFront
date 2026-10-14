@@ -777,6 +777,109 @@ describe("UsernameInput verified name", () => {
   });
 });
 
+// An operator-verified account (admin CLI user:verify): verified by the
+// users.verified column, with an ordinary suffixed name and no subscription.
+function verifiedUser(
+  overrides: Partial<{
+    username: string | null;
+    usernameBase: string | null;
+    verified: boolean;
+    usernameStatus: string;
+  }> = {},
+): UserMeResponse {
+  return {
+    player: {
+      username: "Aydin.4821",
+      usernameBase: "Aydin",
+      usernameStatus: "unclaimed",
+      verified: true,
+      clans: [],
+      ...overrides,
+    },
+  } as unknown as UserMeResponse;
+}
+
+describe("UsernameInput operator-verified account", () => {
+  it("is eligible: plays under its own suffixed name with the check, with no subscription", async () => {
+    const el = await mount();
+    await signIn(el, verifiedUser());
+
+    expect(el.isVerified()).toBe(true);
+    expect(el.getUsername()).toBe("Aydin.4821");
+    expect(
+      el.querySelector('svg[aria-label="username.verified_player"]'),
+    ).not.toBeNull();
+    expect(q(el, CHANGE)).not.toBeNull();
+  });
+
+  it("turns the toggle on without any purchase or subscription prompt", async () => {
+    localStorage.setItem("useVerifiedName", "false");
+    localStorage.setItem("username", "MyCoolName");
+    const el = await mount();
+    await signIn(el, verifiedUser());
+    expect(el.isVerified()).toBe(false);
+    expect(el.getUsername()).toBe("MyCoolName");
+
+    q(el, TOGGLE)!.click();
+    await settle();
+    await el.updateComplete;
+
+    expect(el.isVerified()).toBe(true);
+    expect(el.getUsername()).toBe("Aydin.4821");
+    expect(showInGameConfirm).not.toHaveBeenCalled();
+    expect(window.location.hash).not.toContain("subscriptions");
+  });
+
+  it("sends a verified account with no username to the username form, never the store", async () => {
+    localStorage.setItem("username", "MyCoolName");
+    const el = await mount();
+    await signIn(el, verifiedUser({ username: null, usernameBase: null }));
+    expect(el.isVerified()).toBe(false);
+    expect(q(el, TOGGLE)!.getAttribute("title")).toBe(
+      "username.verified_needs_name_hint",
+    );
+
+    window.location.hash = "";
+    q(el, TOGGLE)!.click();
+    await settle();
+
+    expect(showInGameConfirm).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe("#modal=change-username");
+  });
+
+  it("an unverified, unsubscribed account (including an admin) is still asked to subscribe", async () => {
+    localStorage.setItem("username", "MyCoolName");
+    const el = await mount();
+    await signIn(el, verifiedUser({ verified: false }));
+    expect(el.isVerified()).toBe(false);
+
+    q(el, TOGGLE)!.click();
+    await settle();
+
+    expect(showInGameConfirm).toHaveBeenCalledTimes(1);
+    expect(showInGameConfirm.mock.calls[0][0]).toBe(
+      "username.verified_sub_required",
+    );
+  });
+
+  it("does not depend on a bare name or a premium status", async () => {
+    const el = await mount();
+    await signIn(
+      el,
+      verifiedUser({ usernameStatus: "none", username: "Aydin.0007" }),
+    );
+    expect(el.isVerified()).toBe(true);
+    expect(el.getUsername()).toBe("Aydin.0007");
+  });
+
+  it("leaves the premium bare-name path unchanged", async () => {
+    const el = await mount();
+    await signIn(el, premiumUser());
+    expect(el.isVerified()).toBe(true);
+    expect(el.getUsername()).toBe("RyanTheGreat");
+  });
+});
+
 describe("UsernameInput lapse notice", () => {
   const SOON = "2026-10-01T00:00:00.000Z";
   const GRACE = "#username-claim-grace";

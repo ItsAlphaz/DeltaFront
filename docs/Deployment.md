@@ -92,6 +92,8 @@ DATABASE_URL=postgres://df_owner:...@127.0.0.1:5432/deltafront npm run account-a
 npm run account-api:migrate -- status        # everything "applied", nothing "pending"
 
 # 8. Build the game image with the launch features
+# GIT_COMMIT is baked into the image by this build argument; never put it in game.env
+# (an --env-file value overrides the image's, and the footer would show a stale commit).
 docker build --build-arg GIT_COMMIT=$(git rev-parse HEAD) \
   --build-arg DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards \
   -t deltafront-game:current .

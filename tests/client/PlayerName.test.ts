@@ -2,6 +2,7 @@ import { UsernameSchema } from "@openfront/engine-api/Schemas";
 import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { describe, expect, it } from "vitest";
 import {
+  accountIsVerified,
   accountNameHeld,
   accountVerifiedName,
   clampUsername,
@@ -366,6 +367,31 @@ describe("looksGenerated", () => {
     ]) {
       expect(looksGenerated(name), name).toBe(false);
     }
+  });
+});
+
+describe("accountIsVerified", () => {
+  it("is true only when the server marked the account verified", () => {
+    expect(accountIsVerified(player({ verified: true }))).toBe(true);
+    expect(accountIsVerified(player({ verified: false }))).toBe(false);
+    expect(accountIsVerified(player())).toBe(false);
+    expect(accountIsVerified(null)).toBe(false);
+    expect(accountIsVerified(false)).toBe(false);
+  });
+
+  it("is not implied by a premium status or an admin-looking account", () => {
+    expect(accountIsVerified(player({ usernameStatus: "indefinite" }))).toBe(
+      false,
+    );
+    const admin = {
+      player: {
+        username: "Boss.0001",
+        usernameStatus: "unclaimed",
+        role: "admin",
+      },
+    } as unknown as UserMeResponse;
+    expect(accountIsVerified(admin)).toBe(false);
+    expect(accountVerifiedName(admin)).toBeNull();
   });
 });
 

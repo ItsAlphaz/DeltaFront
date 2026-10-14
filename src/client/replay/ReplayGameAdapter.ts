@@ -145,6 +145,10 @@ export class ReplayPlayerView {
         : { crown: { url: this.info.crown } }),
     };
   }
+  /** The recorded check (ReplayPalette), same question as PlayerView's. */
+  showsVerifiedBadge(): boolean {
+    return this.info.verified === true;
+  }
   isPlayer(): boolean {
     return true;
   }

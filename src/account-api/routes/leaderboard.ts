@@ -64,6 +64,7 @@ export function leaderboardRouter(deps: AppDeps): Router {
       rank: number;
       public_id: string;
       username: string | null;
+      verified: boolean;
       games: number;
       wins: number;
       losses: number;
@@ -72,7 +73,7 @@ export function leaderboardRouter(deps: AppDeps): Router {
       `SELECT l.rank, u.public_id,
               CASE WHEN u.username_base IS NULL THEN NULL
                    ELSE u.username_base::text || '.' || u.username_discriminator END AS username,
-              l.games, l.wins, l.losses, l.win_rate::float8 AS win_rate
+              u.verified, l.games, l.wins, l.losses, l.win_rate::float8 AS win_rate
          FROM leaderboard_players l
          JOIN users u ON u.id = l.user_id
         WHERE l.period = $1 AND ${LISTABLE_USER}
@@ -99,6 +100,7 @@ export function leaderboardRouter(deps: AppDeps): Router {
         rank: r.rank,
         playerId: r.public_id,
         accountUsername: r.username,
+        verified: r.verified,
         games: r.games,
         wins: r.wins,
         losses: r.losses,

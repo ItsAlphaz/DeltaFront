@@ -85,6 +85,17 @@ export function accountVerifiedName(
   return player.username;
 }
 
+// Whether the server has marked this account verified (admin CLI user:verify).
+// Separate from accountVerifiedName: a verified account that has not chosen a
+// username yet is verified but has no name to play under, and the UI must send
+// it to the username form rather than to the store.
+export function accountIsVerified(
+  userMe: UserMeResponse | false | null,
+): boolean {
+  if (userMe === null || userMe === false) return false;
+  return userMe.player.verified === true;
+}
+
 // An entitled player whose bare name someone else holds: they display as
 // base.disc and cannot play verified until they rename. The identity bar
 // explains this instead of hiding the button (spec, 10 Sept 2026).

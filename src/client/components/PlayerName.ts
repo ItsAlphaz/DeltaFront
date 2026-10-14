@@ -20,6 +20,9 @@ import { verifiedBadge } from "./ui/VerifiedBadge";
 export class PlayerName extends LitElement {
   @property({ attribute: false }) username: string | null | undefined = null;
   @property({ type: String }) publicId = "";
+  // Server-approved blue check (operator-verified accounts). A bare-name claim
+  // is still recognised from the username itself (isVerifiedUsername).
+  @property({ type: Boolean }) verified = false;
   // Copy payload override (e.g. a share URL).
   @property({ type: String }) copyText = "";
   // When set, clicking the name runs this instead of copying.
@@ -71,7 +74,9 @@ export class PlayerName extends LitElement {
               .showVisibilityToggle=${false}
               .showCopyIcon=${false}
             ></copy-button>`}
-        ${isVerifiedUsername(this.username) ? verifiedBadge() : nothing}
+        ${this.verified || isVerifiedUsername(this.username)
+          ? verifiedBadge()
+          : nothing}
       </span>
     `;
   }

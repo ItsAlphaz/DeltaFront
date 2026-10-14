@@ -396,6 +396,19 @@ export class PlayerView implements PlayerLike {
       ? this.anonymousName
       : this.static.displayName;
   }
+  /**
+   * Whether the blue check is drawn beside this player's name: the server
+   * approved it at join (cosmetics.verified, see resolveVerifiedJoin), and the
+   * real name is the one on show. Under the anonymous-names setting the check
+   * is hidden, since it would point out the account behind a random name. The
+   * one place the in-game UI asks this, so the surfaces cannot disagree.
+   */
+  showsVerifiedBadge(): boolean {
+    return (
+      this.cosmetics.verified === true &&
+      !(this.anonymousName !== null && userSettings.anonymousNames())
+    );
+  }
   clanTag(): string | null {
     return this.anonymousName !== null && userSettings.anonymousNames()
       ? null

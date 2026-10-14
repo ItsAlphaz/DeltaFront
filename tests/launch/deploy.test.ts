@@ -29,6 +29,10 @@ describe("the reference environment files", () => {
   const game = parseEnv(read("deploy/env/game.env.example"));
   const backup = parseEnv(read("deploy/env/backup.env.example"));
 
+  it("leave GIT_COMMIT to the image: a value in game.env would override the baked commit and go stale", () => {
+    expect(game).not.toHaveProperty("GIT_COMMIT");
+  });
+
   it("hold only placeholders: no value looks like a real secret", () => {
     for (const [file, env] of [
       ["api", api],

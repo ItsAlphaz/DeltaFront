@@ -10,6 +10,7 @@ import { verifiedBadge } from "./components/ui/VerifiedBadge";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
 import { showInGameAlert, showInGameConfirm } from "./InGameModal";
 import {
+  accountIsVerified,
   accountNameHeld,
   accountVerifiedName,
   clampUsername,
@@ -501,9 +502,14 @@ export class UsernameInput extends LitElement {
       if (rename) window.location.hash = "modal=change-username";
       return;
     }
-    if (status === "premium" || status === "indefinite") {
-      // Subscribed but no usable name yet (never set, or TEMPORARY####):
-      // send them straight to the username form.
+    if (
+      accountIsVerified(this.userMe) ||
+      status === "premium" ||
+      status === "indefinite"
+    ) {
+      // Verified (operator-granted) or subscribed, but no usable name yet
+      // (never set, or TEMPORARY####): send them straight to the username form
+      // rather than to the store. A verified account never needs to buy this.
       window.location.hash = "modal=change-username";
       return;
     }
@@ -1104,7 +1110,9 @@ export class UsernameInput extends LitElement {
             (this.userMe === false ? undefined : this.userMe?.player)
               ?.usernameBase ?? "",
         })
-      : translateText("username.verified_use_hint");
+      : !eligible && accountIsVerified(this.userMe)
+        ? translateText("username.verified_needs_name_hint")
+        : translateText("username.verified_use_hint");
     return html`
       <button
         type="button"

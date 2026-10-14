@@ -11,11 +11,14 @@ import { type ColumnId, type StatsTableKind } from "../StatsConstants";
 import { UserSettings } from "../UserSettings";
 import { translateText } from "../Utils";
 import type { GameView } from "../view";
+import { verifiedBadge } from "./ui/VerifiedBadge";
 
 export interface StatsRow {
   key: string;
   name: string;
   clanTag?: string | null;
+  /** Server-approved verified check, drawn beside the player name. */
+  verified?: boolean;
   values: ReadonlyMap<ColumnId, number>;
   emphasized?: boolean;
   pinned?: boolean;
@@ -243,6 +246,7 @@ export abstract class StatsTable extends LitElement {
     index: number,
     text: string,
     borderClass: string,
+    verified = false,
   ) {
     return html`
       <div
@@ -251,7 +255,12 @@ export abstract class StatsTable extends LitElement {
         ]} tabular-nums ${index > 0 ? DIVIDER_CLASS : ""} ${borderClass}"
         role="cell"
       >
-        <span class="block w-full truncate">${text}</span>
+        ${verified
+          ? html`<span class="flex w-full min-w-0 items-center gap-1">
+              <span class="truncate">${text}</span>
+              ${verifiedBadge("w-3.5 h-3.5")}
+            </span>`
+          : html`<span class="block w-full truncate">${text}</span>`}
       </div>
     `;
   }
@@ -286,6 +295,7 @@ export abstract class StatsTable extends LitElement {
                 game,
               ),
               borderClass,
+              column.id === "player" && row.verified === true,
             ),
         )}
         <div

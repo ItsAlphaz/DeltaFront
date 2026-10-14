@@ -24,6 +24,9 @@ export class PlayerStats extends StatsTable {
         key: player.id(),
         name: player.name(),
         clanTag: player.clanTag(),
+        // The server-approved badge (resolveVerifiedJoin), never inferred from
+        // the name.
+        verified: player.showsVerifiedBadge(),
         values: columnValues(player, game, columns),
         emphasized:
           myPlayer !== null &&

@@ -43,6 +43,7 @@ function setup(visibility: CosmeticVisibility = {}) {
     static: { id: "p", smallID: SID },
     smallID: () => SID,
     displayName: () => "p",
+    showsVerifiedBadge: () => false,
     territoryColor: () => colord("#112233"),
     borderColor: () => colord("#445566"),
     railColor: () => colord("#ffffff"),
