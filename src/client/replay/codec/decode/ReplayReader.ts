@@ -92,6 +92,7 @@ export class ReplayReader {
       motionPlans: [],
       constructionStarts: [],
       deadUnitEvents: [],
+      matchEvents: [],
       spawnPhaseEnd: null,
     };
     this.ctx = { unitTypes: this.header.unitTypes };
@@ -135,6 +136,7 @@ export class ReplayReader {
           motionPlans: h.motionPlans.slice(),
           constructionStarts: h.constructionStarts.slice(),
           deadUnitEvents: h.deadUnitEvents.slice(),
+          matchEvents: h.matchEvents.slice(),
           spawnPhaseEnd: h.spawnPhaseEnd,
         },
       },

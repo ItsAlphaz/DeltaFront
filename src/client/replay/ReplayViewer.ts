@@ -18,6 +18,13 @@ import { MapLayerController } from "../controllers/MapLayerController";
 import { ViewModeController } from "../controllers/ViewModeController";
 import "../hud/layers/EventsDisplay";
 import type { EventsDisplay } from "../hud/layers/EventsDisplay";
+import "../hud/layers/MatchEventFeed";
+import type { MatchEventFeed } from "../hud/layers/MatchEventFeed";
+import "../hud/layers/MatchEventLogModal";
+import {
+  ShowMatchEventLogEvent,
+  type MatchEventLogModal,
+} from "../hud/layers/MatchEventLogModal";
 import "../hud/layers/PlayerInfoOverlay";
 import type { PlayerInfoOverlay } from "../hud/layers/PlayerInfoOverlay";
 import "../hud/layers/PlayerStats";
@@ -409,6 +416,7 @@ export class ReplayViewer extends LitElement {
       replayTerrain.bytes,
     );
     this.adapter = adapter;
+    adapter.setMatchEventSource(header.matchEvents);
     const showEmojis = () => userSettings.emojis();
     adapter.showEmojis = showEmojis;
     playback.frameBuilder.showEmojis = showEmojis;
@@ -646,6 +654,21 @@ export class ReplayViewer extends LitElement {
       events.init();
     }
 
+    // The match feed and the full log read the events the engine recorded.
+    const feed = this.querySelector<MatchEventFeed>("match-event-feed");
+    if (feed !== null) {
+      feed.game = adapter.asGameView();
+      feed.eventBus = this.hudBus;
+    }
+    const eventLog = this.querySelector<MatchEventLogModal>(
+      "match-event-log-modal",
+    );
+    if (eventLog !== null) {
+      eventLog.game = adapter.asGameView();
+      eventLog.eventBus = this.hudBus;
+      eventLog.init();
+    }
+
     const overlay = this.querySelector<PlayerInfoOverlay>(
       "player-info-overlay",
     );
@@ -662,6 +685,7 @@ export class ReplayViewer extends LitElement {
       this.querySelector<PlayerStats>("player-stats")?.refresh();
       overlay?.tick();
       events?.tick();
+      feed?.tick();
     }, 1000);
   }
 
@@ -786,6 +810,22 @@ export class ReplayViewer extends LitElement {
             ? ""
             : "hidden"}"
         ></events-display>
+        ${this.status === "ready"
+          ? html`<button
+              class="absolute right-3 top-3 z-10 df-btn px-2 py-1 text-xs"
+              data-match-events-button
+              @click=${() => this.hudBus.emit(new ShowMatchEventLogEvent(true))}
+            >
+              ${translateText("match_events.log_button")}
+            </button>`
+          : nothing}
+        <match-event-feed
+          class="absolute right-0 top-12 pointer-events-none ${this.status ===
+          "ready"
+            ? ""
+            : "hidden"}"
+        ></match-event-feed>
+        <match-event-log-modal></match-event-log-modal>
         ${this.status === "ready"
           ? html`<replay-controls
               .frame=${this.frame}

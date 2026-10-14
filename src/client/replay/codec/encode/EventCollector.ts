@@ -7,12 +7,14 @@
 
 import {
   GameUpdateType,
+  type MatchEventUpdate,
   type RailroadConstructionUpdate,
   type RailroadDestructionUpdate,
   type RailroadSnapUpdate,
   type SpawnPhaseEndUpdate,
   type UnitUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
+import type { MatchEvent } from "@openfront/engine-api/game/MatchEvents";
 import type { NormalizedFrame } from "../FrameNormalizer";
 import {
   RailroadEventKind,
@@ -30,6 +32,7 @@ export class EventCollector {
   readonly motionPlans: ReplayMotionPlan[] = [];
   readonly constructionStarts: ConstructionStartEvent[] = [];
   readonly deadUnitEvents: DeadUnitEvent[] = [];
+  readonly matchEvents: MatchEvent[] = [];
   spawnPhaseEnd: SpawnPhaseEndEvent | null = null;
 
   private constructing = new Set<number>();
@@ -43,6 +46,14 @@ export class EventCollector {
     ] as SpawnPhaseEndUpdate[];
     if (spawnEnd.length > 0 && this.spawnPhaseEnd === null) {
       this.spawnPhaseEnd = { tick, startTick: spawnEnd[0].startTick };
+    }
+
+    // Kept whole: the engine already made them deterministic, so a replay
+    // shows them on the tick the game did.
+    for (const u of gu.updates[
+      GameUpdateType.MatchEvent
+    ] as MatchEventUpdate[]) {
+      this.matchEvents.push(u.event);
     }
 
     if (gu.packedNukeImpacts !== undefined && gu.packedNukeImpacts.length > 0) {

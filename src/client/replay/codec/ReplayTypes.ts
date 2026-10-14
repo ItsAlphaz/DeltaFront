@@ -6,6 +6,7 @@
  * straight to the renderer.
  */
 
+import type { MatchEvent } from "@openfront/engine-api/game/MatchEvents";
 import type {
   NameEntry,
   PlayerState,
@@ -15,11 +16,12 @@ import type {
 
 /**
  * Format version, part of a stored replay's key (ReplayStore), so bump it
- * on any change to how frames or packed events (PackedEvents) are encoded.
+ * on any change to how frames or packed events (PackedEvents) are encoded, or
+ * to the event lists a stored replay has (2: match events).
  * Stored replays are also keyed by build, so this only matters for dev
  * builds, which all share "DEV".
  */
-export const REPLAY_VERSION = 1;
+export const REPLAY_VERSION = 2;
 
 /**
  * Frames per chunk. Each chunk starts with a keyframe, and keyframes are
@@ -123,6 +125,12 @@ export interface ReplayEvents {
   motionPlans: ReplayMotionPlan[];
   constructionStarts: ConstructionStartEvent[];
   deadUnitEvents: DeadUnitEvent[];
+  /**
+   * The engine's match events (elimination, alliances, ...), in order. A frame
+   * only carries its own tick, so the viewer rebuilds the event log from this
+   * list when it seeks (ReplayGameView.syncMatchEvents).
+   */
+  matchEvents: MatchEvent[];
   /** Null if the game never left the spawn phase. */
   spawnPhaseEnd: SpawnPhaseEndEvent | null;
 }
@@ -134,6 +142,7 @@ export const EVENT_LISTS = [
   "motionPlans",
   "constructionStarts",
   "deadUnitEvents",
+  "matchEvents",
 ] as const satisfies readonly (keyof ReplayEvents)[];
 
 /** The header fields that are fixed from the start of a game. */

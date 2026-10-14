@@ -58,6 +58,7 @@ const file = (n: number): ReplayData => ({
       motionPlans: [],
       constructionStarts: [],
       deadUnitEvents: [],
+      matchEvents: [],
       spawnPhaseEnd: null,
     },
   },

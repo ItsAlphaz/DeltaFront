@@ -83,6 +83,14 @@ The files to start from:
 | `ReplayStore`                   | The IndexedDB cache                            |
 | `ReplayViewer`                  | The `<replay-viewer>` page                     |
 
+### Match events
+
+The engine's match events (the live feed and event log, see
+[MatchEvents.md](MatchEvents.md)) are kept as one more event list
+(`ReplayEvents.matchEvents`, collected by `EventCollector`) and the viewer
+rebuilds its `MatchEventLog` from it at any frame, so a seek shows the right
+history. This changed what a stored replay holds, so `REPLAY_VERSION` is 2.
+
 ### Changing the format
 
 A replay never leaves the browser that made it, so there's no file

@@ -36,6 +36,7 @@ export function mergeAppends(appends: readonly ReplayAppend[]): ReplayAppend {
       motionPlans: [],
       constructionStarts: [],
       deadUnitEvents: [],
+      matchEvents: [],
       spawnPhaseEnd: null,
     },
   };

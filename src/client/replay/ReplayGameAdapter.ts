@@ -25,8 +25,10 @@ import type {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import type { MatchEvent } from "@openfront/engine-api/game/MatchEvents";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
 import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
+import { MatchEventLog } from "../matchevents/MatchEventLog";
 import { OWNER_MASK } from "../render/gl/utils/TileCodec";
 import type {
   NameEntry,
@@ -145,6 +147,11 @@ export class ReplayPlayerView {
         ? {}
         : { crown: { url: this.info.crown } }),
     };
+  }
+  /** The player's territory colour (ReplayPalette), for the match feed's chips. */
+  territoryColor(): { toHex(): string } | undefined {
+    const hex = this.info.color;
+    return hex === undefined ? undefined : { toHex: () => hex };
   }
   /** The recorded staff badge (ReplayPalette), same question as PlayerView's. */
   staffBadgeRole(): StaffRoleWire | null {
@@ -296,6 +303,11 @@ export class ReplayGameView {
   showEmojis: () => boolean = () => true;
   /** Events since the HUD last asked, by GameUpdateType. */
   private readonly pending = new Map<number, unknown[]>();
+  /** The match event log the feed and the full log read, rebuilt as the replay plays. */
+  private readonly matchLog = new MatchEventLog();
+  /** The replay's recorded match events; the header's list, which grows while a game is processed. */
+  private matchEventSource: readonly MatchEvent[] = [];
+  private matchEventCursor = 0;
 
   constructor(
     players: readonly PlayerStatic[],
@@ -342,6 +354,7 @@ export class ReplayGameView {
     this.spawnPhase = inSpawnPhase;
     this.stale = true;
     if (seeked) this.pending.clear();
+    this.syncMatchEvents(frame.tick, seeked);
     for (const [name, list] of Object.entries(frame.miscUpdates ?? {})) {
       if (list.length === 0) continue;
       const type = GameUpdateType[name as keyof typeof GameUpdateType];
@@ -350,6 +363,44 @@ export class ReplayGameView {
       if (into === undefined) this.pending.set(type, [...list]);
       else into.push(...list);
     }
+  }
+
+  /** Where the recorded match events come from (ReplayHeader.matchEvents). */
+  setMatchEventSource(events: readonly MatchEvent[]): void {
+    this.matchEventSource = events;
+    this.matchEventCursor = 0;
+    this.matchLog.clear();
+  }
+
+  /**
+   * The log holds the events up to the frame being shown. A seek rebuilds it
+   * from the start of the list; playing on adds what has happened since. An
+   * event of tick T is in the frame of tick T + 1 (the engine reports a tick
+   * after running it), so it is due once the frame's tick is past it.
+   */
+  private syncMatchEvents(tick: number, seeked: boolean): void {
+    if (seeked) {
+      this.matchLog.clear();
+      this.matchEventCursor = 0;
+    }
+    const due: MatchEvent[] = [];
+    const source = this.matchEventSource;
+    while (
+      this.matchEventCursor < source.length &&
+      source[this.matchEventCursor].tick < tick
+    ) {
+      due.push(source[this.matchEventCursor++]);
+    }
+    if (due.length > 0) this.matchLog.ingest(due);
+  }
+
+  matchEvents(): MatchEventLog {
+    return this.matchLog;
+  }
+
+  /** A replay is never catching up with a live game. */
+  isCatchingUp(): boolean {
+    return false;
   }
 
   /**
