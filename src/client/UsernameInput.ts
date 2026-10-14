@@ -3,7 +3,7 @@ import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { sanitizeClanTag } from "@openfront/shared/SharedUtil";
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { translateText } from "../client/Utils";
+import { showToast, translateText } from "../client/Utils";
 import { getUserMe, invalidateUserMe } from "./Api";
 import { checkClanTagOwnership } from "./ClanApi";
 import { verifiedBadge } from "./components/ui/VerifiedBadge";
@@ -502,14 +502,21 @@ export class UsernameInput extends LitElement {
       if (rename) window.location.hash = "modal=change-username";
       return;
     }
-    if (
-      accountIsVerified(this.userMe) ||
-      status === "premium" ||
-      status === "indefinite"
-    ) {
-      // Verified (operator-granted) or subscribed, but no usable name yet
-      // (never set, or TEMPORARY####): send them straight to the username form
-      // rather than to the store. A verified account never needs to buy this.
+    if (accountIsVerified(this.userMe)) {
+      // Operator-verified but no account username yet. The check only ever
+      // goes with the account's own name, so say what is missing and take them
+      // to the form; a verified account is never offered a subscription.
+      showToast(
+        translateText("username.verified_needs_name_hint"),
+        "green",
+        6000,
+      );
+      window.location.hash = "modal=change-username";
+      return;
+    }
+    if (status === "premium" || status === "indefinite") {
+      // Subscribed but no usable name yet (never set, or TEMPORARY####):
+      // send them straight to the username form.
       window.location.hash = "modal=change-username";
       return;
     }
@@ -1102,7 +1109,11 @@ export class UsernameInput extends LitElement {
   }
 
   private renderUseVerifiedButton() {
-    const eligible = this.verifiedName() !== null;
+    // A verified account reads as verified (red) even before it has a name to
+    // play under; clicking then explains what is missing.
+    const hasName = this.verifiedName() !== null;
+    const needsName = !hasName && accountIsVerified(this.userMe);
+    const eligible = hasName || needsName;
     const held = accountNameHeld(this.userMe);
     const hint = held
       ? translateText("username.verified_held_hint", {
@@ -1110,7 +1121,7 @@ export class UsernameInput extends LitElement {
             (this.userMe === false ? undefined : this.userMe?.player)
               ?.usernameBase ?? "",
         })
-      : !eligible && accountIsVerified(this.userMe)
+      : needsName
         ? translateText("username.verified_needs_name_hint")
         : translateText("username.verified_use_hint");
     return html`

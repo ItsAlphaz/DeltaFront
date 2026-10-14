@@ -283,6 +283,13 @@ export class UsernamePanel extends LitElement {
         translateText("account_modal.username_temporary_notice"),
       );
     }
+    // An operator-verified account (users.verified) has no name for the check
+    // to go with until it saves one here.
+    if (this.player.verified === true && !this.player.username) {
+      return this.renderNotice(
+        translateText("account_modal.verified_needs_username"),
+      );
+    }
     const claimExpiresAt = this.player.usernameClaimExpiresAt;
     if (this.player.usernameStatus === "claimed" && claimExpiresAt) {
       return this.renderNotice(

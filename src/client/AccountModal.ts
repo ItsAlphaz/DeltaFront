@@ -3,6 +3,7 @@ import {
   AUTH_PROVIDERS,
 } from "@openfront/shared/AccountFeatures";
 import {
+  isAdminRole,
   PlayerStatsTree,
   PrestigeResponse,
   UserMeResponse,
@@ -21,6 +22,7 @@ import {
   logOut,
   reauthAfterCrazyGamesChange,
   steamLogin,
+  userAuth,
 } from "./Auth";
 import "./components/baseComponents/stats/DiscordUserHeader";
 import "./components/baseComponents/stats/PlayerGameHistoryView";
@@ -43,6 +45,7 @@ import type { RewardsChangedDetail } from "./components/RewardsPanel";
 import { googleLinkButton } from "./components/ui/GoogleLinkButton";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { steamGlyph, steamLinkButton } from "./components/ui/SteamLinkButton";
+import { verifiedBadge } from "./components/ui/VerifiedBadge";
 import { crazyGamesSDK, type CrazyGamesUser } from "./CrazyGamesSDK";
 import { desktopLinkGate, isDesktopShell } from "./DesktopShell";
 import "./GameStatsModal";
@@ -99,6 +102,11 @@ export class AccountModal extends BaseModal {
   // from the `creatorCode=` router arg (a `/c/CODE` share-link visit).
   // Reassigned on every open, same as loginError above.
   @state() private prefillCreatorCode: string | undefined;
+
+  // The role claim of the signed-in token ("admin", "mod", ...), shown as its
+  // own chip: it is a separate thing from verification and from the linked
+  // sign-in identity.
+  @state() private sessionRole: string | null = null;
 
   private userMeResponse: UserMeResponse | null = null;
   private statsTree: PlayerStatsTree | null = null;
@@ -284,6 +292,7 @@ export class AccountModal extends BaseModal {
             >
               ${translateText("account_modal.connected_as")}
             </div>
+            ${this.renderAccountStatus()}
             <div class="flex items-center gap-8 justify-center flex-wrap">
               <discord-user-header
                 .data=${this.userMeResponse?.user?.discord ?? null}
@@ -299,6 +308,78 @@ export class AccountModal extends BaseModal {
         </div>
         ${this.renderRewardsPanel()} ${this.renderCreatorCodePanel()}
         ${this.renderDesktopLinkGateAction()}
+      </div>
+    `;
+  }
+
+  // The DeltaFront account itself, apart from the sign-in identity under it:
+  // its username with the verified check, and one chip per status. Three
+  // different facts, each from its own source and none implying another:
+  //   - Verified: users.verified, via /users/@me (player.verified), set only by
+  //     the admin CLI;
+  //   - Admin: the role claim of this session's token;
+  //   - the linked Discord/Google/email identity, rendered below.
+  private renderAccountStatus(): TemplateResult | typeof nothing {
+    const player = this.userMeResponse?.player;
+    if (!player) return nothing;
+    const verified = player.verified === true;
+    const admin = isAdminRole(this.sessionRole);
+    const username = player.username ?? null;
+    if (!verified && !admin && username === null) return nothing;
+    const chip =
+      "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider";
+    return html`
+      <div id="account-status" class="flex flex-col items-center gap-2">
+        <div
+          class="flex items-center justify-center gap-2 text-white text-xl font-semibold"
+        >
+          ${username !== null
+            ? html`<span id="account-username" class="break-all"
+                >${username}</span
+              >`
+            : nothing}
+          ${verified ? verifiedBadge("w-5 h-5") : nothing}
+        </div>
+        ${verified || admin
+          ? html`<div class="flex flex-wrap items-center justify-center gap-2">
+              ${verified
+                ? html`<span
+                    id="account-verified-chip"
+                    class="${chip} border-df-red/40 bg-df-red/10 text-white"
+                  >
+                    ${verifiedBadge("w-3.5 h-3.5", "text-df-red-bright", null)}
+                    ${translateText("account_modal.verified_label")}
+                  </span>`
+                : nothing}
+              ${admin
+                ? html`<span
+                    id="account-admin-chip"
+                    class="${chip} border-white/20 bg-white/10 text-white/80"
+                  >
+                    ${translateText("account_modal.role_admin")}
+                  </span>`
+                : nothing}
+            </div>`
+          : nothing}
+        ${verified && username === null
+          ? html`<div
+              id="account-verified-needs-username"
+              class="flex flex-col items-center gap-2 text-center"
+            >
+              <span class="text-white/70 text-sm"
+                >${translateText("account_modal.verified_needs_username")}</span
+              >
+              <button
+                type="button"
+                class="df-btn"
+                @click=${() => {
+                  window.location.hash = "modal=change-username";
+                }}
+              >
+                ${translateText("account_modal.set_username")}
+              </button>
+            </div>`
+          : nothing}
       </div>
     `;
   }
@@ -1031,6 +1112,7 @@ export class AccountModal extends BaseModal {
     this.prefillCreatorCode = this.consumeCreatorCodeArg(args);
 
     this.refreshCrazyGamesUser();
+    void this.loadRole();
 
     void getUserMe()
       .then((userMe) => {
@@ -1054,6 +1136,16 @@ export class AccountModal extends BaseModal {
     this.dispatchEvent(
       new CustomEvent("close", { bubbles: true, composed: true }),
     );
+  }
+
+  // The role is a claim of the session token, not a field of /users/@me.
+  private async loadRole(): Promise<void> {
+    try {
+      const auth = await userAuth();
+      this.sessionRole = auth === false ? null : (auth.claims.role ?? null);
+    } catch {
+      this.sessionRole = null;
+    }
   }
 
   private async handleLogout() {

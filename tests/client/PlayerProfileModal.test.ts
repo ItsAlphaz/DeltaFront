@@ -131,6 +131,46 @@ describe("public player profile route", () => {
     expect(window.location.hash).toBe("");
   });
 
+  describe("verified badge", () => {
+    const BADGE = 'svg[aria-label="username.verified_player"]';
+
+    async function openWith(profile: Record<string, unknown>) {
+      fetchPublicPlayerProfileMock.mockResolvedValue({
+        createdAt: "2026-01-01T00:00:00.000Z",
+        stats: statsTree,
+        ...profile,
+      });
+      history.replaceState(null, "", "/#modal=profile&publicID=9EKyqPa9rm");
+      expect(modalRouter.routeFromHash()).toBe(true);
+      await vi.waitFor(async () => {
+        await modal.updateComplete;
+        expect(modal.querySelector("player-stats-tree-view")).not.toBeNull();
+      });
+    }
+    const header = () => modal.querySelector('[slot="header"]')!;
+
+    it("shows it beside a suffixed name when the profile says verified", async () => {
+      await openWith({ username: "Aydin.4821", verified: true });
+      expect(header().textContent).toContain("Aydin");
+      expect(header().querySelector(BADGE)).not.toBeNull();
+    });
+
+    it("shows it for a verified account that has no username yet", async () => {
+      await openWith({ username: null, verified: true });
+      expect(header().querySelector(BADGE)).not.toBeNull();
+    });
+
+    it("hides it when the profile is not verified, even with an admin-looking name", async () => {
+      await openWith({ username: "Aydin.4821", verified: false });
+      expect(header().querySelector(BADGE)).toBeNull();
+    });
+
+    it("still recognises a bare-name (premium) username", async () => {
+      await openWith({ username: "RyanTheGreat" });
+      expect(header().querySelector(BADGE)).not.toBeNull();
+    });
+  });
+
   it("shows not-found when the profile fetch fails", async () => {
     fetchPublicPlayerProfileMock.mockResolvedValue(false);
     history.replaceState(null, "", "/#modal=profile&publicID=missing");

@@ -72,16 +72,21 @@ export class PlayerProfileModal extends BaseModal {
       // The account username takes over the title when set — not uppercased
       // like the default title, since name casing is meaningful — and the
       // right chip then always shows the publicId.
-      titleContent: this.username
-        ? html`<span
-            class="text-white text-xl lg:text-2xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
-          >
-            ${usernameText(this.username)}
-            ${this.verified || isVerifiedUsername(this.username)
-              ? verifiedBadge("w-5 h-5")
-              : nothing}
-          </span>`
-        : undefined,
+      titleContent:
+        this.username || this.verified
+          ? html`<span
+              class="text-white text-xl lg:text-2xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
+            >
+              ${this.username
+                ? usernameText(this.username)
+                : html`<span class="uppercase"
+                    >${translateText("player_profile.title")}</span
+                  >`}
+              ${this.verified || isVerifiedUsername(this.username)
+                ? verifiedBadge("w-5 h-5")
+                : nothing}
+            </span>`
+          : undefined,
       onBack: () => this.back(),
       ariaLabel: translateText("common.back"),
       rightContent: this.publicId

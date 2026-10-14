@@ -839,12 +839,31 @@ describe("UsernameInput operator-verified account", () => {
       "username.verified_needs_name_hint",
     );
 
+    const toasts: string[] = [];
+    const onToast = (e: Event) =>
+      toasts.push((e as CustomEvent<{ message: string }>).detail.message);
+    window.addEventListener("show-message", onToast);
     window.location.hash = "";
     q(el, TOGGLE)!.click();
     await settle();
+    window.removeEventListener("show-message", onToast);
 
     expect(showInGameConfirm).not.toHaveBeenCalled();
     expect(window.location.hash).toBe("#modal=change-username");
+    // Says what is missing, in words, and nothing about buying anything.
+    expect(toasts).toEqual(["username.verified_needs_name_hint"]);
+  });
+
+  it("shows a verified account as verified (red toggle) even before it has a name", async () => {
+    const el = await mount();
+    await signIn(el, verifiedUser({ username: null, usernameBase: null }));
+    const verifiedStyle = q(el, TOGGLE)!.className;
+    expect(verifiedStyle).toContain("border-df-red");
+
+    document.body.innerHTML = "";
+    const plain = await mount();
+    await signIn(plain, verifiedUser({ verified: false }));
+    expect(q(plain, TOGGLE)!.className).not.toContain("border-df-red");
   });
 
   it("an unverified, unsubscribed account (including an admin) is still asked to subscribe", async () => {
@@ -860,6 +879,22 @@ describe("UsernameInput operator-verified account", () => {
     expect(showInGameConfirm.mock.calls[0][0]).toBe(
       "username.verified_sub_required",
     );
+  });
+
+  it("a custom name never carries the check: switching back drops it from the join", async () => {
+    const el = await mount();
+    await signIn(el, verifiedUser());
+    expect(el.resolvedName()).toMatchObject({
+      name: "Aydin.4821",
+      verified: true,
+    });
+
+    q(el, CHANGE)!.click();
+    await el.updateComplete;
+
+    const custom = el.resolvedName();
+    expect(custom.verified).toBe(false);
+    expect(custom.name).not.toBe("Aydin.4821");
   });
 
   it("does not depend on a bare name or a premium status", async () => {
