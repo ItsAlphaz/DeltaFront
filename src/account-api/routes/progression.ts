@@ -294,7 +294,9 @@ export function progressionRouter(deps: AppDeps): Router {
       }
       const row = await progressRowOf(pool, user.id);
       const [titles, season] = await Promise.all([
-        earnedTitlesOf(pool, user.id, row),
+        row.displayTitle === null
+          ? Promise.resolve([] as string[])
+          : earnedTitlesOf(pool, user.id, row),
         currentSeason(pool),
       ]);
       const state = progressState(row);

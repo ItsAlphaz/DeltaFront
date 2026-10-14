@@ -150,7 +150,11 @@ async function meProgression(
   if (user.kind !== "registered") return undefined;
   const row = await progressRowOf(pool, user.id);
   const [titles, rewards, hidden] = await Promise.all([
-    earnedTitlesOf(pool, user.id, row),
+    // Only needed to check the chosen title is still held: this runs on every
+    // page load and join, so an account with no title skips the lookup.
+    row.displayTitle === null
+      ? Promise.resolve([] as string[])
+      : earnedTitlesOf(pool, user.id, row),
     unclaimedRewards(pool, user.id),
     pool.query<{ level_hidden: boolean }>(
       "SELECT level_hidden FROM users WHERE id = $1",
