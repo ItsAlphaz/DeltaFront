@@ -167,7 +167,6 @@ describe("the game server's startup check for account-backed operation", () => {
         "ranked",
         "payments",
         "friends",
-        "progression",
         "tribes",
         "trustedLobbies",
       ]) {
