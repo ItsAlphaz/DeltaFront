@@ -23,6 +23,7 @@ import { createPool } from "./db/pool";
 import { loadReservedClanNames } from "./domain/clans";
 import { runMaintenance } from "./domain/lifecycle";
 import { startLeaderboardJob } from "./jobs/leaderboard";
+import { startSeasonJob } from "./jobs/seasons";
 import { createLimiters, type RateLimit, type RateLimitName } from "./limits";
 import type { Logger } from "./logger";
 import { createReadiness } from "./readiness";
@@ -187,6 +188,13 @@ export async function startAccountApi(
     let stopLeaderboard: (() => void) | null = null;
     if (backend !== undefined && config.features.leaderboards)
       stopLeaderboard = startLeaderboardJob(pool, log);
+    let stopSeasons: (() => void) | null = null;
+    if (
+      backend !== undefined &&
+      config.features.progression &&
+      config.features.accounts
+    )
+      stopSeasons = startSeasonJob(pool, log);
     let maintenance: NodeJS.Timeout | null = null;
     if (backend !== undefined && config.features.accounts) {
       maintenance = setInterval(
@@ -208,6 +216,7 @@ export async function startAccountApi(
         readiness.startDraining();
         if (maintenance !== null) clearInterval(maintenance);
         stopLeaderboard?.();
+        stopSeasons?.();
         const closed = new Promise<void>((resolve) =>
           server.close(() => resolve()),
         );

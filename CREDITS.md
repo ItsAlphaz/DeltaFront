@@ -138,13 +138,16 @@ Licensed under [CC BY-SA 3.0 DE](https://creativecommons.org/licenses/by-sa/3.0/
 
 The items in `src/account-api/catalog/cosmetics.json` and the images in `src/account-api/catalog/assets/` are **DeltaFront placeholders**, drawn for DeltaFront (simple geometric shapes in its black, white and red palette). None of them is OpenFront artwork or derived from it, and they are made available under the same CC BY-SA 4.0 asset licence as the rest of the DeltaFront artwork (see `LICENSE-ASSETS`). The owner can replace any of them.
 
-| Item (catalog name) | Kind                     | Asset / data                                                                         |
-| ------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
-| `delta_stripes`     | Pattern (`ember`, `ash`) | Diagonal stripes, drawn as a bitmap in `scripts/cosmetics/bitmaps/delta_stripes.txt` |
-| `grid_check`        | Pattern (`ember`)        | Checkerboard, drawn as a bitmap in `scripts/cosmetics/bitmaps/grid_check.txt`        |
-| `delta_mark`        | Flag                     | `delta_mark.svg`: a red triangle on black                                            |
-| `split_field`       | Flag                     | `split_field.svg`: black and white halves with a red bar                             |
-| `red_wake`          | Effect (ship trail)      | No file: a red-to-white gradient set in the catalog                                  |
+| Item (catalog name) | Kind                     | Asset / data                                                                                                   |
+| ------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `delta_stripes`     | Pattern (`ember`, `ash`) | Diagonal stripes, drawn as a bitmap in `scripts/cosmetics/bitmaps/delta_stripes.txt`                           |
+| `grid_check`        | Pattern (`ember`)        | Checkerboard, drawn as a bitmap in `scripts/cosmetics/bitmaps/grid_check.txt`                                  |
+| `delta_mark`        | Flag                     | `delta_mark.svg`: a red triangle on black                                                                      |
+| `split_field`       | Flag                     | `split_field.svg`: black and white halves with a red bar                                                       |
+| `red_wake`          | Effect (ship trail)      | No file: a red-to-white gradient set in the catalog                                                            |
+| `officer_chevrons`  | Pattern (`ash`)          | Chevrons, drawn as a bitmap in `scripts/cosmetics/bitmaps/officer_chevrons.txt`; a level 50 reward, never sold |
+| `recruit_banner`    | Flag                     | `recruit_banner.svg`: red and white bars on black; a level 10 reward, never sold                               |
+| `colonel_wake`      | Effect (ship trail)      | No file: a white-to-red gradient set in the catalog; a level 75 reward, never sold                             |
 
 The Credits coin (`resources/images/CreditsIcon.svg`) is DeltaFront artwork as well.
 

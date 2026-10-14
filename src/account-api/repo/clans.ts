@@ -12,6 +12,7 @@ import type {
   ClanMemberStats,
 } from "@openfront/shared/ClanApiSchemas";
 import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
+import { progressState } from "@openfront/shared/ProgressionRules";
 import type { ClanRole, ReservedClanNames } from "../domain/clans";
 import { CLAN_RULES } from "../domain/constants";
 import { displayUsername } from "../domain/usernames";
@@ -328,6 +329,8 @@ export async function membersPage(
     sort: MemberSort;
     order: "asc" | "desc" | null;
     search: string | null;
+    /** Add each member's level badge and the clan XP they contributed. */
+    progression?: boolean;
   },
 ): Promise<{ results: ClanMember[]; total: number }> {
   const params: unknown[] = [clanId];
@@ -375,9 +378,19 @@ export async function membersPage(
     );
   }
   const start = (opts.page - 1) * opts.limit;
+  const pageRows = sorted.slice(start, start + opts.limit);
+  const progress =
+    opts.progression === true
+      ? await memberProgress(
+          db,
+          clanId,
+          pageRows.map((r) => r.user_id),
+        )
+      : new Map<string, MemberProgress>();
   return {
     total: rows.length,
-    results: sorted.slice(start, start + opts.limit).map((r) => ({
+    results: pageRows.map((r) => ({
+      ...progress.get(r.user_id),
       role: r.role,
       joinedAt: r.joined_at.toISOString(),
       publicId: r.public_id,
@@ -389,6 +402,60 @@ export async function membersPage(
       stats: stats.get(r.user_id),
     })),
   };
+}
+
+interface MemberProgress {
+  level: number;
+  prestige: number;
+  legend: boolean;
+  xp: number;
+}
+
+/** Level badge fields and clan XP contributed to this clan, for a page of members. */
+async function memberProgress(
+  db: Db,
+  clanId: string,
+  userIds: string[],
+): Promise<Map<string, MemberProgress>> {
+  const out = new Map<string, MemberProgress>();
+  if (userIds.length === 0) return out;
+  const { rows } = await db.query<{
+    user_id: string;
+    run_xp: string | null;
+    prestige: number | null;
+    clan_xp: string;
+  }>(
+    `SELECT u.id AS user_id, p.run_xp::text AS run_xp, p.prestige,
+            COALESCE((SELECT sum(g.clan_xp) FROM game_players g
+                       WHERE g.clan_id = $1 AND g.user_id = u.id), 0)::text AS clan_xp
+       FROM users u LEFT JOIN user_progress p ON p.user_id = u.id
+      WHERE u.id = ANY($2::uuid[])`,
+    [clanId, userIds],
+  );
+  for (const r of rows) {
+    const prestige = r.prestige ?? 0;
+    const state = progressState({
+      runXp: Number(r.run_xp ?? 0),
+      lifetimeXp: 0,
+      prestige,
+    });
+    out.set(r.user_id, {
+      level: state.level,
+      prestige,
+      legend: state.legend,
+      xp: Number(r.clan_xp),
+    });
+  }
+  return out;
+}
+
+/** Total clan XP: every member's contribution, past and present. */
+export async function clanXpTotal(db: Db, clanId: string): Promise<number> {
+  const { rows } = await db.query<{ xp: string }>(
+    "SELECT COALESCE(sum(clan_xp), 0)::text AS xp FROM game_players WHERE clan_id = $1",
+    [clanId],
+  );
+  return Number(rows[0].xp);
 }
 
 export async function pendingRequestCount(

@@ -70,29 +70,70 @@ function issuesOf(run: () => unknown): string {
   throw new Error("expected the catalog to be rejected");
 }
 
+/** Cosmetics only progression hands out (milestone rewards): in the catalog, never for sale. */
+const REWARD_ONLY = new Set([
+  "flag:recruit_banner",
+  "pattern:officer_chevrons:ash",
+  "effect:colonel_wake",
+]);
+const REWARD_ONLY_NAMES = new Set([
+  "recruit_banner",
+  "officer_chevrons",
+  "colonel_wake",
+]);
+
 describe("the shipped DeltaFront catalog", () => {
   const catalog = loadCatalog({ publicOrigin: ORIGIN });
 
   it("loads, and holds exactly the planned placeholder set (docs plan 9.3)", () => {
     expect([...catalog.validFlares]).toEqual([
+      "effect:colonel_wake",
       "effect:red_wake",
       "flag:delta_mark",
+      "flag:recruit_banner",
       "flag:split_field",
       "pattern:delta_stripes:ash",
       "pattern:delta_stripes:ember",
       "pattern:grid_check:ember",
+      "pattern:officer_chevrons:ash",
     ]);
     expect(Object.keys(catalog.cosmetics.patterns)).toEqual([
       "delta_stripes",
       "grid_check",
+      "officer_chevrons",
     ]);
     expect(Object.keys(catalog.cosmetics.flags)).toEqual([
       "delta_mark",
       "split_field",
+      "recruit_banner",
     ]);
     expect(catalog.cosmetics.effects?.transportShipTrail).toHaveProperty(
       "red_wake",
     );
+  });
+
+  it("holds the cosmetics the level milestones give, and never offers them for sale", () => {
+    for (const flare of REWARD_ONLY)
+      expect(catalog.validFlares.has(flare)).toBe(true);
+    expect(
+      findOffer(catalog, {
+        cosmeticType: "flag",
+        cosmeticName: "recruit_banner",
+      }),
+    ).toBeNull();
+    expect(
+      findOffer(catalog, {
+        cosmeticType: "pattern",
+        cosmeticName: "officer_chevrons",
+        colorPaletteName: "ash",
+      }),
+    ).toBeNull();
+    expect(
+      findOffer(catalog, {
+        cosmeticType: "effect",
+        cosmeticName: "colonel_wake",
+      }),
+    ).toBeNull();
   });
 
   it("makes exactly one item free: the ash Delta Stripes pattern", () => {
@@ -165,7 +206,7 @@ describe("the shipped DeltaFront catalog", () => {
       ]) {
         expect(source, forbidden).not.toHaveProperty(forbidden);
       }
-      expect(everyItem).toHaveLength(5);
+      expect(everyItem).toHaveLength(8);
     });
 
     it("uses no premium (hard-currency) price, no Stripe product and no affiliate code", () => {
@@ -225,7 +266,7 @@ describe("the shipped DeltaFront catalog", () => {
     });
 
     it("draws its patterns from the bitmaps kept beside the encoder (they cannot drift apart)", () => {
-      for (const name of ["delta_stripes", "grid_check"]) {
+      for (const name of ["delta_stripes", "grid_check", "officer_chevrons"]) {
         const rows = parseBitmap(
           fs.readFileSync(
             path.join(ROOT, "scripts/cosmetics/bitmaps", `${name}.txt`),
@@ -726,7 +767,9 @@ describe("catalog prices (milestone M5)", () => {
     const sellable = new Set(Object.keys(wanted));
     for (const flare of catalog.validFlares) {
       expect(
-        sellable.has(flare) || catalog.defaultFlares.includes(flare),
+        sellable.has(flare) ||
+          catalog.defaultFlares.includes(flare) ||
+          REWARD_ONLY.has(flare),
         flare,
       ).toBe(true);
     }
@@ -740,10 +783,15 @@ describe("catalog prices (milestone M5)", () => {
         Object.values(byName),
       ),
     ] as Array<Record<string, any>>) {
-      expect(
-        Number.isInteger(item.priceSoft) && item.priceSoft > 0,
-        item.name,
-      ).toBe(true);
+      if (REWARD_ONLY_NAMES.has(item.name)) {
+        // progression rewards are never sold
+        expect(item.priceSoft, item.name).toBeUndefined();
+      } else {
+        expect(
+          Number.isInteger(item.priceSoft) && item.priceSoft > 0,
+          item.name,
+        ).toBe(true);
+      }
       expect(item.priceHard, item.name).toBeUndefined();
       expect(item.product, item.name).toBeNull();
     }
@@ -753,8 +801,8 @@ describe("catalog prices (milestone M5)", () => {
 
   it("keeps the prices within reach of play: the dearest item costs no more than two days of the daily Credits cap", () => {
     const dearest = Math.max(
-      ...(Object.values(source.patterns) as any[]).map((p) => p.priceSoft),
-      ...(Object.values(source.flags) as any[]).map((p) => p.priceSoft),
+      ...(Object.values(source.patterns) as any[]).map((p) => p.priceSoft ?? 0),
+      ...(Object.values(source.flags) as any[]).map((p) => p.priceSoft ?? 0),
       source.effects.transportShipTrail.red_wake.priceSoft,
     );
     expect(dearest).toBeLessThanOrEqual(2 * ECONOMY.dailyGameplayCap);

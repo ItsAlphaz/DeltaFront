@@ -217,6 +217,69 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
   });
 });
 
+describeDb("0007 progression constraints", () => {
+  it("lets the ledger and ownership take the new values, and still refuse anything else", async () => {
+    const { pool } = await freshDb();
+    await applyMigrations(pool);
+    const [{ id }] = (
+      await pool.query(
+        "INSERT INTO users (public_id, kind) VALUES ('Mig0007abc', 'registered') RETURNING id",
+      )
+    ).rows;
+    await pool.query("INSERT INTO wallets (user_id) VALUES ($1)", [id]);
+    const ledger = (reason: string, ref: string) =>
+      pool.query(
+        `INSERT INTO currency_ledger (user_id, delta, balance_after, reason, ref_type, ref_id)
+         VALUES ($1, 5, 5, $2, 'reward', $3)`,
+        [id, reason, ref],
+      );
+    await ledger("progression_reward", "1");
+    await ledger("admin_grant", "x");
+    await expect(ledger("bogus", "2")).rejects.toThrow(
+      /currency_ledger_reason_check/,
+    );
+    // the same reward cannot be paid twice
+    await expect(ledger("progression_reward", "1")).rejects.toThrow(
+      /currency_ledger_progression_reward_once/,
+    );
+    const flare = (source: string) =>
+      pool.query(
+        "INSERT INTO user_flares (user_id, flare, source) VALUES ($1, $2, $3)",
+        [id, `flag:${source}`, source],
+      );
+    await flare("reward");
+    await flare("admin");
+    await flare("purchase");
+    await expect(flare("bogus")).rejects.toThrow(/user_flares_source_check/);
+    // the old game-reward rule is untouched
+    await expect(
+      pool.query(
+        "INSERT INTO currency_ledger (user_id, delta, balance_after, reason) VALUES ($1, 5, 5, 'game_reward')",
+        [id],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("keeps lifetime XP at or above the run's, and prestige in range", async () => {
+    const { pool } = await freshDb();
+    await applyMigrations(pool);
+    const [{ id }] = (
+      await pool.query(
+        "INSERT INTO users (public_id, kind) VALUES ('Mig0007xyz', 'registered') RETURNING id",
+      )
+    ).rows;
+    const insert = (lifetime: number, run: number, prestige: number) =>
+      pool.query(
+        "INSERT INTO user_progress (user_id, lifetime_xp, run_xp, prestige) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET lifetime_xp = $2, run_xp = $3, prestige = $4",
+        [id, lifetime, run, prestige],
+      );
+    await insert(100, 100, 10);
+    await expect(insert(50, 100, 0)).rejects.toThrow();
+    await expect(insert(100, 100, 11)).rejects.toThrow();
+    await expect(insert(-1, 0, 0)).rejects.toThrow();
+  });
+});
+
 describeDb("migration safety", () => {
   it("refuses a migration that was edited after it was applied", async () => {
     const { pool } = await freshDb();

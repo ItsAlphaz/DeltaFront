@@ -1,0 +1,9 @@
+// Officer Chevrons: rows of stacked chevrons. # = primary colour, . = secondary. Drawn for DeltaFront. Encode with scale 1.
+..##..##
+.##..##.
+##..##..
+.##..##.
+..##..##
+.##..##.
+##..##..
+.##..##.

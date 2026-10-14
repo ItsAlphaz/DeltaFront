@@ -1,3 +1,7 @@
+import {
+  progressState,
+  rankForLevel,
+} from "@openfront/shared/ProgressionRules";
 import { randomBytes } from "node:crypto";
 import type { Pool } from "pg";
 import { hasFlareShape, isWildcardFlare } from "../catalog/flares";
@@ -27,10 +31,17 @@ import {
 } from "../domain/clanOps";
 import { loadReservedClanNames, tagFromRoute } from "../domain/clans";
 import { ACCOUNT_RULES } from "../domain/constants";
+import {
+  adjustXp,
+  closeSeason,
+  createSeason,
+  type XpAdminAction,
+} from "../domain/progressionOps";
 import { displayUsername } from "../domain/usernames";
 import { sha256 } from "../http";
 import { clanByTag, clansOfUser } from "../repo/clans";
 import { flareRowsOf } from "../repo/inventory";
+import { allSeasons, progressRowOf, seasonByNumber } from "../repo/progression";
 import type { Db } from "../repo/users";
 
 /**
@@ -128,6 +139,13 @@ export const ADMIN_COMMANDS = [
   "wallet:show <publicId>",
   "wallet:grant <publicId> <credits> --reason <text>",
   "wallet:revoke <publicId> <credits> --reason <text> --yes",
+  "xp:show <publicId>",
+  "xp:grant <publicId> <xp> --reason <text> [--season]",
+  "xp:revoke <publicId> <xp> --reason <text> --yes",
+  "xp:set <publicId> <run xp> --reason <text> --yes",
+  "season:list",
+  "season:create --name <text> --start <ISO date> --end <ISO date> [--number <n>]",
+  "season:close <number> --reason <text> --yes",
   "item:list <publicId>",
   "item:grant <publicId> <flare>",
   "item:revoke <publicId> <flare> --reason <text> --yes",
@@ -611,6 +629,104 @@ export async function runAdminCommand(
         io.out(
           `${grant ? "granted" : "deducted"} ${amount} Credits ${grant ? "to" : "from"} ${publicId}: ${outcome.before} -> ${outcome.after}`,
         );
+        return 0;
+      }
+      case "xp:show": {
+        const user = await userByPublicId(pool, need(p, 0, "public id"));
+        const row = await progressRowOf(pool, user.id);
+        const state = progressState(row);
+        io.out(
+          `${user.public_id}: level ${state.level} (${rankForLevel(state.level)}), prestige ${state.prestige}${state.legend ? " (Legend)" : ""}`,
+        );
+        io.out(`  lifetime XP ${row.lifetimeXp}, this run ${row.runXp}`);
+        const ledger = await pool.query<{
+          delta: string;
+          source: string;
+          ref_id: string | null;
+          created_at: Date;
+        }>(
+          `SELECT delta::text, source, ref_id, created_at FROM xp_ledger
+            WHERE user_id = $1 ORDER BY id DESC LIMIT 20`,
+          [user.id],
+        );
+        io.out("last ledger rows (newest first):");
+        for (const r of ledger.rows) {
+          io.out(
+            `  ${r.created_at.toISOString()}  ${r.delta.padStart(8)}  ${r.source}${r.ref_id ? `  ${r.ref_id}` : ""}`,
+          );
+        }
+        if (ledger.rows.length === 0) io.out("  (none)");
+        return 0;
+      }
+      case "xp:grant":
+      case "xp:revoke":
+      case "xp:set": {
+        const action = command.slice(3) as XpAdminAction;
+        if (action !== "grant") requireYes(p, "changing XP downwards");
+        const publicId = need(p, 0, "public id");
+        const raw = need(p, 1, "XP");
+        if (!/^\d{1,9}$/.test(raw)) {
+          throw new AdminUsageError("the XP must be a whole number");
+        }
+        const reason = reasonArg(p);
+        const outcome = await withTransaction(pool, (db) =>
+          adjustXp(db, ctxOf(io), publicId, action, Number(raw), reason, {
+            countsForSeason: p.flags.get("season") === true,
+            env: { validFlares: catalogOf(io).validFlares },
+          }),
+        );
+        io.out(
+          `${action} ${raw} XP for ${publicId}: run ${outcome.before.runXp} -> ${outcome.after.runXp}, level ${outcome.before.level} -> ${outcome.after.level}`,
+        );
+        return 0;
+      }
+      case "season:list": {
+        const seasons = await allSeasons(pool);
+        for (const s of seasons) {
+          io.out(
+            `  ${s.number}  ${s.name}  ${s.startsAt.toISOString()} -> ${s.endsAt.toISOString()}  ${s.archivedAt ? "archived" : s.current ? "RUNNING" : "scheduled"}`,
+          );
+        }
+        if (seasons.length === 0) io.out("  (no seasons)");
+        return 0;
+      }
+      case "season:create": {
+        const name = flag(p, "name")?.trim();
+        const start = new Date(flag(p, "start") ?? "");
+        const end = new Date(flag(p, "end") ?? "");
+        if (name === undefined || name === "") {
+          throw new AdminUsageError("--name <text> is required");
+        }
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+          throw new AdminUsageError("--start and --end must be ISO dates");
+        }
+        const number = flag(p, "number");
+        const season = await withTransaction(pool, (db) =>
+          createSeason(
+            db,
+            ctxOf(io),
+            {
+              name,
+              startsAt: start,
+              endsAt: end,
+              number: number === undefined ? undefined : Number(number),
+            },
+            catalogOf(io).validFlares,
+          ),
+        );
+        io.out(`created season ${season.number} (${season.name})`);
+        return 0;
+      }
+      case "season:close": {
+        requireYes(p, "closing a season");
+        reasonArg(p);
+        const number = Number(need(p, 0, "season number"));
+        const season = await seasonByNumber(pool, number);
+        if (season === null) throw new AdminUsageError("no such season");
+        await withTransaction(pool, (db) =>
+          closeSeason(db, ctxOf(io), season.id),
+        );
+        io.out(`closed and archived season ${number}`);
         return 0;
       }
       case "item:list": {

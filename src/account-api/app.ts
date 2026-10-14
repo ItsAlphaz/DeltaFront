@@ -20,6 +20,7 @@ import { gameAdminRouter } from "./routes/gameAdmin";
 import { joinVerifyRouter } from "./routes/joinVerify";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { profileRouter } from "./routes/profile";
+import { progressionRouter } from "./routes/progression";
 import { serverLookupsRouter } from "./routes/server";
 import { shopRouter, storeRouter } from "./routes/store";
 import { usersRouter } from "./routes/users";
@@ -106,6 +107,9 @@ export function createApp(deps: {
       ) {
         app.use(devOutboxRouter(backend.mailer as DevMailer));
       }
+    }
+    if (config.features.progression && config.features.accounts) {
+      app.use(progressionRouter(backend));
     }
     if (config.features.clans && config.features.accounts) {
       app.use(clansRouter(backend));

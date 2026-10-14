@@ -118,7 +118,11 @@ describeDb("the catalog routes (inventory feature on)", () => {
     const catalog = (await (await call(h, "/cosmetics.json")).json()) as {
       flags: Record<string, { url: string }>;
     };
-    expect(Object.keys(catalog.flags)).toEqual(["delta_mark", "split_field"]);
+    expect(Object.keys(catalog.flags)).toEqual([
+      "delta_mark",
+      "split_field",
+      "recruit_banner",
+    ]);
     for (const flag of Object.values(catalog.flags)) {
       expect(
         flag.url.startsWith(`${h.config.publicOrigin}/cosmetics/assets/`),

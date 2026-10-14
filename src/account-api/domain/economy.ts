@@ -204,3 +204,73 @@ export async function adjustWallet(
   );
   return { kind: "adjusted", before, after, ledgerId: ledger.rows[0].id };
 }
+
+export type RewardClaim =
+  | { kind: "claimed"; balance: number; claimed: string[] }
+  | { kind: "not_found"; balance: number; claimed: string[] };
+
+/**
+ * Pays progression rewards the account earned (milestones, prestige, the
+ * season track, weekly challenges), inside the caller's transaction. With
+ * `rewardId` it claims that one reward; without, every unclaimed one.
+ *
+ *  1. The wallet row is locked first (the same order as every other Credits
+ *     change), so two claims at once are paid one after the other.
+ *  2. A reward is claimed by an UPDATE that only matches while it is
+ *     unclaimed and the caller's own, so a repeat, a second device or another
+ *     player's id finds nothing and pays nothing.
+ *  3. The ledger row is unique per reward, as a second guard.
+ *  4. Only amounts stored when the reward was earned are paid; nothing comes
+ *     from the request.
+ */
+export async function claimProgressionRewards(
+  tx: PoolClient,
+  userId: string,
+  rewardId: string | null,
+): Promise<RewardClaim> {
+  await tx.query(
+    "INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+    [userId],
+  );
+  const wallet = await tx.query<{ credits: string }>(
+    "SELECT credits::text AS credits FROM wallets WHERE user_id = $1 FOR UPDATE",
+    [userId],
+  );
+  let balance = Number(wallet.rows[0].credits);
+  const claimed = await tx.query<{ id: string; credits: string }>(
+    `UPDATE progression_rewards SET claimed_at = now()
+      WHERE user_id = $1 AND claimed_at IS NULL AND credits > 0
+        AND ($2::bigint IS NULL OR id = $2::bigint)
+  RETURNING id::text AS id, credits::text AS credits`,
+    [userId, rewardId],
+  );
+  const ids: string[] = [];
+  for (const row of claimed.rows) {
+    const amount = Math.min(
+      Number(row.credits),
+      Math.max(0, ACCOUNT_RULES.maxWalletCredits - balance),
+    );
+    const ledger = await tx.query(
+      `INSERT INTO currency_ledger (user_id, delta, balance_after, reason, ref_type, ref_id)
+       SELECT $1::uuid, $2::bigint, $3::bigint, 'progression_reward', 'reward', $4::text
+        WHERE $2::bigint > 0
+       ON CONFLICT (user_id, ref_type, ref_id) WHERE reason = 'progression_reward' DO NOTHING
+       RETURNING id`,
+      [userId, amount, balance + amount, row.id],
+    );
+    if (ledger.rows.length === 0) continue;
+    balance += amount;
+    ids.push(row.id);
+  }
+  if (ids.length > 0) {
+    await tx.query(
+      "UPDATE wallets SET credits = $2, updated_at = now() WHERE user_id = $1",
+      [userId, balance],
+    );
+  }
+  return {
+    kind: ids.length > 0 || rewardId === null ? "claimed" : "not_found",
+    balance,
+    claimed: ids,
+  };
+}

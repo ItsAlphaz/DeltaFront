@@ -18,8 +18,14 @@
       "priceSoft": 300,
       "pattern": "ADEYzGYzmcxmM5k",
       "colorPalettes": [
-        { "name": "ember", "isArchived": false },
-        { "name": "ash", "isArchived": false }
+        {
+          "name": "ember",
+          "isArchived": false
+        },
+        {
+          "name": "ash",
+          "isArchived": false
+        }
       ],
       "product": null,
       "rarity": "common"
@@ -28,9 +34,26 @@
       "name": "grid_check",
       "priceSoft": 500,
       "pattern": "ADEY8PDw8A8PDw8",
-      "colorPalettes": [{ "name": "ember", "isArchived": false }],
+      "colorPalettes": [
+        {
+          "name": "ember",
+          "isArchived": false
+        }
+      ],
       "product": null,
       "rarity": "common"
+    },
+    "officer_chevrons": {
+      "name": "officer_chevrons",
+      "pattern": "ADEYM5nMmTOZzJk",
+      "colorPalettes": [
+        {
+          "name": "ash",
+          "isArchived": false
+        }
+      ],
+      "product": null,
+      "rarity": "rare"
     }
   },
   "flags": {
@@ -47,6 +70,12 @@
       "url": "split_field.svg",
       "product": null,
       "rarity": "common"
+    },
+    "recruit_banner": {
+      "name": "recruit_banner",
+      "url": "recruit_banner.svg",
+      "product": null,
+      "rarity": "uncommon"
     }
   },
   "effects": {
@@ -63,6 +92,18 @@
         },
         "product": null,
         "rarity": "common"
+      },
+      "colonel_wake": {
+        "name": "colonel_wake",
+        "effectType": "transportShipTrail",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#f5f5f5", "#e31b23"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "epic"
       }
     }
   }

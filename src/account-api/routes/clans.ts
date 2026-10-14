@@ -30,6 +30,7 @@ import {
   clanByTag,
   clanGamesPage,
   clanLeaderboard,
+  clanXpTotal,
   isMemberSort,
   membersPage,
   pendingRequestCount,
@@ -165,6 +166,9 @@ export function clansRouter(deps: AppDeps): Router {
       const clan = await clanOf(req, res);
       if (clan === null) return;
       const info: ClanInfo = toClanInfo(clan);
+      if (deps.config.features.progression) {
+        info.xp = await clanXpTotal(pool, clan.id);
+      }
       res.json(info);
     }),
   );
@@ -220,6 +224,7 @@ export function clansRouter(deps: AppDeps): Router {
         sort,
         order,
         search: search === "" ? null : search,
+        progression: deps.config.features.progression,
       });
       const body: ClanMembersResponse = {
         results: found.results,

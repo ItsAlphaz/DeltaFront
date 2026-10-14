@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="60" viewBox="0 0 90 60">
+  <!-- Recruit Banner: level 10 reward. Original DeltaFront placeholder artwork. -->
+  <rect width="90" height="60" fill="#090909"/>
+  <path d="M10 18 L45 8 L80 18 L45 28 Z" fill="#e31b23"/>
+  <path d="M10 34 L45 24 L80 34 L45 44 Z" fill="#f5f5f5"/>
+</svg>

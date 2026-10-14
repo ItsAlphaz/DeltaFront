@@ -600,6 +600,29 @@ describeDb("levels, milestones and rewards", () => {
     ]);
   });
 
+  it("grants the milestone's cosmetic at once, and the account owns it", async () => {
+    const { h, key, users } = await setup();
+    // 7,000 run XP is level 9; a 750 XP game reaches level 10 (7,270): the Recruit Banner
+    await q(
+      h,
+      "INSERT INTO user_progress (user_id, lifetime_xp, run_xp) VALUES ($1, 7000, 7000)",
+      [users[0].id],
+    );
+    await play(h, key, ffa6(users));
+    const flares = await q(
+      h,
+      "SELECT flare, source FROM user_flares WHERE user_id = $1",
+      [users[0].id],
+    );
+    expect(flares).toEqual([
+      { flare: "flag:recruit_banner", source: "reward" },
+    ]);
+    // a milestone reward only adds to ownership; nobody else got it
+    expect(
+      await q(h, "SELECT 1 FROM user_flares WHERE user_id = $1", [users[1].id]),
+    ).toHaveLength(0);
+  });
+
   it("stops at level 100 but keeps counting lifetime XP", async () => {
     const { h, key, users } = await setup();
     await q(

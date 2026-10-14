@@ -1,5 +1,7 @@
 import type {
+  Progress,
   PutUsernameResponse,
+  Reward,
   UserMeResponse,
 } from "@openfront/shared/ApiSchemas";
 import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
@@ -16,6 +18,13 @@ import { clientIp, requireAllowedOrigin } from "../http";
 import { clansOfUser, type MyClan } from "../repo/clans";
 import { activeFlaresOf, reportedFlares } from "../repo/inventory";
 import { creditsOf } from "../repo/profile";
+import {
+  chosenTitle,
+  earnedTitlesOf,
+  progressRowOf,
+  progressWire,
+  unclaimedRewards,
+} from "../repo/progression";
 import { liveSession, revokeAllForUser } from "../repo/sessions";
 import {
   activeBan,
@@ -77,6 +86,8 @@ export function buildUserMe(
     clans: MyClan[];
     requests: Array<{ tag: string; name: string; createdAt: string }>;
   },
+  /** Level, XP and the unclaimed progression rewards; absent while progression is off. */
+  progression?: { progress: Progress; levelHidden: boolean; rewards: Reward[] },
 ): UserMeResponse {
   return {
     user: linkedIdentities(identities),
@@ -114,10 +125,42 @@ export function buildUserMe(
       ...(clans === undefined
         ? {}
         : { clans: clans.clans, clanRequests: clans.requests }),
+      ...(progression === undefined
+        ? {}
+        : {
+            progress: progression.progress,
+            levelHidden: progression.levelHidden,
+            rewards: progression.rewards,
+          }),
       achievements: { singleplayerMap: [], player: [] },
       friends: [],
       subscription: null,
     },
+  };
+}
+
+/**
+ * What `/users/@me` adds while progression is on. Only registered accounts have
+ * a level: a guest gets none, so no badge is drawn for one.
+ */
+async function meProgression(
+  pool: Pick<import("pg").Pool, "query">,
+  user: UserRow,
+) {
+  if (user.kind !== "registered") return undefined;
+  const row = await progressRowOf(pool, user.id);
+  const [titles, rewards, hidden] = await Promise.all([
+    earnedTitlesOf(pool, user.id, row),
+    unclaimedRewards(pool, user.id),
+    pool.query<{ level_hidden: boolean }>(
+      "SELECT level_hidden FROM users WHERE id = $1",
+      [user.id],
+    ),
+  ]);
+  return {
+    progress: progressWire(row, chosenTitle(row, titles)),
+    levelHidden: hidden.rows[0].level_hidden,
+    rewards,
   };
 }
 
@@ -140,18 +183,22 @@ export function usersRouter(deps: AppDeps): Router {
       res.status(401).json({ error: "unauthorized" });
       return;
     }
-    const [identities, ban, credits, owned, clans] = await Promise.all([
-      identitiesOf(pool, user.id),
-      activeBan(pool, user.id),
-      creditsOf(pool, user.id),
-      deps.catalog === null ? undefined : activeFlaresOf(pool, user.id),
-      config.features.clans ? clansOfUser(pool, user.id) : undefined,
-    ]);
+    const [identities, ban, credits, owned, clans, progression] =
+      await Promise.all([
+        identitiesOf(pool, user.id),
+        activeBan(pool, user.id),
+        creditsOf(pool, user.id),
+        deps.catalog === null ? undefined : activeFlaresOf(pool, user.id),
+        config.features.clans ? clansOfUser(pool, user.id) : undefined,
+        config.features.progression ? meProgression(pool, user) : undefined,
+      ]);
     const flares =
       deps.catalog === null || owned === undefined
         ? undefined
         : reportedFlares(deps.catalog, owned);
-    res.json(buildUserMe(user, identities, ban, credits, flares, clans));
+    res.json(
+      buildUserMe(user, identities, ban, credits, flares, clans, progression),
+    );
   });
 
   // Sets the account username, at most once every cooldown period: a base the

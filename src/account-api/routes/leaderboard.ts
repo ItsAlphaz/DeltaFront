@@ -1,5 +1,6 @@
 import type { PlayerLeaderboardResponse } from "@openfront/shared/ApiSchemas";
 import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
+import { progressState } from "@openfront/shared/ProgressionRules";
 import express, {
   type NextFunction,
   type Request,
@@ -25,6 +26,16 @@ import type { AppDeps } from "./common";
  * SQL text. A page past the end answers the 400 that the client's ranked
  * leaderboard already treats as "no more pages".
  */
+/** The level badge fields of a board row. */
+function levelOf(runXp: string, prestige: number) {
+  const state = progressState({
+    runXp: Number(runXp),
+    lifetimeXp: 0,
+    prestige,
+  });
+  return { level: state.level, prestige, legend: state.legend };
+}
+
 export function leaderboardRouter(deps: AppDeps): Router {
   const { pool, limiters } = deps;
   const router = express.Router();
@@ -71,14 +82,18 @@ export function leaderboardRouter(deps: AppDeps): Router {
       wins: number;
       losses: number;
       win_rate: number;
+      run_xp: string | null;
+      prestige: number | null;
     }>(
       `SELECT l.rank, u.public_id,
               CASE WHEN u.username_base IS NULL THEN NULL
                    WHEN u.username_discriminator IS NULL THEN u.username_base::text
                    ELSE u.username_base::text || '.' || u.username_discriminator END AS username,
-              u.verified, u.role, l.games, l.wins, l.losses, l.win_rate::float8 AS win_rate
+              u.verified, u.role, l.games, l.wins, l.losses, l.win_rate::float8 AS win_rate,
+              up.run_xp::text AS run_xp, up.prestige
          FROM leaderboard_players l
          JOIN users u ON u.id = l.user_id
+         LEFT JOIN user_progress up ON up.user_id = u.id
         WHERE l.period = $1 AND ${LISTABLE_USER}
         ORDER BY l.rank_pos
         LIMIT $2 OFFSET $3`,
@@ -111,6 +126,9 @@ export function leaderboardRouter(deps: AppDeps): Router {
         wins: r.wins,
         losses: r.losses,
         winRate: r.win_rate,
+        ...(deps.config.features.progression && r.run_xp !== null
+          ? levelOf(r.run_xp, r.prestige ?? 0)
+          : {}),
       })),
     };
     res.setHeader(

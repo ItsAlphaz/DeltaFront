@@ -4,7 +4,10 @@ import {
   type AdminAuditEntry,
   type AdminClanDetail,
   type AdminDashboard,
+  type AdminProgression,
+  type AdminSeason,
   type AdminUserDetail,
+  type AdminXpHistory,
 } from "@openfront/shared/AdminSchemas";
 import {
   canActOnTarget,
@@ -15,6 +18,11 @@ import {
   type Permission,
   type StaffRole,
 } from "@openfront/shared/Permissions";
+import {
+  progressState,
+  rankForLevel,
+  seasonLevel,
+} from "@openfront/shared/ProgressionRules";
 import type { Request, Response, Router } from "express";
 import express from "express";
 import { z } from "zod";
@@ -38,11 +46,27 @@ import {
 import * as clanOps from "../domain/clanOps";
 import { ClanError } from "../domain/clanOps";
 import { tagFromRoute } from "../domain/clans";
-import { ACCOUNT_RULES } from "../domain/constants";
+import { ACCOUNT_RULES, PROGRESSION } from "../domain/constants";
+import {
+  adjustXp,
+  closeSeason,
+  createSeason,
+  resetSeasonXp,
+  updateSeason,
+} from "../domain/progressionOps";
 import { displayUsername } from "../domain/usernames";
 import type { Readiness } from "../readiness";
 import { clanByTag, clansOfUser } from "../repo/clans";
 import { flareRowsOf } from "../repo/inventory";
+import {
+  allSeasons,
+  challengeStatuses,
+  chosenTitle,
+  currentSeason,
+  earnedTitlesOf,
+  progressRowOf,
+  seasonXpOf,
+} from "../repo/progression";
 import {
   activeBan,
   getUser,
@@ -1237,6 +1261,338 @@ export function adminRouter(deps: AppDeps, readiness?: Readiness): Router {
       nextBefore: rows.length > filter.limit ? page[page.length - 1].id : null,
     };
   }
+
+  // ------------------------------------------------------------ progression
+
+  /** The XP and season tools exist only while progression is on. */
+  const progressionOn = (
+    _req: Request,
+    res: Response,
+    next: () => void,
+  ): void => {
+    if (!deps.config.features.progression) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+    next();
+  };
+
+  router.get(
+    "/admin/users/:publicId/progression",
+    progressionOn,
+    route("admin.xp.view", "read", null, async (_staff, _b, req, res) => {
+      const user = await targetOf(req, res);
+      if (user === null) return;
+      const now = new Date();
+      const row = await progressRowOf(pool, user.id);
+      const state = progressState(row);
+      const [titles, season, daily, weekly, flagged] = await Promise.all([
+        earnedTitlesOf(pool, user.id, row),
+        currentSeason(pool, now),
+        challengeStatuses(pool, user.id, "daily", now),
+        challengeStatuses(pool, user.id, "weekly", now),
+        pool.query<{
+          game_code: string;
+          xp_awarded: string;
+          flags: string[];
+          ended_at: Date;
+        }>(
+          `SELECT g.game_code, p.xp_awarded::text AS xp_awarded, g.ended_at,
+                  ARRAY(SELECT jsonb_array_elements_text(p.xp_result -> 'flags')) AS flags
+             FROM game_players p JOIN games g ON g.id = p.game_id
+            WHERE p.user_id = $1 AND (p.xp_result ->> 'eligible') = 'true'
+              AND jsonb_array_length(COALESCE(p.xp_result -> 'flags', '[]'::jsonb)) > 0
+            ORDER BY g.ended_at DESC LIMIT 10`,
+          [user.id],
+        ),
+      ]);
+      const seasonXp =
+        season === null ? 0 : await seasonXpOf(pool, season.id, user.id);
+      const body: AdminProgression = {
+        registered: user.kind === "registered",
+        lifetimeXp: state.lifetimeXp,
+        runXp: row.runXp,
+        level: state.level,
+        rank: rankForLevel(state.level),
+        prestige: state.prestige,
+        legend: state.legend,
+        title: chosenTitle(row, titles),
+        season:
+          season === null
+            ? null
+            : {
+                number: season.number,
+                name: season.name,
+                xp: seasonXp,
+                level: seasonLevel(seasonXp),
+              },
+        challenges: [...daily.items, ...weekly.items].map((c) => ({
+          id: c.id,
+          period: c.period,
+          progress: c.progress,
+          target: c.target,
+          completed: c.completed,
+        })),
+        flaggedGames: flagged.rows.map((r) => ({
+          gameId: r.game_code,
+          flags: r.flags,
+          xp: Number(r.xp_awarded),
+          at: iso(r.ended_at),
+        })),
+      };
+      res.json(body);
+    }),
+  );
+
+  router.get(
+    "/admin/users/:publicId/xp-history",
+    progressionOn,
+    route("admin.xp.history", "read", null, async (_staff, _b, req, res) => {
+      const user = await targetOf(req, res);
+      if (user === null) return;
+      const raw = String(req.query.page ?? "1");
+      const page = /^\d{1,5}$/.test(raw) ? Math.max(1, Number(raw)) : 1;
+      const size = PROGRESSION.adminHistoryPageSize;
+      const { rows } = await pool.query<{
+        id: string;
+        delta: string;
+        source: string;
+        ref_type: string | null;
+        ref_id: string | null;
+        reason: string | null;
+        actor: string | null;
+        lifetime_after: string;
+        run_after: string;
+        created_at: Date;
+      }>(
+        `SELECT l.id::text AS id, l.delta::text AS delta, l.source, l.ref_type, l.ref_id, l.reason,
+                a.public_id AS actor, l.lifetime_after::text AS lifetime_after,
+                l.run_after::text AS run_after, l.created_at
+           FROM xp_ledger l LEFT JOIN users a ON a.id = l.actor
+          WHERE l.user_id = $1 ORDER BY l.created_at DESC, l.id DESC
+          OFFSET $2 LIMIT $3`,
+        [user.id, (page - 1) * size, size + 1],
+      );
+      const body: AdminXpHistory = {
+        entries: rows.slice(0, size).map((r) => ({
+          id: r.id,
+          amount: Number(r.delta),
+          source: r.source,
+          refType: r.ref_type,
+          refId: r.ref_id,
+          reason: r.reason,
+          actor: r.actor,
+          lifetimeAfter: Number(r.lifetime_after),
+          runAfter: Number(r.run_after),
+          createdAt: iso(r.created_at),
+        })),
+        page,
+        hasMore: rows.length > size,
+      };
+      res.json(body);
+    }),
+  );
+
+  const XP_PERMISSION = {
+    grant: "admin.xp.grant",
+    revoke: "admin.xp.revoke",
+    set: "admin.xp.set",
+  } as const;
+
+  router.post(
+    "/admin/users/:publicId/xp",
+    progressionOn,
+    jsonBody("4kb"),
+    route(
+      "admin.xp.view",
+      "write",
+      z.object({
+        action: z.enum(["grant", "revoke", "set"]),
+        amount: z.number().int(),
+        reason: Reason,
+        countsForSeason: z.boolean().optional(),
+        confirm: Confirm,
+      }),
+      async (staff, body, req, res) => {
+        // The permission depends on the action: each one is its own grant.
+        if (!hasPermission(staff.user.role, XP_PERMISSION[body.action])) {
+          res.status(403).json({ error: "forbidden" });
+          return;
+        }
+        const user = await targetOf(req, res);
+        if (user === null) return;
+        if (!mayActOn(staff, user, res)) return;
+        if (body.action !== "grant" && !confirmed(res, body.confirm)) return;
+        const result = await withTransaction(pool, (db) =>
+          adjustXp(
+            db,
+            staff.ctx,
+            user.publicId,
+            body.action,
+            body.amount,
+            body.reason,
+            {
+              countsForSeason: body.countsForSeason === true,
+              env: { validFlares: deps.catalog?.validFlares ?? null },
+            },
+          ),
+        );
+        res.json(
+          ok(
+            `${body.action} ${body.amount} XP: run ${result.before.runXp} -> ${result.after.runXp} (level ${result.before.level} -> ${result.after.level})`,
+            true,
+          ),
+        );
+      },
+    ),
+  );
+
+  router.post(
+    "/admin/users/:publicId/season-reset",
+    progressionOn,
+    jsonBody("2kb"),
+    route(
+      "admin.seasons.manage",
+      "write",
+      z.object({ reason: Reason, confirm: Confirm }),
+      async (staff, body, req, res) => {
+        const user = await targetOf(req, res);
+        if (user === null) return;
+        if (!mayActOn(staff, user, res)) return;
+        if (!confirmed(res, body.confirm)) return;
+        const result = await withTransaction(pool, (db) =>
+          resetSeasonXp(db, staff.ctx, user.publicId, body.reason),
+        );
+        res.json(
+          ok(`season ${result.season} XP reset: ${result.before} -> 0`, true),
+        );
+      },
+    ),
+  );
+
+  async function seasonList(): Promise<AdminSeason[]> {
+    const seasons = await allSeasons(pool);
+    const counts = await pool.query<{ season_id: string; n: number }>(
+      `SELECT season_id::text AS season_id, count(*)::int AS n
+         FROM user_season_progress WHERE xp > 0 GROUP BY season_id`,
+    );
+    const players = new Map(counts.rows.map((r) => [r.season_id, r.n]));
+    return seasons.map((s) => ({
+      id: s.id,
+      number: s.number,
+      name: s.name,
+      startsAt: iso(s.startsAt),
+      endsAt: iso(s.endsAt),
+      archivedAt: s.archivedAt === null ? null : iso(s.archivedAt),
+      current: s.current,
+      rewardFlares: s.rewardFlares,
+      players: players.get(s.id) ?? 0,
+    }));
+  }
+
+  router.get(
+    "/admin/seasons",
+    progressionOn,
+    route("admin.seasons.manage", "read", null, async (_s, _b, _req, res) => {
+      res.json({ seasons: await seasonList() });
+    }),
+  );
+
+  const SeasonBody = z.object({
+    name: z.string().trim().min(1).max(40),
+    startsAt: z.iso.datetime(),
+    endsAt: z.iso.datetime(),
+    number: z.number().int().min(1).max(100_000).optional(),
+    rewardFlares: z.record(z.string(), z.string().max(120)).optional(),
+  });
+
+  router.post(
+    "/admin/seasons",
+    progressionOn,
+    jsonBody("4kb"),
+    route(
+      "admin.seasons.manage",
+      "write",
+      SeasonBody,
+      async (staff, body, _req, res) => {
+        const season = await withTransaction(pool, (db) =>
+          createSeason(
+            db,
+            staff.ctx,
+            {
+              name: body.name,
+              startsAt: new Date(body.startsAt),
+              endsAt: new Date(body.endsAt),
+              number: body.number,
+              rewardFlares: body.rewardFlares,
+            },
+            deps.catalog?.validFlares ?? null,
+          ),
+        );
+        res.status(201).json(ok(`season ${season.number} created`, true));
+      },
+    ),
+  );
+
+  router.patch(
+    "/admin/seasons/:id",
+    progressionOn,
+    jsonBody("4kb"),
+    route(
+      "admin.seasons.manage",
+      "write",
+      SeasonBody.partial().omit({ number: true }),
+      async (staff, body, req, res) => {
+        const id = String(req.params.id);
+        if (!/^\d{1,18}$/.test(id)) {
+          res.status(404).json({ error: "NOT_FOUND" });
+          return;
+        }
+        const season = await withTransaction(pool, (db) =>
+          updateSeason(
+            db,
+            staff.ctx,
+            id,
+            {
+              name: body.name,
+              startsAt:
+                body.startsAt === undefined
+                  ? undefined
+                  : new Date(body.startsAt),
+              endsAt:
+                body.endsAt === undefined ? undefined : new Date(body.endsAt),
+              rewardFlares: body.rewardFlares,
+            },
+            deps.catalog?.validFlares ?? null,
+          ),
+        );
+        res.json(ok(`season ${season.number} updated`, true));
+      },
+    ),
+  );
+
+  router.post(
+    "/admin/seasons/:id/close",
+    progressionOn,
+    jsonBody("2kb"),
+    route(
+      "admin.seasons.manage",
+      "write",
+      z.object({ reason: Reason, confirm: Confirm }),
+      async (staff, body, req, res) => {
+        const id = String(req.params.id);
+        if (!/^\d{1,18}$/.test(id)) {
+          res.status(404).json({ error: "NOT_FOUND" });
+          return;
+        }
+        if (!confirmed(res, body.confirm)) return;
+        const season = await withTransaction(pool, (db) =>
+          closeSeason(db, staff.ctx, id),
+        );
+        res.json(ok(`season ${season.number} closed and archived`, true));
+      },
+    ),
+  );
 
   router.get(
     "/admin/audit",

@@ -130,6 +130,82 @@ export const AdminUserDetailSchema = UserBriefSchema.extend({
 });
 export type AdminUserDetail = z.infer<typeof AdminUserDetailSchema>;
 
+/** An account's progression, for the admin user page. */
+export const AdminProgressionSchema = z.object({
+  registered: z.boolean(),
+  lifetimeXp: z.number(),
+  runXp: z.number(),
+  level: z.number(),
+  rank: z.string(),
+  prestige: z.number(),
+  legend: z.boolean(),
+  title: z.string().nullable(),
+  season: z
+    .object({
+      number: z.number(),
+      name: z.string(),
+      xp: z.number(),
+      level: z.number(),
+    })
+    .nullable(),
+  challenges: z.array(
+    z.object({
+      id: z.string(),
+      period: z.enum(["daily", "weekly"]),
+      progress: z.number(),
+      target: z.number(),
+      completed: z.boolean(),
+    }),
+  ),
+  // The latest games that carried review markers (repeat group, soft cap...).
+  flaggedGames: z.array(
+    z.object({
+      gameId: z.string(),
+      flags: z.array(z.string()),
+      xp: z.number(),
+      at: z.iso.datetime(),
+    }),
+  ),
+});
+export type AdminProgression = z.infer<typeof AdminProgressionSchema>;
+
+export const AdminXpHistorySchema = z.object({
+  entries: z.array(
+    z.object({
+      id: z.string(),
+      amount: z.number(),
+      source: z.string(),
+      refType: z.string().nullable(),
+      refId: z.string().nullable(),
+      reason: z.string().nullable(),
+      actor: z.string().nullable(),
+      lifetimeAfter: z.number(),
+      runAfter: z.number(),
+      createdAt: z.iso.datetime(),
+    }),
+  ),
+  page: z.number(),
+  hasMore: z.boolean(),
+});
+export type AdminXpHistory = z.infer<typeof AdminXpHistorySchema>;
+
+export const AdminSeasonSchema = z.object({
+  id: z.string(),
+  number: z.number(),
+  name: z.string(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  archivedAt: z.iso.datetime().nullable(),
+  current: z.boolean(),
+  rewardFlares: z.record(z.string(), z.string()),
+  players: z.number(),
+});
+export type AdminSeason = z.infer<typeof AdminSeasonSchema>;
+export const AdminSeasonListSchema = z.object({
+  seasons: z.array(AdminSeasonSchema),
+});
+export type AdminSeasonList = z.infer<typeof AdminSeasonListSchema>;
+
 export const AdminClanBriefSchema = z.object({
   tag: z.string(),
   name: z.string(),
