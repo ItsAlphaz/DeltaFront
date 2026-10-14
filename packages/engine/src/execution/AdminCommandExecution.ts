@@ -50,6 +50,11 @@ export class AdminCommandExecution implements Execution {
       return;
     }
     const target = mg.player(this.targetID);
+    // The feed says who used the tools and on whom; amounts stay out of it. A
+    // second force-win changes nothing, so it is not announced again.
+    if (this.command !== "force_win" || mg.getWinner() === null) {
+      mg.matchEvents().adminAction(this.issuer, this.command, target);
+    }
     const amount = Math.min(
       ADMIN_COMMAND_MAX_AMOUNT,
       Math.max(0, Math.floor(this.amount ?? 0)),

@@ -23,6 +23,10 @@ The game is split into four components:
 
 The game simulation logic does not run on the server. Instead, each client runs their own instance of core, which is why it must be deterministic. At the end of each tick, data is sent from core to client via GameUpdates. Core and client run in different threads - the core runs in a worker thread.
 
+## Match events
+
+What the HUD's live feed and event log show (eliminations, alliances, the largest nation, big territory losses, staff actions) is derived by the engine from simulation state and delivered as `GameUpdateType.MatchEvent` updates, so every client and a replay see the same events. Clients cannot submit them. See [MatchEvents.md](MatchEvents.md).
+
 ## Intents
 
 When a user performs an action, it creates an "Intent" which is sent to the server. The server stores all intents for that tick/turn, and at the end, relays all intents to all clients in a bundle called a "turn". Each client receives the turn and sends it to its core simulation. The core then creates an "Execution" for each intent. Executions are the only thing that can modify the game state.

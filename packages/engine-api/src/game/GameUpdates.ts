@@ -17,6 +17,7 @@ import {
   UnitType,
   WarshipState,
 } from "./GameTypes";
+import type { MatchEvent } from "./MatchEvents";
 
 export interface GameUpdateViewData {
   tick: number;
@@ -116,6 +117,7 @@ export enum GameUpdateType {
   GamePaused,
   DonateEvent,
   AirstrikeImpact,
+  MatchEvent,
 }
 
 export type GameUpdate =
@@ -142,7 +144,8 @@ export type GameUpdate =
   | SpawnPhaseEndUpdate
   | GamePausedUpdate
   | DonateEventUpdate
-  | AirstrikeImpactUpdate;
+  | AirstrikeImpactUpdate
+  | MatchEventUpdate;
 
 export interface BonusEventUpdate {
   type: GameUpdateType.BonusEvent;
@@ -185,6 +188,15 @@ export interface DonateEventUpdate {
   senderId: PlayerID;
   recipientId: PlayerID;
   amount: bigint;
+}
+
+/**
+ * Something worth a line in the match feed happened (see MatchEvents.ts). Derived
+ * from simulation state, identical on every client and in a replay.
+ */
+export interface MatchEventUpdate {
+  type: GameUpdateType.MatchEvent;
+  event: MatchEvent;
 }
 
 /** The moment an airstrike's effect lands; positioned in simulation time. */

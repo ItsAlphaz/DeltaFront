@@ -47,6 +47,7 @@ import type { EngineConfig } from "../configuration/EngineConfig";
 import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
 import type { ExecRecord, SnapshotWriter } from "../snapshot/SnapshotContext";
+import type { MatchEvents } from "./MatchEvents";
 import { RailNetwork } from "./RailNetwork";
 import { Stats } from "./Stats";
 
@@ -660,6 +661,8 @@ export interface Game extends GameLike {
 
   numTilesWithFallout(): number;
   stats(): Stats;
+  /** Derives the match feed events (elimination, alliances, largest nation...). */
+  matchEvents(): MatchEvents;
 
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;

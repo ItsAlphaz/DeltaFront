@@ -85,6 +85,7 @@ import {
   Player,
   Unit,
 } from "./Game";
+import { MatchEvents, MatchEventsStateSchema } from "./MatchEvents";
 import { PlayerImpl } from "./PlayerImpl";
 import { RailNetwork } from "./RailNetwork";
 import {
@@ -161,6 +162,7 @@ export class GameImpl implements Game {
 
   private _isPaused: boolean = false;
   private _winner: Player | Team | null = null;
+  private readonly _matchEvents = new MatchEvents(this);
   private _waterManager: WaterManager;
   private _sharedWaterCache: SharedWaterCache;
   private _teamGameSpawnAreas: TeamGameSpawnAreas | undefined;
@@ -487,6 +489,7 @@ export class GameImpl implements Game {
       request: request.toUpdate(),
       accepted: true,
     });
+    this._matchEvents.allianceFormed(requestor, recipient);
   }
 
   rejectAllianceRequest(request: AllianceRequestImpl) {
@@ -532,6 +535,7 @@ export class GameImpl implements Game {
       type: GameUpdateType.SpawnPhaseEnd,
       startTick: this.startTick,
     });
+    this._matchEvents.gameStarted();
   }
 
   ticks(): number {
@@ -564,6 +568,7 @@ export class GameImpl implements Game {
 
     this.execs.push(...inited);
     this.unInitExecs = unInited;
+    this._matchEvents.tick(this._ticks);
     for (const player of this._players.values()) {
       // Sampled before toUpdate so the reading is of the tick that just ran.
       // Dead and unspawned players are skipped: an eliminated player's fall
@@ -920,6 +925,7 @@ export class GameImpl implements Game {
       betrayedID: other.smallID(),
       allianceID: alliance.id(),
     });
+    this._matchEvents.allianceBroken(breaker, other);
   }
 
   public expireAlliance(alliance: Alliance) {
@@ -943,6 +949,10 @@ export class GameImpl implements Game {
       player1ID: alliance.requestor().smallID(),
       player2ID: alliance.recipient().smallID(),
     });
+    this._matchEvents.allianceExpired(
+      alliance.requestor(),
+      alliance.recipient(),
+    );
   }
 
   public removeAlliancesByPlayerSilently(player: Player): void {
@@ -1025,6 +1035,7 @@ export class GameImpl implements Game {
       winner: winner === null ? undefined : this.makeWinner(winner),
       allPlayersStats,
     });
+    this._matchEvents.gameEnding(winner);
   }
 
   getWinner(): Player | Team | null {
@@ -1399,6 +1410,9 @@ export class GameImpl implements Game {
   stats(): Stats {
     return this._stats;
   }
+  matchEvents(): MatchEvents {
+    return this._matchEvents;
+  }
   railNetwork(): RailNetwork {
     return this._railNetwork;
   }
@@ -1492,6 +1506,7 @@ export class GameImpl implements Game {
         this._sharedWaterCache.snapshot(w),
       ),
       stats: w.versioned(StatsSnapshot, (this._stats as StatsImpl).snapshot()),
+      matchEvents: this._matchEvents.snapshot(),
     };
   }
 
@@ -1552,6 +1567,9 @@ export class GameImpl implements Game {
     (this._stats as StatsImpl).restoreSnapshot(
       readVersioned(StatsSnapshot, s.stats),
     );
+    if (s.matchEvents !== undefined) {
+      this._matchEvents.restoreSnapshot(s.matchEvents);
+    }
   }
 
   conquerPlayer(conqueror: Player, conquered: Player) {
@@ -1635,6 +1653,9 @@ export class GameImpl implements Game {
       conqueredId: conquered.id(),
       gold: goldCaptured,
     });
+    // The one place that knows who took a player's last territory; the feed
+    // names the killer only if the victim is then seen dead (MatchEvents).
+    this._matchEvents.claimKill(conqueror, conquered);
   }
 }
 
@@ -1674,6 +1695,8 @@ export const GameSnapshot = snapshotType({
     water: VersionedSchema,
     sharedWaterCache: VersionedSchema,
     stats: VersionedSchema,
+    // Absent in snapshots taken before the match feed existed.
+    matchEvents: MatchEventsStateSchema.optional(),
   }),
 });
 export type GameState = z.infer<typeof GameSnapshot.schema>;

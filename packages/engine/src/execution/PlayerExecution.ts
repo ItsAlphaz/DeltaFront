@@ -89,6 +89,9 @@ export class PlayerExecution implements Execution {
         .filter((p) => p.type() !== PlayerType.Bot).length;
       this.mg.stats().recordDeathPosition(this.player, stillStanding + 1);
       this.mg.stats().playerKilled(this.player, ticks);
+      // Fallback for the deaths no conquest claimed (a nuke, the doomsday clock);
+      // a claimed one is already reported or about to be (MatchEvents).
+      this.mg.matchEvents().playerDied(this.player);
       return;
     }
 

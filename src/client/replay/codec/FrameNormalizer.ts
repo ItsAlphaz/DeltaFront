@@ -83,6 +83,9 @@ export const UPDATE_TYPE_ROUTING: Record<
   DonateEvent: "misc",
   // Stored with the other misc updates; replays do not play impact FX yet.
   AirstrikeImpact: "misc",
+  // Collected into ReplayEvents (the whole list is needed to rebuild the log
+  // when the viewer seeks), see EventCollector.
+  MatchEvent: "events",
 };
 
 /**

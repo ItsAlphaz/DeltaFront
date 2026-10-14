@@ -120,6 +120,10 @@ answer at join, so a demotion applies to the next join.
   turns and gives it no stats, Credits, clan-threshold credit or leaderboard entry.
 - Staff kicks, pauses and commands are reported to `/game_admin/audit` (best effort,
   always in the game server's own log).
+- Every command that runs also appears to the players in that game as a public match
+  event ("Owner Alphaz used admin tools on RedFox", "Alphaz forced the winner") with no
+  amounts, reason or audit detail; see [MatchEvents.md](MatchEvents.md). The event is a
+  consequence of the recorded command and changes nothing about admin-modified detection.
 
 ## Official clans
 
