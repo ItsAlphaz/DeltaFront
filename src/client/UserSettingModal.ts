@@ -417,6 +417,22 @@ export class UserSettingModal extends BaseModal {
     );
   }
 
+  private toggleEventFeed() {
+    this.userSettings.toggleEventFeed();
+    this.requestUpdate();
+  }
+
+  private changeEventFeedDetail(e: CustomEvent<{ value: number | string }>) {
+    this.userSettings.setEventFeedDetail(
+      String(e.detail?.value) === "major" ? "major" : "all",
+    );
+    this.requestUpdate();
+  }
+
+  private toggleEventFeedSound() {
+    this.userSettings.toggleEventFeedSound();
+  }
+
   private toggleLobbyIdVisibility() {
     this.userSettings.toggleLobbyIdVisibility();
     console.log(
@@ -1773,6 +1789,49 @@ export class UserSettingModal extends BaseModal {
         .checked=${this.userSettings.anonymousNames()}
         @change=${this.toggleAnonymousNames}
       ></setting-toggle>
+
+      <!-- 📟 Match event feed -->
+      <setting-toggle
+        label="${translateText("user_setting.event_feed_label")}"
+        description="${translateText("user_setting.event_feed_desc")}"
+        id="event-feed-toggle"
+        .checked=${this.userSettings.eventFeed()}
+        @change=${this.toggleEventFeed}
+      ></setting-toggle>
+
+      ${this.userSettings.eventFeed()
+        ? html`
+            <setting-select
+              id="event-feed-detail-select"
+              label=${translateText("user_setting.event_feed_detail_label")}
+              description=${translateText(
+                "user_setting.event_feed_detail_desc",
+              )}
+              .value=${this.userSettings.eventFeedDetail()}
+              .options=${[
+                {
+                  value: "all",
+                  label: translateText("user_setting.event_feed_detail_all"),
+                },
+                {
+                  value: "major",
+                  label: translateText("user_setting.event_feed_detail_major"),
+                },
+              ]}
+              @change=${this.changeEventFeedDetail}
+            ></setting-select>
+
+            <setting-toggle
+              label="${translateText("user_setting.event_feed_sound_label")}"
+              description="${translateText(
+                "user_setting.event_feed_sound_desc",
+              )}"
+              id="event-feed-sound-toggle"
+              .checked=${this.userSettings.eventFeedSound()}
+              @change=${this.toggleEventFeedSound}
+            ></setting-toggle>
+          `
+        : nothing}
 
       <!-- 👁️ Hidden Lobby IDs -->
       <setting-toggle

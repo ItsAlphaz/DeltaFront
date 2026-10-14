@@ -35,6 +35,8 @@ const HUD_TAGS = [
   "unit-display",
   "player-panel",
   "game-admin-panel",
+  "match-event-feed",
+  "match-event-log-modal",
   "chat-modal",
   "multi-tab-modal",
   "heads-up-message",

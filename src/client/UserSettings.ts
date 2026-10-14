@@ -414,6 +414,38 @@ export class UserSettings {
     return this.getBool("settings.anonymousNames", false);
   }
 
+  /** The live match-event ticker in the corner of the game (the full log stays available). */
+  eventFeed() {
+    return this.getBool("settings.eventFeed", true);
+  }
+
+  toggleEventFeed() {
+    this.setBool("settings.eventFeed", !this.eventFeed());
+  }
+
+  /**
+   * How much the ticker shows: "all" is every event that involves a person,
+   * "major" only the major and critical ones. The full log always has everything.
+   */
+  eventFeedDetail(): "major" | "all" {
+    return this.getString("settings.eventFeedDetail", "all") === "major"
+      ? "major"
+      : "all";
+  }
+
+  setEventFeedDetail(value: "major" | "all") {
+    this.setString("settings.eventFeedDetail", value);
+  }
+
+  /** A quiet cue when a critical event lands on the ticker. Off unless asked for. */
+  eventFeedSound() {
+    return this.getBool("settings.eventFeedSound", false);
+  }
+
+  toggleEventFeedSound() {
+    this.setBool("settings.eventFeedSound", !this.eventFeedSound());
+  }
+
   lobbyIdVisibility() {
     return this.getBool("settings.lobbyIdVisibility", true);
   }

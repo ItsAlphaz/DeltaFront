@@ -25,6 +25,7 @@ import { TerrainMapData } from "@openfront/engine-lib/game/TerrainMapLoader";
 import { TerraNulliusImpl } from "@openfront/engine-lib/game/TerraNulliusImpl";
 import { UnitGrid } from "@openfront/engine-lib/game/UnitGrid";
 import { PlayerCosmetics, WirePlayer } from "@openfront/shared/WireSchemas";
+import { MatchEventLog } from "../matchevents/MatchEventLog";
 import { computeAllianceClusters } from "../render/frame/derive/AllianceClusters";
 import { extractAttackRings } from "../render/frame/derive/AttackRings";
 import { extractNukeTelegraphs } from "../render/frame/derive/NukeTelegraphs";
@@ -60,6 +61,12 @@ function readCosmeticVisibility(): CosmeticVisibility {
 
 export class GameView implements GameLike {
   private lastUpdate: GameUpdateViewData | null;
+  /**
+   * The match's event history, fed here from the engine's MatchEvent updates so
+   * that no HUD layer's tick throttling can miss one. The live feed and the full
+   * log both read this one log.
+   */
+  private readonly _matchEvents = new MatchEventLog();
   private startTick: Tick | null = null;
   private smallIDToID = new Map<number, PlayerID>();
   private _players = new Map<PlayerID, PlayerView>();
@@ -214,6 +221,10 @@ export class GameView implements GameLike {
     return this._map.isOnEdgeOfMap(ref);
   }
 
+  public matchEvents(): MatchEventLog {
+    return this._matchEvents;
+  }
+
   public updatesSinceLastTick(): GameUpdates | null {
     return this.lastUpdate?.updates ?? null;
   }
@@ -275,6 +286,10 @@ export class GameView implements GameLike {
     }
     if (gu.updates[GameUpdateType.Win].length > 0) {
       this._gameOver = true;
+    }
+    const matchEvents = gu.updates[GameUpdateType.MatchEvent];
+    if (matchEvents.length > 0) {
+      this._matchEvents.ingest(matchEvents.map((u) => u.event));
     }
 
     const myDisplayName = formatPlayerDisplayName(

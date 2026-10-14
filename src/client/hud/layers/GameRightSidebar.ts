@@ -16,6 +16,7 @@ import { PauseGameIntentEvent, SendWinnerEvent } from "../../Transport";
 import { homeHref, showToast, translateText } from "../../Utils";
 import { GameView } from "../../view";
 import { ImmunityBarVisibleEvent } from "./ImmunityTimer";
+import { ShowMatchEventLogEvent } from "./MatchEventLogModal";
 import { ShowReplayPanelEvent } from "./ReplayPanel";
 import { ShowSettingsModalEvent } from "./SettingsModal";
 import { SpawnBarVisibleEvent } from "./SpawnTimer";
@@ -25,6 +26,7 @@ const pauseIcon = assetUrl("images/PauseIconWhite.svg");
 const playIcon = assetUrl("images/PlayIconWhite.svg");
 const newLobbyIcon = assetUrl("images/ReplayRegularIconWhite.svg");
 const settingsIcon = assetUrl("images/SettingIconWhite.svg");
+const eventsIcon = assetUrl("images/EventsIconWhite.svg");
 const fullscreenIcon = assetUrl("images/FullscreenIconWhite.svg");
 const exitFullscreenIcon = assetUrl("images/ExitFullscreenIconWhite.svg");
 
@@ -287,6 +289,10 @@ export class GameRightSidebar extends LitElement implements Controller {
     );
   }
 
+  private onEventsButtonClick() {
+    this.eventBus.emit(new ShowMatchEventLogEvent(true));
+  }
+
   private onFullscreenButtonClick() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch((err) => {
@@ -374,6 +380,20 @@ export class GameRightSidebar extends LitElement implements Controller {
 
         <!-- Buttons -->
         ${this.maybeRenderReplayButtons()}
+
+        <div
+          class="cursor-pointer"
+          data-match-events-button
+          title=${translateText("match_events.log_button")}
+          @click=${this.onEventsButtonClick}
+        >
+          <img
+            src=${eventsIcon}
+            alt=${translateText("match_events.log_button")}
+            width="20"
+            height="20"
+          />
+        </div>
 
         <div class="cursor-pointer" @click=${this.onSettingsButtonClick}>
           <img src=${settingsIcon} alt="settings" width="20" height="20" />

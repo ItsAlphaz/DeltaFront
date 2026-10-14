@@ -485,7 +485,10 @@
     <div class="flex flex-col items-end fixed top-0 right-0 z-1000 gap-2">
       <game-right-sidebar></game-right-sidebar>
       <replay-panel></replay-panel>
+      <!-- The live match-event ticker; its rows take no clicks -->
+      <match-event-feed class="pointer-events-none"></match-event-feed>
     </div>
+    <match-event-log-modal></match-event-log-modal>
     <settings-modal></settings-modal>
     <!-- The in-game settings modal: the same component as #page-settings, but
          non-inline, and mounted out here because the page's copy sits in a

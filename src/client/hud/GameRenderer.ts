@@ -40,6 +40,8 @@ import { HeadsUpMessage } from "./layers/HeadsUpMessage";
 import { ImmunityTimer } from "./layers/ImmunityTimer";
 import { InGamePromo } from "./layers/InGamePromo";
 import { MainRadialMenu } from "./layers/MainRadialMenu";
+import { MatchEventFeed } from "./layers/MatchEventFeed";
+import { MatchEventLogModal } from "./layers/MatchEventLogModal";
 import { MultiTabModal } from "./layers/MultiTabModal";
 import { NewLobbyPrompt } from "./layers/NewLobbyPrompt";
 import { PerformanceOverlay } from "./layers/PerformanceOverlay";
@@ -193,6 +195,24 @@ export function createRenderer(
   }
   replayPanel.eventBus = eventBus;
   replayPanel.game = game;
+
+  const matchEventFeed = document.querySelector(
+    "match-event-feed",
+  ) as MatchEventFeed;
+  if (!(matchEventFeed instanceof MatchEventFeed)) {
+    console.error("match event feed not found");
+  }
+  matchEventFeed.game = game;
+  matchEventFeed.eventBus = eventBus;
+
+  const matchEventLogModal = document.querySelector(
+    "match-event-log-modal",
+  ) as MatchEventLogModal;
+  if (!(matchEventLogModal instanceof MatchEventLogModal)) {
+    console.error("match event log modal not found");
+  }
+  matchEventLogModal.game = game;
+  matchEventLogModal.eventBus = eventBus;
 
   const gameRightSidebar = document.querySelector(
     "game-right-sidebar",
@@ -385,6 +405,8 @@ export function createRenderer(
     winModal,
     newLobbyPrompt,
     replayPanel,
+    matchEventFeed,
+    matchEventLogModal,
     settingsModal,
     playerPanel,
     gameAdminPanel,

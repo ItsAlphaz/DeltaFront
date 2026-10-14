@@ -54,9 +54,15 @@ async function flush(el: TestSidebar): Promise<void> {
 }
 
 function fullscreenButton(el: TestSidebar): HTMLImageElement | undefined {
+  // Settings, exit and the match events button are other buttons of the bar.
   const images = [
     ...el.renderRoot.querySelectorAll<HTMLImageElement>("img"),
-  ].filter((img) => img.alt !== "settings" && img.alt !== "exit");
+  ].filter(
+    (img) =>
+      img.alt !== "settings" &&
+      img.alt !== "exit" &&
+      img.closest("[data-match-events-button]") === null,
+  );
   return images[0];
 }
 
