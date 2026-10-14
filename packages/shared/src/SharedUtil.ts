@@ -10,6 +10,7 @@ import { resolveTribeNameData } from "@openfront/engine-lib/execution/utils/Trib
 import { LOBBY_LABEL_MAX, simpleHash } from "@openfront/engine-lib/Util";
 import { customAlphabet } from "nanoid";
 import {
+  type AdminActionRecord,
   GameRecord,
   PartialGameRecord,
   PlayerRecord,
@@ -79,6 +80,8 @@ export function createPartialGameRecord(
   reports?: PlayerReport[],
   // Public lobbies only (see GameEndInfoSchema.publicGameType).
   publicGameType?: PublicGameType,
+  // Staff commands the game server relayed (GameServer.adminActionRecords).
+  adminActions?: AdminActionRecord[],
 ): PartialGameRecord {
   const duration = Math.floor((end - start) / 1000);
   const num_turns = allTurns.length;
@@ -109,6 +112,9 @@ export function createPartialGameRecord(
       tribes,
       reports,
       publicGameType,
+      ...(adminActions !== undefined && adminActions.length > 0
+        ? { adminActions }
+        : {}),
     },
     version: "v0.0.2",
     turns,

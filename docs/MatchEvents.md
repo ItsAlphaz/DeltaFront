@@ -148,9 +148,9 @@ Every authorized `admin_command` that runs in a game produces an `admin_action`
 event: "Owner Alphaz used admin tools on RedFox", "Alphaz eliminated RedFox using
 admin tools", "Alphaz forced the winner". The public line carries no amounts, no
 reason and no audit detail. The event is a _consequence_ of the command; it adds
-nothing to the recorded turns, and the API still decides admin-modified from the
-recorded `admin_command` intents (StaffAdmin.md), so such a game still counts for
-no stats, Credits, leaderboard or clan threshold.
+nothing to the recorded turns. Whether the game still counts is decided as in
+StaffAdmin.md: the owner's commands in a public or listed game leave it counting;
+commands in a private game make it a test that counts for nothing.
 
 ## Replays
 

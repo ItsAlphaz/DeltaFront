@@ -1,3 +1,4 @@
+import { ADMIN_COMMANDS } from "@openfront/engine-api/AdminCommands";
 import { GameMapSize, GameMapType } from "@openfront/engine-api/game/GameTypes";
 import {
   ArchivedPlayerStatsSchema,
@@ -781,6 +782,21 @@ export const PlayerRecordSchema = WirePlayerSchema.extend({
 
 export type PlayerRecord = z.infer<typeof PlayerRecordSchema>;
 
+// What the game server recorded about the staff commands it relayed: one entry
+// per distinct (command, role, game kind), with how many. Stamped by the server
+// from the authenticated connection and the game's own state, never from a
+// client; the API decides whether the result still counts from the role and game
+// kind (adminCommandInvalidatesResult), so `invalidatesResult` is a readable copy.
+export const AdminActionRecordSchema = z.object({
+  command: z.enum(ADMIN_COMMANDS),
+  role: StaffRoleWireSchema,
+  public: z.boolean(),
+  listed: z.boolean(),
+  invalidatesResult: z.boolean(),
+  count: z.number().int().positive(),
+});
+export type AdminActionRecord = z.infer<typeof AdminActionRecordSchema>;
+
 export const GameEndInfoSchema = GameStartInfoSchema.extend({
   players: PlayerRecordSchema.array(),
   start: z.number(),
@@ -797,6 +813,9 @@ export const GameEndInfoSchema = GameStartInfoSchema.extend({
   // Absent on singleplayer records and on records read back from the API,
   // which scrubs them like persistentID.
   reports: PlayerReportSchema.array().optional(),
+  // Staff commands relayed in this game (see AdminActionRecordSchema). Absent
+  // when there were none, and on records from before it existed.
+  adminActions: AdminActionRecordSchema.array().max(64).optional(),
 });
 
 export type GameEndInfo = z.infer<typeof GameEndInfoSchema>;

@@ -1139,62 +1139,186 @@ describeDb("games with admin commands never count", () => {
     expect(total[0].total).toBe(1); // the control game only
   });
 
-  it("a PUBLIC game the owner modified is a test: no stats, Credits, leaderboard, clan threshold or ranked result", async () => {
+  // What the game server stamps into the record for a relayed command.
+  const action = (
+    role: "owner" | "admin" | "mod",
+    where: { public: boolean; listed: boolean },
+    over: Record<string, unknown> = {},
+  ) => ({
+    command: "give_gold",
+    role,
+    ...where,
+    invalidatesResult: false,
+    count: 1,
+    ...over,
+  });
+  const withCommand = (
+    gameID: string,
+    spec: Parameters<typeof buildRecord>[1],
+    actions: unknown[] | undefined,
+  ) => {
+    const record = buildRecord(gameID, spec);
+    record.turns[1].intents.push(admin(clientIdOf(0)) as never);
+    if (actions !== undefined) {
+      (record.info as { adminActions?: unknown }).adminActions = actions;
+    }
+    return record;
+  };
+  const PUBLIC = { public: true, listed: false };
+  const LISTED = { public: false, listed: true };
+  const PRIVATE = { public: false, listed: false };
+
+  it("the owner's command in a PUBLIC game does not invalidate it: stats, Credits, leaderboard and clan threshold all count", async () => {
     const h = await harness();
     const key = await createServerKey(h);
     const a = await makeUser(h);
     const b = await makeUser(h);
-    // Enough owner-modified public games that, if they counted, both would be on the board.
     for (let g = 0; g < ACCOUNT_RULES.leaderboardMinGames; g++) {
-      const tested = buildRecord(`op${String(g).padStart(6, "0")}`, {
-        players: [{ user: a }, { user: b }],
-        type: "Public",
-      });
-      tested.turns[1].intents.push(admin(clientIdOf(0)) as never);
-      expect((await submitGame(h, key, tested)).status).toBeLessThan(300);
+      const record = withCommand(
+        `op${String(g).padStart(6, "0")}`,
+        { players: [{ user: a }, { user: b }], type: "Public" },
+        [action("owner", PUBLIC)],
+      );
+      expect(isAdminModified(record)).toBe(false);
+      expect((await submitGame(h, key, record)).status).toBeLessThan(300);
     }
-    const games = await rows(
-      h,
-      "SELECT DISTINCT type, counts_for_stats, admin_modified FROM games",
-    );
-    expect(games).toEqual([
-      { type: "Public", counts_for_stats: false, admin_modified: true },
+    expect(
+      await rows(
+        h,
+        "SELECT DISTINCT type, counts_for_stats, admin_modified FROM games",
+      ),
+    ).toEqual([
+      { type: "Public", counts_for_stats: true, admin_modified: false },
     ]);
-    expect(await creditsOf(h, a)).toBe(0);
-    expect(await creditsOf(h, b)).toBe(0);
+    expect(await creditsOf(h, a)).toBeGreaterThan(0);
+    expect(await creditsOf(h, b)).toBeGreaterThan(0);
     const players = await rows(
       h,
       "SELECT count(*) FILTER (WHERE completed)::int AS completed, coalesce(sum(credits_awarded), 0)::int AS credits FROM game_players",
     );
-    expect(players).toEqual([{ completed: 0, credits: 0 }]);
-    expect(
-      await rows(h, "SELECT 1 FROM player_stat_aggregates WHERE user_id = $1", [
-        a.id,
-      ]),
-    ).toHaveLength(0);
-    // The leaderboard job and the clan threshold read counted games only.
+    expect(players[0].completed).toBe(2 * ACCOUNT_RULES.leaderboardMinGames);
+    expect(players[0].credits).toBeGreaterThan(0);
+    const total = await rows(
+      h,
+      "SELECT sum(total)::int AS total FROM player_stat_aggregates WHERE user_id = $1",
+      [a.id],
+    );
+    expect(total[0].total).toBe(ACCOUNT_RULES.leaderboardMinGames);
     await rebuildLeaderboard(h.db.pool);
     const board = await (
       await call(h, "/leaderboard/players", { origin: null })
     ).json();
     expect(
-      board.players.filter((p: { playerId: string }) =>
-        [a.publicId, b.publicId].includes(p.playerId),
-      ),
-    ).toEqual([]);
+      board.players
+        .filter((p: { playerId: string }) =>
+          [a.publicId, b.publicId].includes(p.playerId),
+        )
+        .map((p: { playerId: string }) => p.playerId)
+        .sort(),
+    ).toEqual([a.publicId, b.publicId].sort());
     const stats = (await memberStatsFor(h.db.pool, [a.id])).get(a.id)!;
-    expect(stats.total).toEqual({ wins: 0, losses: 0 });
-    // The same query does see an unmodified public game, so the zero is the rule's doing.
-    await submitGame(
-      h,
-      key,
-      buildRecord("op900001", {
-        players: [{ user: a }, { user: b }],
-        type: "Public",
-      }),
+    expect(stats.total.wins + stats.total.losses).toBe(
+      ACCOUNT_RULES.leaderboardMinGames,
     );
-    const after = (await memberStatsFor(h.db.pool, [a.id])).get(a.id)!;
-    expect(after.total.wins + after.total.losses).toBe(1);
+  });
+
+  it("the owner's command in a LISTED game does not invalidate it either", async () => {
+    const h = await harness();
+    const key = await createServerKey(h);
+    const a = await makeUser(h);
+    const b = await makeUser(h);
+    const record = withCommand(
+      "ls000001",
+      { players: [{ user: a }, { user: b }], type: "Private" },
+      [action("owner", LISTED)],
+    );
+    expect(isAdminModified(record)).toBe(false);
+    await submitGame(h, key, record);
+    expect(
+      await rows(h, "SELECT admin_modified FROM games WHERE game_code = $1", [
+        "ls000001",
+      ]),
+    ).toEqual([{ admin_modified: false }]);
+    expect(
+      (
+        await rows(
+          h,
+          "SELECT sum(total)::int AS total FROM player_stat_aggregates WHERE user_id = $1",
+          [a.id],
+        )
+      )[0].total,
+    ).toBe(1);
+  });
+
+  it("a private or unlisted game with a staff command is still a test, the owner's too", async () => {
+    const h = await harness();
+    const key = await createServerKey(h);
+    const a = await makeUser(h);
+    const b = await makeUser(h);
+    for (const [n, role] of (["owner", "admin"] as const).entries()) {
+      const record = withCommand(
+        `pr00000${n}`,
+        { players: [{ user: a }, { user: b }], type: "Private" },
+        [action(role, PRIVATE, { invalidatesResult: true })],
+      );
+      expect(isAdminModified(record), role).toBe(true);
+      await submitGame(h, key, record);
+    }
+    expect(
+      await rows(
+        h,
+        "SELECT game_code, admin_modified, counts_for_stats FROM games ORDER BY game_code",
+      ),
+    ).toEqual([
+      { game_code: "pr000000", admin_modified: true, counts_for_stats: false },
+      { game_code: "pr000001", admin_modified: true, counts_for_stats: false },
+    ]);
+    expect(await creditsOf(h, a)).toBe(0);
+    expect(
+      await rows(h, "SELECT 1 FROM player_stat_aggregates WHERE user_id = $1", [
+        a.id,
+      ]),
+    ).toHaveLength(0);
+  });
+
+  it("the record cannot buy a counted game: the verdict is recomputed from role and game kind, and fails closed", () => {
+    const rec = (actions: unknown[] | undefined, extra = 0) => {
+      const r = withCommand(
+        "tm000001",
+        { players: [{ user: null }, { user: null }], type: "Public" },
+        actions,
+      );
+      for (let i = 0; i < extra; i++) {
+        r.turns[1].intents.push(admin(clientIdOf(0)) as never);
+      }
+      return r;
+    };
+    // An admin's (or mod's) command, claimed harmless, in a public game.
+    expect(isAdminModified(rec([action("admin", PUBLIC)]))).toBe(true);
+    expect(isAdminModified(rec([action("mod", PUBLIC)]))).toBe(true);
+    // The owner's command claimed to be in a private game, or not stamped harmless.
+    expect(isAdminModified(rec([action("owner", PRIVATE)]))).toBe(true);
+    expect(
+      isAdminModified(
+        rec([action("owner", PUBLIC, { invalidatesResult: true })]),
+      ),
+    ).toBe(true);
+    // Commands in the turns that the metadata does not account for.
+    expect(isAdminModified(rec([action("owner", PUBLIC)], 2))).toBe(true);
+    expect(isAdminModified(rec(undefined))).toBe(true);
+    expect(isAdminModified(rec([]))).toBe(true);
+    // Fully accounted owner commands in a public game count.
+    expect(
+      isAdminModified(rec([action("owner", PUBLIC, { count: 3 })], 2)),
+    ).toBe(false);
+    // Metadata without any command in the turns changes nothing.
+    const none = buildRecord("tm000002", {
+      players: [{ user: null }, { user: null }],
+    });
+    (none.info as { adminActions?: unknown }).adminActions = [
+      action("admin", PUBLIC),
+    ];
+    expect(isAdminModified(none)).toBe(false);
   });
 
   it("an admin-modified PRIVATE game is not aggregated either", async () => {

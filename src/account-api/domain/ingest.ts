@@ -1,4 +1,5 @@
 import { GameType } from "@openfront/engine-api/game/GameTypes";
+import { adminCommandInvalidatesResult } from "@openfront/shared/Permissions";
 import type { GameRecord } from "@openfront/shared/WireSchemas";
 import { gzipSync } from "node:zlib";
 import type { Pool, PoolClient } from "pg";
@@ -128,10 +129,41 @@ async function addToAggregate(
   );
 }
 
-/** Whether the record holds an in-game admin command (an `admin_command` intent in any turn). */
-export function isAdminModified(record: Pick<GameRecord, "turns">): boolean {
-  return record.turns.some((turn) =>
-    turn.intents.some((intent) => intent.type === "admin_command"),
+/**
+ * Whether staff commands made this game a test that counts for nothing (no
+ * stats, Credits, leaderboard entry or clan threshold).
+ *
+ * Not every command does: the owner's in a public or listed game leave the
+ * result intact (adminCommandInvalidatesResult). What was run comes from the
+ * record's `adminActions`, which the game server stamped from the authenticated
+ * connection and the game's own state, and the verdict is recomputed here from
+ * each action's role and game kind, so a stored "does not invalidate" is never
+ * taken on trust. Fails closed: an `admin_command` in the recorded turns that
+ * the metadata does not account for (an older server, a damaged record) counts
+ * as invalidating.
+ */
+export function isAdminModified(
+  record: Pick<GameRecord, "turns"> & {
+    info?: Pick<GameRecord["info"], "adminActions">;
+  },
+): boolean {
+  let inTurns = 0;
+  for (const turn of record.turns) {
+    for (const intent of turn.intents) {
+      if (intent.type === "admin_command") inTurns++;
+    }
+  }
+  if (inTurns === 0) return false;
+  const actions = record.info?.adminActions ?? [];
+  const accounted = actions.reduce((n, a) => n + a.count, 0);
+  if (accounted < inTurns) return true;
+  return actions.some(
+    (a) =>
+      a.invalidatesResult ||
+      adminCommandInvalidatesResult(a.role, {
+        public: a.public,
+        listed: a.listed,
+      }),
   );
 }
 
@@ -152,10 +184,11 @@ export async function ingestGameRecord(
   const durationSeconds = Math.max(0, Math.floor(info.duration));
 
   const players = await resolvePlayers(pool, record);
-  // A game in which an admin command changed the state (the staff testing
-  // tools) is for testing: it feeds no stats, no Credits, no leaderboard and no
-  // clan threshold. Decided here from the record's own turns, the one thing a
-  // client cannot influence, and stored so the panel can show it.
+  // A game in which staff testing commands changed the state is for testing: it
+  // feeds no stats, no Credits, no leaderboard and no clan threshold, unless
+  // every command was the owner's in a public or listed game. Decided here from
+  // what the game server recorded (see isAdminModified), never from a client,
+  // and stored so the panel can show it.
   const adminModified = isAdminModified(record);
   const counted =
     !adminModified &&

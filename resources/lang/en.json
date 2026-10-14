@@ -1150,7 +1150,7 @@
     "pause": "Pause",
     "players": "Players",
     "public_note": "Admin tools are disabled in public games. Kicks and the camera still work.",
-    "public_note_owner": "Public game: as the owner you may use commands that change it. The game is then marked admin-modified and counts for no one.",
+    "public_note_owner": "Public game: as the owner you may use state-changing admin commands. These actions are audited.",
     "refill_gold": "Refill my gold",
     "refill_troops": "Refill my troops",
     "resume": "Resume",

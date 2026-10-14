@@ -89,6 +89,10 @@ export const PERMISSIONS = [
   // players recruited from the browser or matchmaker). Owner only; the game is
   // then admin-modified and counts for nothing.
   "game.admin.public",
+  // ...and that game still counts: the owner's commands in a public or listed game
+  // do not invalidate its result (stats, Credits, leaderboard, clan threshold).
+  // Owner only; without it a command makes the game a test that counts for no one.
+  "game.admin.public.counted",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -275,3 +279,23 @@ export const ADMIN_COMMAND_PERMISSION: Readonly<
   eliminate: "game.admin.kill",
   force_win: "game.admin.force_end",
 };
+
+/**
+ * Whether a staff command run by `role` in a game of this kind makes the game a
+ * test that counts for nothing (no stats, Credits, leaderboard, clan threshold).
+ *
+ * Only the owner's commands in a public or listed game leave the result intact
+ * (`game.admin.public.counted`); every command in a private or unlisted game is
+ * a test, whoever runs it. The game server stamps this into the record and the
+ * API recomputes it from the recorded role and game kind, so neither a client
+ * nor a hand-edited record can buy a counted game.
+ */
+export function adminCommandInvalidatesResult(
+  role: RoleSubject,
+  game: { public: boolean; listed: boolean },
+): boolean {
+  return !(
+    (game.public || game.listed) &&
+    hasPermission(role, "game.admin.public.counted")
+  );
+}

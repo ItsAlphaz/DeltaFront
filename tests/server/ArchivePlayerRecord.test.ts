@@ -1,5 +1,8 @@
 import { GameType } from "@openfront/engine-api/game/GameTypes";
-import { PartialGameRecord } from "@openfront/shared/WireSchemas";
+import {
+  AdminActionRecordSchema,
+  PartialGameRecord,
+} from "@openfront/shared/WireSchemas";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cid,
@@ -98,6 +101,97 @@ describe("archived game records", () => {
     // No friends in the game is recorded as the field being absent.
     expect(b.friends).toBeUndefined();
     expect(archived().info.winner).toEqual(["player", ALICE]);
+  });
+
+  it("records the staff commands that were relayed, stamped by the server", async () => {
+    const OWNER = cid("owner");
+    const BOB = cid("bob");
+    const game = makeGame({
+      config: { gameType: GameType.Public },
+      deps: { archive },
+    });
+    const owner = makeClient({
+      clientID: OWNER,
+      persistentID: "owner-pid",
+      role: "owner",
+      publicId: "owner-pub",
+      ip: "1.1.1.1",
+    });
+    const bob = makeClient({
+      clientID: BOB,
+      persistentID: "bob-pid",
+      publicId: "bob-pub",
+      ip: "2.2.2.2",
+    });
+    game.joinClient(owner);
+    game.joinClient(bob);
+    startGame(game);
+    // The message carries a role and a made-up record; the server uses neither.
+    await mockWsOf(owner).emit({
+      type: "intent",
+      intent: {
+        type: "admin_command",
+        command: "give_gold",
+        target: BOB,
+        amount: 5,
+      },
+      adminActions: [],
+    } as never);
+    await vi.advanceTimersByTimeAsync(500); // the turn closes
+    for (const c of [owner, bob]) {
+      await mockWsOf(c).emit({
+        type: "winner",
+        winner: ["player", OWNER],
+        allPlayersStats: {},
+      });
+    }
+    expect(archive).toHaveBeenCalledTimes(1);
+    expect(
+      AdminActionRecordSchema.array().parse(archived().info.adminActions),
+    ).toEqual([
+      {
+        command: "give_gold",
+        role: "owner",
+        public: true,
+        listed: false,
+        invalidatesResult: false,
+        count: 1,
+      },
+    ]);
+    // The command itself is in the turns the API compares against.
+    expect(
+      archived().turns.some((t) =>
+        t.intents.some((i) => i.type === "admin_command"),
+      ),
+    ).toBe(true);
+  });
+
+  it("a game with no staff commands carries no adminActions", async () => {
+    const game = makeGame({
+      config: { gameType: GameType.Public },
+      deps: { archive },
+    });
+    const a = makeClient({
+      clientID: cid("a"),
+      persistentID: "a-pid",
+      ip: "1.1.1.1",
+    });
+    const b = makeClient({
+      clientID: cid("b"),
+      persistentID: "b-pid",
+      ip: "2.2.2.2",
+    });
+    game.joinClient(a);
+    game.joinClient(b);
+    startGame(game);
+    for (const c of [a, b]) {
+      await mockWsOf(c).emit({
+        type: "winner",
+        winner: ["player", cid("a")],
+        allPlayersStats: {},
+      });
+    }
+    expect(archived().info).not.toHaveProperty("adminActions");
   });
 
   it("records a player the winner vote has no stats for without a warn line", async () => {

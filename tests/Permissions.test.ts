@@ -1,6 +1,7 @@
 import {
   ADMIN_COMMAND_PERMISSION,
   ADMIN_COMMANDS,
+  adminCommandInvalidatesResult,
   API_ASSIGNABLE_ROLES,
   canActOnTarget,
   canChangeRole,
@@ -52,6 +53,7 @@ const MATRIX: Record<Permission, "mod" | "admin" | "owner"> = {
   "game.admin.force_end": "owner",
   "game.admin.impersonate_ai": "owner",
   "game.admin.public": "owner",
+  "game.admin.public.counted": "owner",
 };
 const RANK = { mod: 1, admin: 2, owner: 3 } as const;
 
@@ -90,6 +92,7 @@ describe("the role and permission matrix", () => {
       "game.admin.force_end",
       "game.admin.impersonate_ai",
       "game.admin.public",
+      "game.admin.public.counted",
     ] as const) {
       expect(hasPermission("admin", owner), owner).toBe(false);
     }
@@ -297,5 +300,43 @@ describe("no scattered role checks", () => {
       return /\brole\)?\s*[!=]==?\s*["'](owner|admin|mod|root)["']/.test(text);
     });
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("adminCommandInvalidatesResult: which commands make a game a test", () => {
+  const kinds = {
+    private: { public: false, listed: false },
+    listed: { public: false, listed: true },
+    public: { public: true, listed: false },
+  };
+  it("only the owner's command in a public or listed game leaves the result intact", () => {
+    expect(adminCommandInvalidatesResult("owner", kinds.public)).toBe(false);
+    expect(adminCommandInvalidatesResult("owner", kinds.listed)).toBe(false);
+    expect(adminCommandInvalidatesResult("root", kinds.public)).toBe(false);
+  });
+  it("every command in a private or unlisted game is a test, the owner's included", () => {
+    for (const role of ["owner", "admin", "mod", "root"]) {
+      expect(adminCommandInvalidatesResult(role, kinds.private), role).toBe(
+        true,
+      );
+    }
+  });
+  it("admin, mod and anyone else always invalidate, wherever they are", () => {
+    for (const role of [
+      "admin",
+      "mod",
+      "flagged",
+      "user",
+      "OWNER",
+      "",
+      null,
+      undefined,
+    ]) {
+      for (const kind of Object.values(kinds)) {
+        expect(adminCommandInvalidatesResult(role, kind), String(role)).toBe(
+          true,
+        );
+      }
+    }
   });
 });

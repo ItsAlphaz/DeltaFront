@@ -53,8 +53,9 @@ interface Row {
  * server relays ONLY if the sender's account holds the matching permission
  * (src/server/IntentAuthorization.ts), so a panel opened by someone who is not
  * staff, or a hand-built message, does nothing. Commands that change state are
- * refused in public and listed games unless the sender is the owner; a game that
- * received one is marked admin-modified and never counts for stats, Credits or the leaderboard.
+ * refused in public and listed games unless the sender is the owner, whose game
+ * still counts. In a private game a command makes it admin-modified: it never
+ * counts for stats, Credits or the leaderboard.
  *
  * What is drawn follows the role, from the same permission table the server
  * uses (@openfront/shared/Permissions).
@@ -156,6 +157,11 @@ export class GameAdminPanel extends LitElement implements Controller {
     );
   }
 
+  /** The owner's commands in a public or listed game leave its result intact. */
+  private get commandsKeepGameCounted(): boolean {
+    return this.isPublic && this.canUse("game.admin.public.counted");
+  }
+
   /**
    * Whether commands that change the game may be drawn at all: any game for the
    * owner, private games only for everyone else. The server decides for real
@@ -174,7 +180,9 @@ export class GameAdminPanel extends LitElement implements Controller {
     this.eventBus?.emit(
       new SendAdminCommandIntentEvent(command, target, amount),
     );
-    this.adminModified = true;
+    // Only a command that makes this a test game says so; the owner's in a public
+    // or listed game is audited and the game still counts.
+    if (!this.commandsKeepGameCounted) this.adminModified = true;
     this.last = t("sent", {
       command: t(`cmd_${command}`),
       name: target.displayName(),

@@ -313,16 +313,28 @@ describe("GameServer: staff intents over the socket", () => {
       expect(game.isListed()).toBe(opts.listed === true);
       await send(owner, { ...give, target: victim.clientID } as Intent);
       expect(relayed(added, "admin_command")).toHaveLength(1);
-      expect(game.isAdminModified()).toBe(true);
+      // A private or unlisted game is a test; a listed one is real players'.
+      expect(game.isAdminModified()).toBe(opts.listed !== true);
     }
   });
 
-  it("an owner's command in a public game is relayed, marks the game admin-modified, and is audited as one", async () => {
+  it("an owner's command in a public game is relayed and audited, and the game still counts", async () => {
     const { game, owner, victim, added } = setup({ gameType: GameType.Public });
     expect(game.isPublic()).toBe(true);
     await send(owner, { ...give, target: victim.clientID } as Intent);
     expect(relayed(added, "admin_command")).toHaveLength(1);
-    expect(game.isAdminModified()).toBe(true);
+    expect(game.isAdminModified()).toBe(false);
+    // What the record carries: who, where, and that it does not invalidate.
+    expect(game.adminActionRecords()).toEqual([
+      {
+        command: "give_gold",
+        role: "owner",
+        public: true,
+        listed: false,
+        invalidatesResult: false,
+        count: 1,
+      },
+    ]);
     expect(reportAdminAction).toHaveBeenCalledTimes(1);
     const report = reportAdminAction.mock.calls[0][0] as Record<
       string,
@@ -339,6 +351,10 @@ describe("GameServer: staff intents over the socket", () => {
         listed: false,
       },
     });
+    // The audit says what happened and where, not whether the game counts.
+    expect(JSON.stringify(report)).not.toMatch(
+      /invalid|admin.?modified|counts/i,
+    );
     // Identifiers and numbers only: no token, key or address.
     expect(JSON.stringify(report)).not.toMatch(
       /token|apikey|secret|password|ip/i,
@@ -419,5 +435,71 @@ describe("GameServer: staff intents over the socket", () => {
       action: "game:pause",
       actorPublicId: "pubadmin",
     });
+  });
+});
+
+describe("GameServer: what the record says about staff commands", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    reportAdminAction.mockClear();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllTimers();
+  });
+
+  function setup(config = {}, listed = false) {
+    const game = makeGame({ config: { maxPlayers: 10, ...config } });
+    if (listed) game.setListed(true);
+    const mk = (role: string | null, tag: string) => {
+      const c = makeClient({ clientID: cid(tag), role, publicId: `pub${tag}` });
+      game.joinClient(c);
+      return c;
+    };
+    const victim = mk(null, "victim");
+    const admin = mk("admin", "admin");
+    const owner = mk("owner", "owner");
+    startGame(game);
+    vi.spyOn(game as never, "addIntent" as never);
+    return { game, victim, admin, owner };
+  }
+  const send = (c: ReturnType<typeof makeClient>, intent: Intent) =>
+    mockWsOf(c).emit({ type: "intent", intent } as never);
+
+  it("a private game's commands, the owner's too, make it a test", async () => {
+    for (const who of ["owner", "admin"] as const) {
+      const { game, victim, ...rest } = setup({ gameType: GameType.Private });
+      await send(rest[who], {
+        ...eliminate,
+        target: victim.clientID,
+      } as Intent);
+      expect(game.isAdminModified(), who).toBe(true);
+      expect(game.adminActionRecords()[0]).toMatchObject({
+        role: who,
+        public: false,
+        invalidatesResult: true,
+      });
+    }
+  });
+
+  it("an owner's commands in a listed game keep it counted; a count per distinct command", async () => {
+    const { game, victim, owner } = setup({}, true);
+    await send(owner, { ...give, target: victim.clientID } as Intent);
+    await send(owner, { ...give, target: victim.clientID } as Intent);
+    await send(owner, { ...eliminate, target: victim.clientID } as Intent);
+    expect(game.isAdminModified()).toBe(false);
+    expect(
+      game.adminActionRecords().map((a) => [a.command, a.count, a.listed]),
+    ).toEqual([
+      ["give_gold", 2, true],
+      ["eliminate", 1, true],
+    ]);
+  });
+
+  it("a command refused in a public game leaves no trace in the record", async () => {
+    const { game, victim, admin } = setup({ gameType: GameType.Public });
+    await send(admin, { ...eliminate, target: victim.clientID } as Intent);
+    expect(game.adminActionRecords()).toEqual([]);
+    expect(game.isAdminModified()).toBe(false);
   });
 });

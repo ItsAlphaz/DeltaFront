@@ -35,6 +35,7 @@ role name.
 | `admin.roles.manage_admins`, `admin.clans.delete`, `admin.server.manage`                              |     |       |   x   |
 | `game.admin.resources`, `.force_end`, `.impersonate_ai` (arbitrary game state)                        |     |       |   x   |
 | `game.admin.public` (state-changing commands in public or listed games)                               |     |       |   x   |
+| `game.admin.public.counted` (...and the game still counts)                                            |     |       |   x   |
 
 `tests/Permissions.test.ts` spells the whole table out; moving a permission between
 roles means changing that test, on purpose.
@@ -119,10 +120,18 @@ answer at join, so a demotion applies to the next join.
   public or listed game also `game.admin.public`, which only the owner holds. An admin
   or moderator is refused there (403, "owner-only") exactly as before; kicks, pauses and
   the camera still work for them. The panel offers an admin "Admin tools are disabled in
-  public games" instead of the tools. The owner's command in a public game makes it
-  admin-modified like any other, so it counts as no one's result.
-- A game that receives one is **admin-modified**: the API derives that from the recorded
-  turns and gives it no stats, Credits, clan-threshold credit or leaderboard entry.
+  public games" instead of the tools.
+- Whether a command makes the game a test is `adminCommandInvalidatesResult` (shared):
+  **only the owner's commands in a public or listed game leave the result intact**
+  (`game.admin.public.counted`); every command in a private or unlisted game, the
+  owner's included, makes it **admin-modified**: no stats, Credits, clan-threshold credit
+  or leaderboard entry. The game server stamps what it relayed into the record
+  (`info.adminActions`: command, the sender's stored role, whether the game was public or
+  listed, a count), and the API recomputes the verdict from the role and game kind, never
+  from a stored "harmless" flag. It fails closed: an `admin_command` in the recorded turns
+  that the metadata does not account for (an older server, a damaged record) invalidates.
+  The audit log records owner commands in public games like any other and says nothing
+  about the result.
 - Staff kicks, pauses and commands are reported to `/game_admin/audit` (best effort,
   always in the game server's own log), with whether the game was `public` or `listed`.
 - Every command that runs also appears to the players in that game as a public match

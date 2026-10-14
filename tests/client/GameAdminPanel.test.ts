@@ -1,5 +1,7 @@
 import { GameType, PlayerType } from "@openfront/engine-api/game/GameTypes";
 import { EventBus } from "@openfront/shared/EventBus";
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { showInGameConfirm } = vi.hoisted(() => ({
@@ -297,6 +299,58 @@ describe("<game-admin-panel>", () => {
     expect(emitted.some((e) => e instanceof SendAdminCommandIntentEvent)).toBe(
       true,
     );
+  });
+
+  it.each([
+    ["public", { gameType: GameType.Public }],
+    ["listed", { gameType: GameType.Private, listed: true }],
+  ])(
+    "an owner's command in a %s game does not say the game is admin-modified: it still counts",
+    async (_kind, cfg) => {
+      const { panel } = setup({ role: "owner", ...cfg });
+      await open(panel);
+      await select(panel, "victim01");
+      button(panel, "game_admin.gold_give")!.click();
+      await panel.updateComplete;
+      expect(panel.querySelector("#game-admin-modified")).toBeNull();
+    },
+  );
+
+  it("an owner's command in a private game does make it a test, and says so", async () => {
+    const { panel } = setup({ role: "owner" });
+    await open(panel);
+    await select(panel, "victim01");
+    button(panel, "game_admin.gold_give")!.click();
+    await panel.updateComplete;
+    expect(panel.querySelector("#game-admin-modified")).not.toBeNull();
+  });
+
+  it("an admin's private-game command still marks the game admin-modified", async () => {
+    const { panel } = setup({ role: "admin" });
+    await open(panel);
+    await select(panel, "victim01");
+    button(panel, "game_admin.eliminate")!.click();
+    await new Promise((r) => setTimeout(r));
+    await panel.updateComplete;
+    expect(panel.querySelector("#game-admin-modified")).not.toBeNull();
+  });
+
+  it("the words: the public-game owner note no longer claims the game counts for no one", () => {
+    const en = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, "../../resources/lang/en.json"),
+        "utf8",
+      ),
+    ).game_admin;
+    expect(en.public_note_owner).toBe(
+      "Public game: as the owner you may use state-changing admin commands. These actions are audited.",
+    );
+    expect(en.public_note_owner).not.toMatch(
+      /admin-modified|counts for no|count/i,
+    );
+    // The private-game warnings keep saying it, because there it is true.
+    expect(en.modified_banner).toMatch(/will not count/);
+    expect(en.tools_note).toMatch(/admin-modified/);
   });
 
   it("a listed game counts as public for the panel too", async () => {

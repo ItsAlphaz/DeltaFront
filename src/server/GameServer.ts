@@ -28,7 +28,12 @@ import {
 import { isAdminRole } from "@openfront/shared/ApiSchemas";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
-import { hasPermission } from "@openfront/shared/Permissions";
+import {
+  adminCommandInvalidatesResult,
+  hasPermission,
+  staffRoleOf,
+  type AdminCommand,
+} from "@openfront/shared/Permissions";
 import { createPartialGameRecord } from "@openfront/shared/SharedUtil";
 import {
   ClientMessage,
@@ -53,6 +58,7 @@ import {
   ServerTurnMessage,
   WireGameStartInfo,
   WireGameStartInfoSchema,
+  type AdminActionRecord,
 } from "@openfront/shared/WireSchemas";
 import {
   createGameWireContext,
@@ -229,10 +235,14 @@ export class GameServer {
   private startDeferred = false;
   private ended = false;
   private paused = false;
-  // Set once a staff testing command has been relayed into this game. Such a
-  // game is for testing: the API leaves it out of stats, Credits and the
-  // leaderboard (it derives that from the recorded commands themselves).
+  // Set once a staff command that makes this game a test has been relayed into
+  // it: the API then leaves the game out of stats, Credits, the leaderboard and
+  // clan thresholds. The owner's commands in a public or listed game do not
+  // (adminCommandInvalidatesResult); the record carries what was run so the API
+  // decides the same way.
   private adminModified = false;
+  // Every staff command relayed, by (command, role, game kind), for the record.
+  private adminActions = new Map<string, AdminActionRecord>();
   private _startTime: number | null = null;
   private hasReachedMaxPlayerCount: boolean = false;
 
@@ -509,7 +519,6 @@ export class GameServer {
         // Authorized by authorizeIntent (permission per command; in a public or
         // listed game only the owner's game.admin.public). From here the game is
         // admin-modified for good.
-        this.adminModified = true;
         this.auditStaffAction(actor, "game:command", {
           command: stamped.command,
           amount: stamped.amount ?? null,
@@ -517,7 +526,12 @@ export class GameServer {
         });
         const paused = this.paused;
         const outcome = finish({ status: 200 }, paused ? "paused" : undefined);
-        if (!paused) this.addIntent(stamped);
+        // Only a command that reaches a turn is part of the game (and of the
+        // record's turns), so only that one can change what the game counts for.
+        if (!paused) {
+          this.recordAdminAction(actor, stamped.command);
+          this.addIntent(stamped);
+        }
         return outcome;
       }
 
@@ -533,7 +547,35 @@ export class GameServer {
     }
   }
 
-  /** Whether a staff testing command has changed this game's state. */
+  // Notes a relayed staff command for the record, and whether it makes this a
+  // test game. The role is the connection's stored one, the game kind is the
+  // server's own: nothing here comes from a message.
+  private recordAdminAction(actor: IntentActor, command: AdminCommand): void {
+    const role = staffRoleOf(actor.role);
+    if (role === null) return;
+    const kind = { public: this.isPublic(), listed: this.isListed() };
+    const invalidatesResult = adminCommandInvalidatesResult(role, kind);
+    if (invalidatesResult) this.adminModified = true;
+    const key = `${command}|${role}|${kind.public}|${kind.listed}`;
+    const existing = this.adminActions.get(key);
+    if (existing !== undefined) existing.count++;
+    else {
+      this.adminActions.set(key, {
+        command,
+        role,
+        ...kind,
+        invalidatesResult,
+        count: 1,
+      });
+    }
+  }
+
+  /** The staff commands relayed in this game, for the record. */
+  public adminActionRecords(): AdminActionRecord[] {
+    return [...this.adminActions.values()].map((a) => ({ ...a }));
+  }
+
+  /** Whether a staff command has made this game a test (it then counts for nothing). */
   public isAdminModified(): boolean {
     return this.adminModified;
   }
@@ -2145,6 +2187,7 @@ export class GameServer {
         this.gameStartInfo.tribes,
         [...this.reports.values()],
         this.publicGameType,
+        this.adminActionRecords(),
       ),
     );
   }
