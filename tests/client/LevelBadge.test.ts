@@ -340,8 +340,11 @@ describe("progression helpers", () => {
   });
 
   it("maps ineligible reasons, unknown ones to the generic line", () => {
-    expect(ineligibleReasonKey("too_short")).toBe(
-      "progression.ineligible_too_short",
+    expect(ineligibleReasonKey("left_early")).toBe(
+      "progression.ineligible_left_early",
+    );
+    expect(ineligibleReasonKey("no_winner")).toBe(
+      "progression.ineligible_no_winner",
     );
     expect(ineligibleReasonKey("brand_new_reason")).toBe(
       "progression.ineligible_generic",
@@ -349,6 +352,32 @@ describe("progression helpers", () => {
     expect(ineligibleReasonKey("constructor")).toBe(
       "progression.ineligible_generic",
     );
+  });
+
+  it("has no copy for the rules that no longer exist: a game stored under them reads as the generic line", () => {
+    // too short, staff-modified, staff actor and eliminated early used to pay
+    // nothing; they now pay a reduced award or the player's normal XP, and no
+    // line says they don't. An old stored game still carries the reason.
+    for (const retired of [
+      "too_short",
+      "admin_modified",
+      "admin_actor",
+      "eliminated_early",
+    ]) {
+      expect(ineligibleReasonKey(retired), retired).toBe(
+        "progression.ineligible_generic",
+      );
+    }
+    const copy = JSON.stringify(en.progression);
+    expect(copy).not.toMatch(/admin tools|Staff tests|too short to earn/i);
+    for (const key of [
+      "ineligible_admin_actor",
+      "ineligible_admin_modified",
+      "ineligible_too_short",
+      "ineligible_eliminated_early",
+    ]) {
+      expect(en.progression, key).not.toHaveProperty(key);
+    }
   });
 
   it("explains a game whose stats the votes did not agree on", () => {
@@ -367,8 +396,8 @@ describe("progression helpers", () => {
       "Singleplayer games don't earn XP.",
     );
     // Only that reason: the others say what happened in any game.
-    expect(ineligibleReasonKey("too_short", GameType.Singleplayer)).toBe(
-      "progression.ineligible_too_short",
+    expect(ineligibleReasonKey("left_early", GameType.Singleplayer)).toBe(
+      "progression.ineligible_left_early",
     );
     expect(ineligibleReasonKey("unverified", GameType.Public)).toBe(
       "progression.ineligible_unverified",

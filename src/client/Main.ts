@@ -704,6 +704,11 @@ class Client {
       "matchmaking-requeue",
       this.handleMatchmakingRequeue.bind(this),
     );
+    // XP was paid while a game was still on (an eliminated player's reduced
+    // award): the nav's level and bar catch up.
+    document.addEventListener("xp-awarded", () => {
+      void import("./PendingXp").then((m) => m.refreshNav());
+    });
 
     const hlpModal = document.querySelector("help-modal") as HelpModal | null;
     if (!hlpModal) {

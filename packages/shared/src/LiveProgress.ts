@@ -8,8 +8,10 @@ import { AdminActionRecordSchema } from "./WireSchemas";
  * who eliminated whom, from the majority-voted live stats; who is connected and
  * who left, from its roster; who acted and who ran staff commands, from the
  * intents it stamps; and, once the game is settled, the result). The API turns
- * them into provisional XP with the very functions that decide the final award
- * and never writes a ledger row from them: only the archived game does.
+ * them into provisional XP with the very functions that decide the final award.
+ * It writes a ledger row from them in one case only: a player who is eliminated
+ * is paid their reduced award at once (see earlyXp.ts), exactly once. Everything
+ * else is paid by the archived game.
  *
  * Nothing in it comes from a client message. A client's own live-stats vote only
  * counts if a majority of the game's IPs agree with it.
@@ -43,10 +45,15 @@ export const LiveProgressPlayerSchema = z.object({
   // The account behind the connection (the user's UUID), null for none.
   persistentID: z.string().max(64).nullable(),
   alive: z.boolean(),
+  // Eliminated: a spawned player who lost their last tile (the agreed
+  // snapshot carries a finishing place for them). Not the same as `alive:
+  // false`, which is also what a player who has not spawned yet looks like.
+  // Sticky: once seen eliminated, always. Absent from an older server's report.
+  eliminated: z.boolean().default(false),
   // The human who eliminated them, when one did.
   killedBy: ID.nullable(),
   // The latest agreed snapshot turn they were alive at, and the first they were
-  // seen dead at: their elimination fell between the two.
+  // seen eliminated at: their elimination fell between the two.
   aliveAtTurn: Turn.nullable(),
   deadAtTurn: Turn.nullable(),
   // Connected right now, and, when gone, the turn their connection was lost at

@@ -179,25 +179,47 @@ describeDb("GET /users/@me/xp/:gameId", () => {
     expect((await get(h, null, `/users/@me/xp/${id}`)).status).toBe(401);
   });
 
+  it("answers a short game as the reduced award it paid, not as nothing", async () => {
+    const h = await harness();
+    const key = await createServerKey(h);
+    const users = [];
+    for (let i = 0; i < 4; i++) users.push(await makeUser(h));
+    const id = gameId();
+    await submitGame(
+      h,
+      key,
+      buildRecord(id, { ...ffa(users), durationSeconds: 60 }),
+    );
+    for (const user of users) {
+      const body = GameXpResponseSchema.parse(
+        await (await get(h, user, `/users/@me/xp/${id}`)).json(),
+      );
+      if (!body.eligible) throw new Error("a short game is paid");
+      expect(body.mode).toBe("reduced");
+      expect(body.breakdown.reducedReason).toBe("short_game");
+      expect(body.breakdown.total).toBe(25);
+    }
+  });
+
   it("explains an ineligible game, and a game from before progression", async () => {
     const h = await harness();
     const key = await createServerKey(h);
     const users = [];
     for (let i = 0; i < 4; i++) users.push(await makeUser(h));
-    const priv = gameId();
-    // a game that was too short to earn anything, even a reduced award
+    const ended = gameId();
+    // a game called off without a winner: nothing is paid to the player still in it
     await submitGame(
       h,
       key,
-      buildRecord(priv, { ...ffa(users), durationSeconds: 60 }),
+      buildRecord(ended, { ...ffa(users), winner: null }),
     );
     const res = GameXpResponseSchema.parse(
-      await (await get(h, users[0], `/users/@me/xp/${priv}`)).json(),
+      await (await get(h, users[0], `/users/@me/xp/${ended}`)).json(),
     );
     expect(res).toEqual({
-      gameId: priv,
+      gameId: ended,
       eligible: false,
-      reason: "too_short",
+      reason: "no_winner",
     });
 
     const old = gameId();
@@ -933,15 +955,18 @@ describeDb("clan XP and level badges in lists", () => {
     await q(
       h,
       "INSERT INTO clan_members (clan_id, user_id, role) VALUES ($1, $2, 'leader'), ($1, $3, 'member')",
-      [clan.id, users[0].id, users[3].id],
+      [clan.id, users[0].id, users[1].id],
     );
     const spec = ffa(users);
+    // the member stays in the game to the end (an eliminated player is on the
+    // reduced award, which has no clan XP)
+    spec.players[1] = { user: users[1], stats: { finalTiles: "400" } };
     spec.players[0].clanTag = "DLT";
-    spec.players[3].clanTag = "DLT";
+    spec.players[1].clanTag = "DLT";
     await submitGame(h, key, buildRecord(gameId(), spec));
 
     const info = await (await get(h, users[0], "/clans/DLT")).json();
-    expect(info.xp).toBe(75 + 20);
+    expect(info.xp).toBe(75 + 30);
     const members = await (await get(h, users[0], "/clans/DLT/members")).json();
     const leader = members.results.find(
       (m: { role: string }) => m.role === "leader",
@@ -951,7 +976,7 @@ describeDb("clan XP and level badges in lists", () => {
     const member = members.results.find(
       (m: { role: string }) => m.role === "member",
     );
-    expect(member.xp).toBe(20);
+    expect(member.xp).toBe(30);
 
     // with progression off the clan pages carry none of it
     const off = await harness("accounts,clans");

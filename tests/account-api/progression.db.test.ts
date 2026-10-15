@@ -106,8 +106,10 @@ describeDb("XP from a finished game", () => {
     const { h, key, users } = await setup();
     const id = await play(h, key, ffa6(users));
 
-    // completed 100 + placement + victory 250 + first game 100 + first win 150
-    const expected = [750, 300, 250, 200, 200, 200];
+    // The winner and the runner-up, who stayed in it: completed 100 + placement
+    // + victory 250 + first game 100 + first win 150. The four who were
+    // eliminated are on the reduced award: 100 x 0.25.
+    const expected = [750, 300, 25, 25, 25, 25];
     for (let i = 0; i < 6; i++) {
       const r = await resultOf(h, id, users[i]);
       expect(r?.xp, `player ${i + 1}`).toBe(expected[i]);
@@ -177,21 +179,46 @@ describeDb("XP from a finished game", () => {
     ).rejects.toThrow(/xp_ledger_award_once/);
   });
 
-  it("pays a game that is too short nothing, whatever kind it was", async () => {
+  it("pays a game that is short the reduced award, not nothing, whatever kind it was", async () => {
     const { h, key, users } = await setup();
+    const reasons = { Public: "short_game", Private: "private_game" } as const;
     for (const type of ["Public", "Private"] as const) {
       const id = await play(h, key, ffa6(users, { type, durationSeconds: 60 }));
       for (const user of users) {
-        expect((await resultOf(h, id, user))?.xp_result).toEqual({
-          eligible: false,
-          reason: "too_short",
+        const r = (await resultOf(h, id, user))!;
+        // 100 x 0.25, lifetime XP only: not even the winner earns a win in it
+        expect(r.xp).toBe(25);
+        expect(r.xp_result).toMatchObject({
+          eligible: true,
+          mode: "reduced",
+          season: null,
+          challenges: [],
+        });
+        expect(r.xp_result.breakdown.reducedReason).toBe(reasons[type]);
+        expect(r.xp_result.breakdown).toMatchObject({
+          win: 0,
+          placement: 0,
+          firstGame: 0,
+          firstWin: 0,
         });
       }
     }
-    expect(await progressOf(h, users[0])).toBeNull();
+    // one award per game
+    expect((await progressOf(h, users[0]))?.lifetime).toBe(50);
+    expect(await ledgerCount(h, users[0])).toBe(2);
   });
 
-  it("pays nothing for a game staff tests changed, but counts an owner's commands in a public game", async () => {
+  it("a game just inside the minimum is a full game; the next second short of it is reduced", async () => {
+    const { h, key, users } = await setup();
+    const full = await play(h, key, ffa6(users, { durationSeconds: 120 }));
+    expect((await resultOf(h, full, users[0]))?.xp_result.mode).toBe("full");
+    const short = await play(h, key, ffa6(users, { durationSeconds: 119 }));
+    expect((await resultOf(h, short, users[0]))?.xp_result.mode).toBe(
+      "reduced",
+    );
+  });
+
+  it("pays a game staff tests changed at the reduced rate to everyone, and an owner's commands in a public game in full", async () => {
     const { h, key, users } = await setup();
     const command = (clientID: string) => ({
       type: "admin_command",
@@ -200,7 +227,8 @@ describeDb("XP from a finished game", () => {
       amount: 1000,
       clientID,
     });
-    // a plain admin's command in a public game: the game is a test
+    // a plain admin's command in a public game: the game is a test, so no
+    // stats or Credits, and everyone in it earns reduced XP
     await q(h, "UPDATE users SET role = 'admin' WHERE id = $1", [users[5].id]);
     const tested = await play(
       h,
@@ -219,14 +247,27 @@ describeDb("XP from a finished game", () => {
         ],
       }),
     );
-    expect((await resultOf(h, tested, users[0]))?.xp_result).toEqual({
-      eligible: false,
-      reason: "admin_modified",
+    const [testedGame] = await q(
+      h,
+      "SELECT counts_for_stats, admin_modified FROM games WHERE game_code = $1",
+      [tested],
+    );
+    expect(testedGame).toEqual({
+      counts_for_stats: false,
+      admin_modified: true,
     });
-    expect(await progressOf(h, users[0])).toBeNull();
+    for (const user of users) {
+      const r = (await resultOf(h, tested, user))!;
+      expect(r.xp, user.id).toBe(25);
+      expect(r.xp_result).toMatchObject({ eligible: true, mode: "reduced" });
+      expect(r.xp_result.breakdown.reducedReason).toBe("admin_modified");
+      expect(r.xp_result.flags).toContain("admin_counted");
+    }
+    // the stats and Credits side of a test is untouched by this
+    expect(await creditsOf(h, users[0])).toBe(0);
 
-    // the owner's command in a public game keeps the result: everyone else is
-    // paid, the owner (who used the command) is not
+    // the owner's command in a public game keeps the result: everyone is paid
+    // in full as usual, the owner too
     await q(h, "UPDATE users SET role = 'owner' WHERE id = $1", [users[5].id]);
     const counted = await play(
       h,
@@ -255,13 +296,46 @@ describeDb("XP from a finished game", () => {
     expect((await resultOf(h, counted, users[0]))?.xp_result.flags).toContain(
       "admin_counted",
     );
-    expect((await resultOf(h, counted, users[5]))?.xp_result).toEqual({
-      eligible: false,
-      reason: "admin_actor",
-    });
-    expect(await progressOf(h, users[5])).toBeNull();
+    // the owner, eliminated: the death award, paid like any eliminated player
+    const owner = (await resultOf(h, counted, users[5]))!;
+    expect(owner.xp).toBe(25);
+    expect(owner.xp_result).toMatchObject({ eligible: true, mode: "reduced" });
+    expect(owner.xp_result.breakdown.reducedReason).toBe("eliminated");
     // ...and the Credits side is untouched by progression
     expect(await creditsOf(h, users[0])).toBeGreaterThan(0);
+  });
+
+  it("an owner who ran commands in a public game and won is paid in full, like any winner", async () => {
+    const { h, key, users } = await setup();
+    await q(h, "UPDATE users SET role = 'owner' WHERE id = $1", [users[0].id]);
+    const id = await play(
+      h,
+      key,
+      ffa6(users, {
+        extraIntents: [
+          {
+            type: "admin_command",
+            command: "give_gold",
+            target: clientIdOf(0),
+            amount: 1000,
+            clientID: clientIdOf(0),
+          },
+        ],
+        adminActions: [
+          {
+            command: "give_gold",
+            role: "owner",
+            public: true,
+            listed: false,
+            invalidatesResult: false,
+            count: 1,
+          },
+        ],
+      }),
+    );
+    const r = (await resultOf(h, id, users[0]))!;
+    expect(r.xp).toBe(750);
+    expect(r.xp_result).toMatchObject({ eligible: true, mode: "full" });
   });
 
   it("pays nothing to a player who did not act", async () => {
@@ -309,7 +383,7 @@ describeDb("XP from a finished game", () => {
     expect(winner.xp).toBe(Math.floor((100 + 150 + 250) * 0.1));
   });
 
-  it("classifies why a player did not complete: eliminated early, never spawned, no winner", async () => {
+  it("classifies why a player earned nothing: never spawned, no winner; one eliminated early still earns the reduced award", async () => {
     const { h, key, users } = await setup(4);
     const id = await play(h, key, {
       allAct: true,
@@ -320,9 +394,12 @@ describeDb("XP from a finished game", () => {
         { user: users[3], fate: "never-spawned" },
       ],
     });
-    expect((await resultOf(h, id, users[2]))?.xp_result.reason).toBe(
-      "eliminated_early",
-    );
+    // a death inside the first two minutes is still a death: reduced, not nothing
+    expect((await resultOf(h, id, users[2]))?.xp_result).toMatchObject({
+      eligible: true,
+      mode: "reduced",
+    });
+    expect((await resultOf(h, id, users[2]))?.xp).toBe(25);
     expect((await resultOf(h, id, users[3]))?.xp_result.reason).toBe(
       "not_spawned",
     );
@@ -430,8 +507,9 @@ describeDb("daily bonuses and the daily soft cap", () => {
   it("spends the first-win bonus only on a win", async () => {
     const { h, key, users } = await setup();
     const id = await play(h, key, ffa6(users));
+    // the runner-up stayed in the game and lost: the first-game bonus, not the first-win one
     expect(
-      (await resultOf(h, id, users[3]))?.xp_result.breakdown,
+      (await resultOf(h, id, users[1]))?.xp_result.breakdown,
     ).toMatchObject({
       firstGame: 100,
       firstWin: 0,
@@ -439,7 +517,7 @@ describeDb("daily bonuses and the daily soft cap", () => {
     const days = await q(
       h,
       "SELECT first_game_ref, first_win_ref FROM xp_daily WHERE user_id = $1",
-      [users[3].id],
+      [users[1].id],
     );
     expect(days[0]).toEqual({ first_game_ref: id, first_win_ref: null });
     const won = await q(
@@ -650,20 +728,24 @@ describeDb("clan XP", () => {
     );
     await q(
       h,
-      "INSERT INTO clan_members (clan_id, user_id, role) VALUES ($1, $2, 'leader'), ($1, $3, 'member')",
-      [clan.id, users[0].id, users[3].id],
+      "INSERT INTO clan_members (clan_id, user_id, role) VALUES ($1, $2, 'leader'), ($1, $3, 'member'), ($1, $4, 'member')",
+      [clan.id, users[0].id, users[1].id, users[3].id],
     );
     const spec = ffa6(users);
     spec.players[0].clanTag = "DLT";
+    spec.players[1].clanTag = "DLT";
+    // eliminated: a reduced award, lifetime XP only, so no clan XP
     spec.players[3].clanTag = "DLT";
     // claims a clan they are not a member of: no clan XP
-    spec.players[1].clanTag = "DLT";
+    spec.players[2].clanTag = "DLT";
     const id = await play(h, key, spec);
     const winner = (await resultOf(h, id, users[0]))!;
     expect(winner.xp).toBe(750);
     expect(winner.clan_xp).toBe(75);
-    expect((await resultOf(h, id, users[3]))!.clan_xp).toBe(20);
-    expect((await resultOf(h, id, users[1]))!.clan_xp).toBe(0);
+    // the runner-up, who stayed in it: 300 XP, 10% to the clan
+    expect((await resultOf(h, id, users[1]))!.clan_xp).toBe(30);
+    expect((await resultOf(h, id, users[3]))!.xp).toBe(25);
+    expect((await resultOf(h, id, users[3]))!.clan_xp).toBe(0);
     expect((await resultOf(h, id, users[2]))!.clan_xp).toBe(0);
     // personal XP is untouched by it: the match XP is paid in full
     expect(await ledgerCount(h, users[0])).toBe(1);

@@ -5,7 +5,7 @@ import {
 } from "@openfront/engine-api/StatsSchemas";
 import { GAMEPLAY_INTENTS } from "@openfront/shared/LiveProgress";
 import type { GameRecord } from "@openfront/shared/WireSchemas";
-import { ACCOUNT_RULES, ECONOMY, PERMILLE, PROGRESSION } from "./constants";
+import { ECONOMY, PERMILLE, PROGRESSION } from "./constants";
 import { countedVerdict, winnerClientIds, type CountedFacts } from "./stats";
 
 /**
@@ -29,10 +29,14 @@ import { countedVerdict, winnerClientIds, type CountedFacts } from "./stats";
  * nowhere else:
  *  - "full": a qualifying public game (the same rule as stats and Credits):
  *    every XP line, season XP, challenges, clan XP.
- *  - "reduced": a private or unlisted game, or a public one with too few
- *    humans: completed-match and elimination XP at a quarter, to lifetime XP
+ *  - "reduced": completed-match and elimination XP at a quarter, to lifetime XP
  *    only (no placement, victory or daily bonus, no season, challenge or clan).
- *  - "none": singleplayer, ranked, a game staff tests changed, or one too short.
+ *    A private or unlisted game, a public one with too few humans or one that
+ *    was short, a game staff commands changed, and every player who was
+ *    eliminated, whatever the game: a death is a reduced award, secured the
+ *    moment it is known (earlyXp.ts).
+ *  - "none": singleplayer, ranked, and (per player) leaving while still in the
+ *    game, a guest, someone who never played.
  */
 export type ProgressionMode = "full" | "reduced" | "none";
 
@@ -41,10 +45,15 @@ export type ProgressionReason =
   | "public_too_few_humans"
   | "private_game"
   | "unlisted_game"
-  | "singleplayer"
+  // A game that ended inside the stats minimum (ACCOUNT_RULES.countedGameMinSeconds).
+  | "short_game"
+  // Staff commands changed the game (see isAdminModified): the competitive
+  // parts do not apply, the player's own XP still does.
   | "admin_modified"
-  | "ranked"
-  | "too_short";
+  // The player was eliminated: the reduced award for a death.
+  | "eliminated"
+  | "singleplayer"
+  | "ranked";
 
 export interface ProgressionEligibility {
   mode: ProgressionMode;
@@ -53,9 +62,15 @@ export interface ProgressionEligibility {
 
 /**
  * The game-level progression answer. Built on `countedVerdict`, so "full" is
- * exactly "counts for stats"; what differs is that a private game, an
- * unlisted one and a public game short of humans now earn a reduced award
- * instead of nothing.
+ * "counts for stats" (the same public, listed, populated game), except that
+ * staff commands and a short game no longer take the XP away: they make the
+ * game "reduced", lifetime XP only. Only a game that cannot pay at all is
+ * "none": singleplayer and ranked.
+ *
+ * `adminModified` is the verdict of `isAdminModified`: it is true only when a
+ * command made the game a test. The owner's commands in a public or listed game
+ * do not, so that game stays "full"; every other staff command makes it
+ * "reduced" (for everyone in it, the staff member too).
  */
 export function progressionEligibility(
   facts: CountedFacts & { listed?: boolean | null },
@@ -64,45 +79,77 @@ export function progressionEligibility(
     mode: "none",
     reason,
   });
-  // Staff tests are never rewarded, whatever kind of game they were in.
-  if (facts.adminModified === true) return none("admin_modified");
+  const reduced = (reason: ProgressionReason): ProgressionEligibility => ({
+    mode: "reduced",
+    reason,
+  });
   if (facts.type === GameType.Singleplayer) return none("singleplayer");
-  const verdict = countedVerdict(facts);
-  if (verdict.counted) return { mode: "full", reason: "normal_public" };
-  let reduced: ProgressionEligibility;
+  // Staff commands are judged below; they must not hide why the game is what it is.
+  const verdict = countedVerdict({ ...facts, adminModified: false });
+  if (verdict.counted) {
+    return facts.adminModified === true
+      ? reduced("admin_modified")
+      : { mode: "full", reason: "normal_public" };
+  }
   switch (verdict.reason) {
     case "not_server":
       return none("singleplayer");
     case "ranked":
       return none("ranked");
     case "private_game":
-      reduced = {
-        mode: "reduced",
-        reason: facts.listed === false ? "unlisted_game" : "private_game",
-      };
-      break;
+      return reduced(facts.listed === false ? "unlisted_game" : "private_game");
     case "too_few_humans":
-      reduced = { mode: "reduced", reason: "public_too_few_humans" };
-      break;
+      return reduced("public_too_few_humans");
     default:
-      return none("too_short");
+      return reduced("short_game");
   }
-  // Even a reduced award needs a game that lasted (the same minimum as stats).
-  if (facts.durationSeconds < ACCOUNT_RULES.countedGameMinSeconds) {
-    return none("too_short");
-  }
-  return reduced;
+}
+
+/** The reason on a reduced award: the game's own when it was reduced anyway, else the death. */
+export function reducedReasonFor(
+  eligibility: ProgressionEligibility,
+): ProgressionReason {
+  return eligibility.mode === "reduced" ? eligibility.reason : "eliminated";
 }
 
 /** Why a player earned nothing from a game that otherwise counted. */
 export type PlayerIneligibleReason =
   | "guest"
   | "not_spawned"
-  | "eliminated_early"
   | "left_early"
   | "no_winner"
-  | "no_action"
-  | "admin_actor";
+  | "no_action";
+
+/**
+ * Where a player stood when the game was recorded: eliminated (a death, at the
+ * tick `killedAt`), still in it, or never in it at all (never owned land).
+ */
+export type PlayerStanding = "eliminated" | "survived" | "not_spawned";
+
+export function playerStanding(
+  record: Pick<GameRecord, "info">,
+  clientID: string,
+): PlayerStanding {
+  const player = record.info.players.find((p) => p.clientID === clientID);
+  if (player === undefined) return "not_spawned";
+  if (player.stats?.killedAt !== undefined) return "eliminated";
+  const finalTiles = player.stats?.finalTiles;
+  return finalTiles !== undefined && finalTiles > 0n
+    ? "survived"
+    : "not_spawned";
+}
+
+/** Whether the player was eliminated before the elimination minimum (a free kill, not a game played). */
+export function eliminatedBeforeMinimum(
+  record: Pick<GameRecord, "info">,
+  clientID: string,
+): boolean {
+  const killedAt = record.info.players.find((p) => p.clientID === clientID)
+    ?.stats?.killedAt;
+  return (
+    killedAt !== undefined && killedAt < BigInt(ECONOMY.minEliminationTick)
+  );
+}
 
 /** The clients that took at least one gameplay action. Intents are stamped by the server. */
 export function clientsWhoActed(turns: GameRecord["turns"]): Set<string> {
@@ -300,7 +347,7 @@ export interface MatchXpBreakdown {
   playerCount: number;
   capped: boolean;
   softCapped: boolean;
-  /** Set on a reduced game: why (private_game, unlisted_game, public_too_few_humans). */
+  /** Set on a reduced award: why (private_game, unlisted_game, public_too_few_humans, short_game, admin_modified, eliminated). */
   reducedReason?: ProgressionReason;
   /** Match XP actually paid. */
   total: number;
@@ -379,7 +426,7 @@ export interface ReducedXpInput {
 }
 
 /**
- * A reduced game's award: completed match plus valid eliminations, times the
+ * A reduced award: completed match plus valid eliminations, times the
  * reduced multiplier, in whole numbers (100 + 25 = 125 → 31). No placement,
  * victory, daily bonus, player-count or repeated-opponent factor, and it does not
  * use up the day's first-game or first-win bonus.

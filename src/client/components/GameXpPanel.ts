@@ -651,7 +651,7 @@ export class GameXpPanel extends LitElement {
   // Full panel (WinModal): rolling caption, segmented bar, counter, level.
   // ---------------------------------------------------------------------------
 
-  private captionContent(caption: Caption): TemplateResult {
+  private captionContent(caption: Caption, reduced: boolean): TemplateResult {
     switch (caption.kind) {
       case "line":
         return html`${translateText(XP_LINE_LABEL_KEYS[caption.key])}
@@ -670,7 +670,9 @@ export class GameXpPanel extends LitElement {
             })}</span
           >`;
       case "heading":
-        return html`${translateText("progression.xp_heading")}`;
+        return html`${translateText(
+          reduced ? "progression.xp_heading_reduced" : "progression.xp_heading",
+        )}`;
       case "level_up":
         return html`<span class="text-yellow-300"
           >${translateText("progression.level_reached", {
@@ -725,14 +727,14 @@ export class GameXpPanel extends LitElement {
             : "xp-bonus-text-cut"} text-center text-xl font-black uppercase italic tracking-wide sm:text-2xl"
           data-xp-caption-step=${r?.step ?? REST_STEP}
         >
-          ${this.captionContent(caption)}
+          ${this.captionContent(caption, data.mode === "reduced")}
         </div>`;
       } else if (caption !== null) {
         content = html`<div
           class="xp-caption-in text-center text-lg font-black uppercase italic tracking-wide sm:text-xl"
           data-xp-caption-step=${r?.step ?? REST_STEP}
         >
-          ${this.captionContent(caption)}
+          ${this.captionContent(caption, data.mode === "reduced")}
         </div>`;
       }
     }
@@ -1319,7 +1321,11 @@ export class GameXpPanel extends LitElement {
             data-xp-note="reduced"
             class="m-0 mt-3 text-center text-xs text-white/60"
           >
-            ${translateText("progression.note_reduced")}
+            ${translateText(
+              b.reducedReason === "eliminated"
+                ? "progression.note_reduced_eliminated"
+                : "progression.note_reduced",
+            )}
           </p>`
         : nothing}
       ${b.softCapped || b.capped

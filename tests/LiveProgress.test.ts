@@ -12,6 +12,7 @@ const player = (i: number) => ({
   clientID: `pl00000${i}`,
   persistentID: `00000000-0000-4000-8000-00000000000${i}`,
   alive: true,
+  eliminated: false,
   killedBy: null,
   aliveAtTurn: 100,
   deadAtTurn: null,
@@ -50,6 +51,34 @@ describe("LiveProgressSchema", () => {
       winner: ["player", "pl000001"],
       resultTurn: 5990,
     });
+  });
+
+  it("reads an older server's report, which says nothing of eliminations, as nobody eliminated", () => {
+    const older: Record<string, unknown> = { ...player(1) };
+    delete older.eliminated;
+    const parsed = LiveProgressSchema.safeParse(report({ players: [older] }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.data!.players[0].eliminated).toBe(false);
+  });
+
+  it("carries an elimination", () => {
+    const out = {
+      ...player(2),
+      alive: false,
+      eliminated: true,
+      killedBy: "pl000001",
+      deadAtTurn: 200,
+    };
+    const parsed = LiveProgressSchema.safeParse(report({ players: [out] }));
+    expect(parsed.data!.players[0]).toMatchObject({
+      eliminated: true,
+      alive: false,
+    });
+    expect(
+      LiveProgressSchema.safeParse(
+        report({ players: [{ ...out, eliminated: "yes" }] }),
+      ).success,
+    ).toBe(false);
   });
 
   it("accepts a player with no account, and one who is gone", () => {
@@ -147,6 +176,20 @@ describe("LiveXpResponseSchema", () => {
       firstGame: 0,
       repeatPermille: 1000,
       leftEarly: false,
+    });
+  });
+
+  it("reads the final status of a death that has been paid", () => {
+    const parsed = LiveXpResponseSchema.parse({
+      ...body,
+      status: "final",
+      mode: "reduced",
+      total: 31,
+    });
+    expect(parsed).toMatchObject({
+      status: "final",
+      mode: "reduced",
+      total: 31,
     });
   });
 

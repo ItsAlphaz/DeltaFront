@@ -202,8 +202,16 @@ describe("the progress feed", () => {
       play(10);
       const p = last();
       const by = (id: string) => p.players.find((x) => x.clientID === id)!;
-      expect(by(HOST)).toMatchObject({ alive: true, killedBy: null });
-      expect(by(P2)).toMatchObject({ alive: false, killedBy: HOST });
+      expect(by(HOST)).toMatchObject({
+        alive: true,
+        eliminated: false,
+        killedBy: null,
+      });
+      expect(by(P2)).toMatchObject({
+        alive: false,
+        eliminated: true,
+        killedBy: HOST,
+      });
       // an elimination falls between two agreed snapshots
       expect(by(P2).aliveAtTurn).toBe(100);
       expect(by(P2).deadAtTurn).toBe(200);
@@ -422,6 +430,84 @@ describe("ProgressTracker", () => {
     expect(t.window(P2).deadAtTurn).toBe(300);
   });
 
+  it("a player who has not spawned yet is not eliminated: no tiles is not a death", () => {
+    const t = new ProgressTracker();
+    // not alive, but no finishing place either: they have not picked a spawn yet
+    const unspawned = (turn: number, spawned: boolean): LiveStats => ({
+      turn,
+      players: [
+        stat(P2, { isAlive: spawned, tilesOwned: spawned ? 100 : 0 }),
+        stat(HOST),
+      ],
+    });
+    t.observe(unspawned(100, false));
+    t.observe(unspawned(200, false));
+    expect(t.window(P2)).toEqual({ aliveAtTurn: null, deadAtTurn: null });
+    t.observe(unspawned(300, true));
+    expect(t.window(P2)).toEqual({ aliveAtTurn: 300, deadAtTurn: null });
+  });
+
+  it("reports an elimination as eliminated, once and for good, and a slow spawner as not", () => {
+    const t = new ProgressTracker();
+    const roster = [
+      { clientID: HOST, persistentID: "u0", connected: true, leftTurn: null },
+      { clientID: P2, persistentID: "u1", connected: true, leftTurn: null },
+      { clientID: P3, persistentID: "u2", connected: true, leftTurn: null },
+    ];
+    const report = (live: LiveStats) =>
+      buildProgress(t, {
+        gameID: "gABC12345",
+        turn: live.turn,
+        elapsedSeconds: 1,
+        config: {
+          gameType: "Public",
+          gameMode: "Free For All",
+          rankedType: null,
+          listed: null,
+        },
+        adminActions: [],
+        result: null,
+        live,
+        roster,
+      }).players;
+    // P3 has not spawned (no tiles, no death); P2 is alive
+    const first = report({
+      turn: 100,
+      players: [
+        stat(HOST),
+        stat(P2),
+        stat(P3, { isAlive: false, tilesOwned: 0 }),
+      ],
+    });
+    expect(first.map((p) => p.eliminated)).toEqual([false, false, false]);
+    // P2 falls to the host; P3 spawns
+    const second = report({
+      turn: 200,
+      players: [
+        stat(HOST),
+        stat(P2, { isAlive: false, killedBy: HOST, deathPosition: 3 }),
+        stat(P3),
+      ],
+    });
+    expect(second.map((p) => p.eliminated)).toEqual([false, true, false]);
+    expect(second[1]).toMatchObject({
+      alive: false,
+      killedBy: HOST,
+      aliveAtTurn: 100,
+      deadAtTurn: 200,
+    });
+    // sticky: a later snapshot does not un-eliminate them
+    const third = report({
+      turn: 300,
+      players: [
+        stat(HOST),
+        stat(P2, { isAlive: false, killedBy: HOST, deathPosition: 3 }),
+        stat(P3),
+      ],
+    });
+    expect(third[1]).toMatchObject({ eliminated: true, deadAtTurn: 200 });
+  });
+
   it("a player seen dead is not revived by a later snapshot", () => {
     const t = new ProgressTracker();
     t.observe(snapshot(100, { [P2]: HOST }));
@@ -482,6 +568,7 @@ describe("ProgressTracker", () => {
         clientID: HOST,
         persistentID: "u1",
         alive: true,
+        eliminated: false,
         killedBy: null,
         aliveAtTurn: null,
         deadAtTurn: null,

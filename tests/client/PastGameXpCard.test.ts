@@ -248,11 +248,11 @@ describe("<past-game-xp-card>", () => {
   it("(d) says why a game didn't earn XP, in one line", async () => {
     await mount({
       kind: "result",
-      data: { gameId: "g1", eligible: false, reason: "too_short" },
+      data: { gameId: "g1", eligible: false, reason: "left_early" },
     });
     expect(stateOf()).toBe("ineligible");
     expect(q("[data-past-xp-note]")!.textContent).toBe(
-      "progression.ineligible_too_short",
+      "progression.ineligible_left_early",
     );
     expect(q("[data-past-xp-total]")).toBeNull();
   });

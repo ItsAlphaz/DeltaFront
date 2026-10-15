@@ -21,7 +21,12 @@ export interface PendingXpDeps {
   now: () => number;
 }
 
-async function refreshNav(): Promise<void> {
+/**
+ * Re-reads the account and tells the nav: its level and XP bar catch up with XP
+ * that was paid since the page loaded (a death award in the game just played,
+ * or a game left before its XP was seen).
+ */
+export async function refreshNav(): Promise<void> {
   invalidateUserMe();
   const fresh = await getUserMe();
   if (fresh === false) return;

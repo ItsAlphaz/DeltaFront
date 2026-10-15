@@ -37,7 +37,7 @@ import { resolveXpAccount } from "../../ProgressionAccount";
 import {
   fetchLiveXp,
   fetchProgressionConfig,
-  LIVE_XP_POLL_MS,
+  OUT_XP_POLL_MS,
   pollGameXp,
 } from "../../ProgressionApi";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
@@ -88,6 +88,8 @@ export class WinModal extends LitElement implements Controller {
   private xpView: GameXpPanelState = { kind: "hidden" };
   // Polling starts once, at the end of the game.
   private xpPolling = false;
+  // The player's reduced award for a death is on the panel: it is final.
+  private finalShown = false;
   private xpAbort: AbortController | null = null;
   // While the game goes on after the player died: re-reading the XP preview.
   private liveTimer: ReturnType<typeof setInterval> | null = null;
@@ -514,15 +516,16 @@ export class WinModal extends LitElement implements Controller {
   }
 
   /**
-   * Shows the XP preview for the game that is still on (the player died, or the
-   * result just came in): what the account API works out from the game server's
-   * report. It follows the report until the stored game's XP replaces it.
+   * Shows the XP of the game that is still on for a player who is out: while
+   * the server confirms the elimination, the card says so; the moment it has
+   * paid the reduced award, the panel shows what was earned, with the level the
+   * player reached. It follows the report until then.
    */
   private startLiveXp(gameId: string): void {
     void this.refreshLiveXp(gameId);
     this.liveTimer ??= setInterval(
       () => void this.refreshLiveXp(gameId),
-      LIVE_XP_POLL_MS,
+      OUT_XP_POLL_MS,
     );
   }
 
@@ -534,28 +537,67 @@ export class WinModal extends LitElement implements Controller {
 
   private async refreshLiveXp(gameId: string): Promise<void> {
     const result = await fetchLiveXp(gameId);
-    // The stored game's XP, once polled for, owns the section.
-    if (this.xpPolling) return;
+    // The stored game's XP, once polled for, owns the section; so does the
+    // award once it is on the panel.
+    if (this.xpPolling || this.finalShown) return;
     if (result.status === "unavailable") {
       this.stopLiveXp();
       return;
     }
     if (result.status !== "ok" || result.data.status === "none") return;
+    const live = result.data;
     this.xpView = {
       kind: "live",
-      data: result.data,
+      data: live,
       playerAlive: this.game.myPlayer()?.isAlive() ?? null,
     };
-    if (result.data.status !== "forfeited") rememberPendingXp(gameId);
+    if (live.status === "forfeited") return;
+    rememberPendingXp(gameId);
+    if (live.status === "final") void this.showFinalXp(gameId);
+  }
+
+  /**
+   * The player was eliminated and has been paid: their award, in full, with the
+   * bar and any level reached. There is nothing left to wait for, so the poll
+   * for the match's end does not start again for this player.
+   */
+  private async showFinalXp(gameId: string): Promise<void> {
+    if (this.finalShown) return;
+    this.finalShown = true;
+    this.stopLiveXp();
+    this.xpAbort ??= new AbortController();
+    const result = await pollGameXp(gameId, {
+      signal: this.xpAbort.signal,
+      timeoutMs: 20_000,
+      intervalMs: 1_000,
+    });
+    if (result === null) {
+      // The card above already says it is final; the full panel can wait for
+      // the end of the match.
+      this.finalShown = false;
+      return;
+    }
+    if (result.eligible && reachedLegendThisGame(result)) {
+      this.preloadLegendCeremony();
+    }
+    clearPendingXp();
+    this.xpView = { kind: "result", data: result };
+    // The account has the XP now: the nav's level and bar can catch up.
+    document.dispatchEvent(
+      new CustomEvent("xp-awarded", { detail: { gameId } }),
+    );
   }
 
   /**
    * Fills the XP section. `gameOver` is false when the player died while the
-   * game carries on: the XP is then shown as the preview of what is pending,
-   * and the poll for the stored XP starts when the game really ends.
+   * game carries on: their reduced award is paid as soon as the server confirms
+   * the elimination and is shown here, and the poll for the stored XP starts
+   * when the game really ends (for anyone not already paid).
    */
   private async updateXp(gameOver: boolean): Promise<void> {
     if (this.xpPolling) return;
+    // Already paid at the death and on the panel: nothing more to wait for.
+    if (this.xpView.kind === "result" && this.xpView.data.eligible) return;
     // Normally here since the game started; tried again should that fetch
     // have failed.
     loadGameXpPanel();

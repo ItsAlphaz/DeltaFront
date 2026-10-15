@@ -84,6 +84,9 @@ export async function fetchMyGameXp(
 // moves every ten seconds (its agreed live stats), so asking faster would only
 // repeat the answer.
 export const LIVE_XP_POLL_MS = 5_000;
+// Once the player is out, the server's confirmation (and the reduced award it
+// pays) is what is waited for, a few seconds away: look more often.
+export const OUT_XP_POLL_MS = 2_000;
 
 export type LiveXpFetchResult =
   | { status: "ok"; data: LiveXpResponse }

@@ -184,6 +184,16 @@ describe("the shipped migrations", () => {
     expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
   });
 
+  it("0008 adds the early_xp table: one row per player and game, nothing rewritten", () => {
+    expect(files[7].fileName).toBe("0008_early_xp.sql");
+    const sql = files[7].sql.replace(/^\s*--.*$/gm, "");
+    expect(sql).toMatch(/CREATE TABLE early_xp \(/);
+    // A death is paid to a player once per game.
+    expect(sql).toMatch(/PRIMARY KEY \(user_id, game_code\)/);
+    expect(sql).toMatch(/result\s+jsonb NOT NULL/);
+    expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time

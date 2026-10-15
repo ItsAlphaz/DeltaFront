@@ -11,7 +11,10 @@ vi.mock("../../src/client/Utils", () => ({
 import "../../src/client/hud/layers/LiveXpPanel";
 import { LiveXpPanel } from "../../src/client/hud/layers/LiveXpPanel";
 import { readPendingXp } from "../../src/client/PendingXpStore";
-import { LIVE_XP_POLL_MS } from "../../src/client/ProgressionApi";
+import {
+  LIVE_XP_POLL_MS,
+  OUT_XP_POLL_MS,
+} from "../../src/client/ProgressionApi";
 
 // The player's XP in the match they are playing, in a corner of the HUD. The
 // panel reads what the account API worked out; it works out nothing itself.
@@ -244,6 +247,22 @@ describe("how often it asks", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  it("every two seconds once the player is out, when the server's confirmation is what is waited for", async () => {
+    const game = await mount();
+    await tick();
+    await tick();
+    expect(load).toHaveBeenCalledTimes(1);
+    game.state.alive = false;
+    await tick();
+    expect(load).toHaveBeenCalledTimes(1);
+    now += OUT_XP_POLL_MS - 1;
+    await tick();
+    expect(load).toHaveBeenCalledTimes(1);
+    now += 1;
+    await tick();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
   it("never two at once", async () => {
     let release!: (v: unknown) => void;
     load.mockReturnValue(new Promise((r) => (release = r)));
@@ -323,7 +342,7 @@ describe("what it says", () => {
     );
   });
 
-  it("pending once the player is out, from their own screen at once", async () => {
+  it("pending once the player is out, from their own screen at once: no figure until the server confirms", async () => {
     const game = await mount();
     await tick();
     await tick();
@@ -332,7 +351,45 @@ describe("what it says", () => {
     expect(q("[data-live-xp-panel]")!.getAttribute("data-live-status")).toBe(
       "pending",
     );
-    expect(panel.textContent).toContain("progression.live_pending_amount");
+    expect(panel.textContent).toContain("progression.live_finalizing");
+    // never the figure of a player who is still in it
+    expect(panel.textContent).not.toContain('"xp":"75"');
+  });
+
+  it("final once the death is paid: XP earned, the reduced figure, and it asks no more", async () => {
+    const game = await mount();
+    await tick();
+    await tick();
+    game.state.alive = false;
+    load.mockResolvedValue({
+      status: "ok",
+      data: live({
+        status: "final",
+        mode: "reduced",
+        alive: false,
+        total: 31,
+        pending: [],
+      }),
+    });
+    now += OUT_XP_POLL_MS;
+    await tick();
+    await tick();
+    expect(q("[data-live-xp-panel]")!.getAttribute("data-live-status")).toBe(
+      "final",
+    );
+    await figure();
+    expect(q("live-xp-card")!.textContent).toContain(
+      "progression.live_final_title",
+    );
+    expect(q("live-xp-card")!.textContent).toContain('"xp":"31"');
+    // paid: it does not change any more
+    const calls = load.mock.calls.length;
+    now += LIVE_XP_POLL_MS * 4;
+    await tick();
+    await tick();
+    expect(load.mock.calls.length).toBe(calls);
+    // and the game is remembered, so the next visit tells it once
+    expect(readPendingXp(now)?.gameId).toBe(GAME_ID);
   });
 
   it("forfeited when the API says the player left before the result", async () => {
@@ -384,15 +441,30 @@ describe("it does not work anything out", () => {
   });
 
   it("the only thing the client contributes is whether it is itself alive: the wording", async () => {
+    // the server has not confirmed the death: no number, certainly not the
+    // player's own idea of one
     const game = await mount({ alive: false });
     await tick();
     await tick();
     expect(q("[data-live-xp-panel]")!.getAttribute("data-live-status")).toBe(
       "pending",
     );
-    // the amount is still the API's
+    expect(q("live-xp-card")!.textContent).not.toContain('"xp"');
+    // once confirmed, the amount is the API's
+    load.mockResolvedValue({
+      status: "ok",
+      data: live({
+        status: "pending",
+        mode: "reduced",
+        total: 31,
+        pending: [],
+      }),
+    });
+    now += OUT_XP_POLL_MS;
+    await tick();
+    await tick();
     await figure();
-    expect(q("live-xp-card")!.textContent).toContain('"xp":"75"');
+    expect(q("live-xp-card")!.textContent).toContain('"xp":"31"');
     game.state.alive = true;
   });
 });

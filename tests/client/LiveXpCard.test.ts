@@ -168,37 +168,83 @@ describe("a running game's XP", () => {
   });
 });
 
-describe("eliminated and still there", () => {
-  const pending = data({ status: "pending", alive: false });
+describe("eliminated", () => {
+  // the server has confirmed the elimination and worked out the reduced award
+  const reduced = (over: Partial<LiveXpResponse> = {}) =>
+    data({
+      status: "pending",
+      mode: "reduced",
+      alive: false,
+      total: 31,
+      breakdown: breakdown({
+        eliminations: 25,
+        eliminationCount: 1,
+        subtotal: 125,
+        gamePermille: 250,
+        reducedReason: "eliminated",
+        total: 31,
+      }) as never,
+      pending: [],
+      ...over,
+    });
 
-  it("says the XP is pending, and what to do to get it", async () => {
-    await show({ data: pending });
+  it("is confirmed by the server: the reduced figure, and that it is being finalized", async () => {
+    await show({ data: reduced() });
     expect(q("[data-live-xp]")?.getAttribute("data-live-status")).toBe(
       "pending",
     );
     expect(text("[data-live-xp-title]")).toBe("progression.live_pending_title");
     expect(text("[data-live-xp-total]")).toBe(
-      'progression.live_pending_amount:{"xp":"150"}',
+      'progression.xp_total:{"xp":"31"}',
     );
     expect(text("[data-live-xp-note]")).toBe("progression.live_pending_note");
+    // nothing says to stay: the old "stay until the result" note is gone
+    expect(card.innerHTML).not.toContain("stay");
   });
 
   it("keeps the lines: taking part and the eliminations they made", async () => {
-    await show({ data: pending });
+    await show({ data: reduced() });
     expect(card.querySelectorAll("[data-live-xp-line]")).toHaveLength(2);
+    expect(text("[data-live-xp-reduced]")).toBe(
+      "progression.live_reduced_note",
+    );
   });
 
-  it("the player's own screen is what says they are out, a moment before the server does", async () => {
-    // the server still says live; the player's simulation knows they died
+  it("the lines add up to the figure: the quarter is shared across them, as on the end-of-game panel", async () => {
+    await show({ data: reduced() });
+    const amounts = [
+      ...card.querySelectorAll("[data-live-xp-line] span:last-child"),
+    ].map((el) => el.textContent!.replace(/\s+/g, " ").trim());
+    // 100 and 25 at a quarter of 125 = 31: 25 and 6
+    expect(amounts).toEqual([
+      'progression.xp_total:{"xp":"25"}',
+      'progression.xp_total:{"xp":"6"}',
+    ]);
+  });
+
+  it("their own screen says they are out a moment before the server does: no figure yet, never the full-game one", async () => {
+    // the server still says they are playing (with the full-game figure); the
+    // player's simulation knows they died
     await show({ data: data(), playerAlive: false });
     expect(q("[data-live-xp]")?.getAttribute("data-live-status")).toBe(
       "pending",
     );
-    expect(text("[data-live-xp-total]")).toContain(
-      "progression.live_pending_amount",
-    );
-    // it only changes the wording: the number is the API's
+    expect(text("[data-live-xp-total]")).toBe("progression.live_finalizing");
+    expect(card.innerHTML).not.toContain('"xp":"150"');
+    // no lines for a figure that is not theirs any more
+    expect(card.querySelectorAll("[data-live-xp-line]")).toHaveLength(0);
+  });
+
+  it("the figure replaces the full-game one when the server confirms, without counting down to it", async () => {
+    await show({ data: data({ total: 150 }) });
     expect(text("[data-live-xp-total]")).toContain('"xp":"150"');
+    card.data = reduced({ total: 31 });
+    card.playerAlive = false;
+    await card.updateComplete;
+    // at once: not 150 easing down to 31
+    expect(text("[data-live-xp-total]")).toBe(
+      'progression.xp_total:{"xp":"31"}',
+    );
   });
 
   it("effectiveStatus changes nothing else", () => {
@@ -206,9 +252,56 @@ describe("eliminated and still there", () => {
     expect(effectiveStatus(data(), null)).toBe("live");
     expect(effectiveStatus(data(), false)).toBe("pending");
     expect(effectiveStatus(data({ status: "settled" }), false)).toBe("settled");
+    expect(effectiveStatus(data({ status: "final" }), false)).toBe("final");
     expect(effectiveStatus(data({ status: "forfeited" }), true)).toBe(
       "forfeited",
     );
+  });
+});
+
+describe("a death that has been paid", () => {
+  const final = data({
+    status: "final",
+    mode: "reduced",
+    alive: false,
+    total: 31,
+    breakdown: breakdown({
+      eliminations: 25,
+      eliminationCount: 1,
+      subtotal: 125,
+      gamePermille: 250,
+      reducedReason: "eliminated",
+      total: 31,
+    }) as never,
+    pending: [],
+  });
+
+  it("says XP earned and the amount, already in the account", async () => {
+    await show({ data: final, playerAlive: false });
+    expect(q("[data-live-xp]")?.getAttribute("data-live-status")).toBe("final");
+    expect(text("[data-live-xp-title]")).toBe("progression.live_final_title");
+    expect(text("[data-live-xp-total]")).toBe(
+      'progression.xp_total:{"xp":"31"}',
+    );
+    expect(text("[data-live-xp-note]")).toBe("progression.live_final_note");
+  });
+
+  it("shows the reduced multiplier, and is not pending", async () => {
+    await show({ data: final, playerAlive: false });
+    expect(
+      card.querySelector("[data-live-xp-multiplier]")?.textContent,
+    ).toContain("progression.reduced_line");
+    expect(card.innerHTML).not.toContain("live_pending");
+    expect(card.innerHTML).not.toContain("live_forfeited");
+  });
+
+  it("is the same collapsed: just the heading and the figure", async () => {
+    await show({ data: final, summary: true, playerAlive: false });
+    expect(text("[data-live-xp-total]")).toBe(
+      'progression.xp_total:{"xp":"31"}',
+    );
+    expect(card.querySelectorAll("[data-live-xp-line]")).toHaveLength(0);
+    expect(q("[data-live-xp-note]")).toBeNull();
   });
 });
 

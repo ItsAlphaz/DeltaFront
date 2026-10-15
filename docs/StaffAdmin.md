@@ -143,7 +143,9 @@ answer at join, so a demotion applies to the next join.
   **only the owner's commands in a public or listed game leave the result intact**
   (`game.admin.public.counted`); every command in a private or unlisted game, the
   owner's included, makes it **admin-modified**: no stats, Credits, clan-threshold credit
-  or leaderboard entry. The game server stamps what it relayed into the record
+  or leaderboard entry. Its players (the staff member too) still earn XP, at the **reduced**
+  rate (lifetime XP only: see [Progression.md](Progression.md)); the owner's commands in a public
+  or listed game leave the game full. The game server stamps what it relayed into the record
   (`info.adminActions`: command, the sender's stored role, whether the game was public or
   listed, a count), and the API recomputes the verdict from the role and game kind, never
   from a stored "harmless" flag. It fails closed: an `admin_command` in the recorded turns

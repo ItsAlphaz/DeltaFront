@@ -1,7 +1,4 @@
-import type {
-  LiveXpResponse,
-  LiveXpStatus,
-} from "@openfront/shared/ApiSchemas";
+import type { LiveXpResponse } from "@openfront/shared/ApiSchemas";
 import type {
   LiveProgress,
   LiveProgressPlayer,
@@ -9,27 +6,31 @@ import type {
 import { adminCommandInvalidatesResult } from "@openfront/shared/Permissions";
 import type { Pool } from "pg";
 import { ACCOUNT_RULES, ECONOMY } from "./constants";
-import { priorGamesWith } from "./progression";
+import { earlyAwardOf, priorGamesWith } from "./progression";
 import { RESULT_GRACE_TURNS, winnerClientIds } from "./stats";
 import {
   computeMatchXp,
   computeReducedXp,
   isFreeForAll,
   progressionEligibility,
+  reducedReasonFor,
   repeatPermille,
   type MatchXpResult,
+  type ProgressionEligibility,
+  type ProgressionReason,
 } from "./xp";
 
 /**
- * A running game's progression, as a preview. The game server reports what only
- * it knows (LiveProgress); this turns it into the XP a player stands at with the
- * very functions that decide the final award (`computeMatchXp`,
- * `computeReducedXp`, `progressionEligibility`), so there is one set of rules.
+ * A running game's progression. The game server reports what only it knows
+ * (LiveProgress); this turns it into the XP a player stands at with the very
+ * functions that decide the final award (`computeMatchXp`, `computeReducedXp`,
+ * `progressionEligibility`), so there is one set of rules.
  *
- * Nothing here is ever written to the ledger. The stored game, once it arrives,
- * is the only thing that awards XP, exactly once (the unique ledger key on
- * user + game), so a preview, a settled preview and the stored game can be shown
- * in any order without a double award.
+ * Nothing in this file writes to the ledger. What it works out is a preview,
+ * except for a player who has been eliminated, whose reduced award `earlyXp.ts`
+ * pays from the very same assessment, once (the unique ledger key on user +
+ * game). The stored game, when it arrives, adopts that payment, so a preview, a
+ * death award and the stored game can come in any order without a double award.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -56,6 +57,8 @@ export interface LiveGame {
   users: ReadonlyMap<string, "guest" | "registered">;
   /** Per player: the daily and repeated-opponent facts, read once and reused briefly. */
   contexts: Map<string, PlayerContext>;
+  /** The accounts whose death award is already paid (or adopted): not attempted again. */
+  finalized: Set<string>;
 }
 
 /** The running games the game servers have reported, by game code. */
@@ -65,7 +68,10 @@ export class LiveXpStore {
   set(code: string, game: LiveGame): void {
     // A re-report keeps the per-player facts already read.
     const previous = this.games.get(code);
-    if (previous !== undefined) game.contexts = previous.contexts;
+    if (previous !== undefined) {
+      game.contexts = previous.contexts;
+      game.finalized = previous.finalized;
+    }
     this.games.delete(code);
     this.games.set(code, game);
     while (this.games.size > LIVE_MAX_GAMES) {
@@ -149,6 +155,7 @@ export async function acceptProgress(
     receivedAt: now,
     users,
     contexts: new Map(),
+    finalized: new Set(),
   });
 }
 
@@ -159,7 +166,7 @@ export async function acceptProgress(
  * it: they were seen alive at a snapshot at or after the elimination minimum,
  * so they fell after it. (The same two-minute rule as `validEliminations`;
  * between snapshots a player's death is only bounded, so an unsure one is not
- * counted yet.)
+ * counted: the award is final once paid, so it is never rounded up.)
  */
 function validDeath(victim: LiveProgressPlayer): boolean {
   return (
@@ -168,17 +175,11 @@ function validDeath(victim: LiveProgressPlayer): boolean {
   );
 }
 
-/** Eliminated in the first two minutes, for certain: a free kill, not a game played. */
-function eliminatedEarly(player: LiveProgressPlayer): boolean {
-  return (
-    player.deadAtTurn !== null && player.deadAtTurn < ECONOMY.minEliminationTick
-  );
-}
-
 /**
- * Whether the player left before the result: gone now while the game is on, or
- * gone from before the result was determined once it is. The live twin of
- * `playerProgressionOutcome`'s presence rule, from the same roster facts.
+ * Whether the player left while still in the game, before the result: gone now
+ * while the game is on, or gone from before the result was determined once it
+ * is. The live twin of `playerProgressionOutcome`'s presence rule, from the same
+ * roster facts. An eliminated player is never held to it.
  */
 export function leftBeforeResult(
   player: LiveProgressPlayer,
@@ -187,6 +188,22 @@ export function leftBeforeResult(
   if (player.leftTurn === null || player.connected) return false;
   if (resultTurn === null) return true;
   return player.leftTurn + RESULT_GRACE_TURNS < resultTurn;
+}
+
+/**
+ * Whether an eliminated player had left, for good, before their empire fell: gone
+ * now, and gone since before a snapshot at which the empire was still alive. A
+ * player who left in the few seconds before the snapshot that caught the death is
+ * not held to it (the live report cannot tell which came first); the stored game
+ * decides exactly, and can only agree.
+ */
+function leftWhileAliveLive(player: LiveProgressPlayer): boolean {
+  return (
+    !player.connected &&
+    player.leftTurn !== null &&
+    player.aliveAtTurn !== null &&
+    player.leftTurn + RESULT_GRACE_TURNS < player.aliveAtTurn
+  );
 }
 
 const none = (
@@ -239,62 +256,76 @@ async function contextFor(
   return context;
 }
 
+/** What a player's part in a reported game is, before any XP is worked out. */
+export type LiveAssessment =
+  | { kind: "none"; reason: string; alive: boolean }
+  | {
+      kind: "eliminated";
+      me: LiveProgressPlayer;
+      eligibility: ProgressionEligibility;
+      reason: ProgressionReason;
+      /** The eliminations that count (each human victim once, who fell after the minimum). */
+      eliminations: number;
+      settled: boolean;
+    }
+  | {
+      kind: "forfeited";
+      me: LiveProgressPlayer;
+      eligibility: ProgressionEligibility;
+    }
+  | {
+      kind: "playing";
+      me: LiveProgressPlayer;
+      eligibility: ProgressionEligibility;
+      eliminations: number;
+      /** The other accounts the player-count multiplier reads. */
+      others: string[];
+      participants: number;
+      settled: boolean;
+      victory: boolean;
+      ffa: boolean;
+    };
+
 /**
- * What the player's match XP stands at in a running (or just settled) game, or
- * null when the API has no report of the game or the player is not in it.
+ * The one reading of a reported game for one account, shared by the preview and
+ * by the death award so they can never disagree: what the game pays, whether the
+ * player is out, still playing or gone, and the counts the formulas read. Null
+ * when the player is not in the report or not an account.
  */
-export async function liveXpFor(
-  pool: Pick<Pool, "query">,
-  gameCode: string,
-  userId: string,
-  store: LiveXpStore = liveXpStore,
-  now: number = Date.now(),
-): Promise<LiveXpResponse | null> {
-  const game = store.get(gameCode, now);
-  if (game === undefined) return null;
+export function assess(game: LiveGame, userId: string): LiveAssessment | null {
   const { progress } = game;
   const me = progress.players.find(
     (p) => p.persistentID?.toLowerCase() === userId,
   );
   const kind = game.users.get(userId);
   if (me === undefined || kind === undefined) return null;
+  const alive = !me.eliminated;
+
+  if (kind === "guest") return { kind: "none", reason: "guest", alive };
 
   const resultTurn = progress.result?.resultTurn ?? null;
-  const base = { alive: me.alive };
-
-  if (kind === "guest") return none(gameCode, "guest", base);
+  const settled = progress.result !== null;
 
   // How far the game progresses, from the facts the final rule reads. A game
-  // is assumed to last the two minutes it needs: only the stored game can say
-  // it did not.
+  // still on is assumed to last the two minutes it needs: only the stored game
+  // can say it did not (and then it pays the reduced award instead of nothing).
   const eligibility = progressionEligibility({
     source: "server",
     type: progress.config.gameType,
     rankedType: progress.config.rankedType,
-    durationSeconds: Math.max(
-      progress.elapsedSeconds,
-      ACCOUNT_RULES.countedGameMinSeconds,
-    ),
+    durationSeconds: settled
+      ? progress.elapsedSeconds
+      : Math.max(progress.elapsedSeconds, ACCOUNT_RULES.countedGameMinSeconds),
     accountHolders: game.users.size,
     adminModified: adminActionsInvalidate(progress.adminActions),
     listed: progress.config.listed,
   });
   if (eligibility.mode === "none") {
-    return none(gameCode, eligibility.reason, base);
+    return { kind: "none", reason: eligibility.reason, alive };
   }
-  if (progress.adminSenders.includes(me.clientID)) {
-    return none(gameCode, "admin_actor", base);
-  }
-  if (eliminatedEarly(me)) return none(gameCode, "eliminated_early", base);
-
-  // Leaving before the result forfeits everything.
-  if (leftBeforeResult(me, resultTurn)) {
-    return {
-      ...none(gameCode, "left_early", base),
-      status: "forfeited",
-      mode: eligibility.mode,
-    };
-  }
+  // A player who has not taken a gameplay action has earned nothing yet (the
+  // stored game pays no one for sitting still).
+  if (!me.acted) return { kind: "none", reason: "no_action", alive };
 
   // The eliminations that count: each human victim once, who fell after the minimum.
   const victims = new Set<string>();
@@ -308,83 +339,196 @@ export async function liveXpFor(
     }
   }
 
+  // Out: a reduced award, secured at the death, whether they stay or go after
+  // it. (Abandoning the game while still in it, and being eliminated without
+  // them, is leaving.)
+  if (me.eliminated && !leftWhileAliveLive(me)) {
+    return {
+      kind: "eliminated",
+      me,
+      eligibility,
+      reason: reducedReasonFor(eligibility),
+      eliminations: victims.size,
+      settled,
+    };
+  }
+
+  // Still in the game and gone before the result forfeits everything.
+  if (me.eliminated || leftBeforeResult(me, resultTurn)) {
+    return { kind: "forfeited", me, eligibility };
+  }
+
   // The humans the player-count multiplier reads: accounts who took part and
-  // have not left before the result.
+  // stayed (or fell after the minimum, whether they stayed or not).
   const participants = progress.players.filter(
     (p) =>
       p.persistentID !== null &&
       game.users.has(p.persistentID.toLowerCase()) &&
       p.acted &&
-      !eliminatedEarly(p) &&
-      !leftBeforeResult(p, resultTurn),
+      (p.eliminated
+        ? !(
+            p.deadAtTurn !== null && p.deadAtTurn < ECONOMY.minEliminationTick
+          ) && !leftWhileAliveLive(p)
+        : !leftBeforeResult(p, resultTurn)),
   );
-  const others = participants
-    .map((p) => (p.persistentID as string).toLowerCase())
-    .filter((id) => id !== userId);
-
   const winners =
     progress.result?.winner === undefined
       ? new Set<string>()
       : winnerClientIds(progress.result.winner);
-  const settled = progress.result !== null;
-  const victory = settled && winners.has(me.clientID);
-  const ffa = isFreeForAll({ gameMode: progress.config.gameMode });
+  return {
+    kind: "playing",
+    me,
+    eligibility,
+    eliminations: victims.size,
+    others: participants
+      .map((p) => (p.persistentID as string).toLowerCase())
+      .filter((id) => id !== userId),
+    participants: participants.length,
+    settled,
+    victory: settled && winners.has(me.clientID),
+    ffa: isFreeForAll({ gameMode: progress.config.gameMode }),
+  };
+}
 
-  const context = await contextFor(pool, game, userId, others, now);
+/** The response for a death whose reduced award has been paid. */
+export function finalResponse(
+  gameCode: string,
+  early: Awaited<ReturnType<typeof earlyAwardOf>> & object,
+): LiveXpResponse {
+  return {
+    gameId: gameCode,
+    status: "final",
+    mode: "reduced",
+    reason: null,
+    total: early.xpAwarded,
+    breakdown: early.result.breakdown,
+    pending: [],
+    alive: false,
+    winner: false,
+  };
+}
 
+/**
+ * What the player's match XP stands at in a running (or just settled) game, or
+ * null when the API has neither a report of the game nor a death award for the
+ * player. A death that has been paid answers "final" whether or not the game is
+ * still reported (the award is in the database, not in memory).
+ */
+export async function liveXpFor(
+  pool: Pick<Pool, "query">,
+  gameCode: string,
+  userId: string,
+  store: LiveXpStore = liveXpStore,
+  now: number = Date.now(),
+): Promise<LiveXpResponse | null> {
+  const game = store.get(gameCode, now);
+  const assessment = game === undefined ? null : assess(game, userId);
+  // Out of the game, or the game is no longer reported: a paid death award is
+  // the answer. (Only the database knows it after a restart.)
+  if (assessment === null || assessment.kind === "eliminated") {
+    const early = await earlyAwardOf(pool, userId, gameCode);
+    if (early !== null) return finalResponse(gameCode, early);
+  }
+  if (game === undefined || assessment === null) return null;
+  const base = { alive: assessment.kind !== "eliminated" };
+
+  switch (assessment.kind) {
+    case "none":
+      return none(gameCode, assessment.reason, { alive: assessment.alive });
+    case "forfeited":
+      return {
+        ...none(gameCode, "left_early", base),
+        status: "forfeited",
+        mode: assessment.eligibility.mode === "full" ? "full" : "reduced",
+      };
+    case "eliminated": {
+      // Not paid yet (the report only just carried the death): the amount it
+      // will be.
+      const context = await contextFor(pool, game, userId, [], now);
+      const computed = computeReducedXp({
+        reason: assessment.reason,
+        eliminations: assessment.eliminations,
+        earnedToday: context.earnedToday,
+      });
+      return {
+        gameId: gameCode,
+        status: assessment.settled ? "settled" : "pending",
+        mode: "reduced",
+        reason: null,
+        total: computed.breakdown.total,
+        breakdown: previewBreakdown(computed),
+        pending: [],
+        alive: false,
+        winner: false,
+      };
+    }
+    case "playing":
+      return playing(pool, game, gameCode, userId, assessment, now);
+  }
+}
+
+/** The shape the stored result has, so the same panel reads both. */
+function previewBreakdown(
+  computed: MatchXpResult,
+): LiveXpResponse["breakdown"] {
+  return {
+    leftEarly: false,
+    time: 0,
+    feats: 0,
+    subscriberPermille: 1000,
+    ...computed.breakdown,
+  };
+}
+
+async function playing(
+  pool: Pick<Pool, "query">,
+  game: LiveGame,
+  gameCode: string,
+  userId: string,
+  a: Extract<LiveAssessment, { kind: "playing" }>,
+  now: number,
+): Promise<LiveXpResponse> {
+  const context = await contextFor(pool, game, userId, a.others, now);
   let computed: MatchXpResult;
   let pending: LiveXpResponse["pending"];
-  if (eligibility.mode === "reduced") {
+  if (a.eligibility.mode === "reduced") {
     computed = computeReducedXp({
-      reason: eligibility.reason,
-      eliminations: victims.size,
+      reason: a.eligibility.reason,
+      eliminations: a.eliminations,
       earnedToday: context.earnedToday,
     });
     // Nothing competitive in a reduced game: nothing left to decide.
     pending = [];
   } else {
     computed = computeMatchXp({
-      victory,
+      victory: a.victory,
       // The winner's place is settled; anyone else's still depends on the
       // finish, so it is not paid in the preview until the stored game says.
-      place: victory && ffa ? 1 : null,
-      humans: progress.players.length,
-      eliminations: victims.size,
-      eligibleHumans: Math.max(1, participants.length),
+      place: a.victory && a.ffa ? 1 : null,
+      humans: game.progress.players.length,
+      eliminations: a.eliminations,
+      eligibleHumans: Math.max(1, a.participants),
       repeatPermille: context.repeat,
       firstGameAvailable: context.firstGameAvailable,
       firstWinAvailable: context.firstWinAvailable,
       earnedToday: context.earnedToday,
     });
     pending = [];
-    if (!victory) {
-      if (ffa) pending.push("placement");
-      if (!settled && me.alive) pending.push("victory");
+    if (!a.victory) {
+      if (a.ffa) pending.push("placement");
+      if (!a.settled) pending.push("victory");
     }
     pending.push("challenges", "season");
   }
-
-  let status: LiveXpStatus;
-  if (settled) status = "settled";
-  else if (!me.alive) status = "pending";
-  else status = "live";
-
   return {
     gameId: gameCode,
-    status,
-    mode: eligibility.mode,
+    status: a.settled ? "settled" : "live",
+    mode: a.eligibility.mode === "full" ? "full" : "reduced",
     reason: null,
     total: computed.breakdown.total,
-    // The shape the stored result has, so the same panel reads both.
-    breakdown: {
-      leftEarly: false,
-      time: 0,
-      feats: 0,
-      subscriberPermille: 1000,
-      ...computed.breakdown,
-    },
+    breakdown: previewBreakdown(computed),
     pending,
-    alive: me.alive,
-    winner: victory,
+    alive: true,
+    winner: a.victory,
   };
 }

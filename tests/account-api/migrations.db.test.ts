@@ -102,6 +102,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0005",
       "0006",
       "0007",
+      "0008",
     ]);
 
     expect(await tablesOf(pool)).toEqual(
@@ -111,6 +112,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "magic_link_tokens",
         "schema_migrations",
         ...PROGRESSION_TABLES,
+        "early_xp",
       ].sort(),
     );
     const files = loadMigrationFiles();
@@ -143,6 +145,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         name: "progression",
         checksum: files[6].checksum,
       },
+      { version: "0008", name: "early_xp", checksum: files[7].checksum },
     ]);
   });
 
@@ -154,7 +157,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(7);
+    ).toBe(8);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -174,6 +177,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0005",
         "0006",
         "0007",
+        "0008",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -199,6 +203,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0005",
       "0006",
       "0007",
+      "0008",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -212,6 +217,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0005",
       "0006",
       "0007",
+      "0008",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -277,6 +283,32 @@ describeDb("0007 progression constraints", () => {
     await expect(insert(50, 100, 0)).rejects.toThrow();
     await expect(insert(100, 100, 11)).rejects.toThrow();
     await expect(insert(-1, 0, 0)).rejects.toThrow();
+  });
+});
+
+describeDb("0008 early_xp constraints", () => {
+  it("keeps one award per player and game, never a negative one, and follows the account", async () => {
+    const { pool } = await freshDb();
+    await applyMigrations(pool);
+    const [{ id }] = (
+      await pool.query(
+        "INSERT INTO users (public_id, kind) VALUES ('Mig0008abc', 'registered') RETURNING id",
+      )
+    ).rows;
+    const insert = (game: string, xp: number) =>
+      pool.query(
+        "INSERT INTO early_xp (user_id, game_code, xp_awarded, result) VALUES ($1, $2, $3, '{}'::jsonb)",
+        [id, game, xp],
+      );
+    await insert("gEARLY001", 31);
+    await insert("gEARLY002", 25);
+    // the same player and game can never be paid twice
+    await expect(insert("gEARLY001", 31)).rejects.toThrow(/early_xp_pkey/);
+    await expect(insert("gEARLY003", -1)).rejects.toThrow();
+    await pool.query("DELETE FROM users WHERE id = $1", [id]);
+    expect(
+      (await pool.query("SELECT count(*)::int AS n FROM early_xp")).rows[0].n,
+    ).toBe(0);
   });
 });
 
@@ -367,11 +399,12 @@ describeDb("migration safety", () => {
       "0005",
       "0006",
       "0007",
+      "0008",
     ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(7);
+    ).toBe(8);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -398,6 +431,7 @@ describeDb("migration safety", () => {
       "0005",
       "0006",
       "0007",
+      "0008",
     ]);
   });
 });

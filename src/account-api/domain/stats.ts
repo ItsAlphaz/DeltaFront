@@ -139,9 +139,11 @@ export function wasConnectedAt(
 }
 
 /**
- * What a player's game came to, for Credits, the clan threshold and XP: one
- * answer from the record alone, never from what a client said. The first three
- * are completed; the rest are not.
+ * What a player's game came to, for Credits and the clan threshold, and for the
+ * XP of a player still in the game: one answer from the record alone, never from
+ * what a client said. The first three are completed; the rest are not. (An
+ * eliminated player's XP does not read it: their reduced award is secured at the
+ * death, whether they stayed or not. See playerIneligibleReason.)
  */
 export type PlayerProgressionOutcome =
   /** Alive when the result was determined, and stayed to it. */
@@ -246,6 +248,38 @@ function disconnectedSince(
 }
 
 /**
+ * Whether an eliminated player had already left, for good, while their empire was
+ * still alive: they abandoned the game and were then eliminated without them.
+ * That is leaving; leaving after the elimination is not (see XP: a death secures
+ * the reduced award, and the player is free to go).
+ *
+ * The same roster facts as `presenceAtResult`, read at the moment of the death
+ * (`killedAt`, a tick, close enough to a turn for the grace to cover) instead of
+ * the result. A player who is gone at the end (`leftTurn` on a server record) left
+ * at that turn; one who dropped and came back has no `leftTurn` and did not leave.
+ */
+export function leftWhileAlive(
+  record: Pick<GameRecord, "info" | "turns">,
+  clientID: string,
+): boolean {
+  const player = record.info.players.find((p) => p.clientID === clientID);
+  const killedAt = player?.stats?.killedAt;
+  if (player === undefined || killedAt === undefined) return false;
+  const died = Number(killedAt);
+  if (record.info.resultTurn !== undefined) {
+    return (
+      player.leftTurn !== undefined &&
+      player.leftTurn + RESULT_GRACE_TURNS < died
+    );
+  }
+  const end = endTurn(record);
+  if (wasConnectedAt(record.turns, clientID, end)) return false;
+  return (
+    disconnectedSince(record.turns, clientID, end) + RESULT_GRACE_TURNS < died
+  );
+}
+
+/**
  * The player's outcome. A player completes a game if the game counts, it ended
  * with a settled winner, they owned land (or were eliminated at or after
  * ECONOMY.minEliminationTick), and they stayed to the result: alive, or
@@ -283,8 +317,8 @@ export function playerProgressionOutcome(
 }
 
 /**
- * A completed game, for Credits, the clan threshold and XP: the outcome is one
- * of the completing ones (see playerProgressionOutcome).
+ * A completed game, for Credits and the clan threshold: the outcome is one of
+ * the completing ones (see playerProgressionOutcome).
  */
 export function isCompleted(
   record: Pick<GameRecord, "info" | "turns">,

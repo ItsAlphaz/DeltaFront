@@ -13,12 +13,14 @@ import {
 import { createServerKey, startHarness, type Harness } from "./util/harness";
 import { describeDb } from "./util/testDb";
 
-// Who earns XP for a game they did not finish alive: the player's outcome from
-// the record (see playerProgressionOutcome). A player who stayed to the result
-// earns it, eliminated or not; one who left before it earns nothing; a winner
-// who leaves once the win is determined has still won. Records here are the
-// current game server's: `resultTurn` is when the result was determined and a
-// player's `leftTurn` is when their connection was lost for good.
+// Who earns XP for a game they did not finish alive. Leaving while still in the
+// game is what costs it: a player who stays to the result earns it; one who
+// leaves before it earns nothing; a winner who leaves once the win is determined
+// has still won. An eliminated player is on the reduced award and is paid
+// whether they stay or go afterwards; only abandoning the game while alive and
+// being eliminated without them is leaving. Records here are the current game
+// server's: `resultTurn` is when the result was determined and a player's
+// `leftTurn` is when their connection was lost for good.
 
 const FEATURES = "accounts,store,inventory,clans,leaderboards,progression";
 const harnesses: Harness[] = [];
@@ -47,8 +49,8 @@ const q = async (h: Harness, sql: string, params: unknown[] = []) =>
   (await h.db.pool.query(sql, params)).rows;
 
 /**
- * Six players. The winner (0) eliminated the second (1, out after 50 minutes
- * of ticks), a third player (2) is still alive at the end and the rest were
+ * Six players. The winner (0) eliminated the second (1, out after eight
+ * minutes), a third player (2) is still alive at the end and the rest were
  * out early in the game. `players` patches any of them.
  */
 function game(
@@ -59,9 +61,9 @@ function game(
   const base: PlayerSpec[] = [
     {
       user: users[0],
-      stats: { kills: [{ victim: clientIdOf(1), tick: "30000" }] },
+      stats: { kills: [{ victim: clientIdOf(1), tick: "5000" }] },
     },
-    { user: users[1], fate: { killedAt: 30000 } },
+    { user: users[1], fate: { killedAt: 5000 } },
     { user: users[2] },
     { user: users[3], fate: { killedAt: 4000 } },
     { user: users[4], fate: { killedAt: 3000 } },
@@ -121,21 +123,49 @@ describeDb("a player who stays to the end earns XP, dead or alive", () => {
     expect((await resultOf(h, id, users[0])).xp).toBeGreaterThan(alive.xp);
   });
 
-  it("eliminated after ten minutes and staying until the end: XP, and Credits too", async () => {
+  it("eliminated and staying until the end: the reduced award, and Credits as before", async () => {
     const { h, key, users } = await setup();
     const id = await play(h, key, game(users));
     const out = await resultOf(h, id, users[1]);
     expect(out.completed).toBe(true);
-    expect(out.xp).toBeGreaterThan(0);
-    expect(out.xp_result).toMatchObject({ eligible: true, mode: "full" });
+    // 100 x 0.25: a death is a reduced award, whenever the game ends
+    expect(out.xp).toBe(25);
+    expect(out.xp_result).toMatchObject({ eligible: true, mode: "reduced" });
+    expect(out.xp_result.breakdown.reducedReason).toBe("eliminated");
     expect(out.credits).toBeGreaterThan(0);
     expect(await ledgerCount(h, users[1])).toBe(1);
   });
 
-  it("eliminated and leaving once the game is decided: still XP", async () => {
+  it("eliminated and leaving once the game is decided: the same award", async () => {
     const { h, key, users } = await setup();
     const id = await play(h, key, game(users, { 1: { leftTurn: AFTER } }));
-    expect((await resultOf(h, id, users[1])).xp).toBeGreaterThan(0);
+    expect((await resultOf(h, id, users[1])).xp).toBe(25);
+  });
+
+  it("eliminated and leaving right after the death, long before the end: the award is already theirs", async () => {
+    const { h, key, users } = await setup();
+    const id = await play(
+      h,
+      key,
+      game(users, { 1: { fate: { killedAt: 3000 }, leftTurn: 3050 } }),
+    );
+    const out = await resultOf(h, id, users[1]);
+    expect(out.xp).toBe(25);
+    expect(out.xp_result).toMatchObject({ eligible: true, mode: "reduced" });
+    expect(await ledgerCount(h, users[1])).toBe(1);
+    // the Credits rule is its own: they did not stay to the result
+    expect(out.completed).toBe(false);
+    expect(out.credits).toBe(0);
+  });
+
+  it("eliminated within the first two minutes and gone: still the reduced award", async () => {
+    const { h, key, users } = await setup();
+    const id = await play(
+      h,
+      key,
+      game(users, { 5: { fate: { killedAt: 600 }, leftTurn: 620 } }),
+    );
+    expect((await resultOf(h, id, users[5])).xp).toBe(25);
   });
 });
 
@@ -151,8 +181,9 @@ describeDb("a player who leaves before the result earns nothing", () => {
     expect(await ledgerCount(h, users[2])).toBe(0);
   });
 
-  it("eliminated and then leaving before the end: no XP", async () => {
+  it("leaving while still alive and being eliminated without them: no XP, not even the death's", async () => {
     const { h, key, users } = await setup();
+    // they were gone from turn 4000; their empire fell at 5000
     const id = await play(h, key, game(users, { 1: { leftTurn: BEFORE } }));
     const left = await resultOf(h, id, users[1]);
     expect(left.xp).toBe(0);
@@ -333,7 +364,7 @@ describeDb("the other exclusions and idempotence are unchanged", () => {
     clientID,
   });
 
-  it("a game staff tests changed still pays nothing, whoever stayed", async () => {
+  it("a game staff tests changed pays everyone the reduced award, whoever stayed", async () => {
     const { h, key, users } = await setup();
     const id = await play(
       h,
@@ -357,14 +388,17 @@ describeDb("the other exclusions and idempotence are unchanged", () => {
       ),
     );
     for (const user of users) {
-      expect((await resultOf(h, id, user)).xp_result).toEqual({
-        eligible: false,
-        reason: "admin_modified",
+      const r = await resultOf(h, id, user);
+      expect(r.xp_result, user.id).toMatchObject({
+        eligible: true,
+        mode: "reduced",
       });
+      expect(r.xp_result.breakdown.reducedReason).toBe("admin_modified");
+      expect(r.xp).toBeGreaterThan(0);
     }
   });
 
-  it("an admin who used a command still earns nothing, even staying to the end", async () => {
+  it("an owner who used a command in a public game is paid like any player", async () => {
     const { h, key, users } = await setup();
     await q(h, "UPDATE users SET role = 'owner' WHERE id = $1", [users[2].id]);
     const id = await play(
@@ -388,11 +422,11 @@ describeDb("the other exclusions and idempotence are unchanged", () => {
         },
       ),
     );
-    expect((await resultOf(h, id, users[2])).xp_result).toEqual({
-      eligible: false,
-      reason: "admin_actor",
-    });
-    // the others are paid
+    const owner = await resultOf(h, id, users[2]);
+    expect(owner.xp_result).toMatchObject({ eligible: true, mode: "full" });
+    expect(owner.xp).toBeGreaterThan(0);
+    expect(owner.xp_result.flags).toContain("admin_counted");
+    // and the others
     expect((await resultOf(h, id, users[1])).xp).toBeGreaterThan(0);
   });
 

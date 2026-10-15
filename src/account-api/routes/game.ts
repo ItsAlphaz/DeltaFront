@@ -4,6 +4,7 @@ import { GameRecordSchema } from "@openfront/shared/WireSchemas";
 import express, { type Router } from "express";
 import { gunzipSync } from "node:zlib";
 import { z } from "zod";
+import { settleEliminations } from "../domain/earlyXp";
 import { ingestGameRecord, recordProblem } from "../domain/ingest";
 import { acceptProgress, liveXpStore } from "../domain/liveXp";
 import type { AppDeps } from "./common";
@@ -91,10 +92,11 @@ export function gameRouter(deps: AppDeps): Router {
   );
 
   // A running game's progress, as its server sees it (LiveProgress): who is
-  // alive, who eliminated whom, who stayed and who left, who acted, and once it
-  // is settled the result. Kept in memory for the players' XP preview
-  // (GET /users/@me/xp/live/:gameId) and never turned into XP: only the stored
-  // game awards it.
+  // eliminated and by whom, who stayed and who left, who acted, and once it is
+  // settled the result. Kept in memory for the players' XP preview
+  // (GET /users/@me/xp/live/:gameId). The one thing it pays is a death: an
+  // eliminated account gets their reduced award at once, exactly once
+  // (domain/earlyXp.ts). Everything else is paid by the stored game.
   router.post(
     "/game/:id/progress",
     serverOnly,
@@ -135,6 +137,7 @@ export function gameRouter(deps: AppDeps): Router {
           return;
         }
         await acceptProgress(pool, parsed.data);
+        await settleEliminations(pool, id.data, progression, { log });
         res.json({ ok: true });
       } catch (error) {
         log.error("live progress failed", {

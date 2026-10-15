@@ -3,8 +3,14 @@ import type {
   LiveProgress,
   LiveProgressPlayer,
 } from "@openfront/shared/LiveProgress";
+import { xpForLevel } from "@openfront/shared/ProgressionRules";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { liveXpStore } from "../../src/account-api/domain/liveXp";
+import { settleEliminations } from "../../src/account-api/domain/earlyXp";
+import {
+  acceptProgress,
+  liveXpStore,
+} from "../../src/account-api/domain/liveXp";
+import { applySoftCap } from "../../src/account-api/domain/xp";
 import {
   buildRecord,
   clientIdOf,
@@ -23,9 +29,11 @@ import {
 import { describeDb } from "./util/testDb";
 
 // The XP of a running game, end to end through the account API: a game server's
-// report in, a player's preview out, and the stored game, once it arrives, the
-// only thing that ever awards anything. The preview of a settled winner is the
-// award it will be; the award is made exactly once however many reports and
+// report in, a player's preview out. A report pays exactly one thing: an
+// eliminated account's reduced award, at once, while the match goes on. Everything
+// else is paid by the stored game, once it arrives, and the stored game adopts a
+// death's award instead of paying it again. The preview of a settled winner is
+// the award it will be; every award is made exactly once however many reports and
 // repeats come before and after.
 
 const FEATURES = "accounts,store,inventory,clans,leaderboards,progression";
@@ -87,6 +95,7 @@ function live(
 ): LiveProgress {
   const dead = (i: number, at: number, by: string | null = null): Patch => ({
     alive: false,
+    eliminated: true,
     killedBy: by,
     aliveAtTurn: at - 100,
     deadAtTurn: at,
@@ -114,6 +123,7 @@ function live(
       clientID: clientIdOf(i),
       persistentID: u.id,
       alive: true,
+      eliminated: false,
       killedBy: null,
       aliveAtTurn: 5000,
       deadAtTurn: null,
@@ -126,6 +136,20 @@ function live(
     ...over,
   };
 }
+
+/** Everyone still in it: none of the four who fell in `live()` has yet. */
+const ALL_IN: Record<number, Patch> = Object.fromEntries(
+  [2, 3, 4, 5].map((i) => [
+    i,
+    {
+      alive: true,
+      eliminated: false,
+      killedBy: null,
+      aliveAtTurn: 5000,
+      deadAtTurn: null,
+    } as Patch,
+  ]),
+);
 
 const settled = (winner = 0): Partial<LiveProgress> => ({
   turn: RESULT + 10,
@@ -226,19 +250,43 @@ describeDb("the game server's report", () => {
     expect((await report(h, key, live(id, users), "bad id!")).status).toBe(400);
     // an unknown field changes nothing: a report is data, never a command
     const extra = {
-      ...live(id, users),
+      ...live(id, users, ALL_IN),
       xpAwarded: 99_999,
     } as unknown as LiveProgress;
     expect((await report(h, key, extra)).status).toBe(200);
     expect(await q(h, "SELECT 1 FROM xp_ledger")).toHaveLength(0);
   });
 
-  it("never writes XP: a report moves nothing in the ledger, the progress or the season", async () => {
+  it("pays a death and nothing else: no one still in it, no stored game row, no season", async () => {
     const { h, key, users } = await setup();
     const id = gameId();
+    await q(
+      h,
+      "INSERT INTO seasons (number, name, starts_at, ends_at) VALUES (1, 'Opening', '2023-11-01', '2030-12-01')",
+    );
     await report(h, key, live(id, users, {}, settled()));
+    // the four who were eliminated have their reduced award (100 x 0.25) ...
+    for (const i of [2, 3, 4, 5]) {
+      expect(await matchRows(h, users[i]), `player ${i}`).toEqual([
+        { source: "match", ref_id: id, delta: 25 },
+      ]);
+    }
+    // ... the winner and the runner-up have nothing yet: the stored game pays them
+    for (const i of [0, 1]) expect(await matchRows(h, users[i])).toEqual([]);
+    expect(await q(h, "SELECT 1 FROM game_players")).toHaveLength(0);
+    expect(await q(h, "SELECT 1 FROM games")).toHaveLength(0);
+    // a death is lifetime XP only
+    expect(await q(h, "SELECT 1 FROM user_season_progress")).toHaveLength(0);
+    expect(await q(h, "SELECT 1 FROM challenge_progress")).toHaveLength(0);
+  });
+
+  it("with nobody eliminated a report moves nothing in the ledger, the progress or the season", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    await report(h, key, live(id, users, ALL_IN, settled()));
     expect(await q(h, "SELECT 1 FROM xp_ledger")).toHaveLength(0);
     expect(await q(h, "SELECT 1 FROM user_progress")).toHaveLength(0);
+    expect(await q(h, "SELECT 1 FROM early_xp")).toHaveLength(0);
     expect(await q(h, "SELECT 1 FROM game_players")).toHaveLength(0);
   });
 
@@ -461,52 +509,315 @@ describeDb("a winner is final the moment the result is settled", () => {
   });
 });
 
+const earlyRows = (h: Harness, user: TestUser) =>
+  q(
+    h,
+    "SELECT game_code, xp_awarded::int AS xp, result FROM early_xp WHERE user_id = $1",
+    [user.id],
+  );
+
+const progressRow = async (h: Harness, user: TestUser) =>
+  (
+    await q(
+      h,
+      "SELECT lifetime_xp::int AS life, run_xp::int AS run FROM user_progress WHERE user_id = $1",
+      [user.id],
+    )
+  )[0] ?? null;
+
 describeDb("an eliminated player", () => {
   const out = (over: Patch = {}): Patch => ({
     alive: false,
+    eliminated: true,
     killedBy: clientIdOf(0),
     aliveAtTurn: 4900,
     deadAtTurn: 5000,
     ...over,
   });
 
-  it("who stays sees the XP pending, and has it once the game is stored", async () => {
+  it("is paid the reduced award the moment the report carries the death, while the match goes on", async () => {
     const { h, key, users } = await setup();
     const id = gameId();
-    await report(h, key, live(id, users, { 3: out({ killedBy: null }) }));
-    const pending = await preview(h, users[3], id);
-    expect(pending.body).toMatchObject({
-      status: "pending",
+    // nobody has won: the game is on, everyone else is still in it
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+
+    const view = await preview(h, users[3], id);
+    expect(view.body).toMatchObject({
+      status: "final",
+      mode: "reduced",
+      total: 25,
       alive: false,
-      mode: "full",
+      pending: [],
     });
-    expect(pending.body.total).toBe(200);
-    await stored(h, key, record(users), id);
-    expect((await awarded(h, id, users[3])).xp).toBeGreaterThan(0);
-    expect((await awarded(h, id, users[3])).xp_result.eligible).toBe(true);
+    expect(view.body.breakdown).toMatchObject({
+      played: 100,
+      eliminations: 0,
+      placement: 0,
+      win: 0,
+      firstGame: 0,
+      firstWin: 0,
+      gamePermille: 250,
+      reducedReason: "eliminated",
+      total: 25,
+    });
+    // it is really in the account, not a promise
+    expect(await matchRows(h, users[3])).toEqual([
+      { source: "match", ref_id: id, delta: 25 },
+    ]);
+    expect(await progressRow(h, users[3])).toEqual({ life: 25, run: 25 });
+    // ... and the others, still playing, have nothing yet
+    expect(await matchRows(h, users[0])).toEqual([]);
+    expect(await progressRow(h, users[0])).toBeNull();
   });
 
-  it("who leaves before the result forfeits it: nothing in the preview, nothing stored", async () => {
+  it("can read the whole award at once, with the level it reached, before the game is stored", async () => {
     const { h, key, users } = await setup();
     const id = gameId();
+    // a few XP short of level 2
+    await q(
+      h,
+      "INSERT INTO user_progress (user_id, lifetime_xp, run_xp) VALUES ($1, $2, $2)",
+      [users[3].id, xpForLevel(2) - 10],
+    );
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+    const res = await call(h, `/users/@me/xp/${id}`, {
+      bearer: users[3].jwt,
+      origin: null,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      gameId: id,
+      eligible: true,
+      mode: "reduced",
+      season: null,
+      challenges: [],
+    });
+    expect(body.breakdown.total).toBe(25);
+    expect(body.before).toMatchObject({ level: 1 });
+    expect(body.after).toMatchObject({ level: 2 });
+    expect(body.after.rank).toBeDefined();
+    expect(body.levelsReached).toEqual([{ prestige: 0, level: 2 }]);
+    // the account page and the nav see it at once, with the reason
+    const me = await (
+      await call(h, "/progression/me", { bearer: users[3].jwt, origin: null })
+    ).json();
+    expect(me.progress).toMatchObject({ level: 2 });
+    expect(me.history[0]).toMatchObject({
+      amount: 25,
+      source: "match",
+      detail: "eliminated",
+    });
+    // someone else's game, and a stranger's, are still nothing
+    expect(
+      (
+        await call(h, `/users/@me/xp/${id}`, {
+          bearer: users[0].jwt,
+          origin: null,
+        })
+      ).status,
+    ).toBe(404);
+  });
+
+  it("includes the eliminations they made before they fell: (100 + 25) x 0.25 = 31", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    // player 0 felled player 2 and now falls to player 1
     await report(
       h,
       key,
       live(id, users, {
-        3: out({ killedBy: null, connected: false, leftTurn: 4500 }),
+        ...ALL_IN,
+        2: out({ killedBy: clientIdOf(0) }),
+        0: out({ killedBy: clientIdOf(1) }),
       }),
     );
-    expect((await preview(h, users[3], id)).body).toMatchObject({
-      status: "forfeited",
-      total: 0,
-      reason: "left_early",
+    expect((await preview(h, users[0], id)).body).toMatchObject({
+      status: "final",
+      total: 31,
     });
+    expect((await matchRows(h, users[0]))[0].delta).toBe(31);
+  });
+
+  it("does not have to stay: leaving at once keeps the award, and the stored game tells the same story", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    // out at 5000 and gone at 5050: after the death, long before the result
+    const gone = out({ killedBy: null, connected: false, leftTurn: 5050 });
+    await report(h, key, live(id, users, { ...ALL_IN, 3: gone }));
+    expect((await preview(h, users[3], id)).body).toMatchObject({
+      status: "final",
+      total: 25,
+    });
+    const early = (await earlyRows(h, users[3]))[0];
+    expect(early.xp).toBe(25);
+
     await stored(
       h,
       key,
       record(users, {
         players: record(users).players.map((p, i) =>
-          i === 3 ? { ...p, leftTurn: 4500 } : p,
+          i === 3 ? { ...p, fate: { killedAt: 4000 }, leftTurn: 5050 } : p,
+        ),
+      }),
+      id,
+    );
+    const final = await awarded(h, id, users[3]);
+    expect(final.xp).toBe(25);
+    // the very result the player was shown, not a second one
+    expect(final.xp_result).toEqual(early.result);
+    expect(await matchRows(h, users[3])).toHaveLength(1);
+    expect((await progressRow(h, users[3]))!.life).toBe(25);
+  });
+
+  it("does not have to wait for the others: the stored game adopts the award and pays nothing more", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+    const early = (await earlyRows(h, users[3]))[0];
+    await stored(h, key, record(users), id);
+    const final = await awarded(h, id, users[3]);
+    expect(final.xp).toBe(early.xp);
+    expect(final.xp_result).toEqual(early.result);
+    expect(final.clan_xp).toBe(0);
+    expect(await matchRows(h, users[3])).toHaveLength(1);
+    expect((await progressRow(h, users[3]))!.life).toBe(25);
+    // once it is stored the game's own endpoint answers, with the same award
+    // (and the live one, which reads the same payment, agrees)
+    expect((await preview(h, users[3], id)).body).toMatchObject({
+      status: "final",
+      total: 25,
+    });
+    expect((await preview(h, users[0], id)).status).toBe(404);
+    const res = await call(h, `/users/@me/xp/${id}`, {
+      bearer: users[3].jwt,
+      origin: null,
+    });
+    expect((await res.json()).breakdown.total).toBe(25);
+  });
+
+  it("what was paid at the death is their award even where the stored record reads differently", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+    // the stored record has the same player still alive and gone: on its own it
+    // would be a forfeit. The ledger has the XP, so that is not what the row says.
+    await stored(
+      h,
+      key,
+      record(users, {
+        players: record(users).players.map((p, i) =>
+          i === 3 ? { user: users[3], leftTurn: 2000 } : p,
+        ),
+      }),
+      id,
+    );
+    const final = await awarded(h, id, users[3]);
+    expect(final.xp).toBe(25);
+    expect(final.xp_result).toMatchObject({ eligible: true, mode: "reduced" });
+    expect(await matchRows(h, users[3])).toHaveLength(1);
+  });
+
+  it("a game that is already stored is never paid early: nothing is added next to the stored award", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    // the stored game judged player 3 a leaver: no award
+    await stored(
+      h,
+      key,
+      record(users, {
+        players: record(users).players.map((p, i) =>
+          i === 3 ? { ...p, leftTurn: 2000 } : p,
+        ),
+      }),
+      id,
+    );
+    expect((await awarded(h, id, users[3])).xp_result.eligible).toBe(false);
+    // a report that got past the route's check before the game was stored
+    await acceptProgress(
+      h.db.pool,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+    const paid = await settleEliminations(h.db.pool, id, { validFlares: null });
+    expect(paid).toEqual([]);
+    expect(await matchRows(h, users[3])).toEqual([]);
+    expect(await earlyRows(h, users[3])).toEqual([]);
+  });
+
+  it("is paid once however many reports repeat the death", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    const p = live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) });
+    for (let i = 0; i < 4; i++) await report(h, key, p);
+    await report(h, key, live(id, users, { ...ALL_IN, 3: out() }, settled()));
+    expect(await matchRows(h, users[3])).toHaveLength(1);
+    expect(await earlyRows(h, users[3])).toHaveLength(1);
+    expect((await progressRow(h, users[3]))!.life).toBe(25);
+  });
+
+  it("still gets it after the API forgot the game: the award is in the database, not in memory", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+    liveXpStore.clear();
+    expect((await preview(h, users[3], id)).body).toMatchObject({
+      status: "final",
+      total: 25,
+    });
+    // and a restarted API told about the death again does not pay it again
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+    expect(await matchRows(h, users[3])).toHaveLength(1);
+  });
+
+  it("who left while still alive, and fell without them, has nothing: that is leaving", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    // gone since 2000; the empire was still standing at 3900 and fell at 4000
+    const abandoned = out({
+      killedBy: null,
+      aliveAtTurn: 3900,
+      deadAtTurn: 4000,
+      connected: false,
+      leftTurn: 2000,
+    });
+    await report(h, key, live(id, users, { ...ALL_IN, 3: abandoned }));
+    expect((await preview(h, users[3], id)).body).toMatchObject({
+      status: "forfeited",
+      total: 0,
+      reason: "left_early",
+    });
+    expect(await matchRows(h, users[3])).toEqual([]);
+    expect(await earlyRows(h, users[3])).toEqual([]);
+    await stored(
+      h,
+      key,
+      record(users, {
+        players: record(users).players.map((p, i) =>
+          i === 3 ? { ...p, leftTurn: 2000 } : p,
         ),
       }),
       id,
@@ -515,10 +826,10 @@ describeDb("an eliminated player", () => {
       eligible: false,
       reason: "left_early",
     });
-    expect(await matchRows(h, users[3])).toHaveLength(0);
+    expect(await matchRows(h, users[3])).toEqual([]);
   });
 
-  it("an alive player who leaves early forfeits too", async () => {
+  it("an alive player who leaves early forfeits", async () => {
     const { h, key, users } = await setup();
     const id = gameId();
     await report(
@@ -540,6 +851,7 @@ describeDb("an eliminated player", () => {
     expect((await awarded(h, id, users[1])).xp_result.reason).toBe(
       "left_early",
     );
+    expect(await matchRows(h, users[1])).toEqual([]);
   });
 
   it("a drop that came back is not held against them", async () => {
@@ -560,6 +872,89 @@ describeDb("an eliminated player", () => {
     expect((await preview(h, users[1], id)).body.status).toBe("live");
     await stored(h, key, record(users), id);
     expect((await awarded(h, id, users[1])).xp_result.eligible).toBe(true);
+  });
+
+  it("pays nothing to one who never acted, or to a guest: a death does not make them a player", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ acted: false }) }),
+    );
+    expect((await preview(h, users[3], id)).body).toMatchObject({
+      status: "none",
+      reason: "no_action",
+    });
+    expect(await matchRows(h, users[3])).toEqual([]);
+
+    const guests = await setup(6, "guest");
+    const gid = gameId();
+    await report(
+      guests.h,
+      guests.key,
+      live(gid, guests.users, { ...ALL_IN, 3: out() }),
+    );
+    expect(await matchRows(guests.h, guests.users[3])).toEqual([]);
+  });
+
+  it("is on the daily soft cap like any award", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    await q(
+      h,
+      "INSERT INTO xp_daily (user_id, day, match_xp, first_game_ref, first_win_ref) VALUES ($1, $2::date, 6000, 'x', 'y')",
+      [users[3].id, new Date().toISOString().slice(0, 10)],
+    );
+    await report(
+      h,
+      key,
+      live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) }),
+    );
+    const capped = applySoftCap(25, 6000);
+    expect(capped.softCapped).toBe(true);
+    expect((await matchRows(h, users[3]))[0].delta).toBe(capped.paid);
+    expect((await preview(h, users[3], id)).body.total).toBe(capped.paid);
+  });
+
+  it("a death in the first two minutes is paid too: a death is never nothing", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    await report(
+      h,
+      key,
+      live(id, users, {
+        ...ALL_IN,
+        3: out({ killedBy: null, aliveAtTurn: 700, deadAtTurn: 800 }),
+      }),
+    );
+    expect((await preview(h, users[3], id)).body).toMatchObject({
+      status: "final",
+      total: 25,
+    });
+  });
+
+  it("two reports and the stored game at once still pay the death exactly once", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    const p = live(id, users, { ...ALL_IN, 3: out({ killedBy: null }) });
+    const results = await Promise.all([
+      report(h, key, p),
+      report(h, key, p),
+      submitGame(h, key, buildRecord(id, record(users))),
+      report(h, key, p),
+    ]);
+    for (const res of results) expect(res.status).toBe(200);
+    for (const i of [2, 3, 4, 5]) {
+      expect(await matchRows(h, users[i]), `player ${i}`).toHaveLength(1);
+      expect((await progressRow(h, users[i]))!.life).toBe(25);
+      const stored = await awarded(h, id, users[i]);
+      expect(stored.xp).toBe(25);
+      expect(stored.xp_result).toMatchObject({
+        eligible: true,
+        mode: "reduced",
+      });
+    }
   });
 });
 
@@ -593,6 +988,44 @@ describeDb("reduced games preview as they pay", () => {
     expect(final.xp_result).toMatchObject({ mode: "reduced" });
   });
 
+  it("a private game's death is paid at once, for the game's own reason", async () => {
+    const { h, key, users } = await setup();
+    const id = gameId();
+    const cfg = {
+      gameType: "Private",
+      gameMode: "Free For All",
+      rankedType: null,
+      listed: null,
+    };
+    await report(h, key, live(id, users, ALL_IN, { config: cfg }));
+    expect(await matchRows(h, users[3])).toEqual([]);
+    await report(
+      h,
+      key,
+      live(
+        id,
+        users,
+        {
+          ...ALL_IN,
+          3: {
+            alive: false,
+            eliminated: true,
+            aliveAtTurn: 4900,
+            deadAtTurn: 5000,
+          },
+        },
+        { config: cfg },
+      ),
+    );
+    const view = await preview(h, users[3], id);
+    expect(view.body).toMatchObject({
+      status: "final",
+      mode: "reduced",
+      total: 25,
+    });
+    expect(view.body.breakdown.reducedReason).toBe("private_game");
+  });
+
   it("a low-population public game: the quarter, and the same in the award", async () => {
     const { h, key, users } = await setup(1);
     const id = gameId();
@@ -603,6 +1036,7 @@ describeDb("reduced games preview as they pay", () => {
         clientID: clientIdOf(i),
         persistentID: null,
         alive: i === 1,
+        eliminated: i !== 1,
         killedBy: null,
         aliveAtTurn: 5000,
         deadAtTurn: null,
@@ -614,6 +1048,7 @@ describeDb("reduced games preview as they pay", () => {
     p.players[0] = {
       ...p.players[0],
       alive: false,
+      eliminated: true,
       killedBy: null,
       aliveAtTurn: 4900,
       deadAtTurn: 5000,
@@ -621,7 +1056,7 @@ describeDb("reduced games preview as they pay", () => {
     await report(h, key, p);
     const view = await preview(h, users[0], id);
     expect(view.body).toMatchObject({
-      status: "pending",
+      status: "final",
       mode: "reduced",
       total: 25,
     });
@@ -645,9 +1080,10 @@ describeDb("reduced games preview as they pay", () => {
     const final = await awarded(h, id, users[0]);
     expect(final.xp).toBe(25);
     expect(final.xp_result).toMatchObject({ mode: "reduced" });
+    expect(await matchRows(h, users[0])).toHaveLength(1);
   });
 
-  it("a private game's eliminated player who leaves early forfeits it", async () => {
+  it("a private game's player who left while alive forfeits, dead or not", async () => {
     const { h, key, users } = await setup();
     const id = gameId();
     const cfg = {
@@ -662,7 +1098,7 @@ describeDb("reduced games preview as they pay", () => {
       live(
         id,
         users,
-        { 3: { connected: false, leftTurn: 4200 } },
+        { 3: { connected: false, leftTurn: 3000 } },
         { config: cfg },
       ),
     );
@@ -671,10 +1107,11 @@ describeDb("reduced games preview as they pay", () => {
       mode: "reduced",
       total: 0,
     });
+    expect(await matchRows(h, users[3])).toEqual([]);
   });
 });
 
-describeDb("what still pays nothing", () => {
+describeDb("a game staff commands changed", () => {
   const staffCommand = {
     type: "admin_command",
     command: "give_gold",
@@ -683,7 +1120,7 @@ describeDb("what still pays nothing", () => {
     clientID: clientIdOf(5),
   };
 
-  it("a game staff tests changed", async () => {
+  it("pays everyone the reduced award, in the preview and in the award", async () => {
     const { h, key, users } = await setup();
     const id = gameId();
     const action = {
@@ -704,26 +1141,51 @@ describeDb("what still pays nothing", () => {
         { adminActions: [action] as never, adminSenders: [clientIdOf(5)] },
       ),
     );
+    // alive, still playing: reduced, lifetime only
     expect((await preview(h, users[0], id)).body).toMatchObject({
-      status: "none",
-      reason: "admin_modified",
+      status: "live",
+      mode: "reduced",
+      total: 31,
     });
+    expect((await preview(h, users[0], id)).body.breakdown.reducedReason).toBe(
+      "admin_modified",
+    );
+    // eliminated: paid at once, still reduced
+    expect((await preview(h, users[3], id)).body).toMatchObject({
+      status: "final",
+      mode: "reduced",
+      total: 25,
+    });
+    expect((await preview(h, users[3], id)).body.breakdown.reducedReason).toBe(
+      "admin_modified",
+    );
+    // the staff member who ran the command is no exception
+    expect((await preview(h, users[5], id)).body).toMatchObject({
+      status: "final",
+      total: 25,
+    });
+
     await stored(
       h,
       key,
       record(users, { extraIntents: [staffCommand], adminActions: [action] }),
       id,
     );
-    expect((await awarded(h, id, users[0])).xp_result).toEqual({
-      eligible: false,
-      reason: "admin_modified",
+    expect((await awarded(h, id, users[0])).xp).toBe(31);
+    expect((await awarded(h, id, users[0])).xp_result).toMatchObject({
+      eligible: true,
+      mode: "reduced",
     });
+    // the death award is adopted: still one payment each
+    for (const i of [0, 1, 2, 3, 4, 5]) {
+      expect(await matchRows(h, users[i]), `player ${i}`).toHaveLength(1);
+    }
   });
 
-  it("an admin who ran a command, in a game that still counts", async () => {
+  it("an owner's command in a public game leaves it full, and the owner is paid like anyone", async () => {
     const { h, key, users } = await setup();
     const id = gameId();
-    await q(h, "UPDATE users SET role = 'owner' WHERE id = $1", [users[5].id]);
+    await q(h, "UPDATE users SET role = 'owner' WHERE id = $1", [users[1].id]);
     const action = {
       command: "give_gold",
       role: "owner",
@@ -739,25 +1201,35 @@ describeDb("what still pays nothing", () => {
         id,
         users,
         {},
-        { adminActions: [action] as never, adminSenders: [clientIdOf(5)] },
+        { adminActions: [action] as never, adminSenders: [clientIdOf(1)] },
       ),
     );
-    expect((await preview(h, users[5], id)).body).toMatchObject({
-      status: "none",
-      reason: "admin_actor",
+    // the owner is still in it: the same preview as any player in a full game
+    expect((await preview(h, users[1], id)).body).toMatchObject({
+      status: "live",
+      mode: "full",
     });
-    expect((await preview(h, users[0], id)).body.status).toBe("live");
+    expect((await preview(h, users[0], id)).body).toMatchObject({
+      status: "live",
+      mode: "full",
+    });
     await stored(
       h,
       key,
-      record(users, { extraIntents: [staffCommand], adminActions: [action] }),
+      record(users, {
+        extraIntents: [{ ...staffCommand, clientID: clientIdOf(1) }],
+        adminActions: [action],
+      }),
       id,
     );
-    expect((await awarded(h, id, users[5])).xp_result).toEqual({
-      eligible: false,
-      reason: "admin_actor",
+    expect((await awarded(h, id, users[1])).xp_result).toMatchObject({
+      eligible: true,
+      mode: "full",
     });
-    expect((await awarded(h, id, users[0])).xp_result.eligible).toBe(true);
+    expect((await awarded(h, id, users[0])).xp_result).toMatchObject({
+      eligible: true,
+      mode: "full",
+    });
   });
 });
 
@@ -899,6 +1371,8 @@ describeDb("with progression off", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, ignored: true });
     expect(liveXpStore.size).toBe(0);
+    // and a death in it is not paid: there is no progression
+    expect(await q(h, "SELECT 1 FROM early_xp")).toHaveLength(0);
     const preview = await call(h, `/users/@me/xp/live/${id}`, {
       bearer: user.jwt,
       origin: null,

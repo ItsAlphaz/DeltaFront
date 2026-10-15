@@ -9,15 +9,20 @@ import { effectiveStatus } from "../../components/LiveXpCard";
 import { Controller } from "../../Controller";
 import { rememberPendingXp } from "../../PendingXpStore";
 import { resolveXpAccount } from "../../ProgressionAccount";
-import { fetchLiveXp, LIVE_XP_POLL_MS } from "../../ProgressionApi";
+import {
+  fetchLiveXp,
+  LIVE_XP_POLL_MS,
+  OUT_XP_POLL_MS,
+} from "../../ProgressionApi";
 import { translateText } from "../../Utils";
 import { GameView } from "../../view";
 
 /**
  * The player's XP in the game they are playing, in a corner of the HUD: "Match
- * XP +150", and for someone eliminated who is still there "150 XP pending". It
- * opens to the lines behind it (participation, eliminations, the multiplier) and
- * what is still to be decided.
+ * XP +150", and for someone eliminated "XP earned +31" once the server has
+ * confirmed the death and paid the reduced award. It opens to the lines behind
+ * it (participation, eliminations, the multiplier) and what is still to be
+ * decided.
  *
  * Nothing here is worked out on the client. The account API computes the
  * number from what the game server reports, with the rules that decide the final
@@ -49,6 +54,7 @@ export class LiveXpPanel extends LitElement implements Controller {
   private enabled: boolean | null = null;
   private deciding = false;
   private polling = false;
+  private paid = false;
   private lastPoll = Number.NEGATIVE_INFINITY;
 
   createRenderRoot() {
@@ -85,7 +91,11 @@ export class LiveXpPanel extends LitElement implements Controller {
       void this.decide();
       return;
     }
-    if (this.polling || this.now() - this.lastPoll < LIVE_XP_POLL_MS) return;
+    // A death that has been paid does not change any more.
+    if (this.paid) return;
+    // Out: the server's confirmation and the award are a few seconds away.
+    const every = alive ? LIVE_XP_POLL_MS : OUT_XP_POLL_MS;
+    if (this.polling || this.now() - this.lastPoll < every) return;
     void this.poll();
   }
 
@@ -117,8 +127,10 @@ export class LiveXpPanel extends LitElement implements Controller {
       }
       if (result.status === "ok") {
         this.data = result.data;
-        // XP is at stake: remember the game so its result can be told later
-        // even if the player leaves before it is stored.
+        if (result.data.status === "final") this.paid = true;
+        // Remember the game so its result can be told later even if the
+        // player leaves before the stored game is in (a forfeit, a winner's
+        // award, or a death's, which the next visit tells once).
         if (
           result.data.status !== "none" &&
           result.data.status !== "forfeited"

@@ -316,13 +316,13 @@ describe("WinModal XP section", () => {
 
   it("shows one friendly line for an ineligible game", async () => {
     stubXpEndpoint([
-      () => json({ gameId: GAME_ID, eligible: false, reason: "too_short" }),
+      () => json({ gameId: GAME_ID, eligible: false, reason: "left_early" }),
     ]);
     await mount(makeGame({ ended: true }));
     await finishReveal();
     expect(xpState()).toBe("ineligible");
     expect(panel()!.textContent!.trim()).toBe(
-      "progression.ineligible_too_short",
+      "progression.ineligible_left_early",
     );
   });
 
@@ -1306,10 +1306,73 @@ describe("WinModal XP section", () => {
         ...over,
       });
 
-  it("shows the pending XP, not a wait message, when the player dies mid-game", async () => {
-    const fetchMock = stubXpEndpoint([notFound], [livePreview()]);
+  // The reduced award for a death, as the account API reports it.
+  const reducedPreview = (over: Record<string, unknown> = {}) =>
+    livePreview({
+      status: "pending",
+      mode: "reduced",
+      total: 31,
+      breakdown: {
+        leftEarly: false,
+        played: 100,
+        time: 0,
+        placement: 0,
+        win: 0,
+        eliminations: 25,
+        eliminationCount: 1,
+        firstGame: 0,
+        firstWin: 0,
+        feats: 0,
+        subtotal: 125,
+        gamePermille: 250,
+        repeatPermille: 1000,
+        subscriberPermille: 1000,
+        playerCount: 0,
+        capped: false,
+        softCapped: false,
+        reducedReason: "eliminated",
+        total: 31,
+      },
+      pending: [],
+      ...over,
+    });
+
+  // The stored award a paid death reads back (GET /users/@me/xp/:gameId before
+  // the game is stored).
+  const deathAward = (over: Record<string, unknown> = {}) =>
+    eligible({
+      mode: "reduced",
+      breakdown: {
+        ...eligible().breakdown,
+        played: 100,
+        time: 0,
+        win: 0,
+        eliminations: 25,
+        eliminationCount: 1,
+        subtotal: 125,
+        gamePermille: 250,
+        reducedReason: "eliminated",
+        total: 31,
+      },
+      before: { prestige: 0, level: 4, xpInLevel: 300, xpForNext: 400 },
+      after: {
+        prestige: 0,
+        level: 4,
+        xpInLevel: 331,
+        xpForNext: 400,
+        lifetimeXp: 2031,
+        legend: false,
+        canPrestige: false,
+      },
+      challenges: [],
+      season: null,
+      ...over,
+    });
+
+  it("shows the XP the server is finalizing, not a wait message, when the player dies mid-game", async () => {
+    const fetchMock = stubXpEndpoint([notFound], [reducedPreview()]);
     await mount(makeGame({ ended: false, alive: false }));
-    await settle();
+    await settle(1_500);
     expect(xpState()).toBe("live");
     const card = panel()!.querySelector("live-xp-card")!;
     expect(
@@ -1319,28 +1382,110 @@ describe("WinModal XP section", () => {
           ?.getAttribute("data-live-status"),
     ).toBe("pending");
     expect(panel()!.textContent).toContain("progression.live_pending_note");
-    expect(panel()!.textContent).toContain("progression.live_pending_amount");
-    // the old "wait until the end" line is gone for good
+    expect(panel()!.textContent).toContain('"xp":"31"');
+    // nothing tells them to stay: the old "wait until the end" text is gone
     expect(panel()!.textContent).not.toContain("awaiting_end");
+    expect(panel()!.textContent).not.toMatch(/stay/i);
     // and the stored XP is not asked for before the game is over
     expect(storedCalls(fetchMock)).toHaveLength(0);
     expect(liveCalls(fetchMock).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("keeps the preview current while the player waits", async () => {
-    let total = 150;
-    const answers = [() => livePreview({ total })()];
-    const fetchMock = stubXpEndpoint([notFound], answers);
+  it("shows what the death earned as soon as the server has paid it, with the level, while the match goes on", async () => {
+    const fetchMock = stubXpEndpoint(
+      [() => json(deathAward())],
+      [reducedPreview({ status: "final" })],
+    );
+    await mount(makeGame({ ended: false, alive: false }));
+    await settle(2_500);
+    // the full panel, not a card: the bar, the counter and the reduced heading
+    expect(xpState()).toBe("result");
+    await finishReveal();
+    const text = panel()!.textContent!;
+    expect(text).toContain('progression.xp_total:{"xp":"31"}');
+    expect(text).toContain("progression.xp_heading_reduced");
+    expect(text).toContain("progression.note_reduced_eliminated");
+    expect(panel()!.querySelector("[data-xp-bar]")).not.toBeNull();
+    // it was read from the account, before the game was over
+    expect(storedCalls(fetchMock).length).toBeGreaterThanOrEqual(1);
+    // no pending, no wait, no stay-until-the-end
+    expect(text).not.toContain("live_pending");
+    expect(text).not.toContain("progression.calculating");
+    expect(text).not.toMatch(/stay/i);
+    // and nothing is left to be told on the next visit
+    expect(window.localStorage.getItem("df.pendingXp")).toBeNull();
+  });
+
+  it("tells the page the account has the XP, so the nav's level and bar catch up", async () => {
+    const heard: unknown[] = [];
+    const listen = (e: Event) => heard.push((e as CustomEvent).detail);
+    document.addEventListener("xp-awarded", listen);
+    try {
+      stubXpEndpoint(
+        [() => json(deathAward())],
+        [reducedPreview({ status: "final" })],
+      );
+      await mount(makeGame({ ended: false, alive: false }));
+      await settle(2_500);
+    } finally {
+      document.removeEventListener("xp-awarded", listen);
+    }
+    expect(heard).toEqual([{ gameId: GAME_ID }]);
+  });
+
+  it("offers to exit or spectate on the death screen, and the award is already there to leave with", async () => {
+    stubXpEndpoint(
+      [() => json(deathAward())],
+      [reducedPreview({ status: "final" })],
+    );
+    await mount(makeGame({ ended: false, alive: false }));
+    await settle(2_500);
+    await finishReveal();
+    expect(modal.querySelector("h2")!.textContent).toContain("win_modal.died");
+    const actions = [...modal.querySelectorAll("[data-win-action]")].map(
+      (el) => [el.getAttribute("data-win-action"), el.textContent!.trim()],
+    );
+    expect(actions).toEqual([
+      ["exit", "win_modal.exit"],
+      ["keep", "win_modal.spectate"],
+    ]);
+    expect(xpState()).toBe("result");
+  });
+
+  it("does not look for the stored XP again when the match ends: the award it already shows is final", async () => {
+    const opts = { ended: false, alive: false };
+    const fetchMock = stubXpEndpoint(
+      [() => json(deathAward())],
+      [reducedPreview({ status: "final" })],
+    );
+    await mount(makeGame(opts));
+    await settle(2_500);
+    expect(xpState()).toBe("result");
+    const calls = storedCalls(fetchMock).length;
+    // the match ends
+    opts.ended = true;
+    modal.tick();
+    await settle(5_000);
+    expect(xpState()).toBe("result");
+    expect(panel()!.textContent).not.toContain("progression.calculating");
+    expect(storedCalls(fetchMock).length).toBe(calls);
+  });
+
+  it("keeps the preview current while waiting for the server to confirm, every two seconds", async () => {
+    let total = 25;
+    const fetchMock = stubXpEndpoint(
+      [notFound],
+      [() => reducedPreview({ total })()],
+    );
     await mount(makeGame({ ended: false, alive: false }));
     await settle();
     const first = liveCalls(fetchMock).length;
-    // five seconds on, it reads the preview again (the figure moved)
-    total = 200;
-    await settle(5_000);
+    total = 37;
+    await settle(2_000);
     expect(liveCalls(fetchMock).length).toBeGreaterThan(first);
     // the figure eases to the new amount, then rests on it
     await settle(1_500);
-    expect(panel()!.textContent).toContain('"xp":"200"');
+    expect(panel()!.textContent).toContain('"xp":"37"');
   });
 
   it("says nothing, and asks nothing of the stored game, when the API has no preview", async () => {

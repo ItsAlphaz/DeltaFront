@@ -32,6 +32,7 @@ import { withTransaction } from "../db/tx";
 import { ACCOUNT_RULES } from "../domain/constants";
 import { claimProgressionRewards } from "../domain/economy";
 import { liveXpFor } from "../domain/liveXp";
+import { earlyAwardOf } from "../domain/progression";
 import { prestigeAccount, setDisplayTitle } from "../domain/progressionOps";
 import { clientIp } from "../http";
 import {
@@ -103,7 +104,7 @@ export function progressionRouter(deps: AppDeps): Router {
     return user;
   }
 
-  // -- the XP a running game stands at (a preview; the stored game pays) ------
+  // -- the XP a running game stands at (a preview; a death is already paid) ---
 
   router.get("/users/@me/xp/live/:gameId", async (req, res) => {
     const user = await account(req, res);
@@ -114,7 +115,7 @@ export function progressionRouter(deps: AppDeps): Router {
       return;
     }
     // Not reported (yet, any more, or not the caller's game): indistinguishable
-    // on purpose. Once the game is stored the final endpoint answers instead.
+    // on purpose. Once the game is stored the game's own endpoint answers.
     const live = await liveXpFor(pool, id.data, user.id);
     if (live === null) {
       res.status(404).json({ error: "not_found" });
@@ -123,7 +124,17 @@ export function progressionRouter(deps: AppDeps): Router {
     res.json(live);
   });
 
-  // -- the XP one finished game earned --------------------------------------
+  // -- the XP one game earned --------------------------------------------------
+
+  /** The wire form of an eligible stored result, with the rank of the level it reached. */
+  const eligibleBody = (gameId: string, stored: object): GameXpResponse => {
+    const after = (stored as { after: ReturnType<typeof progressState> }).after;
+    return {
+      ...stored,
+      gameId,
+      after: { ...after, rank: rankForLevel(after.level) },
+    } as unknown as GameXpResponse;
+  };
 
   router.get("/users/@me/xp/:gameId", async (req, res) => {
     const user = await account(req, res);
@@ -140,9 +151,17 @@ export function progressionRouter(deps: AppDeps): Router {
         WHERE g.game_code = $1 AND p.user_id = $2`,
       [id.data, user.id],
     );
-    // Not stored yet, or not the caller's game: indistinguishable on purpose.
     if (rows.length === 0) {
-      res.status(404).json({ error: "not_found" });
+      // Not stored yet: a player who was eliminated has already been paid, and
+      // that award is theirs to read now (the stored game will carry the very
+      // same result). Otherwise, or not the caller's game: indistinguishable
+      // on purpose.
+      const early = await earlyAwardOf(pool, user.id, id.data);
+      if (early === null) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      res.json(eligibleBody(id.data, early.result));
       return;
     }
     const stored = rows[0].xp_result;
@@ -150,12 +169,7 @@ export function progressionRouter(deps: AppDeps): Router {
     if (stored === null) {
       body = { gameId: id.data, eligible: false, reason: "before_progression" };
     } else if (stored.eligible === true) {
-      const after = stored.after as ReturnType<typeof progressState>;
-      body = {
-        ...(stored as object),
-        gameId: id.data,
-        after: { ...after, rank: rankForLevel(after.level) },
-      } as unknown as GameXpResponse;
+      body = eligibleBody(id.data, stored);
     } else {
       body = {
         gameId: id.data,

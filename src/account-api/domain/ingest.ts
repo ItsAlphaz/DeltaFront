@@ -9,6 +9,7 @@ import { applyGameReward, gameReward } from "./economy";
 import {
   awardPlayerXp,
   completedByClient,
+  countsAsParticipant,
   outcomesByClient,
   seasonAt,
   type GameXpContext,
@@ -219,9 +220,10 @@ export async function ingestGameRecord(
   const players = await resolvePlayers(pool, record);
   // A game in which staff testing commands changed the state is for testing: it
   // feeds no stats, no Credits, no leaderboard and no clan threshold, unless
-  // every command was the owner's in a public or listed game. Decided here from
-  // what the game server recorded (see isAdminModified), never from a client,
-  // and stored so the panel can show it.
+  // every command was the owner's in a public or listed game. Its players still
+  // earn XP, at the reduced rate (lifetime only). Decided here from what the
+  // game server recorded (see isAdminModified), never from a client, and stored
+  // so the panel can show it.
   const adminModified = isAdminModified(record);
   const verdict = countedVerdict({
     source: "server",
@@ -232,8 +234,9 @@ export async function ingestGameRecord(
     adminModified,
   });
   const counted = verdict.counted;
-  // How far the game advances progression: the stats rule decides "full", and a
-  // private, unlisted or low-population game is "reduced" instead of nothing.
+  // How far the game advances progression: the stats rule decides "full"; a
+  // private, unlisted, low-population or short game, or one staff commands
+  // changed, is "reduced" instead of nothing.
   const eligibility = progressionEligibility({
     source: "server",
     type: type ?? undefined,
@@ -393,9 +396,9 @@ async function buildXpContext(
   },
 ): Promise<GameXpContext> {
   const { record, eligibility, players } = input;
-  // The completed-game rule is the Credits one; a reduced game is judged by it
-  // too (there was a winner, the player survived or lasted two minutes, and
-  // stayed to the result).
+  // The completed-game rule is the Credits one: it says who stayed to the
+  // result. XP reads it for the players still in the game; an eliminated player's
+  // award does not depend on it (see playerIneligibleReason).
   const outcomes = outcomesByClient(
     record,
     players.map((p) => p.clientID),
@@ -404,7 +407,14 @@ async function buildXpContext(
   const completed = completedByClient(outcomes);
   const acted = clientsWhoActed(record.turns);
   const eligible = players
-    .filter((p) => completed.get(p.clientID) === true && acted.has(p.clientID))
+    .filter((p) =>
+      countsAsParticipant(
+        record,
+        completed.get(p.clientID) === true,
+        acted.has(p.clientID),
+        p.clientID,
+      ),
+    )
     .map((p) => ({ userId: p.userId, clientID: p.clientID }));
   return {
     record,

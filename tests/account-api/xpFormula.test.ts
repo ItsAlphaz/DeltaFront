@@ -386,7 +386,7 @@ describe("how far a game advances progression", () => {
     });
   });
 
-  it("is none for singleplayer, ranked, a staff test, and a game that was too short", () => {
+  it("is none only where nothing can be paid: singleplayer and ranked", () => {
     expect(model({ source: "singleplayer" })).toEqual({
       mode: "none",
       reason: "singleplayer",
@@ -399,22 +399,71 @@ describe("how far a game advances progression", () => {
       mode: "none",
       reason: "ranked",
     });
+  });
+
+  it("a short game is reduced, never nothing: the policy is reduced XP for a game under the minimum", () => {
+    expect(model({ durationSeconds: 90 })).toEqual({
+      mode: "reduced",
+      reason: "short_game",
+    });
+    expect(model({ durationSeconds: 0 }).mode).toBe("reduced");
+    // the minimum itself is a full game
+    expect(model({ durationSeconds: 120 }).mode).toBe("full");
+    // short and something else: the game's own reason leads
+    expect(model({ type: "Private", durationSeconds: 90 })).toEqual({
+      mode: "reduced",
+      reason: "private_game",
+    });
+    expect(model({ accountHolders: 1, durationSeconds: 90 })).toEqual({
+      mode: "reduced",
+      reason: "public_too_few_humans",
+    });
+  });
+
+  it("a game staff commands changed is reduced, never nothing, wherever it was played", () => {
+    // a public game changed by a command that makes it a test
     expect(model({ adminModified: true })).toEqual({
-      mode: "none",
+      mode: "reduced",
       reason: "admin_modified",
     });
-    // a staff test is none whatever kind of game it was
-    expect(model({ adminModified: true, type: "Private" }).mode).toBe("none");
-    expect(model({ durationSeconds: 90 })).toEqual({
-      mode: "none",
-      reason: "too_short",
+    // private and unlisted games are reduced anyway, for their own reason
+    expect(model({ adminModified: true, type: "Private" })).toEqual({
+      mode: "reduced",
+      reason: "private_game",
     });
-    // even a reduced award needs a game that lasted
-    expect(model({ type: "Private", durationSeconds: 90 })).toEqual({
-      mode: "none",
-      reason: "too_short",
+    expect(
+      model({ adminModified: true, type: "Private", listed: false }),
+    ).toEqual({ mode: "reduced", reason: "unlisted_game" });
+    // a short, staff-changed game is one reduced award, not two penalties
+    expect(model({ adminModified: true, durationSeconds: 60 })).toEqual({
+      mode: "reduced",
+      reason: "short_game",
     });
-    expect(model({ accountHolders: 1, durationSeconds: 90 }).mode).toBe("none");
+  });
+
+  it("the owner's commands in a public game leave it full: isAdminModified says so, and it stays full", () => {
+    // adminModified is false when every command was the owner's in a public or
+    // listed game (see isAdminModified): nothing about the game changes.
+    expect(model({ adminModified: false })).toEqual({
+      mode: "full",
+      reason: "normal_public",
+    });
+    expect(model({ adminModified: undefined })).toEqual({
+      mode: "full",
+      reason: "normal_public",
+    });
+  });
+
+  it("is never none for a death-adjacent or test-adjacent reason", () => {
+    for (const over of [
+      { durationSeconds: 1 },
+      { adminModified: true },
+      { accountHolders: 1 },
+      { type: "Private" },
+      { type: "Private", listed: false },
+    ]) {
+      expect(model(over).mode, JSON.stringify(over)).not.toBe("none");
+    }
   });
 
   it("agrees with the stats rule: full exactly when the game counts", () => {

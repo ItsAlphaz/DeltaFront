@@ -362,7 +362,7 @@ describeDb("a reduced game: private, unlisted and low-population", () => {
     expect((await progressOf(h, users[0])).life).toBe(31);
   });
 
-  it("is still refused to guests, leavers, players who did not act, and the game's admin actor", async () => {
+  it("is still refused to guests, leavers who were still in the game and players who did not act; the game's admin is paid like anyone", async () => {
     const { h, key, users } = await setup(4);
     const guest = await makeUser(h, "guest");
     const id = await play(h, key, {
@@ -416,15 +416,15 @@ describeDb("a reduced game: private, unlisted and low-population", () => {
         },
       ],
     });
-    expect((await resultOf(h, owner, users[3])).xp_result).toEqual({
-      eligible: false,
-      reason: "admin_actor",
-    });
+    // a staff member who used a command is not penalised for it: 100 x 0.25
+    const paid = await resultOf(h, owner, users[3]);
+    expect(paid.xp).toBe(25);
+    expect(paid.xp_result).toMatchObject({ eligible: true, mode: "reduced" });
   });
 });
 
-describeDb("games that earn nothing at all", () => {
-  it("a game staff tests changed pays 0, even a private one", async () => {
+describeDb("a game staff commands changed", () => {
+  it("pays everyone the reduced award, even a private one: a test is not nothing", async () => {
     const { h, key, users } = await setup();
     const id = await play(
       h,
@@ -452,15 +452,25 @@ describeDb("games that earn nothing at all", () => {
         ],
       }),
     );
-    for (const user of users) {
-      expect((await resultOf(h, id, user)).xp_result).toEqual({
-        eligible: false,
-        reason: "admin_modified",
-      });
+    // the winner made one valid elimination: (100 + 25) x 0.25 = 31
+    expect((await resultOf(h, id, users[0])).xp).toBe(31);
+    for (const user of users.slice(1)) {
+      const r = await resultOf(h, id, user);
+      expect(r.xp).toBe(25);
+      expect(r.xp_result).toMatchObject({ eligible: true, mode: "reduced" });
+      // private is the game's own reason; the staff command adds nothing to it
+      expect(r.xp_result.breakdown.reducedReason).toBe("private_game");
     }
-    expect(await progressOf(h, users[0])).toBeNull();
+    expect((await progressOf(h, users[0])).life).toBe(31);
+    // lifetime only: nothing for a season, a challenge or a clan
+    expect((await resultOf(h, id, users[0])).xp_result).toMatchObject({
+      season: null,
+      challenges: [],
+    });
   });
+});
 
+describeDb("games that earn nothing at all", () => {
   it("a singleplayer record pays 0 (it is never treated as a private game)", async () => {
     const { h, key, users } = await setup();
     const id = await play(h, key, ffa6(users, { type: "Singleplayer" }));
@@ -471,7 +481,7 @@ describeDb("games that earn nothing at all", () => {
     expect(await progressOf(h, users[0])).toBeNull();
   });
 
-  it("a game with no winner, or one eliminated early, pays 0", async () => {
+  it("a game with no winner pays nothing to the players still in it; a death already paid stands", async () => {
     const { h, key, users } = await setup();
     const id = await play(
       h,
@@ -482,6 +492,12 @@ describeDb("games that earn nothing at all", () => {
       eligible: false,
       reason: "no_winner",
     });
+    // eliminated before the match was called off: the reduced award was theirs
+    expect((await resultOf(h, id, users[2])).xp_result).toMatchObject({
+      eligible: true,
+      mode: "reduced",
+    });
+    expect((await resultOf(h, id, users[2])).xp).toBe(25);
   });
 });
 

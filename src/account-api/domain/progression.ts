@@ -24,6 +24,7 @@ import {
 import { PERMILLE, PROGRESSION } from "./constants";
 import {
   isCompletedOutcome,
+  leftWhileAlive,
   playerProgressionOutcome,
   resultFor,
   type PlayerProgressionOutcome,
@@ -32,7 +33,10 @@ import {
   alliancesFormed,
   computeMatchXp,
   computeReducedXp,
+  eliminatedBeforeMinimum,
   goldEarned,
+  playerStanding,
+  reducedReasonFor,
   repeatPermille,
   secondsSurvived,
   structuresBuilt,
@@ -40,6 +44,7 @@ import {
   type PlacementTable,
   type PlayerIneligibleReason,
   type ProgressionEligibility,
+  type ProgressionReason,
 } from "./xp";
 
 /**
@@ -384,7 +389,7 @@ export interface GameXpContext {
   outcomes: ReadonlyMap<string, PlayerProgressionOutcome>;
   /** clientID -> completed (a completing outcome), for the account holders. */
   completed: ReadonlyMap<string, boolean>;
-  /** Eligible humans: account holders who completed the game and acted. */
+  /** Eligible humans: account holders who acted and stayed to the result, or were eliminated after the minimum (see countsAsParticipant). */
   eligible: ReadonlyArray<{ userId: string; clientID: string }>;
   map: string | null;
   season: SeasonRow | null;
@@ -442,29 +447,62 @@ const ineligible = (reason: string): PlayerXpOutcome => ({
   result: { eligible: false, reason },
 });
 
-/** Why a player who is in a counted game earned nothing, or null if they are eligible. */
+/**
+ * Why a player earned nothing from a game that pays, or null if they are
+ * eligible. Leaving while still in the game is the disqualifier. A player who
+ * was eliminated is not held to the rest of the game: their reduced award does
+ * not depend on staying, on the game's length or on its ending with a winner.
+ */
 export function playerIneligibleReason(
   ctx: GameXpContext,
   player: GamePlayer,
 ): PlayerIneligibleReason | null {
   if (player.kind === "guest") return "guest";
-  if (ctx.completed.get(player.clientID) !== true) {
-    switch (ctx.outcomes.get(player.clientID)) {
-      case "no_winner":
-        return "no_winner";
-      case "eliminated_early":
-        return "eliminated_early";
-      case "not_spawned":
-        return "not_spawned";
-      default:
-        // left_early, disconnected_early, or an outcome the context does not
-        // carry: the player did not stay to the result.
-        return "left_early";
-    }
+  const standing = playerStanding(ctx.record, player.clientID);
+  if (standing === "not_spawned") return "not_spawned";
+  if (standing === "survived" && ctx.completed.get(player.clientID) !== true) {
+    // Still in the game and either no result or gone before it.
+    return ctx.outcomes.get(player.clientID) === "no_winner"
+      ? "no_winner"
+      : "left_early";
   }
-  if (ctx.adminSenders.has(player.clientID)) return "admin_actor";
+  // Abandoning the game while still alive is leaving, even if they were
+  // eliminated after: only a death with the player there to see it is secured.
+  if (
+    standing === "eliminated" &&
+    leftWhileAlive(ctx.record, player.clientID)
+  ) {
+    return "left_early";
+  }
   if (!ctx.acted.has(player.clientID)) return "no_action";
   return null;
+}
+
+/**
+ * Whether the player counts as a human of the game for the player-count
+ * multiplier: they acted and either were eliminated after the minimum (and had
+ * not abandoned the game before) or stayed to the result. A player who left a
+ * dead seat is still a player the game had; one eliminated within the first two
+ * minutes is not (a free kill must not inflate the game's population).
+ */
+export function countsAsParticipant(
+  record: Pick<GameRecord, "info" | "turns">,
+  completed: boolean,
+  acted: boolean,
+  clientID: string,
+): boolean {
+  if (!acted) return false;
+  switch (playerStanding(record, clientID)) {
+    case "not_spawned":
+      return false;
+    case "eliminated":
+      return (
+        !eliminatedBeforeMinimum(record, clientID) &&
+        !leftWhileAlive(record, clientID)
+      );
+    case "survived":
+      return completed;
+  }
 }
 
 /** Per-game contributions to the challenge metrics, for one player. */
@@ -664,32 +702,80 @@ async function progressChallenges(
   return completedNow;
 }
 
+/** A reduced award that was paid before its game was stored (see earlyXp.ts). */
+export interface EarlyAward {
+  xpAwarded: number;
+  result: Extract<StoredXpResult, { eligible: true }>;
+}
+
+/** The reduced award the player was paid when they were eliminated, if they were. */
+export async function earlyAwardOf(
+  db: Pick<PoolClient, "query">,
+  userId: string,
+  gameCode: string,
+): Promise<EarlyAward | null> {
+  const { rows } = await db.query<{ xp_awarded: string; result: unknown }>(
+    `SELECT xp_awarded::text AS xp_awarded, result
+       FROM early_xp WHERE user_id = $1 AND game_code = $2`,
+    [userId, gameCode],
+  );
+  if (rows.length === 0) return null;
+  return {
+    xpAwarded: Number(rows[0].xp_awarded),
+    result: rows[0].result as EarlyAward["result"],
+  };
+}
+
+const adopted = (early: EarlyAward): PlayerXpOutcome => ({
+  xpAwarded: early.xpAwarded,
+  clanXp: 0,
+  result: early.result,
+});
+
+export interface ReducedAwardInput {
+  userId: string;
+  gameCode: string;
+  /** The UTC day the XP counts towards (the soft cap's day). */
+  at: Date;
+  reason: ProgressionReason;
+  /** Counted eliminations, before the per-game limit. */
+  eliminations: number;
+  flags?: readonly string[];
+  env: RewardEnv;
+}
+
 /**
- * A reduced game (private, unlisted, or public with too few humans): completed
- * match and valid eliminations at a quarter, to lifetime XP ONLY. It is not
- * an exception inside the full path: nothing here touches the season, the
- * challenges, clan XP or the daily first-game and first-win bonuses.
+ * Pays a reduced award: completed match and valid eliminations at a quarter, to
+ * lifetime XP ONLY. It is not an exception inside the full path: nothing here
+ * touches the season, the challenges, clan XP or the daily first-game and
+ * first-win bonuses. The one place a reduced award is worked out and written,
+ * for a game being stored and for a death paid while the game is still on.
+ *
+ * Exactly once per player and game: the progress row is locked first, a prior
+ * early award is adopted instead of paid again, and the ledger's unique key on
+ * (user, game) refuses a second payment whatever else happens.
  */
-async function awardReducedXp(
+export async function payReducedXp(
   tx: PoolClient,
-  ctx: GameXpContext,
-  player: GamePlayer,
+  input: ReducedAwardInput,
 ): Promise<PlayerXpOutcome> {
-  const startRow = await lockProgress(tx, player.userId);
+  const startRow = await lockProgress(tx, input.userId);
+  const early = await earlyAwardOf(tx, input.userId, input.gameCode);
+  if (early !== null) return adopted(early);
   const before = position(startRow);
-  const day = utcDay(ctx.endedAt);
+  const day = utcDay(input.at);
   await tx.query(
     `INSERT INTO xp_daily (user_id, day) VALUES ($1, $2::date) ON CONFLICT DO NOTHING`,
-    [player.userId, day],
+    [input.userId, day],
   );
   const daily = await tx.query<{ match_xp: string }>(
     `SELECT match_xp::text AS match_xp FROM xp_daily
       WHERE user_id = $1 AND day = $2::date FOR UPDATE`,
-    [player.userId, day],
+    [input.userId, day],
   );
   const reduced = computeReducedXp({
-    reason: ctx.eligibility.reason,
-    eliminations: validEliminations(ctx.record, player.clientID),
+    reason: input.reason,
+    eliminations: input.eliminations,
     earnedToday: Number(daily.rows[0].match_xp),
   });
   const paid = reduced.breakdown.total;
@@ -698,20 +784,20 @@ async function awardReducedXp(
   if (paid > 0) {
     const applied = await applyXp(
       tx,
-      player.userId,
+      input.userId,
       progress,
       paid,
       {
         source: "match",
         refType: "game",
-        refId: ctx.gameCode,
+        refId: input.gameCode,
         rewardDay: day,
         // No season: reduced XP is lifetime XP only. The ledger remembers why.
         season: null,
         seasonDelta: 0,
-        reason: ctx.eligibility.reason,
+        reason: input.reason,
       },
-      ctx.env,
+      input.env,
     );
     if (!applied.applied) return ineligible("duplicate");
     progress = applied.after;
@@ -720,10 +806,8 @@ async function awardReducedXp(
   // Counts towards the day's soft cap, but spends no daily bonus.
   await tx.query(
     `UPDATE xp_daily SET match_xp = match_xp + $3 WHERE user_id = $1 AND day = $2::date`,
-    [player.userId, day, paid],
+    [input.userId, day, paid],
   );
-  const flags = [...reduced.flags];
-  if (ctx.adminSenders.size > 0) flags.push("admin_counted");
   return {
     xpAwarded: paid,
     clanXp: 0,
@@ -742,9 +826,30 @@ async function awardReducedXp(
       levelsReached: levels,
       challenges: [],
       season: null,
-      flags,
+      flags: [...reduced.flags, ...(input.flags ?? [])],
     },
   };
+}
+
+/** A stored game's reduced award for one player (see payReducedXp). */
+async function awardReducedXp(
+  tx: PoolClient,
+  ctx: GameXpContext,
+  player: GamePlayer,
+  reason: ProgressionReason,
+): Promise<PlayerXpOutcome> {
+  const flags: string[] = [];
+  if (ctx.adminSenders.size > 0) flags.push("admin_counted");
+  if (reason === "eliminated") flags.push("eliminated");
+  return payReducedXp(tx, {
+    userId: player.userId,
+    gameCode: ctx.gameCode,
+    at: ctx.endedAt,
+    reason,
+    eliminations: validEliminations(ctx.record, player.clientID),
+    flags,
+    env: ctx.env,
+  });
 }
 
 /**
@@ -762,10 +867,20 @@ export async function awardPlayerXp(
   if (ctx.eligibility.mode === "none") {
     return ineligible(ctx.eligibility.reason);
   }
+  // A reduced award paid when the player was eliminated (earlyXp.ts) is their
+  // award for this game: told here, never paid again.
+  if (player.kind !== "guest") {
+    const early = await earlyAwardOf(tx, player.userId, ctx.gameCode);
+    if (early !== null) return adopted(early);
+  }
   const reason = playerIneligibleReason(ctx, player);
   if (reason !== null) return ineligible(reason);
-  if (ctx.eligibility.mode === "reduced") {
-    return awardReducedXp(tx, ctx, player);
+  // A reduced game, and a death in any game: lifetime XP only, secured at the
+  // death, whatever happened to the rest of the match.
+  const eliminated =
+    playerStanding(ctx.record, player.clientID) === "eliminated";
+  if (ctx.eligibility.mode === "reduced" || eliminated) {
+    return awardReducedXp(tx, ctx, player, reducedReasonFor(ctx.eligibility));
   }
 
   const startRow = await lockProgress(tx, player.userId);

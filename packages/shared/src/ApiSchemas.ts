@@ -179,7 +179,8 @@ export const XpBreakdownSchema = z.object({
   capped: z.boolean().default(false),
   softCapped: z.boolean().default(false),
   // Set when the game earned a REDUCED award (lifetime XP only): why it was
-  // reduced (private_game, unlisted_game, public_too_few_humans).
+  // reduced (private_game, unlisted_game, public_too_few_humans, short_game,
+  // admin_modified, eliminated).
   reducedReason: z.string().optional().catch(undefined),
   // XP actually awarded.
   total: z.number(),
@@ -192,7 +193,8 @@ export type XpBreakdown = z.infer<typeof XpBreakdownSchema>;
 export const GameXpEligibleSchema = z.object({
   gameId: z.string(),
   eligible: z.literal(true),
-  // "reduced": private, unlisted or low-population game; absent reads as full.
+  // "reduced": lifetime XP only (a death, or a private, unlisted, low-population,
+  // short or staff-changed game); absent reads as full.
   mode: z.enum(["full", "reduced"]).optional().catch(undefined),
   breakdown: XpBreakdownSchema,
   before: ProgressPositionSchema,
@@ -245,20 +247,22 @@ export type GameXpResponse = z.infer<typeof GameXpResponseSchema>;
 
 // GET /users/@me/xp/live/:gameId — what the caller's XP for a game still running
 // (or just settled, before its record is stored) stands at, worked out by the
-// account API from what the game server reports. It is a preview: only the
-// stored game pays XP (GET /users/@me/xp/:gameId), and the amounts here use the
-// same rules.
-//   live       playing: the match XP earned so far
-//   pending    eliminated and still there: the XP is theirs once the result is
-//              settled, if they stay until then
+// account API from what the game server reports. The amounts use the same rules
+// as the award.
+//   live       playing: the match XP earned so far (a preview)
+//   pending    eliminated, the server has not confirmed it yet: the reduced
+//              award is about to be paid (a preview, for a few seconds)
 //   settled    the result is in (a winner decided): victory and placement
-//              included for the winner, the XP being stored
-//   forfeited  left before the result: no XP
+//              included for the winner, the XP being stored (a preview)
+//   final      eliminated and paid: the reduced award is secured and already in
+//              the account (GET /users/@me/xp/:gameId has the full breakdown)
+//   forfeited  left while still in the game, before the result: no XP
 //   none       this game pays them nothing (`reason` says why)
 export const LiveXpStatusSchema = z.enum([
   "live",
   "pending",
   "settled",
+  "final",
   "forfeited",
   "none",
 ]);
@@ -266,8 +270,9 @@ export type LiveXpStatus = z.infer<typeof LiveXpStatusSchema>;
 export const LiveXpResponseSchema = z.object({
   gameId: z.string(),
   status: LiveXpStatusSchema.catch("none"),
-  // How far the game progresses: "reduced" is lifetime XP only (private, unlisted
-  // and low-population games). Null when it pays nothing.
+  // How far the player's award goes: "reduced" is lifetime XP only (private,
+  // unlisted, low-population and short games, staff-changed games, and a death).
+  // Null when it pays nothing.
   mode: z.enum(["full", "reduced"]).nullable().catch(null),
   reason: z.string().nullable().optional().catch(null),
   // The match XP the preview stands at (0 once forfeited or when nothing is paid).
@@ -470,8 +475,9 @@ export const SeasonSummarySchema = z.object({
 export const XpHistoryEntrySchema = z.object({
   amount: z.number(),
   source: z.string(),
-  // Why, for a match: private_game, unlisted_game or public_too_few_humans for
-  // a reduced one. Absent otherwise.
+  // Why, for a match: the reduced reason (private_game, unlisted_game,
+  // public_too_few_humans, short_game, admin_modified, eliminated) for a reduced
+  // one. Absent otherwise.
   detail: z.string().nullable().optional().catch(undefined),
   at: z.string(),
 });

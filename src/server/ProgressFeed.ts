@@ -24,10 +24,15 @@ export function progressFeedEnabled(): boolean {
 /**
  * What the game server alone knows about a running game's progression, kept as
  * the game goes: when each player was last agreed to be alive and first agreed
- * to be dead (an elimination falls between the two snapshots), who took a
+ * to be eliminated (an elimination falls between the two snapshots), who took a
  * gameplay action, and who ran staff commands. Everything comes from the
  * server's own state, never from a client's say-so: the snapshots are the
  * majority-voted live stats and the intents are the ones the server stamped.
+ *
+ * "Eliminated" is a spawned player who lost their last tile, which the engine
+ * stamps with a finishing place (`deathPosition`). A player who has not spawned
+ * yet is not alive either, but is not eliminated: reading `isAlive` alone would
+ * call every slow spawner dead.
  */
 export class ProgressTracker {
   private readonly seen = new Map<
@@ -57,7 +62,7 @@ export class ProgressTracker {
         deadAtTurn: null,
       };
       if (p.isAlive) entry.aliveAtTurn = live.turn;
-      else entry.deadAtTurn ??= live.turn;
+      if (p.deathPosition !== null) entry.deadAtTurn ??= live.turn;
       this.seen.set(p.clientID, entry);
     }
   }
@@ -114,6 +119,7 @@ export function buildProgress(
       persistentID: r.persistentID,
       // Before the first agreed snapshot everyone is alive.
       alive: stat?.isAlive ?? true,
+      eliminated: window.deadAtTurn !== null,
       killedBy: stat?.killedBy ?? null,
       aliveAtTurn: window.aliveAtTurn,
       deadAtTurn: window.deadAtTurn,

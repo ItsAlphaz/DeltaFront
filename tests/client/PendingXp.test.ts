@@ -12,7 +12,7 @@ vi.mock("../../src/client/Utils", () => ({
 }));
 
 import { getUserMe, invalidateUserMe } from "../../src/client/Api";
-import { resolvePendingXp } from "../../src/client/PendingXp";
+import { refreshNav, resolvePendingXp } from "../../src/client/PendingXp";
 import {
   clearPendingXp,
   PENDING_XP_MAX_AGE_MS,
@@ -204,5 +204,33 @@ describe("telling a player what a game they left came to", () => {
     });
     document.removeEventListener("userMeResponse", onUserMe);
     expect(seen).toEqual([]);
+  });
+});
+
+describe("catching the nav up", () => {
+  it("re-reads the account and tells the nav, which reads that broadcast", async () => {
+    const seen: unknown[] = [];
+    const listen = (e: Event) => seen.push((e as CustomEvent).detail);
+    document.addEventListener("userMeResponse", listen);
+    try {
+      await refreshNav();
+    } finally {
+      document.removeEventListener("userMeResponse", listen);
+    }
+    expect(invalidateUserMe).toHaveBeenCalledTimes(1);
+    expect(getUserMe).toHaveBeenCalledTimes(1);
+    expect(seen).toEqual([{ user: {}, player: { publicId: "me" } }]);
+  });
+
+  it("says nothing when the account cannot be read", async () => {
+    vi.mocked(getUserMe).mockResolvedValueOnce(false);
+    const listen = vi.fn();
+    document.addEventListener("userMeResponse", listen);
+    try {
+      await refreshNav();
+    } finally {
+      document.removeEventListener("userMeResponse", listen);
+    }
+    expect(listen).not.toHaveBeenCalled();
   });
 });

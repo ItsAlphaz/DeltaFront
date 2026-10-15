@@ -54,6 +54,7 @@ function progress(
       clientID: cid(i),
       persistentID: user(i),
       alive: true,
+      eliminated: false,
       killedBy: null,
       aliveAtTurn: 3000,
       deadAtTurn: null,
@@ -69,6 +70,7 @@ function progress(
 /** `who` has been eliminated by player 0, well after the two-minute minimum. */
 const felled = (aliveAt = 3000, deadAt = 3100): Patch => ({
   alive: false,
+  eliminated: true,
   killedBy: cid(0),
   aliveAtTurn: aliveAt,
   deadAtTurn: deadAt,
@@ -94,6 +96,7 @@ function loaded(
     receivedAt: NOW,
     users,
     contexts: new Map(),
+    finalized: new Set(),
   };
   store.set(CODE, game);
   return { store };
@@ -249,10 +252,11 @@ describe("while the game is on", () => {
   });
 });
 
-describe("eliminated but still there", () => {
+describe("an eliminated player", () => {
   const out = (over: Patch = {}) => ({
     0: {
       alive: false,
+      eliminated: true,
       killedBy: cid(1),
       aliveAtTurn: 3000,
       deadAtTurn: 3100,
@@ -260,50 +264,143 @@ describe("eliminated but still there", () => {
     },
   });
 
-  it("is pending: the XP they have is theirs once the result is settled, if they stay", async () => {
+  it("is on the reduced award, whatever the game: 100 x 0.25 = 25, lifetime XP only", async () => {
     const live = await preview(progress({ ...out(), 1: { killedBy: null } }));
     expect(live).toMatchObject({
       status: "pending",
       alive: false,
-      mode: "full",
+      mode: "reduced",
+      total: 25,
+      pending: [],
     });
-    // participation and the first game: eliminations they made before dying still count
-    expect(live!.total).toBe(200);
+    expect(live!.breakdown).toMatchObject({
+      played: 100,
+      eliminations: 0,
+      firstGame: 0,
+      firstWin: 0,
+      placement: 0,
+      win: 0,
+      gamePermille: 250,
+      reducedReason: "eliminated",
+    });
   });
 
-  it("keeps the eliminations they made before they fell", async () => {
+  it("keeps the eliminations they made before they fell: (100 + 50) x 0.25 = 37", async () => {
     const live = await preview(
       progress({ ...out(), 2: felled(), 3: felled() }),
     );
     expect(live!.status).toBe("pending");
-    expect(live!.total).toBe(250);
+    expect(live!.total).toBe(37);
     expect(live!.breakdown!.eliminationCount).toBe(2);
   });
 
-  it("has nothing more to place: placement stays pending until the result", async () => {
+  it("has nothing competitive to wait for: no placement, no victory, no season or challenges", async () => {
     const live = await preview(progress(out()));
-    expect(live!.pending).toContain("placement");
+    expect(live!.pending).toEqual([]);
     expect(live!.breakdown!.placement).toBe(0);
-    expect(live!.pending).not.toContain("victory");
+    expect(live!.breakdown!.win).toBe(0);
   });
 
-  it("falling in the first two minutes pays nothing: they did not play", async () => {
+  it("falling in the first two minutes still pays the reduced award: a death is never nothing", async () => {
     const live = await preview(
       progress(out({ aliveAtTurn: 800, deadAtTurn: 900 })),
     );
     expect(live).toMatchObject({
-      status: "none",
-      reason: "eliminated_early",
-      total: 0,
+      status: "pending",
+      mode: "reduced",
+      total: 25,
     });
   });
 
-  it("falling when it is not known to be early still previews: the stored game decides", async () => {
+  it("falling when it is not known to be early is the same", async () => {
     const min = ECONOMY.minEliminationTick;
     const live = await preview(
       progress(out({ aliveAtTurn: min - 100, deadAtTurn: min })),
     );
+    expect(live).toMatchObject({ status: "pending", total: 25 });
+  });
+
+  it("an eliminated player in a private game says why it is reduced: the game, not the death", async () => {
+    const live = await preview(
+      progress(out(), {
+        config: {
+          gameType: "Private",
+          gameMode: "Free For All",
+          rankedType: null,
+          listed: null,
+        },
+      }),
+    );
+    expect(live!.breakdown!.reducedReason).toBe("private_game");
+    expect(live!.total).toBe(25);
+  });
+
+  it("a player who has never acted is paid nothing, dead or alive: they did not play", async () => {
+    expect(await preview(progress(out({ acted: false })))).toMatchObject({
+      status: "none",
+      reason: "no_action",
+    });
+    expect(await preview(progress({ 0: { acted: false } }))).toMatchObject({
+      status: "none",
+      reason: "no_action",
+    });
+  });
+
+  it("the report can say alive: false for a player who has not spawned: that is not an elimination", async () => {
+    const live = await preview(
+      progress({ 0: { alive: false, eliminated: false } }),
+    );
+    expect(live).toMatchObject({ status: "live", mode: "full", alive: true });
+  });
+
+  it("one who left while their empire still stood, and fell without them, is forfeited: that is leaving", async () => {
+    // gone since 2000; the empire was still alive at the snapshot of 3000
+    const live = await preview(
+      progress(out({ connected: false, leftTurn: 2000, aliveAtTurn: 3000 })),
+    );
+    expect(live).toMatchObject({
+      status: "forfeited",
+      reason: "left_early",
+      total: 0,
+    });
+  });
+
+  it("one who left in the few seconds around the death is not held to it: the report cannot tell which came first", async () => {
+    const live = await preview(
+      progress(out({ connected: false, leftTurn: 3050, aliveAtTurn: 3000 })),
+    );
+    expect(live).toMatchObject({ status: "pending", mode: "reduced" });
+    // the grace: gone five turns before the last snapshot they were alive at
+    const grace = await preview(
+      progress(
+        out({
+          connected: false,
+          leftTurn: 3000 - RESULT_GRACE_TURNS,
+          aliveAtTurn: 3000,
+        }),
+      ),
+    );
+    expect(grace!.status).toBe("pending");
+  });
+
+  it("a drop that came back before they fell is not leaving", async () => {
+    const live = await preview(
+      progress(out({ connected: true, leftTurn: 2000, aliveAtTurn: 3000 })),
+    );
     expect(live!.status).toBe("pending");
+  });
+
+  it("their elimination does not count their own kills against them, nor anyone else's", async () => {
+    // player 1 felled player 2 and 3; player 0 was felled by player 1
+    const live = await preview(
+      progress({
+        ...out(),
+        1: {},
+        2: { ...felled(), killedBy: cid(1) },
+        3: { ...felled(), killedBy: cid(1) },
+      }),
+    );
+    expect(live!.breakdown!.eliminationCount).toBe(0);
   });
 });
 
@@ -321,14 +418,22 @@ describe("leaving before the result forfeits", () => {
     });
   });
 
-  it("an eliminated player who left: forfeited too, whatever they had", async () => {
+  it("an eliminated player who left is NOT forfeited: the reduced award was secured at the death", async () => {
     const live = await preview(
       progress({
-        0: { alive: false, killedBy: cid(1), connected: false, leftTurn: 4000 },
+        0: {
+          alive: false,
+          eliminated: true,
+          killedBy: cid(1),
+          deadAtTurn: 3100,
+          connected: false,
+          leftTurn: 4000,
+        },
         2: felled(),
       }),
     );
-    expect(live).toMatchObject({ status: "forfeited", total: 0 });
+    expect(live).toMatchObject({ status: "pending", mode: "reduced" });
+    expect(live!.total).toBe(31);
   });
 
   it("a drop that came back is not leaving", async () => {
@@ -416,12 +521,32 @@ describe("the result is in", () => {
     expect(live!.total).toBe(200);
   });
 
-  it("an eliminated player who stayed is settled; one who left before the result is not", async () => {
-    const out = { alive: false, killedBy: cid(1), deadAtTurn: 3100 };
+  it("an eliminated player is settled whether they stayed or left: the same reduced award", async () => {
+    const out = {
+      alive: false,
+      eliminated: true,
+      killedBy: cid(1),
+      deadAtTurn: 3100,
+    };
     const stayed = await preview(progress({ 0: out }, settled(1)));
-    expect(stayed!.status).toBe("settled");
+    expect(stayed).toMatchObject({
+      status: "settled",
+      mode: "reduced",
+      total: 25,
+    });
     const left = await preview(
       progress({ 0: { ...out, connected: false, leftTurn: 3500 } }, settled(1)),
+    );
+    expect(left).toMatchObject({
+      status: "settled",
+      mode: "reduced",
+      total: 25,
+    });
+  });
+
+  it("an alive player who left before the result is forfeited, even though others were not", async () => {
+    const left = await preview(
+      progress({ 0: { connected: false, leftTurn: 3500 } }, settled(1)),
     );
     expect(left!.status).toBe("forfeited");
   });
@@ -512,8 +637,13 @@ describe("reduced games", () => {
     expect(live!.pending).toEqual([]);
   });
 
-  it("the same rules: an eliminated player is pending, one who left is forfeited", async () => {
-    const out = { alive: false, killedBy: cid(1), deadAtTurn: 3100 };
+  it("the same rules: an eliminated player is on the reduced award, an alive one who left is forfeited", async () => {
+    const out = {
+      alive: false,
+      eliminated: true,
+      killedBy: cid(1),
+      deadAtTurn: 3100,
+    };
     expect((await preview(progress({ 0: out }, priv())))!.status).toBe(
       "pending",
     );
@@ -575,53 +705,150 @@ describe("what pays nothing", () => {
     });
   });
 
-  it("a game staff tests changed", async () => {
+  it("an eliminated player in a ranked game is paid nothing, like everyone in it", async () => {
+    const ranked = progress(
+      { 0: { alive: false, eliminated: true, deadAtTurn: 3100 } },
+      {
+        config: {
+          gameType: "Public",
+          gameMode: "Free For All",
+          rankedType: "1v1",
+          listed: null,
+        },
+      },
+    );
+    expect(await preview(ranked)).toMatchObject({
+      status: "none",
+      reason: "ranked",
+    });
+  });
+});
+
+describe("a game staff commands changed", () => {
+  const action = (
+    role: "owner" | "admin",
+    pub: boolean,
+    listed: boolean,
+    invalidatesResult: boolean,
+  ) => ({
+    command: "give_gold" as const,
+    role,
+    public: pub,
+    listed,
+    invalidatesResult,
+    count: 1,
+  });
+
+  it("still pays everyone in it: at the reduced rate, lifetime XP only", async () => {
+    const tested = progress(
+      {},
+      { adminActions: [action("admin", true, false, true)] },
+    );
+    for (const who of [0, 1, 7]) {
+      const live = await preview(tested, who);
+      expect(live).toMatchObject({
+        status: "live",
+        mode: "reduced",
+        total: 25,
+        pending: [],
+      });
+      expect(live!.breakdown!.reducedReason).toBe("admin_modified");
+    }
+  });
+
+  it("the staff member who ran the command is paid like any player: no admin penalty", async () => {
     const tested = progress(
       {},
       {
-        adminActions: [
-          {
-            command: "give_gold",
-            role: "admin",
-            public: true,
-            listed: false,
-            invalidatesResult: true,
-            count: 1,
-          },
-        ],
+        adminSenders: [cid(0)],
+        adminActions: [action("admin", true, false, true)],
       },
     );
-    expect(await preview(tested)).toMatchObject({
-      status: "none",
-      reason: "admin_modified",
+    expect(await preview(tested, 0)).toMatchObject({
+      status: "live",
+      mode: "reduced",
+      total: 25,
     });
   });
 
-  it("an admin who ran a command, even when the game counts", async () => {
+  it("the owner's commands in a public game leave it a full game, for the owner and the others", async () => {
     const owner = progress(
       {},
       {
         adminSenders: [cid(0)],
-        adminActions: [
-          {
-            command: "give_gold",
-            role: "owner",
-            public: true,
-            listed: false,
-            invalidatesResult: false,
-            count: 1,
-          },
-        ],
+        adminActions: [action("owner", true, false, false)],
       },
     );
-    expect(await preview(owner)).toMatchObject({
-      status: "none",
-      reason: "admin_actor",
+    expect(await preview(owner, 0)).toMatchObject({
+      status: "live",
+      mode: "full",
+      total: 200,
     });
-    // the others are paid as usual
-    expect((await preview(owner, 1))!.status).toBe("live");
+    expect(await preview(owner, 1)).toMatchObject({
+      status: "live",
+      mode: "full",
+      total: 200,
+    });
   });
 
+  it("an eliminated player in it is on the reduced award all the same: death plus staff is not nothing", async () => {
+    const tested = progress(
+      { 0: { alive: false, eliminated: true, deadAtTurn: 3100 } },
+      { adminActions: [action("admin", true, false, true)] },
+    );
+    const live = await preview(tested, 0);
+    expect(live).toMatchObject({
+      status: "pending",
+      mode: "reduced",
+      total: 25,
+    });
+    expect(live!.breakdown!.reducedReason).toBe("admin_modified");
+  });
+
+  it("a command in a private game is reduced for the private game's own reason", async () => {
+    const tested = progress(
+      {},
+      {
+        config: {
+          gameType: "Private",
+          gameMode: "Free For All",
+          rankedType: null,
+          listed: null,
+        },
+        adminActions: [action("owner", false, false, true)],
+      },
+    );
+    const live = await preview(tested);
+    expect(live).toMatchObject({ mode: "reduced", total: 25 });
+    expect(live!.breakdown!.reducedReason).toBe("private_game");
+  });
+});
+
+describe("a short game", () => {
+  it("is reduced, not nothing, once it is known to have ended inside the minimum", async () => {
+    const short = progress(
+      {},
+      {
+        elapsedSeconds: 90,
+        result: { winner: ["player", cid(0)], resultTurn: 900 },
+      },
+    );
+    const live = await preview(short);
+    expect(live).toMatchObject({
+      status: "settled",
+      mode: "reduced",
+      total: 25,
+    });
+    expect(live!.breakdown!.reducedReason).toBe("short_game");
+  });
+
+  it("a game still on is assumed to last the minimum: full until it ends", async () => {
+    const live = await preview(progress({}, { elapsedSeconds: 30 }));
+    expect(live).toMatchObject({ status: "live", mode: "full" });
+  });
+});
+
+describe("the staff-command verdict", () => {
   it("the staff-command verdict is the final rule's, role and game kind included", () => {
     const action = (
       role: "owner" | "admin",
@@ -683,7 +910,7 @@ describe("whose preview it is", () => {
     const victim = await preview(p, 1);
     expect(winner!.total).toBe(225);
     expect(victim!.status).toBe("pending");
-    expect(victim!.total).toBe(200);
+    expect(victim!.total).toBe(25);
   });
 });
 
@@ -692,6 +919,7 @@ describe("leftBeforeResult", () => {
     clientID: cid(0),
     persistentID: user(0),
     alive: true,
+    eliminated: false,
     killedBy: null,
     aliveAtTurn: 0,
     deadAtTurn: null,
@@ -725,6 +953,7 @@ describe("the store of running games", () => {
     receivedAt: NOW,
     users: new Map(),
     contexts: new Map(),
+    finalized: new Set(),
   });
 
   it("forgets a game that stopped reporting", () => {
@@ -756,6 +985,15 @@ describe("the store of running games", () => {
     store.set(CODE, first);
     store.set(CODE, game(1));
     expect(store.get(CODE, NOW)!.contexts.get("u")?.earnedToday).toBe(5);
+  });
+
+  it("a fresh report remembers whose death is already paid, so it is not attempted again", () => {
+    const store = new LiveXpStore();
+    const first = game(1);
+    first.finalized.add("u");
+    store.set(CODE, first);
+    store.set(CODE, game(1));
+    expect(store.get(CODE, NOW)!.finalized.has("u")).toBe(true);
   });
 
   it("deletes a game, and clears them all", () => {

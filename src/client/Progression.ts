@@ -184,15 +184,21 @@ export type XpMultiplierKey =
   | "game"
   | "subscriber"
   | "repeat"
-  // A reduced game (lifetime XP only): why it was reduced.
+  // A reduced award (lifetime XP only): why it was reduced.
   | "reduced_private"
   | "reduced_unlisted"
-  | "reduced_low_pop";
+  | "reduced_low_pop"
+  | "reduced_short"
+  | "reduced_modified"
+  | "reduced_eliminated";
 
-/** The multiplier key of a reduced game's reason (an unknown reason reads as private). */
+/** The multiplier key of a reduced award's reason (an unknown reason reads as private). */
 export function reducedKey(reason: string | undefined): XpMultiplierKey {
   if (reason === "unlisted_game") return "reduced_unlisted";
   if (reason === "public_too_few_humans") return "reduced_low_pop";
+  if (reason === "short_game") return "reduced_short";
+  if (reason === "admin_modified") return "reduced_modified";
+  if (reason === "eliminated") return "reduced_eliminated";
   return "reduced_private";
 }
 
@@ -283,11 +289,11 @@ export function apportionXp(
 export const BEFORE_PROGRESSION = "before_progression";
 
 // Ineligibility reasons with their own copy. Anything else — including reasons
-// the API adds later — gets the generic line. Keys spelled out in full so the
+// the API adds later and the retired ones of games stored under older rules
+// (too short, staff-modified, eliminated early, staff actor) — gets the generic line. Keys spelled out in full so the
 // translation checks can see them.
 const INELIGIBLE_REASON_KEYS: Record<string, string> = {
   not_spawned: "progression.ineligible_not_spawned",
-  too_short: "progression.ineligible_too_short",
   no_action: "progression.ineligible_no_action",
   custom_settings: "progression.ineligible_custom_settings",
   too_few_humans: "progression.ineligible_too_few_humans",
@@ -295,11 +301,8 @@ const INELIGIBLE_REASON_KEYS: Record<string, string> = {
   singleplayer: "progression.ineligible_singleplayer",
   private_game: "progression.ineligible_private_game",
   ranked: "progression.ineligible_ranked",
-  admin_modified: "progression.ineligible_admin_modified",
   left_early: "progression.ineligible_left_early",
-  eliminated_early: "progression.ineligible_eliminated_early",
   no_winner: "progression.ineligible_no_winner",
-  admin_actor: "progression.ineligible_admin_actor",
   guest: "progression.ineligible_guest",
   duplicate: "progression.ineligible_generic",
   // The game's stats were not agreed on by the players' votes.
