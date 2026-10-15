@@ -108,11 +108,12 @@ export function segmentedXpBar(
 /**
  * A thin XP bar. `percent` is clamped to 0..100. `valueText` is what a
  * screen reader announces for the value (typically xpProgressText); without
- * it, the percentage.
+ * it, the percentage. With `animate` the fill eases to a new value when the
+ * same bar is drawn again with one (never under reduced motion).
  */
 export function xpBar(
   percent: number,
-  opts: { heightClass?: string; valueText?: string } = {},
+  opts: { heightClass?: string; valueText?: string; animate?: boolean } = {},
 ): TemplateResult {
   const fill = Number.isFinite(percent)
     ? Math.min(100, Math.max(0, percent))
@@ -130,7 +131,9 @@ export function xpBar(
   >
     <div
       data-xp-bar-fill
-      class="h-full rounded-full bg-df-red"
+      class="h-full rounded-full bg-df-red ${opts.animate
+        ? "transition-[width] duration-700 ease-out motion-reduce:transition-none"
+        : ""}"
       style="width: ${fill}%"
     ></div>
   </div>`;

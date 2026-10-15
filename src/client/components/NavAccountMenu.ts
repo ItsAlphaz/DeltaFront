@@ -50,6 +50,9 @@ export class NavAccountMenu extends LitElement {
 
   @state() private menuOpen = false;
   @state() private userMeResponse: UserMeResponse | false = false;
+  // Set for a moment when the level just went up: the badge bounces.
+  @state() private levelUp = false;
+  private levelUpTimer: ReturnType<typeof setTimeout> | null = null;
   // CrazyGames identities come from the SDK, not our user object.
   @state() private crazyGamesUser: CrazyGamesUser | null = null;
 
@@ -98,6 +101,7 @@ export class NavAccountMenu extends LitElement {
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("showPage", this.closeMenu);
     window.removeEventListener("resize", this.closeMenu);
+    if (this.levelUpTimer !== null) clearTimeout(this.levelUpTimer);
     this.removePanel();
     super.disconnectedCallback();
   }
@@ -122,6 +126,22 @@ export class NavAccountMenu extends LitElement {
     render(this.renderMenu(), this.panel);
   }
 
+  // A level (or prestige) gained since the last response: the badge bounces
+  // once. Only ever upward, and never for the first response a page sees.
+  private noteLevelUp(before: Progress | null, after: Progress | null): void {
+    if (before === null || after === null) return;
+    const up =
+      after.prestige > before.prestige ||
+      (after.prestige === before.prestige && after.level > before.level);
+    if (!up) return;
+    this.levelUp = true;
+    if (this.levelUpTimer !== null) clearTimeout(this.levelUpTimer);
+    this.levelUpTimer = setTimeout(() => {
+      this.levelUp = false;
+      this.levelUpTimer = null;
+    }, 700);
+  }
+
   private removePanel(): void {
     if (this.panel === null) return;
     render(nothing, this.panel);
@@ -132,7 +152,9 @@ export class NavAccountMenu extends LitElement {
   private handleUserMeResponse = (
     event: CustomEvent<UserMeResponse | false>,
   ) => {
+    const before = this.progress();
     this.userMeResponse = event.detail;
+    this.noteLevelUp(before, this.progress());
     // A CrazyGames sign-in surfaces as a userMeResponse, so re-read the SDK
     // profile alongside it.
     this.refreshCrazyGamesUser();
@@ -413,8 +435,8 @@ export class NavAccountMenu extends LitElement {
     });
   }
 
-  // Level badge beside the avatar, plus a thin XP bar along the trigger's
-  // bottom edge. Absent entirely when /users/@me carries no progress.
+  // The level badge beside the avatar (and, for something waiting for the
+  // player, a dot). Absent entirely when /users/@me carries no progress.
   private renderLevel(
     variant: "desktop" | "mobile",
   ): TemplateResult | typeof nothing {
@@ -426,7 +448,6 @@ export class NavAccountMenu extends LitElement {
       progress.legend,
     );
     const title = `${label} · ${xpProgressText(progress.xpInLevel, progress.xpForNext)}`;
-    const percent = levelFraction(progress.xpInLevel, progress.xpForNext) * 100;
     const mobile = variant === "mobile";
     // Something waiting for the player: Credits to claim, or a prestige to take.
     const rewards =
@@ -450,7 +471,10 @@ export class NavAccountMenu extends LitElement {
         : nothing}
       <span
         data-account-level
-        class=${mobile ? "absolute -top-1 -left-1 z-10" : "flex items-center"}
+        data-level-up=${this.levelUp ? "true" : nothing}
+        class="${mobile
+          ? "absolute -top-1 -left-1 z-10"
+          : "flex items-center"} ${this.levelUp ? "df-level-up" : ""}"
         title=${title}
       >
         <level-badge
@@ -460,16 +484,30 @@ export class NavAccountMenu extends LitElement {
           .size=${mobile ? 16 : 22}
         ></level-badge>
       </span>
-      <span
-        data-account-xp-bar
-        class="pointer-events-none absolute ${mobile
-          ? "-bottom-1.5 left-0 right-0"
-          : "bottom-1 left-4 right-4"}"
-        aria-hidden="true"
-      >
-        ${xpBar(percent, { heightClass: "h-[3px]" })}
-      </span>
     `;
+  }
+
+  // The thin XP bar. On the desktop trigger it is part of the profile cluster:
+  // a row of its own under the level badge and avatar, with a gap, inset a
+  // little so it reads as sitting under the pair rather than glued to the
+  // picture or running out under the chevron. On the mobile top bar it hangs
+  // under the avatar with the same gap. It eases to a new value when XP changes.
+  private renderXpBar(
+    variant: "desktop" | "mobile",
+  ): TemplateResult | typeof nothing {
+    const progress = this.progress();
+    if (progress === null) return nothing;
+    const percent = levelFraction(progress.xpInLevel, progress.xpForNext) * 100;
+    const mobile = variant === "mobile";
+    return html`<span
+      data-account-xp-bar
+      class="pointer-events-none ${mobile
+        ? "absolute -bottom-2 left-1 right-1"
+        : "mx-1 block"}"
+      aria-hidden="true"
+    >
+      ${xpBar(percent, { heightClass: "h-[3px]", animate: true })}
+    </span>`;
   }
 
   // Avatar / spinner / person icon / email badge, shared by both triggers.
@@ -538,7 +576,13 @@ export class NavAccountMenu extends LitElement {
 
   // Desktop nav pill. Ids are load-bearing: NavAccountButton and
   // CrazyGamesAccountButton drive this instance by id.
+  //
+  // With a level to show the pill is one cluster: a row (level badge, avatar)
+  // with the XP bar in its own row under it, then the chevron. The pill is
+  // taller by what the bar and its gap take, so the bar never touches the
+  // picture.
   private renderDesktopTrigger(): TemplateResult {
+    const withXp = this.progress() !== null;
     return html`
       <button
         id="nav-account-button"
@@ -547,25 +591,36 @@ export class NavAccountMenu extends LitElement {
         aria-haspopup="menu"
         aria-expanded=${this.menuOpen ? "true" : "false"}
         @click=${this.handleTriggerClick}
-        class="nav-menu-item relative h-10 rounded-full flex items-center justify-center gap-2 px-3 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white"
+        class="nav-menu-item relative ${withXp
+          ? "h-12 items-start pt-[3.5px]"
+          : "h-10 items-center"} rounded-full flex justify-center gap-2 px-3 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white"
         data-page="page-account"
         aria-label=${this.triggerLabel()}
         data-i18n-title="main.account"
       >
-        ${this.renderLevel("desktop")}
-        ${this.renderIdentityIcons({
-          ids: true,
-          iconClass: "w-5 h-5",
-          badgeClass: "absolute bottom-1 right-1",
-        })}
         <span
-          id="nav-account-signin-text"
-          data-account-signin-text
-          class="hidden text-xs font-bold tracking-widest"
-          data-i18n="main.sign_in"
+          data-account-cluster
+          class="flex flex-col items-stretch ${withXp ? "gap-1.5" : ""}"
         >
+          <span class="relative flex items-center justify-center gap-2">
+            ${this.renderLevel("desktop")}
+            ${this.renderIdentityIcons({
+              ids: true,
+              iconClass: "w-5 h-5",
+              badgeClass: "absolute bottom-0 right-0",
+            })}
+            <span
+              id="nav-account-signin-text"
+              data-account-signin-text
+              class="hidden text-xs font-bold tracking-widest"
+              data-i18n="main.sign_in"
+            >
+            </span>
+          </span>
+          ${this.renderXpBar("desktop")}
         </span>
-        ${this.renderChevron()}
+        <!-- level with the avatar's row, not the bar under it -->
+        <span class="flex h-8 items-center">${this.renderChevron()}</span>
       </button>
     `;
   }
@@ -589,7 +644,7 @@ export class NavAccountMenu extends LitElement {
             iconClass: "w-7 h-7",
             badgeClass: "absolute -bottom-0.5 -right-0.5",
           })}
-          ${this.renderLevel("mobile")}
+          ${this.renderLevel("mobile")} ${this.renderXpBar("mobile")}
         </span>
         <!-- The sign-in label is desktop-only; on the top bar the icon alone is
              the affordance, so keep the element (the shared updater toggles it)
