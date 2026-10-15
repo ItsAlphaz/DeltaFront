@@ -13,6 +13,7 @@ import {
   SoundEffect,
   soundEffectUrls,
 } from "./Sounds";
+import { isUiClick, UI_CLICK_VARIANTS } from "./UiClicks";
 
 /** Every channel a sound can actually play on. */
 export type PlayableCategory = Exclude<AudioCategory, "master">;
@@ -154,6 +155,7 @@ export class AudioMixer {
       this.followSetting(category);
     }
     this.followFocus();
+    this.followUiClicks();
     this.applyAll();
     // After applyAll on purpose: Howler builds its AudioContext lazily, and
     // the Howler.volume() write in there is what forces it into existence.
@@ -337,6 +339,25 @@ export class AudioMixer {
     document.addEventListener("visibilitychange", update);
     this.disposers.push(() =>
       document.removeEventListener("visibilitychange", update),
+    );
+  }
+
+  /**
+   * A soft click on every button and link, for the home page and the in-game
+   * HUD alike. Here rather than per component because the mixer is the one
+   * thing both share, and capture phase so a handler that stops propagation
+   * does not silence it. The interface channel's budget drops the newest, so
+   * a rapid run of clicks cannot pile up.
+   */
+  private followUiClicks(): void {
+    const handler = (event: Event) => {
+      if (!isUiClick(event)) return;
+      const pick = Math.floor(Math.random() * UI_CLICK_VARIANTS.length);
+      this.play(UI_CLICK_VARIANTS[pick]);
+    };
+    document.addEventListener("click", handler, true);
+    this.disposers.push(() =>
+      document.removeEventListener("click", handler, true),
     );
   }
 
