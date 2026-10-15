@@ -53,13 +53,19 @@ export function createFixture(): Fixture {
   const root = path.join(base, "repo");
   const secrets = path.join(base, "secrets");
   fs.mkdirSync(secrets, { mode: 0o700 });
-  for (const dir of ["resources/public", "static/assets"]) {
+  for (const dir of [
+    "resources/public",
+    "resources/maps/world",
+    "static/assets",
+  ]) {
     fs.mkdirSync(path.join(root, dir), { recursive: true });
   }
   for (const [file, html] of Object.entries(FINISHED_PAGES)) {
     fs.writeFileSync(path.join(root, "resources/public", file), html);
     fs.writeFileSync(path.join(root, "static", file), html);
   }
+  // what the account API replays singleplayer matches from
+  fs.writeFileSync(path.join(root, "resources/maps/world/manifest.json"), "{}");
   fs.writeFileSync(path.join(root, "static/index.html"), "<html></html>");
   fs.writeFileSync(
     path.join(root, "static/assets/index-abc.js"),

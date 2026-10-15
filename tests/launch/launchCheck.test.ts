@@ -42,6 +42,16 @@ describe("npm run launch:check (offline checks)", () => {
     expect(formatReport(report)).toMatch(/Result: READY/);
   });
 
+  it("fails when the release has no map files: singleplayer XP could not be verified", async () => {
+    // a complete deployment has them
+    const ok = await run();
+    expect(ok.results.find((r) => r.id === "solo-maps")?.status).toBe("pass");
+    fs.rmSync(path.join(fx.root, "resources/maps"), { recursive: true });
+    const report = await run();
+    expect(failing(report)).toContain("solo-maps");
+    expect(detailOf(report, "solo-maps")).toMatch(/resources\/maps/);
+  });
+
   it("fails when GAME_ENV is not prod (staging only with --allow-staging)", async () => {
     expect(failing(await run({}, { ...fx.env, GAME_ENV: "dev" }))).toContain(
       "env",

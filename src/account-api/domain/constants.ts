@@ -112,6 +112,40 @@ export const PROGRESSION = deepFreeze({
   idempotencyKeyMaxLength: 100,
 } as const);
 
+/**
+ * Singleplayer XP (docs/Progression.md, "Singleplayer"). A solo match earns the
+ * normal match lines, multiplied by how demanding its setup was: full XP needs
+ * every criterion met, and each one missed takes a fixed step off, down to a
+ * floor. Solo XP is lifetime XP only (level, rank, prestige); it never reaches a
+ * season, a challenge or a clan.
+ */
+export const SOLO = deepFreeze({
+  /** Full XP needs MORE than this many tribes (exactly this many fails). */
+  minTribes: 30,
+  /** ...and MORE than this many nations. */
+  minNations: 30,
+  /** Taken off the 1x multiplier for each criterion a setup misses, in permille. */
+  penaltyPermille: 200,
+  /** The multiplier never goes below this, however many criteria are missed. */
+  floorPermille: 100,
+  /** A match submitted for XP carries at most this many turns (two hours at ten a second). */
+  maxTurns: 72_000,
+  /** The most matches one account may submit in a rolling day. */
+  maxPerDay: 50,
+  /** Largest submission accepted, as the server unpacks it (bytes): a gzip bomb stops here. */
+  maxRecordBytes: 32 * 1024 * 1024,
+  /** Submissions waiting for a replay: past this the API answers busy and the client tries again. */
+  maxQueued: 200,
+  /** A replay that runs longer than this is killed and the submission is not paid. */
+  replayTimeoutMs: 15 * 60 * 1000,
+  /** Times a submission is replayed again after the replay itself failed (not after it said no). */
+  maxAttempts: 3,
+  /** How often the worker looks for a waiting submission when none woke it. */
+  pollMs: 15_000,
+  /** Days a decided submission's row is kept. */
+  retentionDays: 30,
+} as const);
+
 /** D2: who may create a clan, and the limits on clans. */
 export const CLAN_RULES = deepFreeze({
   /** Minimum account age to create a clan. */

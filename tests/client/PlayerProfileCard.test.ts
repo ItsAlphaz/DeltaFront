@@ -19,6 +19,11 @@ vi.mock("../../src/client/Utils", () => ({
 }));
 vi.mock("../../src/client/Api", () => ({
   fetchPublicPlayerProfile: fetchPublicPlayerProfileMock,
+  // The profile card's game history asks for a page of games when it opens.
+  fetchPublicPlayerGames: vi.fn(async () => ({
+    results: [],
+    nextCursor: null,
+  })),
 }));
 vi.mock("../../src/client/ProgressionApi", () => ({
   fetchPublicPlayerProgress: fetchPublicPlayerProgressMock,

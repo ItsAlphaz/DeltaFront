@@ -268,7 +268,7 @@ describe("<past-game-xp-card>", () => {
     );
   });
 
-  it("tells a singleplayer game it doesn't earn XP, not that it couldn't be verified", async () => {
+  it("tells a singleplayer match that was not verified so, not that its votes disagreed", async () => {
     const unverified = {
       gameId: "g1",
       eligible: false as const,
@@ -276,7 +276,7 @@ describe("<past-game-xp-card>", () => {
     };
     await mount({ kind: "result", data: unverified }, GameType.Singleplayer);
     expect(q("[data-past-xp-note]")!.textContent).toBe(
-      "progression.ineligible_singleplayer",
+      "progression.ineligible_solo_unverified",
     );
     card!.remove();
     await mount({ kind: "result", data: unverified }, GameType.Private);

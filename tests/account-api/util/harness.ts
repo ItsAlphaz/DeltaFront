@@ -25,6 +25,7 @@ import {
   startAccountApi,
   type RunningService,
 } from "../../../src/account-api/service";
+import type { SoloReplayer } from "../../../src/account-api/soloReplay";
 import type { Turnstile } from "../../../src/account-api/turnstile";
 import { createTestDatabase, type TestDatabase } from "./testDb";
 
@@ -58,6 +59,8 @@ export interface HarnessOptions {
   log?: Logger;
   /** Bind this port instead of a free one (the game server expects the API on 8787 in dev). */
   fixedPort?: number;
+  /** Replay singleplayer matches with this instead of the engine subprocess. */
+  soloReplayer?: SoloReplayer;
 }
 
 export interface Harness {
@@ -204,6 +207,7 @@ export async function startHarness(
     },
     oauthEndpoints: options.oauthEndpoints,
     catalogDir: options.catalogDir,
+    soloReplayer: options.soloReplayer,
   });
   return {
     db,

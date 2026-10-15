@@ -190,7 +190,9 @@ export type XpMultiplierKey =
   | "reduced_low_pop"
   | "reduced_short"
   | "reduced_modified"
-  | "reduced_eliminated";
+  | "reduced_eliminated"
+  // A singleplayer match's setup multiplier (see SoloBreakdown).
+  | "solo";
 
 /** The multiplier key of a reduced award's reason (an unknown reason reads as private). */
 export function reducedKey(reason: string | undefined): XpMultiplierKey {
@@ -204,6 +206,59 @@ export function reducedKey(reason: string | undefined): XpMultiplierKey {
 
 export function isReducedKey(key: XpMultiplierKey): boolean {
   return key.startsWith("reduced_");
+}
+
+/** The heading over an award: its mode says how far it counts. */
+export function xpHeadingKey(mode: "full" | "reduced" | "solo" | undefined) {
+  switch (mode) {
+    case "reduced":
+      return "progression.xp_heading_reduced";
+    case "solo":
+      return "progression.xp_heading_solo";
+    default:
+      return "progression.xp_heading";
+  }
+}
+
+/**
+ * The criteria of a solo setup, in the order they are listed, each with the
+ * words for it when it is met (the setting as the player wants it) so the list
+ * reads "Tribes > 30 ✓". Spelled out in full so the translation checks see
+ * every key; an unknown criterion from a newer API is left out of the list.
+ */
+export const SOLO_CRITERION_KEYS: Record<string, string> = {
+  tribes: "progression.solo_criterion_tribes",
+  nations: "progression.solo_criterion_nations",
+  instant_build: "progression.solo_criterion_instant_build",
+  infinite_gold: "progression.solo_criterion_infinite_gold",
+  infinite_troops: "progression.solo_criterion_infinite_troops",
+  difficulty: "progression.solo_criterion_difficulty",
+};
+
+/** The solo criteria worth listing: those this client has words for, in the API's order. */
+export function visibleSoloCriteria(
+  solo: NonNullable<XpBreakdown["solo"]>,
+): { key: string; met: boolean; labelKey: string }[] {
+  return solo.criteria
+    .filter((c) =>
+      Object.prototype.hasOwnProperty.call(SOLO_CRITERION_KEYS, c.key),
+    )
+    .map((c) => ({ ...c, labelKey: SOLO_CRITERION_KEYS[c.key] }));
+}
+
+// The engine's difficulty values, as the keys their names are translated under.
+const DIFFICULTY_NAME_KEYS: Record<string, string> = {
+  Easy: "difficulty.easy",
+  Medium: "difficulty.medium",
+  Hard: "difficulty.hard",
+  Impossible: "difficulty.impossible",
+};
+
+/** The key "Hard" is translated under, or null for a difficulty this client has no name for. */
+export function difficultyNameKey(difficulty: string): string | null {
+  return Object.prototype.hasOwnProperty.call(DIFFICULTY_NAME_KEYS, difficulty)
+    ? DIFFICULTY_NAME_KEYS[difficulty]
+    : null;
 }
 
 /**
@@ -224,6 +279,12 @@ export function visibleMultipliers(
           : reducedKey(breakdown.reducedReason),
       permille: breakdown.gamePermille,
     });
+  }
+  // A solo award's setup multiplier: the criteria it was scored on are shown
+  // beside it (the solo setup list), so a full 1.00x has no line of its own.
+  const solo = breakdown.soloPermille ?? 1000;
+  if (breakdown.solo !== undefined && solo !== 1000) {
+    out.push({ key: "solo", permille: solo });
   }
   if (breakdown.repeatPermille !== 1000) {
     out.push({ key: "repeat", permille: breakdown.repeatPermille });
@@ -307,19 +368,20 @@ const INELIGIBLE_REASON_KEYS: Record<string, string> = {
   duplicate: "progression.ineligible_generic",
   // The game's stats were not agreed on by the players' votes.
   unverified: "progression.ineligible_unverified",
+  // A singleplayer match the account API could not verify by replaying it.
+  solo_unverified: "progression.ineligible_solo_unverified",
   // Played before player levels launched: never scored.
   [BEFORE_PROGRESSION]: "progression.xp_before_levels",
 };
 
-// A singleplayer game never carries the end-of-game vote, so the server
-// always marks it unverified: callers that know the game's type pass it, and
-// it gets its own line instead.
+// A singleplayer match that was not verified says so in its own words (the
+// stats vote that "unverified" names does not exist for it).
 export function ineligibleReasonKey(
   reason: string,
   gameType?: GameType | null,
 ): string {
   if (reason === "unverified" && gameType === GameType.Singleplayer) {
-    return "progression.ineligible_singleplayer";
+    return "progression.ineligible_solo_unverified";
   }
   return Object.prototype.hasOwnProperty.call(INELIGIBLE_REASON_KEYS, reason)
     ? INELIGIBLE_REASON_KEYS[reason]

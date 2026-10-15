@@ -41,7 +41,7 @@ import {
   pollGameXp,
 } from "../../ProgressionApi";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
-import { SendWinnerEvent } from "../../Transport";
+import { SendSoloArchiveEvent, SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
 
 type LegendCeremonyModule = typeof import("../../components/LegendCeremony");
@@ -52,6 +52,9 @@ type LegendCeremonyModule = typeof import("../../components/LegendCeremony");
 let xpPanelModule: Promise<unknown> | null = null;
 // How long the end-of-game XP is waited for before the section gives up.
 const XP_POLL_TIMEOUT_MS = 150_000;
+// A solo match is replayed on the server before it is paid, which can take a few
+// minutes for a long one.
+const SOLO_XP_POLL_TIMEOUT_MS = 6 * 60_000;
 
 function loadGameXpPanel(): void {
   xpPanelModule ??= import("../../components/GameXpPanel").catch(
@@ -622,25 +625,14 @@ export class WinModal extends LitElement implements Controller {
       // before a first scored game); absent means off: no section at all.
       const progress = account.me.player.progress;
       if (progress === undefined) return;
-      // A singleplayer game is never sent to the account API, so there is no
-      // XP to wait for: say so at once instead of polling for a minute.
-      if (game.config().gameConfig().gameType === GameType.Singleplayer) {
-        this.xpView = {
-          kind: "result",
-          data: {
-            gameId: game.gameID(),
-            eligible: false,
-            reason: "unverified",
-          },
-        };
-        return;
-      }
+      const solo =
+        game.config().gameConfig().gameType === GameType.Singleplayer;
       this.xpPublicId = account.me.player.publicId ?? null;
       if (!progress.legend) void this.preloadIfLastRun(progress.prestige);
       // The game may have ended while this was resolving; the end-of-game
       // call owns the section from then on.
       if (this.xpPolling) return;
-      if (!gameOver) {
+      if (!gameOver && !solo) {
         this.startLiveXp(game.gameID());
         return;
       }
@@ -648,14 +640,16 @@ export class WinModal extends LitElement implements Controller {
       this.xpPolling = true;
       this.xpView = { kind: "calculating" };
       // The server has the result before the game is stored: say so at once
-      // (and that a win is confirmed) while the stored XP is looked for.
-      void this.showSettledPreview(game.gameID());
+      // (and that a win is confirmed) while the stored XP is looked for. A solo
+      // match has no such preview: nothing watches it until it is uploaded.
+      if (!solo) void this.showSettledPreview(game.gameID());
       this.xpAbort = new AbortController();
       // The game server replays the game to check the winner before it
-      // archives it, which can take a while for a long game.
+      // archives it, which can take a while for a long game; the account API
+      // replays a solo match the same way before it pays it.
       const result = await pollGameXp(game.gameID(), {
         signal: this.xpAbort.signal,
-        timeoutMs: XP_POLL_TIMEOUT_MS,
+        timeoutMs: solo ? SOLO_XP_POLL_TIMEOUT_MS : XP_POLL_TIMEOUT_MS,
       });
       if (result?.eligible && reachedLegendThisGame(result)) {
         this.preloadLegendCeremony();
@@ -731,7 +725,13 @@ export class WinModal extends LitElement implements Controller {
       this.hasShownDeathModal = true;
       this._title = translateText("win_modal.died");
       this.eventBus.emit(new PlaySoundEffectEvent("defeat"));
-      void this.updateXp(false);
+      // A solo match is not watched by a server, so there is no death to
+      // confirm: the match is uploaded now and its XP looked for, as when it
+      // ends. A multiplayer death is paid by the game server's report.
+      const solo =
+        this.game.config().gameConfig().gameType === GameType.Singleplayer;
+      if (solo) this.eventBus.emit(new SendSoloArchiveEvent());
+      void this.updateXp(solo);
       this.show();
     }
     const updates = this.game.updatesSinceLastTick();

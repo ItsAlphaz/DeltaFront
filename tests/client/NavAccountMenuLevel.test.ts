@@ -73,20 +73,25 @@ describe("nav-account-menu level", () => {
   }
 
   for (const variant of ["desktop", "mobile"] as const) {
-    it(`shows the badge and XP bar on the ${variant} trigger`, async () => {
+    it(`shows the level badge, the prestige emblem and the XP ring on the ${variant} trigger`, async () => {
       await mount(variant, userMe({ progress }));
       const level = el.querySelector("[data-account-level]");
       expect(level).not.toBeNull();
-      const badge = level!.querySelector("level-badge") as HTMLElement & {
+      expect(
+        level!.querySelector("[data-account-level-text]")?.textContent,
+      ).toBe('progression.level_short:{"level":23}');
+      const emblem = level!.querySelector("level-badge") as HTMLElement & {
         level: number;
         prestige: number;
+        emblem: boolean;
       };
-      expect(badge.level).toBe(23);
-      expect(badge.prestige).toBe(1);
-      const fill = el.querySelector<HTMLElement>(
-        "[data-account-xp-bar] [data-xp-bar-fill]",
-      );
-      expect(fill?.style.width).toBe("25%");
+      expect(emblem.level).toBe(23);
+      expect(emblem.prestige).toBe(1);
+      expect(emblem.emblem).toBe(true);
+      // the ring fills to the level's progress (250 of 1,000)
+      const fill = el.querySelector("[data-xp-ring-fill]");
+      expect(fill?.getAttribute("style")).toContain("stroke-dasharray: 25 100");
+      expect(el.querySelector("[data-account-xp-bar]")).toBeNull();
     });
   }
 
@@ -112,7 +117,7 @@ describe("nav-account-menu level", () => {
   it("hides everything when /users/@me has no progress", async () => {
     await mount("desktop", userMe({}));
     expect(el.querySelector("[data-account-level]")).toBeNull();
-    expect(el.querySelector("[data-account-xp-bar]")).toBeNull();
+    expect(el.querySelector("[data-xp-ring]")).toBeNull();
   });
 
   it("hides the level for a signed-out session", async () => {

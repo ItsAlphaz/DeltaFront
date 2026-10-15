@@ -1,4 +1,4 @@
-import type { GameType } from "@openfront/engine-api/game/GameTypes";
+import { GameType } from "@openfront/engine-api/game/GameTypes";
 import type {
   GameXpEligible,
   GameXpResponse,
@@ -15,6 +15,7 @@ import { keyed } from "lit/directives/keyed.js";
 import {
   apportionXp,
   challengeLabelKey,
+  difficultyNameKey,
   ineligibleReasonKey,
   isMilestoneLevel,
   levelFraction,
@@ -25,8 +26,10 @@ import {
   reachedLegendThisGame,
   subscriberTierOf,
   visibleMultipliers,
+  visibleSoloCriteria,
   visibleXpLines,
   XP_LINE_LABEL_KEYS,
+  xpHeadingKey,
   type XpLineKey,
   type XpMultiplierKey,
 } from "../Progression";
@@ -641,7 +644,13 @@ export class GameXpPanel extends LitElement {
           class="w-4 h-4 shrink-0 border-2 border-white/30 border-t-white/80 rounded-full animate-spin"
           aria-hidden="true"
         ></span>
-        <span>${translateText("progression.calculating")}</span>
+        <span
+          >${translateText(
+            this.gameType === GameType.Singleplayer
+              ? "progression.calculating_solo"
+              : "progression.calculating",
+          )}</span
+        >
       </div>`,
       "calculating",
     );
@@ -651,7 +660,7 @@ export class GameXpPanel extends LitElement {
   // Full panel (WinModal): rolling caption, segmented bar, counter, level.
   // ---------------------------------------------------------------------------
 
-  private captionContent(caption: Caption, reduced: boolean): TemplateResult {
+  private captionContent(caption: Caption, headingKey: string): TemplateResult {
     switch (caption.kind) {
       case "line":
         return html`${translateText(XP_LINE_LABEL_KEYS[caption.key])}
@@ -670,9 +679,7 @@ export class GameXpPanel extends LitElement {
             })}</span
           >`;
       case "heading":
-        return html`${translateText(
-          reduced ? "progression.xp_heading_reduced" : "progression.xp_heading",
-        )}`;
+        return html`${translateText(headingKey)}`;
       case "level_up":
         return html`<span class="text-yellow-300"
           >${translateText("progression.level_reached", {
@@ -727,14 +734,14 @@ export class GameXpPanel extends LitElement {
             : "xp-bonus-text-cut"} text-center text-xl font-black uppercase italic tracking-wide sm:text-2xl"
           data-xp-caption-step=${r?.step ?? REST_STEP}
         >
-          ${this.captionContent(caption, data.mode === "reduced")}
+          ${this.captionContent(caption, xpHeadingKey(data.mode))}
         </div>`;
       } else if (caption !== null) {
         content = html`<div
           class="xp-caption-in text-center text-lg font-black uppercase italic tracking-wide sm:text-xl"
           data-xp-caption-step=${r?.step ?? REST_STEP}
         >
-          ${this.captionContent(caption, data.mode === "reduced")}
+          ${this.captionContent(caption, xpHeadingKey(data.mode))}
         </div>`;
       }
     }
@@ -1248,9 +1255,9 @@ export class GameXpPanel extends LitElement {
     const r = this.reveal;
     return html`
       ${this.renderLevelUp(data)} ${this.renderPromotion(data)}
-      ${this.renderBreakdown(data)} ${this.renderNotes(data)}
-      ${this.renderChallenges(data)} ${this.renderSeason(data)}
-      ${this.renderPrestigeReady(data)}
+      ${this.renderBreakdown(data)} ${this.renderSoloSetup(data)}
+      ${this.renderNotes(data)} ${this.renderChallenges(data)}
+      ${this.renderSeason(data)} ${this.renderPrestigeReady(data)}
       ${data.breakdown.leftEarly
         ? this.collapsible(
             r === null,
@@ -1309,14 +1316,101 @@ export class GameXpPanel extends LitElement {
     );
   }
 
+  // A solo award's setup: the six criteria it was scored on, each met or missed,
+  // the multiplier they came to and the setup in words, so it is clear WHY the
+  // multiplier is what it is. Every figure was worked out by the server from
+  // what its replay of the match found.
+  private renderSoloSetup(
+    data: GameXpEligible,
+  ): TemplateResult | typeof nothing {
+    const solo = data.breakdown.solo;
+    if (data.mode !== "solo" || solo === undefined) return nothing;
+    const difficultyKey = difficultyNameKey(solo.difficulty);
+    const difficulty =
+      difficultyKey === null ? solo.difficulty : translateText(difficultyKey);
+    return this.collapsible(
+      this.awardSettled(),
+      html`<div
+        data-xp-solo
+        class="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5"
+      >
+        <div
+          data-xp-solo-heading
+          class="text-[10px] font-bold uppercase tracking-[0.18em] text-white/55"
+        >
+          ${translateText("progression.solo_setup_heading")}
+        </div>
+        <div data-xp-solo-setup class="mt-0.5 text-xs text-white/50">
+          ${translateText("progression.solo_setup_summary", {
+            difficulty,
+            tribes: solo.tribes,
+            nations: solo.nations,
+          })}
+        </div>
+        <ul class="m-0 mt-2 flex list-none flex-col gap-1 p-0 text-sm">
+          ${visibleSoloCriteria(solo).map(
+            (c) =>
+              html`<li
+                data-xp-solo-criterion=${c.key}
+                data-met=${c.met ? "true" : "false"}
+                class="flex items-baseline justify-between gap-3"
+              >
+                <span class=${c.met ? "text-white/80" : "text-white/50"}
+                  >${translateText(c.labelKey)}</span
+                >
+                <span
+                  class="shrink-0 font-bold ${c.met
+                    ? "text-emerald-300"
+                    : "text-red-300"}"
+                  role="img"
+                  aria-label=${translateText(
+                    c.met ? "progression.solo_met" : "progression.solo_missed",
+                  )}
+                  >${c.met ? "✓" : "✕"}</span
+                >
+              </li>`,
+          )}
+        </ul>
+        <div
+          data-xp-solo-multiplier
+          class="mt-2 flex items-baseline justify-between gap-3 border-t border-white/10 pt-2 text-sm"
+        >
+          <span class="text-white/70"
+            >${translateText("progression.solo_multiplier_label")}</span
+          >
+          <span class="font-bold tabular-nums text-yellow-300"
+            >${translateText("progression.solo_multiplier_value", {
+              multiplier: (solo.multiplierPermille / 1000).toFixed(2),
+            })}</span
+          >
+        </div>
+      </div>`,
+    );
+  }
+
   // What changed the award beyond its lines: a cap that held it back.
   private renderNotes(data: GameXpEligible): TemplateResult | typeof nothing {
     const b = data.breakdown;
     const reduced = data.mode === "reduced";
-    if (!b.softCapped && !b.capped && !reduced) return nothing;
+    const solo = data.mode === "solo";
+    if (!b.softCapped && !b.capped && !reduced && !solo) return nothing;
     return this.collapsible(
       this.awardSettled(),
-      html`${reduced
+      html`${solo
+        ? html`<p
+            data-xp-note="solo"
+            class="m-0 mt-3 text-center text-xs text-white/60"
+          >
+            ${translateText(
+              b.reducedReason === "eliminated"
+                ? "progression.note_solo_eliminated"
+                : b.reducedReason === "short_game"
+                  ? "progression.note_solo_short"
+                  : "progression.note_solo",
+            )}
+          </p>`
+        : nothing}
+      ${reduced
         ? html`<p
             data-xp-note="reduced"
             class="m-0 mt-3 text-center text-xs text-white/60"

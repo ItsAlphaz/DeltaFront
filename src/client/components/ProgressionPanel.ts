@@ -1,7 +1,7 @@
 import type { ProgressionMe } from "@openfront/shared/ApiSchemas";
 import { html, LitElement, nothing, svg, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { challengeLabelKey } from "../Progression";
+import { challengeLabelKey, difficultyNameKey } from "../Progression";
 import { fetchProgressionMe } from "../ProgressionApi";
 import { translateText } from "../Utils";
 import "./CreditsIcon";
@@ -38,12 +38,19 @@ const SOURCE_KEYS: Record<string, string> = {
   match_short_game: "progression.history_match_short",
   match_admin_modified: "progression.history_match_modified",
   match_eliminated: "progression.history_match_eliminated",
+  match_solo: "progression.history_match_solo",
   daily_challenge: "progression.history_daily_challenge",
   weekly_challenge: "progression.history_weekly_challenge",
   admin_grant: "progression.history_admin_grant",
   admin_revoke: "progression.history_admin_revoke",
   admin_set: "progression.history_admin_set",
 };
+
+/** "Hard", in the player's language; a difficulty this client has no name for is shown as it came. */
+function soloDifficulty(difficulty: string): string {
+  const key = difficultyNameKey(difficulty);
+  return key === null ? difficulty : translateText(key);
+}
 
 /** The line's label: a reduced match says why ("Private Match"), never an internal name. */
 function historyKey(entry: { source: string; detail?: string | null }): string {
@@ -328,7 +335,19 @@ export class ProgressionPanel extends LitElement {
         ${me.history.map(
           (h) =>
             html`<li class="flex items-center justify-between gap-3">
-              <span class="text-white/70">${translateText(historyKey(h))}</span>
+              <span class="min-w-0 text-white/70"
+                >${translateText(historyKey(h))}${h.solo === undefined
+                  ? nothing
+                  : html`<span
+                      data-history-solo
+                      class="block truncate text-xs text-white/45"
+                      >${translateText("progression.history_solo_meta", {
+                        difficulty: soloDifficulty(h.solo.difficulty),
+                        tribes: h.solo.tribes,
+                        nations: h.solo.nations,
+                      })}</span
+                    >`}</span
+              >
               <span
                 class="font-bold tabular-nums ${h.amount < 0
                   ? "text-sky-300"

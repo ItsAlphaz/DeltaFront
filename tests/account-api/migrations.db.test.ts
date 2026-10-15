@@ -103,6 +103,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0006",
       "0007",
       "0008",
+      "0009",
     ]);
 
     expect(await tablesOf(pool)).toEqual(
@@ -113,6 +114,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "schema_migrations",
         ...PROGRESSION_TABLES,
         "early_xp",
+        "solo_submissions",
       ].sort(),
     );
     const files = loadMigrationFiles();
@@ -146,6 +148,11 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         checksum: files[6].checksum,
       },
       { version: "0008", name: "early_xp", checksum: files[7].checksum },
+      {
+        version: "0009",
+        name: "solo_submissions",
+        checksum: files[8].checksum,
+      },
     ]);
   });
 
@@ -157,7 +164,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(8);
+    ).toBe(9);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -178,6 +185,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0006",
         "0007",
         "0008",
+        "0009",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -204,6 +212,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0006",
       "0007",
       "0008",
+      "0009",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -218,6 +227,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0006",
       "0007",
       "0008",
+      "0009",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -312,6 +322,45 @@ describeDb("0008 early_xp constraints", () => {
   });
 });
 
+describeDb("0009 solo_submissions constraints", () => {
+  it("keeps one submission per game, only for an eight-character game code, with a known status, and follows the account", async () => {
+    const { pool } = await freshDb();
+    await applyMigrations(pool);
+    const [{ id }] = (
+      await pool.query(
+        "INSERT INTO users (public_id, kind) VALUES ('Mig0009abc', 'registered') RETURNING id",
+      )
+    ).rows;
+    const insert = (game: string, status = "pending") =>
+      pool.query(
+        "INSERT INTO solo_submissions (game_code, user_id, status) VALUES ($1, $2, $3)",
+        [game, id, status],
+      );
+    await insert("solo0001");
+    // a game is submitted once, whoever sends it
+    await expect(insert("solo0001")).rejects.toThrow(/solo_submissions_pkey/);
+    // a solo game's code is eight characters: never a multiplayer game's
+    await expect(insert("solo000001")).rejects.toThrow();
+    await expect(insert("solo001")).rejects.toThrow();
+    await expect(insert("solo0002", "nonsense")).rejects.toThrow();
+    for (const status of ["pending", "running", "paid", "rejected"]) {
+      await insert(`stat-${status}`.slice(0, 8).padEnd(8, "x"), status);
+    }
+    // the reason is a short code
+    await expect(
+      pool.query(
+        "INSERT INTO solo_submissions (game_code, user_id, status, reason) VALUES ('solo0003', $1, 'rejected', $2)",
+        [id, "x".repeat(65)],
+      ),
+    ).rejects.toThrow();
+    await pool.query("DELETE FROM users WHERE id = $1", [id]);
+    expect(
+      (await pool.query("SELECT count(*)::int AS n FROM solo_submissions"))
+        .rows[0].n,
+    ).toBe(0);
+  });
+});
+
 describeDb("migration safety", () => {
   it("refuses a migration that was edited after it was applied", async () => {
     const { pool } = await freshDb();
@@ -400,11 +449,12 @@ describeDb("migration safety", () => {
       "0006",
       "0007",
       "0008",
+      "0009",
     ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(8);
+    ).toBe(9);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -432,6 +482,7 @@ describeDb("migration safety", () => {
       "0006",
       "0007",
       "0008",
+      "0009",
     ]);
   });
 });

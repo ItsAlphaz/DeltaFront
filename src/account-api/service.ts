@@ -24,10 +24,12 @@ import { loadReservedClanNames } from "./domain/clans";
 import { runMaintenance } from "./domain/lifecycle";
 import { startLeaderboardJob } from "./jobs/leaderboard";
 import { startSeasonJob } from "./jobs/seasons";
+import { createSoloWorker } from "./jobs/solo";
 import { createLimiters, type RateLimit, type RateLimitName } from "./limits";
 import type { Logger } from "./logger";
 import { createReadiness } from "./readiness";
 import type { AppDeps } from "./routes/common";
+import type { SoloReplayer } from "./soloReplay";
 import { createTurnstile, type Turnstile } from "./turnstile";
 
 export interface RunningService {
@@ -72,6 +74,8 @@ export interface ServiceOverrides {
   limits?: Partial<Record<RateLimitName, RateLimit>>;
   /** Read the cosmetic catalog from here instead of `src/account-api/catalog`. */
   catalogDir?: string;
+  /** Replay singleplayer matches with this instead of the engine subprocess (tests). */
+  soloReplayer?: SoloReplayer;
 }
 
 /** How often the deletion and guest-cleanup jobs run. */
@@ -96,6 +100,14 @@ export async function buildBackend(
         })
       : // Sign-in is off, so nothing is signed; this key is never published.
         await createEphemeralKeyRing());
+  // Checked once, here: a catalog with a mistake in it stops the API from
+  // starting (CatalogError) instead of failing when a player opens a page.
+  const catalog = usesCosmeticCatalog(config.features)
+    ? loadCatalog({
+        publicOrigin: config.publicOrigin,
+        dir: overrides.catalogDir,
+      })
+    : null;
   return {
     config,
     log,
@@ -111,16 +123,19 @@ export async function buildBackend(
       overrides.oauthEndpoints,
     ),
     mailer: overrides.mailer ?? createMailer(config.email, overrides.fetchFn),
-    // Checked once, here: a catalog with a mistake in it stops the API from
-    // starting (CatalogError) instead of failing when a player opens a page.
-    catalog: usesCosmeticCatalog(config.features)
-      ? loadCatalog({
-          publicOrigin: config.publicOrigin,
-          dir: overrides.catalogDir,
-        })
-      : null,
+    catalog,
     // The reserved clan tags and names, checked once like the catalog.
     reserved: loadReservedClanNames(),
+    // Singleplayer matches are verified and paid here (jobs/solo.ts); started
+    // with the service, not by the routes.
+    solo:
+      config.features.progression && config.features.accounts
+        ? createSoloWorker(pool, {
+            log,
+            replayer: overrides.soloReplayer,
+            progression: { validFlares: catalog?.validFlares ?? null },
+          })
+        : null,
     turnstile:
       overrides.turnstile ??
       createTurnstile({
@@ -195,6 +210,7 @@ export async function startAccountApi(
       config.features.accounts
     )
       stopSeasons = startSeasonJob(pool, log);
+    backend?.solo?.start();
     let maintenance: NodeJS.Timeout | null = null;
     if (backend !== undefined && config.features.accounts) {
       maintenance = setInterval(
@@ -217,6 +233,9 @@ export async function startAccountApi(
         if (maintenance !== null) clearInterval(maintenance);
         stopLeaderboard?.();
         stopSeasons?.();
+        // Lets the match being replayed finish (it is only ever replayed again
+        // if it did not), and takes no more.
+        await backend?.solo?.stop();
         const closed = new Promise<void>((resolve) =>
           server.close(() => resolve()),
         );

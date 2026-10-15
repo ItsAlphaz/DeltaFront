@@ -6,6 +6,7 @@ import {
 import { GAMEPLAY_INTENTS } from "@openfront/shared/LiveProgress";
 import type { GameRecord } from "@openfront/shared/WireSchemas";
 import { ECONOMY, PERMILLE, PROGRESSION } from "./constants";
+import type { SoloBreakdown } from "./solo";
 import { countedVerdict, winnerClientIds, type CountedFacts } from "./stats";
 
 /**
@@ -35,10 +36,14 @@ import { countedVerdict, winnerClientIds, type CountedFacts } from "./stats";
  *    was short, a game staff commands changed, and every player who was
  *    eliminated, whatever the game: a death is a reduced award, secured the
  *    moment it is known (earlyXp.ts).
- *  - "none": singleplayer, ranked, and (per player) leaving while still in the
- *    game, a guest, someone who never played.
+ *  - "solo": a singleplayer match the account API verified by replaying it
+ *    (soloEligibility): the match lines scaled by how demanding its setup was
+ *    (solo.ts), to lifetime XP only, exactly like a reduced award. Never a season,
+ *    a challenge or a clan.
+ *  - "none": ranked, and (per player) leaving while still in the game, a guest,
+ *    someone who never played. A singleplayer game that was not verified.
  */
-export type ProgressionMode = "full" | "reduced" | "none";
+export type ProgressionMode = "full" | "reduced" | "solo" | "none";
 
 export type ProgressionReason =
   | "normal_public"
@@ -52,6 +57,8 @@ export type ProgressionReason =
   | "admin_modified"
   // The player was eliminated: the reduced award for a death.
   | "eliminated"
+  // A verified singleplayer match (see solo.ts).
+  | "solo"
   | "singleplayer"
   | "ranked";
 
@@ -71,6 +78,9 @@ export interface ProgressionEligibility {
  * command made the game a test. The owner's commands in a public or listed game
  * do not, so that game stays "full"; every other staff command makes it
  * "reduced" (for everyone in it, the staff member too).
+ *
+ * A singleplayer game is "solo" when it arrived through the verified solo intake
+ * (`source: "singleplayer"`), and "none" from anywhere else.
  */
 export function progressionEligibility(
   facts: CountedFacts & { listed?: boolean | null },
@@ -83,7 +93,13 @@ export function progressionEligibility(
     mode: "reduced",
     reason,
   });
-  if (facts.type === GameType.Singleplayer) return none("singleplayer");
+  if (facts.type === GameType.Singleplayer) {
+    // Only the account API's own verified intake says "singleplayer": a game
+    // server never submits one, and a record that claims to be is not paid.
+    return facts.source === "singleplayer"
+      ? { mode: "solo", reason: "solo" }
+      : none("singleplayer");
+  }
   // Staff commands are judged below; they must not hide why the game is what it is.
   const verdict = countedVerdict({ ...facts, adminModified: false });
   if (verdict.counted) {
@@ -349,6 +365,9 @@ export interface MatchXpBreakdown {
   softCapped: boolean;
   /** Set on a reduced award: why (private_game, unlisted_game, public_too_few_humans, short_game, admin_modified, eliminated). */
   reducedReason?: ProgressionReason;
+  /** A solo award: the setup multiplier (permille) it was scaled by, and what it was scored on. */
+  soloPermille?: number;
+  solo?: SoloBreakdown;
   /** Match XP actually paid. */
   total: number;
 }

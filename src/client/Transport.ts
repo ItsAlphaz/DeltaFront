@@ -198,6 +198,9 @@ export class SendWinnerEvent implements GameEvent {
     public readonly allPlayersStats: AllPlayersStats,
   ) {}
 }
+// A singleplayer player was eliminated: the match is uploaded for XP now (the
+// account API replays it and pays), not only when it ends.
+export class SendSoloArchiveEvent implements GameEvent {}
 export class SendLiveStatsEvent implements GameEvent {
   constructor(public readonly stats: LiveStats) {}
 }
@@ -337,6 +340,7 @@ export class Transport {
       this.onSendAdminCommandIntent(e),
     );
     this.subscribe(SendWinnerEvent, (e) => this.onSendWinnerEvent(e));
+    this.subscribe(SendSoloArchiveEvent, () => this.onSendSoloArchiveEvent());
     this.subscribe(SendLiveStatsEvent, (e) => this.onSendLiveStatsEvent(e));
     this.subscribe(SendPlayerReportEvent, (e) =>
       this.onSendPlayerReportEvent(e),
@@ -925,6 +929,10 @@ export class Transport {
         this.socket?.readyState,
       );
     }
+  }
+
+  private onSendSoloArchiveEvent() {
+    if (this.isLocal) this.localServer.archiveNow();
   }
 
   private onSendLiveStatsEvent(event: SendLiveStatsEvent) {

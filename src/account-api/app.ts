@@ -22,6 +22,7 @@ import { leaderboardRouter } from "./routes/leaderboard";
 import { profileRouter } from "./routes/profile";
 import { progressionRouter } from "./routes/progression";
 import { serverLookupsRouter } from "./routes/server";
+import { soloRouter } from "./routes/solo";
 import { shopRouter, storeRouter } from "./routes/store";
 import { usersRouter } from "./routes/users";
 import { requestLog, securityHeaders } from "./security";
@@ -110,6 +111,7 @@ export function createApp(deps: {
     }
     if (config.features.progression && config.features.accounts) {
       app.use(progressionRouter(backend));
+      app.use(soloRouter(backend));
     }
     if (config.features.clans && config.features.accounts) {
       app.use(clansRouter(backend));

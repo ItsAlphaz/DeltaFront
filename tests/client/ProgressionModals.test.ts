@@ -416,7 +416,7 @@ describe("game stats XP", () => {
     );
   });
 
-  it("tells a singleplayer game it doesn't earn XP, once the game has loaded", async () => {
+  it("tells a singleplayer match that was not verified so, once the game has loaded", async () => {
     fetchMyGameXp.mockResolvedValue({
       status: "ok",
       data: { gameId: "g8", eligible: false, reason: "unverified" },
@@ -429,7 +429,7 @@ describe("game stats XP", () => {
     gameLoaded("g8", 60_000, GameType.Singleplayer);
     await vi.waitFor(async () => expect(await cardState()).toBe("ineligible"));
     expect(modal.querySelector("[data-past-xp-note]")!.textContent).toBe(
-      "progression.ineligible_singleplayer",
+      "progression.ineligible_solo_unverified",
     );
   });
 

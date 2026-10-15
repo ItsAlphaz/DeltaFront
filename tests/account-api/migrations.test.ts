@@ -194,6 +194,19 @@ describe("the shipped migrations", () => {
     expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
   });
 
+  it("0009 adds the solo_submissions queue: one row per solo game, the record dropped once decided, nothing rewritten", () => {
+    expect(files[8].fileName).toBe("0009_solo_submissions.sql");
+    const sql = files[8].sql.replace(/^\s*--.*$/gm, "");
+    expect(sql).toMatch(/CREATE TABLE solo_submissions \(/);
+    // A solo game is submitted once; its code is eight characters (a multiplayer game's is longer).
+    expect(sql).toMatch(
+      /game_code\s+text PRIMARY KEY CHECK \(char_length\(game_code\) = 8\)/,
+    );
+    expect(sql).toMatch(/record_gz\s+bytea,/);
+    expect(sql).toMatch(/'pending', 'running', 'paid', 'rejected'/);
+    expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time

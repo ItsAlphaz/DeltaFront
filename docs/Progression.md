@@ -52,9 +52,9 @@ numbers.
 Decided when the game server submits the finished game (`domain/ingest.ts`, the same
 transaction that stores the game and pays Credits). Nothing comes from a browser.
 
-### How far a game progresses: full, reduced, none
+### How far a game progresses: full, reduced, solo, none
 
-Three modes, one authoritative answer per game, `progressionEligibility` in `domain/xp.ts`
+Four modes, one authoritative answer per game, `progressionEligibility` in `domain/xp.ts`
 (`{ mode: "full" | "reduced" | "none", reason }`), built on the stats rule
 (`countedVerdict` in `domain/stats.ts`). The rule is simple: **a player earns XP unless they
 left the game while still in it.** Short games, staff commands and dying do not take it away;
@@ -70,7 +70,7 @@ they make it reduced.
 | A public game shorter than the stats minimum (two minutes)              | **reduced** | `short_game`            |
 | A game staff commands changed (any other role, or a private game)       | **reduced** | `admin_modified`        |
 | Any game, for a player who was **eliminated**                           | **reduced** | `eliminated`            |
-| Singleplayer                                                            | none        | `singleplayer`          |
+| A singleplayer match the API verified by replaying it                   | **solo**    | `solo`                  |
 | Ranked (not served yet)                                                 | none        | `ranked`                |
 
 A game that is reduced for two reasons shows the game's own (a short staff test is `short_game`;
@@ -83,6 +83,10 @@ unlisted game, makes it a test: no stats, Credits, leaderboard entry, clan thres
 XP, but its players still earn the reduced award, the staff member who ran the command
 included. The game server records whether a private lobby was listed (`info.listed`); the client
 never decides any of this.
+
+A **solo** match is a separate path (see "Singleplayer" below): it is lifetime XP only, like a
+reduced award, scaled by how demanding its setup was. A singleplayer record that arrives any other
+way (a game server never submits one) is not paid.
 
 **Player-level**, for a game that is full or reduced: a registered account (guests earn
 nothing, but count towards the player-count multiplier of a full game) who took a gameplay
@@ -260,6 +264,124 @@ A player who leaves from "You won" is told what was awarded (or forfeited) by a 
 time the page loads (`PendingXp`); a winner is shown their final figure from the server's own
 result and the stored game awards exactly that.
 
+## Singleplayer
+
+A solo match earns XP, scaled by its setup. It is **lifetime XP only** (level, rank, prestige): never
+season XP, a competitive challenge, clan XP or a leaderboard, and it is not one of the stats,
+Credits or the clan-creation threshold (the game is stored with `counts_for_stats = false` and
+`completed = false`). Solo XP reuses the XP functions, the ledger and the caps; it does not have a
+progression system of its own.
+
+### The setup multiplier
+
+Full solo XP (1.00x) needs **all six**:
+
+1. **more than 30 tribes** (exactly 30 fails)
+2. **more than 30 nations** (exactly 30 fails)
+3. no instant build
+4. no infinite gold
+5. no infinite troops
+6. difficulty **above Medium** (Hard, Impossible; Medium and Easy fail)
+
+It is not binary. Start at 1.00x and take **0.20 off for each criterion missed**, never below
+**0.10x**: one missed 0.80x, two 0.60x, three 0.40x, four 0.20x, five or six 0.10x (`soloMultiplier`
+in `domain/solo.ts`, numbers in `SOLO` in `domain/constants.ts`). So a valid solo match always earns
+something.
+
+### The award
+
+`floor(subtotal x reduced x setup)`, then the per-match cap (1,250) and the daily soft cap, exactly
+as for any match XP.
+
+| Outcome (from the replay)                                | Subtotal   | Notes                                                            |
+| -------------------------------------------------------- | ---------- | ---------------------------------------------------------------- |
+| **Victory** (the player won)                             | 100 + 250  | completed match + victory                                        |
+| **Defeat** (still in it, the match decided without them) | 100        | completed match only                                             |
+| **Eliminated** (lost every tile)                         | 100 x 0.25 | a death is reduced, as in multiplayer                            |
+| **Short** (under two minutes of game time), any outcome  | 100 x 0.25 | reduced, no victory line (a game ended at once cannot be farmed) |
+
+Example: a win with one criterion missed is (100 + 250) x 0.80 = **280**. A win that misses all six is
+350 x 0.10 = 35. There is no placement (one human), no elimination XP (only humans count), no
+first-game or first-win bonus (they are not spent) and no player-count or repeated-opponent factor:
+the setup multiplier takes the place of those. The match still counts towards the daily soft cap.
+A match with no result for a player still in it (they left it unfinished), a player who never
+spawned and one who never took a gameplay action earn nothing.
+
+### Why the setup can be trusted: the API replays the match
+
+A solo match is played in the browser, so nothing in its record is believed: not the tribes, nations,
+difficulty or cheat switches, not the winner, not the stats. `POST /archive_singleplayer_game`
+(the client's own upload: bearer token, gzipped record) only **queues** it. The account API then
+**replays the match on its own copy of the engine** (`src/account-api/soloReplay.ts`, a subprocess
+at the lowest CPU priority with a heap cap and a 15-minute limit, reading the maps from the release's
+`resources/maps`), and pays what the replay found (`domain/soloVerify.ts`):
+
+- the **setup** is what the simulation ran with and contained: the tribes that were really created,
+  the nations it resolved (`"default"` is the map's own), the difficulty and the switches read from
+  its own configuration, with a host cheat (`hostCheats.infiniteGold` / `infiniteTroops`) counted
+  as the cheat it is;
+- the **result** is the simulation's: the winner it declared, whether the player was eliminated, the
+  game's length in ticks (never the browser's clock);
+- the record must **reproduce the state hashes** its browser recorded every 100 turns. Turns or a
+  setup changed afterwards do not replay to them, so a forged difficulty, cheat setting or tribe or
+  nation count is refused (`desync`); a record with no hash to compare (a match under ten seconds)
+  proves nothing and is refused (`no_proof`);
+- the record is refused outright if it is not a one-player singleplayer match with an eight-character
+  id (a multiplayer game's is longer, so a submission can never name one), is longer than 72,000
+  turns (two hours), or contains an intent only a game server or staff may send (`admin_command`,
+  `kick_player`, `update_game_config`, `mark_disconnected`, `toggle_game_start_timer`): a forced winner
+  is not a game somebody played;
+- the **account** is the bearer's (the record's `persistentID` is ignored), a guest has a session
+  and no XP (the upload is answered `ignored`), and when the match happened is the time the API
+  received it, so a submission cannot choose which UTC day's soft cap it falls under.
+
+What the replay would not catch is a record that is a legitimate play of the setup it claims: that is
+exactly what is paid. Settings that make a game easier without being one of the six criteria
+(starting gold, a gold multiplier, host starting resources, disabled units, a short timer) are not
+penalised; see "Known limits".
+
+### Queue, retries and storage (migration `0009`)
+
+`solo_submissions` holds each upload until it is decided (`pending`, `running`, `paid`,
+`rejected` with a short reason), so a queued match survives a restart and one being replayed when the
+process died is taken again (`FOR UPDATE SKIP LOCKED`, a stale `running` row after the replay limit
+plus five minutes). One replay runs at a time per process. A replay that failed for a reason of its
+own (a crash, the engine throwing) is tried again up to three times, then refused as
+`verify_failed`, never paid; one that ran out of time is refused at once (trying again would only
+repeat it). A match is paid **once**: the game code is the primary key of the submission, unique in
+`games`, and unique in the XP ledger, so a repeat upload (even after its row was pruned), two at the
+same moment, or another account sending the same code changes nothing. Limits: 20 uploads a minute and
+50 a day per account (429), 200 waiting in all (503, the client tries again), 32 MB unpacked (413).
+Decided rows are kept 30 days (without the record), then pruned.
+
+The player sees "Verifying your solo match…" on the end screen while the replay runs (a few
+seconds, up to minutes for a long match; the page looks for up to six minutes),
+then the award: `GET /users/@me/xp/:gameId` answers 404 while it is waiting, the award once paid, or
+`{ eligible: false, reason }` once refused (`left_early` for a match left unfinished, `no_action`,
+`not_spawned`, otherwise `solo_unverified`). A solo player who is **eliminated** has their match
+uploaded at that moment (the death screen starts looking for the XP at once); a win is uploaded when
+it happens.
+
+### What the player sees
+
+The end-of-game panel headlines **Solo XP**, lists the lines (Completed match, Victory), the six
+criteria each with a check or a cross, the **Solo multiplier x0.80** and the total, with a note that
+solo XP counts for level, rank and prestige only. The setup ("Hard . 45 tribes . 50 nations") is
+under the heading. A match that was also reduced (eliminated, short) shows both multipliers. The
+past-game card in the stats modal draws the same as one chip per criterion, and the recent-XP list
+labels it "Solo Match" with the setup in small print. There is no running XP for a solo match: nothing
+watches it until it is uploaded.
+
+### Known limits
+
+- Solo XP depends on the API host having `resources/maps` (it is in a normal release checkout;
+  `npm run launch:check` fails without it).
+- A deploy while a player is mid-match is fine for the record, but a client older than the server's
+  engine can fail the hash check (`desync`) if the engine changed between the two builds.
+- The six criteria are the only ones scored. Starting gold and gold multipliers, disabled units,
+  a short timer or random spawn make a match easier or quicker without costing anything; a match
+  under two minutes is reduced, and the daily soft cap and per-account limits bound the rest.
+
 ## Anti-farming
 
 What stops farming now that short games, staff tests and deaths pay: the reduced multiplier (×0.25,
@@ -269,7 +391,9 @@ and victim survival rule (two minutes); the per-match cap and the daily soft cap
 still in the game earns nothing; no XP for players who never acted; free kills (eliminated within
 the first two minutes) neither pay the killer nor raise the game's player count; bots and nations
 excluded; one transaction per game keyed on the game code with unique ledger rows (a death is
-paid under the same key). No IP address is used. Guests earn nothing, and an XP-earning account
+paid under the same key). Solo XP adds its own: the setup multiplier (a match is always scaled by
+how demanding it was), a server-side replay with hash verification, the per-account limits and a
+queue that cannot be flooded. No IP address is used. Guests earn nothing, and an XP-earning account
 needs a Discord or Google identity.
 
 ## Challenges
@@ -389,6 +513,7 @@ hidden page and inside another site's frame (`flourishAllowed`).
 | `GET /users/@me/xp/:gameId`                              | the XP of the caller's game, or a death's award (404 else) |
 | `GET /users/@me/xp/live/:gameId`                         | the XP a running game stands at (404 if none)              |
 | `POST /game/:id/progress`                                | a game server's report of a running game; pays a death     |
+| `POST /archive_singleplayer_game`                        | a browser's solo match: queued, replayed, then paid        |
 | `POST /users/@me/prestige`                               | prestige (needs `Idempotency-Key`)                         |
 | `GET /progression/me`                                    | account page: challenges, season, track, titles, recent XP |
 | `PUT /users/@me/title`                                   | choose a title                                             |
@@ -408,3 +533,6 @@ before it show "played before levels existed". The tables are inert while the fl
 `0008_early_xp.sql` adds `early_xp` (one row per eliminated account player and game): what a death was
 paid and told. It is run with the other migrations (`npm run account-api:migrate`, before the API
 restarts: the service refuses to start with a migration pending). Nothing is rewritten.
+
+`0009_solo_submissions.sql` adds `solo_submissions` (one row per solo game: the queue and what became of
+each). Same rule: run it before the API restarts. Nothing is rewritten.

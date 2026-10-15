@@ -23,6 +23,7 @@ const MULTIPLIER_KEYS = {
   reduced_short: "progression.multiplier_reduced_short",
   reduced_modified: "progression.multiplier_reduced_modified",
   reduced_eliminated: "progression.multiplier_reduced_eliminated",
+  solo: "progression.multiplier_solo",
   repeat: "progression.multiplier_repeat",
   subscriber: "progression.multiplier_subscriber",
   sovereign: "progression.multiplier_sovereign",
@@ -36,6 +37,12 @@ const MULTIPLIER_KEYS = {
  * no known tier, or "−50% XP (GAME TYPE)" for a cut.
  */
 export function xpBonusText(key: XpMultiplierKey, permille: number): string {
+  // A solo setup reads "Solo setup ×0.80", like a reduced game: a factor, not a percentage.
+  if (key === "solo") {
+    return translateText("progression.solo_line", {
+      multiplier: (permille / 1000).toFixed(2),
+    });
+  }
   // A reduced game reads "Private Match ×0.25", not a percentage.
   if (isReducedKey(key)) {
     return translateText("progression.reduced_line", {
@@ -106,6 +113,75 @@ export function segmentedXpBar(
       </div>`;
     })}
   </div>`;
+}
+
+/**
+ * XP as a ring, for wrapping an avatar: a dark track with the DeltaFront red
+ * fill sweeping clockwise from the top. It is drawn at `size` pixels square and
+ * is decorative (`aria-hidden`): whatever holds it names the level and the XP.
+ * `percent` is clamped to 0..100 and is the only thing it reads, so the nav
+ * draws it from the very numbers the progression panels use.
+ *
+ * With `animate` the fill eases to a new value when the same ring is drawn again
+ * with one (never under reduced motion); `snap` suspends that for one draw (a
+ * level gained: the ring resets, it does not sweep backwards).
+ */
+export function xpRing(
+  percent: number,
+  opts: {
+    size?: number;
+    stroke?: number;
+    animate?: boolean;
+    snap?: boolean;
+    pulse?: boolean;
+  } = {},
+): TemplateResult {
+  const fill = Number.isFinite(percent)
+    ? Math.min(100, Math.max(0, percent))
+    : 0;
+  const size = opts.size ?? 38;
+  const stroke = opts.stroke ?? 3;
+  const centre = size / 2;
+  const radius = (size - stroke) / 2;
+  const eased = opts.animate === true && opts.snap !== true;
+  return html`<svg
+    data-xp-ring
+    data-xp-ring-percent=${Math.round(fill)}
+    viewBox="0 0 ${size} ${size}"
+    width=${size}
+    height=${size}
+    aria-hidden="true"
+    focusable="false"
+    class="pointer-events-none absolute inset-0 block ${opts.pulse
+      ? "df-ring-pulse"
+      : ""}"
+  >
+    <g transform="rotate(-90 ${centre} ${centre})">
+      <circle
+        data-xp-ring-track
+        cx=${centre}
+        cy=${centre}
+        r=${radius}
+        fill="none"
+        stroke-width=${stroke}
+        class="stroke-white/15"
+      ></circle>
+      <circle
+        data-xp-ring-fill
+        cx=${centre}
+        cy=${centre}
+        r=${radius}
+        fill="none"
+        stroke-width=${stroke}
+        stroke-linecap="round"
+        pathLength="100"
+        class="stroke-df-red ${eased
+          ? "transition-[stroke-dasharray] duration-700 ease-out motion-reduce:transition-none"
+          : ""}"
+        style="stroke-dasharray: ${fill} 100; opacity: ${fill > 0 ? 1 : 0}"
+      ></circle>
+    </g>
+  </svg>`;
 }
 
 /**

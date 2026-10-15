@@ -185,6 +185,34 @@ export async function runLaunchChecks(
     );
   }
 
+  // Singleplayer XP is paid after the account API replays the match on its own
+  // engine, which reads the map files from this release (the game image removes
+  // its copy; the API does not run from it). Without them every solo match would
+  // fail to verify.
+  if (config?.features.progression === true) {
+    const manifest = path.join(
+      root,
+      "resources",
+      "maps",
+      "world",
+      "manifest.json",
+    );
+    add(
+      fs.existsSync(manifest)
+        ? result(
+            "solo-maps",
+            "the release has the map files singleplayer XP is verified with",
+            "pass",
+          )
+        : result(
+            "solo-maps",
+            "the release has the map files singleplayer XP is verified with",
+            "fail",
+            "resources/maps is missing from the release the account API runs from: solo matches could not be replayed, so none would earn XP",
+          ),
+    );
+  }
+
   // The game server's own start-up validation (same variables, its side).
   try {
     assertAccountBackendEnv({

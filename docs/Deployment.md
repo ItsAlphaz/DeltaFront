@@ -179,13 +179,15 @@ git -C /opt/deltafront/releases clone … <new-commit>          # or unpack
 cd /opt/deltafront/releases/<new-commit> && npm run inst
 npm run launch:check -- --no-database                         # config + build sanity
 docker build … -t deltafront-game:<new-commit> .              # same build args as before
-npm run account-api:migrate                                   # as df_owner; forward-only
+npm run account-api:migrate                                   # as df_owner; forward-only (0009 adds the solo queue)
 ln -sfn /opt/deltafront/releases/<new-commit> /opt/deltafront/current
 systemctl restart deltafront-account-api                      # drains, restarts in seconds
 docker tag deltafront-game:<new-commit> deltafront-game:current
 systemctl restart deltafront-game                             # ~30 s: players reconnect
 npm run launch:check -- --probe
 ```
+
+**Singleplayer XP needs nothing new to install, but the API now runs a second process.** The account API verifies a solo match by replaying it in a subprocess (`src/account-api/soloReplayChild.ts`, started from the same release under the same `tsx`): one at a time, at the lowest CPU priority, with a 2 GB heap cap and a 15-minute limit, reading the maps from the release's own `resources/maps` (present in a normal checkout; `npm run launch:check` fails without it). Expect a short CPU burst per solo match, a few seconds for a typical one; the queue (`solo_submissions`) survives a restart and a submission is paid once. Run migration 0009 before restarting the API. See [Progression.md](Progression.md#singleplayer).
 
 Keep the previous release directory and image tag. **Rolling back code** is the same steps pointed at the old release. **Migrations are forward-only and never undone**: a bad migration is fixed by a new migration, or, if data was damaged, by restoring the last backup (§8). Each migration runs in its own transaction with its history row, so a failed one leaves nothing behind and `account-api:migrate` can simply be run again after the fix; two concurrent runs are serialised by an advisory lock.
 

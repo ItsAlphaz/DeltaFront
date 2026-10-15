@@ -27,7 +27,8 @@ type Pkg =
   | "resources";
 
 // The only engine files the apps may load: the simulation worker for the
-// client, and the winner replay for the server (src/server/WinnerReplay.ts).
+// client, and the winner replay for the server (src/server/WinnerReplay.ts) and
+// for the account API's check of a singleplayer match (src/account-api/soloReplay.ts).
 const ENGINE_ENTRY = "packages/engine/src/worker/Worker.worker.ts";
 const SERVER_ENGINE_ENTRY = "packages/engine/src/WinnerReplay.ts";
 
@@ -253,6 +254,17 @@ function violations(): {
         to === "engine" &&
         from === "server" &&
         r.file === SERVER_ENGINE_ENTRY
+      ) {
+        continue;
+      }
+      // The account API replays a solo match in a subprocess: that one file
+      // loads the engine's replay entry, nothing else of the API may.
+      if (
+        to === "engine" &&
+        from === "account-api" &&
+        r.file === SERVER_ENGINE_ENTRY &&
+        (file === "src/account-api/soloReplayChild.ts" ||
+          file === "src/account-api/soloReplay.ts")
       ) {
         continue;
       }

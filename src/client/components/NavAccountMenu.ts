@@ -17,8 +17,8 @@ import { steamSDK } from "../SteamSDK";
 import { playerProfileUrl } from "../utilities/PlayerProfileUrl";
 import { copyToClipboard, showToast, translateText } from "../Utils";
 import "./LevelBadge";
-import { levelBadgeLabel } from "./LevelBadge";
-import { xpBar, xpProgressText } from "./XpBar";
+import { displayLevel, levelBadgeLabel } from "./LevelBadge";
+import { xpProgressText, xpRing } from "./XpBar";
 
 type MenuItem = {
   key: string;
@@ -28,11 +28,56 @@ type MenuItem = {
   danger?: boolean;
 };
 
+// The ring cluster's two sizes, as literal classes so the style scanner sees
+// them: the box, how far the avatar is inset (the ring's stroke plus a hairline
+// of air), where the level badge sits on the ring's lower edge, its text, and
+// the size of the prestige mark. `lift` lifts the cluster a little off the
+// centre line so the badge hanging under the ring has the room the ring's top
+// edge would otherwise take.
+const RING = {
+  desktop: {
+    size: 38,
+    stroke: 3,
+    box: "h-[38px] w-[38px]",
+    lift: "mb-1",
+    face: "inset-[4.5px]",
+    badgeAt: "-bottom-[3px]",
+    badge: "px-1.5 py-[2px] text-[8px]",
+    mark: 12,
+  },
+  mobile: {
+    size: 32,
+    stroke: 2.5,
+    box: "h-8 w-8",
+    lift: "mb-[3px]",
+    face: "inset-[3.5px]",
+    badgeAt: "-bottom-[3px]",
+    badge: "px-1 py-[1.5px] text-[7px]",
+    mark: 10,
+  },
+} as const;
+
+/**
+ * The badge's words: "LV 23". A Legend is level 100 too; the crown beside the
+ * badge and the trigger's name say the rest.
+ */
+export function levelBadgeText(progress: Progress): string {
+  return translateText("progression.level_short", {
+    level: displayLevel(progress.level),
+  });
+}
+
 /**
  * The nav profile control: the account avatar/sign-in trigger plus, once signed
  * in, a chevron that opens the account menu (account settings, username,
  * subscription, log out). Game settings are a top-level nav item, not a menu
  * entry.
+ *
+ * With a level to show, the avatar sits inside an XP ring (the progress to the
+ * next level, in red, around the picture) with a small red "LV 23" badge on its
+ * lower edge and, for a prestiged player, the prestige emblem beside that badge.
+ * Nothing sits under the avatar: the ring is the only XP display, drawn from the
+ * same level, XP-in-level and XP-for-next the progression panels read.
  *
  * The trigger keeps `nav-menu-item[data-page="page-account"]`, so the signed-out
  * state still falls through to Navigation's delegated router and opens the
@@ -435,33 +480,64 @@ export class NavAccountMenu extends LitElement {
     });
   }
 
-  // The level badge beside the avatar (and, for something waiting for the
-  // player, a dot). Absent entirely when /users/@me carries no progress.
-  private renderLevel(
+  // The avatar wrapped in its XP ring, with the level on the ring's lower edge:
+  //
+  //                           (o)  something waiting for the player
+  //            .--ring--.
+  //            | avatar |
+  //            '-[P]LV 23   the prestige emblem, when there is one, beside the level
+  //
+  // The ring, the badge and the marks take no pointer events of their own and
+  // are all inside the trigger, so a click anywhere on the cluster is a click on
+  // the button. The ring eases to a new value when XP changes; a level gained
+  // resets it without sweeping backwards, bounces the badge and pulses the ring
+  // (none of it under reduced motion).
+  private renderRingCluster(
     variant: "desktop" | "mobile",
-  ): TemplateResult | typeof nothing {
-    const progress = this.progress();
-    if (progress === null) return nothing;
+    progress: Progress,
+  ): TemplateResult {
+    const d = RING[variant];
+    const percent = levelFraction(progress.xpInLevel, progress.xpForNext) * 100;
     const label = levelBadgeLabel(
       progress.level,
       progress.prestige,
       progress.legend,
     );
     const title = `${label} · ${xpProgressText(progress.xpInLevel, progress.xpForNext)}`;
-    const mobile = variant === "mobile";
     // Something waiting for the player: Credits to claim, or a prestige to take.
     const rewards =
       this.userMeResponse === false
         ? 0
         : (this.userMeResponse.player.rewards?.length ?? 0);
     const attention = progress.canPrestige || rewards > 0;
-    return html`
+    const ranked = progress.legend || progress.prestige > 0;
+    return html`<span
+      data-account-cluster
+      class="relative block shrink-0 ${d.box} ${d.lift}"
+      title=${title}
+    >
+      ${xpRing(percent, {
+        size: d.size,
+        stroke: d.stroke,
+        animate: true,
+        snap: this.levelUp,
+        pulse: this.levelUp,
+      })}
+      <span
+        data-account-face
+        class="absolute ${d.face} flex items-center justify-center overflow-hidden rounded-full bg-white/10"
+      >
+        ${this.renderIdentityIcons({
+          ids: variant === "desktop",
+          avatarClass: "h-full w-full",
+          iconClass: "h-4 w-4",
+          badgeClass: null,
+        })}
+      </span>
       ${attention
         ? html`<span
             data-account-attention
-            class="pointer-events-none absolute z-10 h-2.5 w-2.5 rounded-full bg-df-red ring-2 ring-black ${mobile
-              ? "-top-1 -right-1"
-              : "top-1 right-1"}"
+            class="pointer-events-none absolute -right-0.5 -top-0.5 z-10 h-2 w-2 rounded-full bg-df-red-bright ring-[1.5px] ring-black"
             title=${translateText(
               progress.canPrestige
                 ? "nav_account_menu.prestige_ready"
@@ -472,41 +548,32 @@ export class NavAccountMenu extends LitElement {
       <span
         data-account-level
         data-level-up=${this.levelUp ? "true" : nothing}
-        class="${mobile
-          ? "absolute -top-1 -left-1 z-10"
-          : "flex items-center"} ${this.levelUp ? "df-level-up" : ""}"
-        title=${title}
+        class="pointer-events-none absolute inset-x-0 ${d.badgeAt} z-10 flex items-center justify-center gap-0.5 ${this
+          .levelUp
+          ? "df-level-up"
+          : ""}"
       >
-        <level-badge
-          .level=${progress.level}
-          .prestige=${progress.prestige}
-          .legend=${progress.legend}
-          .size=${mobile ? 16 : 22}
-        ></level-badge>
+        ${ranked
+          ? html`<span
+              data-account-prestige
+              class="block shrink-0"
+              aria-hidden="true"
+            >
+              <level-badge
+                emblem
+                .level=${progress.level}
+                .prestige=${progress.prestige}
+                .legend=${progress.legend}
+                .size=${d.mark}
+              ></level-badge>
+            </span>`
+          : nothing}
+        <span
+          data-account-level-text
+          class="block whitespace-nowrap rounded-md bg-df-red ${d.badge} font-display font-bold uppercase leading-none tracking-wider text-white ring-[1.5px] ring-black/70"
+          >${levelBadgeText(progress)}</span
+        >
       </span>
-    `;
-  }
-
-  // The thin XP bar. On the desktop trigger it is part of the profile cluster:
-  // a row of its own under the level badge and avatar, with a gap, inset a
-  // little so it reads as sitting under the pair rather than glued to the
-  // picture or running out under the chevron. On the mobile top bar it hangs
-  // under the avatar with the same gap. It eases to a new value when XP changes.
-  private renderXpBar(
-    variant: "desktop" | "mobile",
-  ): TemplateResult | typeof nothing {
-    const progress = this.progress();
-    if (progress === null) return nothing;
-    const percent = levelFraction(progress.xpInLevel, progress.xpForNext) * 100;
-    const mobile = variant === "mobile";
-    return html`<span
-      data-account-xp-bar
-      class="pointer-events-none ${mobile
-        ? "absolute -bottom-2 left-1 right-1"
-        : "mx-1 block"}"
-      aria-hidden="true"
-    >
-      ${xpBar(percent, { heightClass: "h-[3px]", animate: true })}
     </span>`;
   }
 
@@ -516,15 +583,18 @@ export class NavAccountMenu extends LitElement {
   // hooks are what both instances are updated through.
   private renderIdentityIcons(opts: {
     ids: boolean;
+    avatarClass: string;
     iconClass: string;
-    badgeClass: string;
+    // The email account's corner badge; null where there is no room for it
+    // (the ring cluster: the level badge and marks own its edges).
+    badgeClass: string | null;
   }): TemplateResult {
     const id = (name: string) => (opts.ids ? name : undefined);
     return html`
       <img
         id=${ifDefined(id("nav-account-avatar"))}
         data-account-avatar
-        class="hidden w-8 h-8 rounded-full object-cover"
+        class="hidden ${opts.avatarClass} rounded-full object-cover"
         alt=""
         data-i18n-alt="main.discord_avatar_alt"
         referrerpolicy="no-referrer"
@@ -551,61 +621,58 @@ export class NavAccountMenu extends LitElement {
         <path d="M20 21a8 8 0 0 0-16 0" />
         <path d="M12 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
       </svg>
-      <span
-        id=${ifDefined(id("nav-account-email-badge"))}
-        data-account-email-badge
-        class="hidden ${opts.badgeClass} w-4 h-4 rounded-full bg-slate-900/80 border border-white/20 flex items-center justify-center"
-        aria-hidden="true"
-      >
-        <svg
-          class="w-2.5 h-2.5 text-white/80"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M4 6h16v12H4z" />
-          <path d="m4 7 8 6 8-6" />
-        </svg>
-      </span>
+      ${opts.badgeClass === null
+        ? nothing
+        : html`<span
+            id=${ifDefined(id("nav-account-email-badge"))}
+            data-account-email-badge
+            class="hidden ${opts.badgeClass} w-4 h-4 rounded-full bg-slate-900/80 border border-white/20 flex items-center justify-center"
+            aria-hidden="true"
+          >
+            <svg
+              class="w-2.5 h-2.5 text-white/80"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 6h16v12H4z" />
+              <path d="m4 7 8 6 8-6" />
+            </svg>
+          </span>`}
     `;
   }
 
   // Desktop nav pill. Ids are load-bearing: NavAccountButton and
   // CrazyGamesAccountButton drive this instance by id.
   //
-  // With a level to show the pill is one cluster: a row (level badge, avatar)
-  // with the XP bar in its own row under it, then the chevron. The pill is
-  // taller by what the bar and its gap take, so the bar never touches the
-  // picture.
+  // With a level to show the pill holds the ring cluster and the chevron, and
+  // keeps its outline whatever the identity (so it opts out of the imperative
+  // border toggle, `data-account-border`, which is for the plain pill). Without
+  // one it is the plain pill: the avatar, the sign-in label and the chevron.
   private renderDesktopTrigger(): TemplateResult {
-    const withXp = this.progress() !== null;
-    return html`
-      <button
-        id="nav-account-button"
-        data-account-trigger
-        data-account-border
-        aria-haspopup="menu"
-        aria-expanded=${this.menuOpen ? "true" : "false"}
-        @click=${this.handleTriggerClick}
-        class="nav-menu-item relative ${withXp
-          ? "h-12 items-start pt-[3.5px]"
-          : "h-10 items-center"} rounded-full flex justify-center gap-2 px-3 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white"
-        data-page="page-account"
-        aria-label=${this.triggerLabel()}
-        data-i18n-title="main.account"
-      >
-        <span
-          data-account-cluster
-          class="flex flex-col items-stretch ${withXp ? "gap-1.5" : ""}"
+    const progress = this.progress();
+    if (progress === null) {
+      return html`
+        <button
+          id="nav-account-button"
+          data-account-trigger
+          data-account-border
+          aria-haspopup="menu"
+          aria-expanded=${this.menuOpen ? "true" : "false"}
+          @click=${this.handleTriggerClick}
+          class="nav-menu-item relative h-10 items-center rounded-full flex justify-center gap-2 px-3 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white"
+          data-page="page-account"
+          aria-label=${this.triggerLabel()}
+          data-i18n-title="main.account"
         >
           <span class="relative flex items-center justify-center gap-2">
-            ${this.renderLevel("desktop")}
             ${this.renderIdentityIcons({
               ids: true,
+              avatarClass: "w-8 h-8",
               iconClass: "w-5 h-5",
               badgeClass: "absolute bottom-0 right-0",
             })}
@@ -617,16 +684,40 @@ export class NavAccountMenu extends LitElement {
             >
             </span>
           </span>
-          ${this.renderXpBar("desktop")}
-        </span>
-        <!-- level with the avatar's row, not the bar under it -->
-        <span class="flex h-8 items-center">${this.renderChevron()}</span>
+          ${this.renderChevron()}
+        </button>
+      `;
+    }
+    return html`
+      <button
+        id="nav-account-button"
+        data-account-trigger
+        aria-haspopup="menu"
+        aria-expanded=${this.menuOpen ? "true" : "false"}
+        @click=${this.handleTriggerClick}
+        class="nav-menu-item relative h-12 items-center rounded-full flex justify-center gap-2 pl-2.5 pr-3 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white"
+        data-page="page-account"
+        aria-label=${this.triggerLabel()}
+        data-i18n-title="main.account"
+      >
+        ${this.renderRingCluster("desktop", progress)}
+        <!-- level with the ring's centre, not the badge under it -->
+        <span class="mb-1 flex h-[38px] items-center"
+          >${this.renderChevron()}</span
+        >
+        <span
+          id="nav-account-signin-text"
+          data-account-signin-text
+          class="hidden"
+        ></span>
       </button>
     `;
   }
 
-  // Mobile top-bar trigger: avatar or person icon only, plus the chevron.
+  // Mobile top-bar trigger: the avatar (in its ring, with a level) or person
+  // icon only, plus the chevron.
   private renderMobileTrigger(): TemplateResult {
+    const progress = this.progress();
     return html`
       <button
         data-account-trigger
@@ -638,14 +729,18 @@ export class NavAccountMenu extends LitElement {
         aria-label=${this.triggerLabel()}
         data-i18n-title="main.account"
       >
-        <span class="relative flex items-center justify-center w-8 h-8">
-          ${this.renderIdentityIcons({
-            ids: false,
-            iconClass: "w-7 h-7",
-            badgeClass: "absolute -bottom-0.5 -right-0.5",
-          })}
-          ${this.renderLevel("mobile")} ${this.renderXpBar("mobile")}
-        </span>
+        ${progress === null
+          ? html`<span
+              class="relative flex items-center justify-center w-8 h-8"
+            >
+              ${this.renderIdentityIcons({
+                ids: false,
+                avatarClass: "w-8 h-8",
+                iconClass: "w-7 h-7",
+                badgeClass: "absolute -bottom-0.5 -right-0.5",
+              })}
+            </span>`
+          : this.renderRingCluster("mobile", progress)}
         <!-- The sign-in label is desktop-only; on the top bar the icon alone is
              the affordance, so keep the element (the shared updater toggles it)
              but never show text. -->

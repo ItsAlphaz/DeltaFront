@@ -64,6 +64,7 @@ import type { GameXpPanel } from "../../../../src/client/components/GameXpPanel"
 import "../../../../src/client/components/LegendCeremony";
 import "../../../../src/client/hud/layers/WinModal";
 import type { WinModal } from "../../../../src/client/hud/layers/WinModal";
+import { SendSoloArchiveEvent } from "../../../../src/client/Transport";
 import type { GameView } from "../../../../src/client/view";
 
 const GAME_ID = "gXPTEST01";
@@ -335,14 +336,14 @@ describe("WinModal XP section", () => {
     expect(panel()!.textContent!.trim()).toBe("progression.ineligible_generic");
   });
 
-  it("tells a singleplayer game it doesn't earn XP, not that it couldn't be verified", async () => {
+  it("tells a singleplayer match that was not verified so, in its own words", async () => {
     stubXpEndpoint([
       () => json({ gameId: GAME_ID, eligible: false, reason: "unverified" }),
     ]);
     await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
     await finishReveal();
     expect(panel()!.textContent!.trim()).toBe(
-      "progression.ineligible_singleplayer",
+      "progression.ineligible_solo_unverified",
     );
   });
 
@@ -384,19 +385,6 @@ describe("WinModal XP section", () => {
         ?.textContent,
     ).toContain("progression.multiplier_reduced_private");
     expect(panel()!.textContent).not.toContain("progression.ineligible");
-  });
-
-  it("doesn't ask the API about a singleplayer game at all", async () => {
-    const fetchMock = stubXpEndpoint([
-      () => json({ gameId: GAME_ID, eligible: false, reason: "unverified" }),
-    ]);
-    await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
-    await finishReveal();
-    await settle(10_000);
-    expect(xpState()).toBe("ineligible");
-    expect(
-      fetchMock.mock.calls.filter((c) => String(c[0]).includes("/xp/")),
-    ).toHaveLength(0);
   });
 
   it("still says a multiplayer game's results couldn't be verified", async () => {
@@ -1539,5 +1527,154 @@ describe("WinModal XP section", () => {
     await mount(makeGame({ ended: true, replay: true }));
     expect(xpState()).toBe("hidden");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  describe("a singleplayer match", () => {
+    // 100 + 250 at 0.80x (one criterion missed): 280
+    const soloResult = () =>
+      eligible({
+        mode: "solo",
+        breakdown: {
+          leftEarly: false,
+          played: 100,
+          time: 0,
+          placement: 0,
+          win: 250,
+          eliminations: 0,
+          eliminationCount: 0,
+          firstGame: 0,
+          firstWin: 0,
+          feats: 0,
+          subtotal: 350,
+          gamePermille: 1000,
+          soloPermille: 800,
+          subscriberPermille: 1000,
+          repeatPermille: 1000,
+          playerCount: 0,
+          capped: false,
+          softCapped: false,
+          solo: {
+            multiplierPermille: 800,
+            failed: 1,
+            difficulty: "Medium",
+            tribes: 45,
+            nations: 50,
+            criteria: [
+              { key: "tribes", met: true },
+              { key: "nations", met: true },
+              { key: "instant_build", met: true },
+              { key: "infinite_gold", met: true },
+              { key: "infinite_troops", met: true },
+              { key: "difficulty", met: false },
+            ],
+          },
+          total: 280,
+        },
+        season: null,
+        challenges: [],
+      });
+
+    it("looks for the XP the account API pays after replaying it, says so while it waits, then shows the solo breakdown", async () => {
+      const fetchMock = stubXpEndpoint([
+        notFound,
+        notFound,
+        () => json(soloResult()),
+      ]);
+      await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
+      await finishReveal();
+      expect(xpState()).toBe("calculating");
+      expect(panel()!.textContent).toContain("progression.calculating_solo");
+      // there is no running-game preview for a match no server is watching
+      expect(liveCalls(fetchMock)).toHaveLength(0);
+
+      await settle(2_000);
+      expect(xpState()).toBe("result");
+      await finishReveal();
+      const text = panel()!.textContent!;
+      expect(text).toContain('progression.xp_total:{"xp":"280"}');
+      // the heading, the criteria exactly as they were met, and the multiplier
+      expect(text).toContain("progression.xp_heading_solo");
+      const criteria = [
+        ...panel()!.querySelectorAll("[data-xp-solo-criterion]"),
+      ].map((el) => [
+        el.getAttribute("data-xp-solo-criterion"),
+        el.getAttribute("data-met"),
+      ]);
+      expect(criteria).toEqual([
+        ["tribes", "true"],
+        ["nations", "true"],
+        ["instant_build", "true"],
+        ["infinite_gold", "true"],
+        ["infinite_troops", "true"],
+        ["difficulty", "false"],
+      ]);
+      expect(
+        panel()!.querySelector("[data-xp-solo-multiplier]")!.textContent,
+      ).toContain('progression.solo_multiplier_value:{"multiplier":"0.80"}');
+      expect(
+        panel()!.querySelector("[data-xp-solo-setup]")!.textContent,
+      ).toContain('"tribes":45');
+      // the solo note: level and rank only
+      expect(panel()!.querySelector("[data-xp-note='solo']")).not.toBeNull();
+      // and no season or challenge cards
+      expect(panel()!.querySelector("[data-xp-season]")).toBeNull();
+      expect(panel()!.querySelector("[data-xp-challenge]")).toBeNull();
+    });
+
+    it("uploads the match the moment the player is eliminated, and looks for the XP at once", async () => {
+      const fetchMock = stubXpEndpoint([notFound, () => json(soloResult())]);
+      const archived = vi.fn();
+      // the player is out and the match goes on
+      await mount(
+        makeGame({
+          ended: false,
+          alive: false,
+          gameType: GameType.Singleplayer,
+        }),
+        (m) => m.eventBus.on(SendSoloArchiveEvent, archived),
+      );
+      expect(archived).toHaveBeenCalledTimes(1);
+      // looking for the stored XP now, not waiting for the match to end
+      expect(storedCalls(fetchMock).length).toBeGreaterThan(0);
+      expect(liveCalls(fetchMock)).toHaveLength(0);
+      await settle(2_000);
+      expect(xpState()).toBe("result");
+      // asked once: a later tick does not upload again
+      modal.tick();
+      await settle();
+      expect(archived).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not upload a multiplayer death: the game server pays that", async () => {
+      stubXpEndpoint([notFound], [livePreview()]);
+      const archived = vi.fn();
+      await mount(makeGame({ ended: false, alive: false }), (m) =>
+        m.eventBus.on(SendSoloArchiveEvent, archived),
+      );
+      expect(archived).not.toHaveBeenCalled();
+    });
+
+    it("waits longer than a multiplayer game for it: the replay can take minutes", async () => {
+      stubXpEndpoint([notFound]);
+      await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
+      await settle(200_000);
+      // past a multiplayer game's two and a half minutes, still waiting
+      expect(xpState()).toBe("calculating");
+      await settle(200_000);
+      expect(xpState()).toBe("hidden");
+    });
+
+    it("says why a match was not verified", async () => {
+      stubXpEndpoint([
+        () =>
+          json({ gameId: GAME_ID, eligible: false, reason: "solo_unverified" }),
+      ]);
+      await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
+      await finishReveal();
+      expect(xpState()).toBe("ineligible");
+      expect(panel()!.textContent!.trim()).toBe(
+        "progression.ineligible_solo_unverified",
+      );
+    });
   });
 });

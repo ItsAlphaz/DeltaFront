@@ -297,6 +297,16 @@ export class LocalServer {
     this.archiveGameRecord(true);
   }
 
+  /**
+   * Uploads the match now: the player was eliminated, so their XP no longer
+   * depends on how the rest of it goes. A match is uploaded once (a failed
+   * attempt is tried again at the result and when the page closes).
+   */
+  public archiveNow() {
+    if (this.isReplay) return;
+    this.archiveGameRecord(false);
+  }
+
   private archiveGameRecord(unloading: boolean) {
     if (this.archived || this.archiveInFlight) {
       return;

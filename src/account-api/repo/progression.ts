@@ -227,31 +227,72 @@ export async function challengeStatuses(
 
 // ---------------------------------------------------------------- history
 
+export interface XpHistoryRow {
+  amount: number;
+  source: string;
+  detail: string | null;
+  /** A singleplayer match's setup, for the line's small print. */
+  solo?: {
+    difficulty: string;
+    tribes: number;
+    nations: number;
+    multiplierPermille: number;
+  };
+  at: string;
+}
+
 export async function recentXp(
   db: Db,
   userId: string,
   limit: number = PROGRESSION.historyRows,
-): Promise<
-  Array<{ amount: number; source: string; detail: string | null; at: string }>
-> {
+): Promise<XpHistoryRow[]> {
   const { rows } = await db.query<{
     delta: string;
     source: string;
     reason: string | null;
     created_at: Date;
+    solo: {
+      difficulty?: unknown;
+      tribes?: unknown;
+      nations?: unknown;
+      multiplierPermille?: unknown;
+    } | null;
   }>(
-    `SELECT delta::text AS delta, source, reason, created_at FROM xp_ledger
-      WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`,
+    // A solo match's setup is in the breakdown stored with its game.
+    `SELECT l.delta::text AS delta, l.source, l.reason, l.created_at,
+            CASE WHEN l.source = 'match' AND l.reason = 'solo'
+                 THEN p.xp_result -> 'breakdown' -> 'solo' END AS solo
+       FROM xp_ledger l
+       LEFT JOIN games g ON l.source = 'match' AND l.reason = 'solo' AND g.game_code = l.ref_id
+       LEFT JOIN game_players p ON p.game_id = g.id AND p.user_id = l.user_id
+      WHERE l.user_id = $1 ORDER BY l.created_at DESC, l.id DESC LIMIT $2`,
     [userId, limit],
   );
-  return rows.map((r) => ({
-    amount: Number(r.delta),
-    source: r.source,
-    // Only a match carries one (why it was reduced); a staff change's reason is
-    // staff's own note and is not shown to the player.
-    detail: r.source === "match" ? r.reason : null,
-    at: r.created_at.toISOString(),
-  }));
+  return rows.map((r) => {
+    const solo = r.solo;
+    return {
+      amount: Number(r.delta),
+      source: r.source,
+      // Only a match carries one (why it was reduced, or "solo"); a staff
+      // change's reason is staff's own note and is not shown to the player.
+      detail: r.source === "match" ? r.reason : null,
+      ...(solo !== null &&
+      typeof solo.difficulty === "string" &&
+      typeof solo.tribes === "number" &&
+      typeof solo.nations === "number" &&
+      typeof solo.multiplierPermille === "number"
+        ? {
+            solo: {
+              difficulty: solo.difficulty,
+              tribes: solo.tribes,
+              nations: solo.nations,
+              multiplierPermille: solo.multiplierPermille,
+            },
+          }
+        : {}),
+      at: r.created_at.toISOString(),
+    };
+  });
 }
 
 // ----------------------------------------------------------- season track

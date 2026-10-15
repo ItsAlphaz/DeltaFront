@@ -7,6 +7,7 @@ import { html, LitElement, nothing, svg, TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import {
   BEFORE_PROGRESSION,
+  difficultyNameKey,
   ineligibleReasonKey,
   isMilestoneLevel,
   levelsReachedInGame,
@@ -14,8 +15,10 @@ import {
   multiplierAmounts,
   reachedLegendThisGame,
   subscriberTierOf,
+  visibleSoloCriteria,
   visibleXpLines,
   XP_LINE_LABEL_KEYS,
+  xpHeadingKey,
 } from "../Progression";
 import { translateText } from "../Utils";
 import "./LevelBadge";
@@ -63,11 +66,11 @@ export class PastGameXpCard extends LitElement {
     </section>`;
   }
 
-  private heading(extra = ""): TemplateResult {
+  private heading(extra = "", mode?: GameXpEligible["mode"]): TemplateResult {
     return html`<div
       class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted ${extra}"
     >
-      ${translateText("progression.xp_heading")}
+      ${translateText(xpHeadingKey(mode))}
     </div>`;
   }
 
@@ -254,13 +257,45 @@ export class PastGameXpCard extends LitElement {
     })}`;
   }
 
+  // A solo award's setup, one chip per criterion, met or missed, with the setup
+  // in words: why the multiplier is what it is.
+  private renderSolo(data: GameXpEligible): TemplateResult | typeof nothing {
+    const solo = data.breakdown.solo;
+    if (data.mode !== "solo" || solo === undefined) return nothing;
+    const key = difficultyNameKey(solo.difficulty);
+    return html`<div data-past-xp-solo class="mt-2.5">
+      <div class="text-xs text-white/55">
+        ${translateText("progression.solo_setup_summary", {
+          difficulty: key === null ? solo.difficulty : translateText(key),
+          tribes: solo.tribes,
+          nations: solo.nations,
+        })}
+      </div>
+      <ul class="m-0 mt-1.5 flex list-none flex-wrap gap-1.5 p-0">
+        ${visibleSoloCriteria(solo).map(
+          (c) =>
+            html`<li
+              data-past-xp-solo-criterion=${c.key}
+              data-met=${c.met ? "true" : "false"}
+              class="rounded-full border px-2 py-[2px] text-[11px] font-bold ${c.met
+                ? "border-emerald-400/40 text-emerald-300"
+                : "border-red-400/40 text-red-300"}"
+            >
+              <span aria-hidden="true">${c.met ? "✓" : "✕"}</span>
+              ${translateText(c.labelKey)}
+            </li>`,
+        )}
+      </ul>
+    </div>`;
+  }
+
   private renderResult(data: GameXpEligible): TemplateResult {
     const lines = visibleXpLines(data.breakdown);
     return this.frame(
       html`
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5">
           <div class="min-w-0 flex-auto">
-            ${this.heading()}
+            ${this.heading("", data.mode)}
             <div
               data-past-xp-total
               class="mt-0.5 text-2xl font-black leading-tight tabular-nums text-yellow-300 [text-shadow:0_0_10px_rgba(250,204,21,0.35)]"
@@ -293,7 +328,7 @@ export class PastGameXpCard extends LitElement {
               )}
             </div>`
           : nothing}
-        ${this.renderMultipliers(data)}
+        ${this.renderMultipliers(data)} ${this.renderSolo(data)}
         ${data.breakdown.leftEarly
           ? html`<p
               data-past-xp-left-early

@@ -148,6 +148,23 @@ export const ProgressPositionSchema = z.object({
 });
 export type ProgressPosition = z.infer<typeof ProgressPositionSchema>;
 
+// What a singleplayer award was scored on (domain/solo.ts): each criterion of the
+// setup and whether it was met, with the tribes and nations the match really had.
+// `key` is open-ended: an unknown criterion still shows, as a plain line.
+export const SoloCriterionSchema = z.object({
+  key: z.string(),
+  met: z.boolean(),
+});
+export const SoloBreakdownSchema = z.object({
+  multiplierPermille: z.number(),
+  failed: z.number().default(0),
+  difficulty: z.string().default(""),
+  tribes: z.number().default(0),
+  nations: z.number().default(0),
+  criteria: SoloCriterionSchema.array().default([]),
+});
+export type SoloBreakdown = z.infer<typeof SoloBreakdownSchema>;
+
 // The breakdown is stored with each game's XP, so it keeps the shape of the
 // XP rules it was scored under. Fields added since the first rules (`played`,
 // `leftEarly`) are missing from older rows, so the per-source fields default
@@ -182,6 +199,11 @@ export const XpBreakdownSchema = z.object({
   // reduced (private_game, unlisted_game, public_too_few_humans, short_game,
   // admin_modified, eliminated).
   reducedReason: z.string().optional().catch(undefined),
+  // A singleplayer award: the setup multiplier it was scaled by (permille; the
+  // XP lines above are before it) and the setup it was scored on, so the panel
+  // can say why the multiplier is what it is. Absent on every other award.
+  soloPermille: z.number().optional().catch(undefined),
+  solo: SoloBreakdownSchema.optional().catch(undefined),
   // XP actually awarded.
   total: z.number(),
 });
@@ -194,8 +216,9 @@ export const GameXpEligibleSchema = z.object({
   gameId: z.string(),
   eligible: z.literal(true),
   // "reduced": lifetime XP only (a death, or a private, unlisted, low-population,
-  // short or staff-changed game); absent reads as full.
-  mode: z.enum(["full", "reduced"]).optional().catch(undefined),
+  // short or staff-changed game); "solo": a verified singleplayer match, also
+  // lifetime XP only, scaled by its setup; absent reads as full.
+  mode: z.enum(["full", "reduced", "solo"]).optional().catch(undefined),
   breakdown: XpBreakdownSchema,
   before: ProgressPositionSchema,
   after: ProgressSchema,
@@ -479,6 +502,16 @@ export const XpHistoryEntrySchema = z.object({
   // public_too_few_humans, short_game, admin_modified, eliminated) for a reduced
   // one. Absent otherwise.
   detail: z.string().nullable().optional().catch(undefined),
+  // A singleplayer match's setup, for a line that says what it was played on.
+  solo: z
+    .object({
+      difficulty: z.string(),
+      tribes: z.number(),
+      nations: z.number(),
+      multiplierPermille: z.number(),
+    })
+    .optional()
+    .catch(undefined),
   at: z.string(),
 });
 

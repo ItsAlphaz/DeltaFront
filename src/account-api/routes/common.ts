@@ -15,6 +15,7 @@ import {
 import type { Catalog } from "../catalog/load";
 import type { AccountApiConfig } from "../config";
 import type { ReservedClanNames } from "../domain/clans";
+import type { SoloWorker } from "../jobs/solo";
 import type { Limiters } from "../limits";
 import type { Logger } from "../logger";
 import { isFamilyActive } from "../repo/sessions";
@@ -36,6 +37,8 @@ export interface AppDeps {
   catalog: Catalog | null;
   /** Reserved clan tags and names (clans/reserved.json). */
   reserved: ReservedClanNames;
+  /** Verifies and pays singleplayer matches; null while progression is off. */
+  solo: SoloWorker | null;
 }
 
 /** Cookies are Secure everywhere except plain-http dev. */

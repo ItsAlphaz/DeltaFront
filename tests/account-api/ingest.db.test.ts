@@ -972,10 +972,17 @@ describeDb("only a game server can submit results", () => {
         origin: null,
         json: { credits: 999999, soft: 999999, wins: 99 },
       });
-      expect([401, 403, 404, 405], `${method} ${route}`).toContain(res.status);
+      // The solo upload takes a record, not numbers: this one is not a record.
+      const refused =
+        route === "/archive_singleplayer_game"
+          ? [400, 404]
+          : [401, 403, 404, 405];
+      expect(refused, `${method} ${route}`).toContain(res.status);
     }
     expect(await creditsOf(h, users[0])).toBe(before);
     expect(await count(h, "player_stat_aggregates")).toBe(0);
+    expect(await count(h, "games")).toBe(0);
+    expect(await count(h, "solo_submissions")).toBe(0);
   });
 
   it("malformed records are refused", async () => {

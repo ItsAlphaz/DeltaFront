@@ -123,6 +123,48 @@ describe("LocalServer archiving", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("archiveNow uploads the match before it is over (a death), once, and a later winner does not repeat it", async () => {
+    const server = makeServer(false);
+    server.start();
+
+    server.archiveNow();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const record = archivedRecord(fetchMock.mock.calls[0]);
+    // no result yet: the match is not over
+    expect(record.info.winner).toBeUndefined();
+    expect(fetchMock.mock.calls[0][1].keepalive).toBe(false);
+    await new Promise((r) => setTimeout(r, 0));
+
+    // the match ends with someone else's win, and the player leaves
+    server.onMessage(winnerMsg);
+    server.endGame();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("archiveNow that failed is tried again at the result", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    const server = makeServer(false);
+    server.start();
+    server.archiveNow();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    server.onMessage(winnerMsg);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(archivedRecord(fetchMock.mock.calls[1]).info.winner).toEqual([
+      "player",
+      CLIENT_ID,
+    ]);
+  });
+
+  it("archiveNow does nothing in a replay", async () => {
+    const server = makeServer(true);
+    server.start();
+    server.archiveNow();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("retries at endGame with keepalive when the win-time upload failed", async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
     const server = makeServer(false);

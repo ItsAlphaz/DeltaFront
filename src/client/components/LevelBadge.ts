@@ -169,7 +169,7 @@ export function levelBadgeAccent(level: number, legend: boolean): string {
   return legend ? "#facc15" : BAND_ACCENTS[levelBand(level)];
 }
 
-function displayLevel(level: number): number {
+export function displayLevel(level: number): number {
   if (!Number.isFinite(level)) return 1;
   return Math.min(MAX_LEVEL, Math.max(1, Math.floor(level)));
 }
@@ -196,6 +196,10 @@ export class LevelBadge extends LitElement implements StaggeredBadge {
   @property({ type: Boolean }) legend = false;
   // Rendered size in CSS pixels (square). 16 is the smallest supported.
   @property({ type: Number }) size = 24;
+  // Only the mark of rank: the prestige emblem (or Legend's crown) with none of
+  // the level frame or number, for a place that already shows the level in
+  // words (the nav's avatar ring). Draws nothing for a player with neither.
+  @property({ type: Boolean }) emblem = false;
 
   // With the `stagger` attribute (long lists): when many badges appear at
   // once, this one first holds its square empty and is drawn on a later
@@ -419,6 +423,7 @@ export class LevelBadge extends LitElement implements StaggeredBadge {
     const label = this.label();
     const prestige = clampPrestige(this.prestige);
     const tier = this.legend ? "none" : prestigeTier(prestige);
+    if (this.emblem && !this.legend && tier === "none") return nothing;
     const glow = this.legend
       ? "drop-shadow-[0_0_3px_rgba(250,204,21,0.6)]"
       : tier === "radiant"
@@ -432,12 +437,18 @@ export class LevelBadge extends LitElement implements StaggeredBadge {
       aria-label=${label}
       data-level-band=${this.legend ? "legend" : levelBand(this.level)}
       data-prestige-tier=${tier}
+      data-emblem=${this.emblem ? "true" : nothing}
       class="block shrink-0 overflow-visible ${glow}"
     >
       <title>${label}</title>
       ${this.legend
         ? this.renderLegend()
-        : svg`
+        : this.emblem
+          ? svg`
+          ${this.renderPrestigeEmblem(tier)}
+          ${this.renderRankGems(prestige, tier)}
+        `
+          : svg`
           ${this.renderPrestigeEmblem(tier)}
           ${this.renderFrame(band, tier !== "none")}
           ${this.renderRankGems(prestige, tier)}

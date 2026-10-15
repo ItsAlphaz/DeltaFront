@@ -22,6 +22,8 @@ import {
   type GameMetrics,
 } from "./challenges";
 import { PERMILLE, PROGRESSION } from "./constants";
+import { computeSoloXp } from "./solo";
+import type { SoloVerified } from "./soloVerify";
 import {
   isCompletedOutcome,
   leftWhileAlive,
@@ -407,8 +409,8 @@ export type StoredXpResult =
   | { eligible: false; reason: string }
   | {
       eligible: true;
-      /** "reduced": lifetime XP only (see progressionEligibility). */
-      mode: "full" | "reduced";
+      /** "reduced" and "solo": lifetime XP only (see progressionEligibility). */
+      mode: "full" | "reduced" | "solo";
       breakdown: ReturnType<typeof computeMatchXp>["breakdown"] & {
         leftEarly: false;
         time: 0;
@@ -831,6 +833,98 @@ export async function payReducedXp(
   };
 }
 
+export interface SoloAwardInput {
+  userId: string;
+  gameCode: string;
+  /** When the match was received: the UTC day it counts towards (the soft cap's day). Never a time the browser gave. */
+  at: Date;
+  verified: SoloVerified;
+  env: RewardEnv;
+}
+
+/**
+ * Pays a verified solo match: the completed-match and victory lines, scaled by
+ * the setup multiplier, to lifetime XP ONLY. Nothing here touches the season,
+ * the challenges, clan XP or the daily first-game and first-win bonuses; it still
+ * counts towards the per-match cap and the daily soft cap. Exactly once per game:
+ * the progress row is locked first and the ledger's unique key on (user, game)
+ * refuses a second payment whatever else happens.
+ */
+export async function awardSoloXp(
+  tx: PoolClient,
+  input: SoloAwardInput,
+): Promise<PlayerXpOutcome> {
+  const startRow = await lockProgress(tx, input.userId);
+  const before = position(startRow);
+  const day = utcDay(input.at);
+  await tx.query(
+    `INSERT INTO xp_daily (user_id, day) VALUES ($1, $2::date) ON CONFLICT DO NOTHING`,
+    [input.userId, day],
+  );
+  const daily = await tx.query<{ match_xp: string }>(
+    `SELECT match_xp::text AS match_xp FROM xp_daily
+      WHERE user_id = $1 AND day = $2::date FOR UPDATE`,
+    [input.userId, day],
+  );
+  const solo = computeSoloXp({
+    outcome: input.verified.outcome,
+    short: input.verified.short,
+    setup: input.verified.setup,
+    earnedToday: Number(daily.rows[0].match_xp),
+  });
+  const paid = solo.breakdown.total;
+  let progress = startRow;
+  const levels: LevelUp[] = [];
+  if (paid > 0) {
+    const applied = await applyXp(
+      tx,
+      input.userId,
+      progress,
+      paid,
+      {
+        source: "match",
+        refType: "game",
+        refId: input.gameCode,
+        rewardDay: day,
+        // No season: solo XP is lifetime XP only. The ledger remembers why.
+        season: null,
+        seasonDelta: 0,
+        reason: "solo",
+      },
+      input.env,
+    );
+    if (!applied.applied) return ineligible("duplicate");
+    progress = applied.after;
+    levels.push(...applied.levels);
+  }
+  // Counts towards the day's soft cap, but spends no daily bonus.
+  await tx.query(
+    `UPDATE xp_daily SET match_xp = match_xp + $3 WHERE user_id = $1 AND day = $2::date`,
+    [input.userId, day, paid],
+  );
+  return {
+    xpAwarded: paid,
+    clanXp: 0,
+    result: {
+      eligible: true,
+      mode: "solo",
+      breakdown: {
+        ...solo.breakdown,
+        leftEarly: false,
+        time: 0,
+        feats: 0,
+        subscriberPermille: PERMILLE,
+      },
+      before,
+      after: stateOf(progress),
+      levelsReached: levels,
+      challenges: [],
+      season: null,
+      flags: solo.flags,
+    },
+  };
+}
+
 /** A stored game's reduced award for one player (see payReducedXp). */
 async function awardReducedXp(
   tx: PoolClient,
@@ -864,7 +958,8 @@ export async function awardPlayerXp(
   gameId: string,
   player: GamePlayer,
 ): Promise<PlayerXpOutcome> {
-  if (ctx.eligibility.mode === "none") {
+  // A solo match is paid by awardSoloXp, from the verified intake only.
+  if (ctx.eligibility.mode === "none" || ctx.eligibility.mode === "solo") {
     return ineligible(ctx.eligibility.reason);
   }
   // A reduced award paid when the player was eliminated (earlyXp.ts) is their

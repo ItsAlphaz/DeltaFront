@@ -13,7 +13,7 @@ import {
 } from "@openfront/shared/ApiSchemas";
 import { render as renderTemplate } from "lit";
 import { LevelBadge } from "../../src/client/components/LevelBadge";
-import { xpBar } from "../../src/client/components/XpBar";
+import { xpBar, xpRing } from "../../src/client/components/XpBar";
 import {
   apportionXp,
   ineligibleReasonKey,
@@ -181,6 +181,46 @@ describe("<level-badge>", () => {
     expect(
       [...badge.querySelectorAll("text")].map((t) => t.textContent),
     ).toEqual(["12"]);
+  });
+
+  it("draws only the mark of rank with `emblem`: no level frame, no number, no rank tab", async () => {
+    const badge = await render({
+      level: 42,
+      prestige: 5,
+      size: 40,
+      emblem: true,
+    });
+    const svg = badge.querySelector("svg")!;
+    expect(svg.getAttribute("data-emblem")).toBe("true");
+    expect(svg.getAttribute("data-prestige-tier")).toBe("double");
+    expect(svg.querySelector("text")).toBeNull();
+    expect(svg.querySelectorAll("[data-rank-gem]").length).toBe(2);
+    // the accessible name still says the whole rank
+    expect(svg.getAttribute("aria-label")).toBe(
+      'progression.level:{"level":42}, progression.prestige:{"prestige":5}',
+    );
+    // and it is the same shape the full badge puts behind its frame
+    const full = await render({ level: 42, prestige: 5, size: 40 });
+    expect(full.querySelector("svg")!.hasAttribute("data-emblem")).toBe(false);
+    expect(full.querySelector("text")).not.toBeNull();
+  });
+
+  it("draws nothing with `emblem` for a player with neither prestige nor Legend", async () => {
+    const badge = await render({ level: 42, prestige: 0, emblem: true });
+    expect(badge.querySelector("svg")).toBeNull();
+  });
+
+  it("keeps Legend's crown with `emblem`", async () => {
+    const badge = await render({
+      level: 100,
+      prestige: 10,
+      legend: true,
+      size: 16,
+      emblem: true,
+    });
+    const svg = badge.querySelector("svg")!;
+    expect(svg.getAttribute("data-level-band")).toBe("legend");
+    expect(svg.getAttribute("aria-label")).toBe("progression.legend");
   });
 
   it("gives Legend its own look", async () => {
@@ -388,12 +428,19 @@ describe("progression helpers", () => {
     );
   });
 
-  it("tells a singleplayer game it doesn't earn XP, not that it couldn't be verified", () => {
+  it("tells a singleplayer match that was not verified so, in its own words", () => {
     expect(ineligibleReasonKey("unverified", GameType.Singleplayer)).toBe(
-      "progression.ineligible_singleplayer",
+      "progression.ineligible_solo_unverified",
     );
+    expect(ineligibleReasonKey("solo_unverified")).toBe(
+      "progression.ineligible_solo_unverified",
+    );
+    expect(en.progression.ineligible_solo_unverified).toBe(
+      "This solo match couldn't be verified, so it didn't earn XP.",
+    );
+    // a singleplayer match does earn XP now: nothing says it never does
     expect(en.progression.ineligible_singleplayer).toBe(
-      "Singleplayer games don't earn XP.",
+      "This singleplayer match didn't earn XP.",
     );
     // Only that reason: the others say what happened in any game.
     expect(ineligibleReasonKey("left_early", GameType.Singleplayer)).toBe(
@@ -444,5 +491,65 @@ describe("xpBar", () => {
   it("draws an empty bar for a non-number", () => {
     expect(bar(Number.NaN)).toEqual({ now: "0", width: "0%" });
     expect(bar(Number.POSITIVE_INFINITY)).toEqual({ now: "0", width: "0%" });
+  });
+});
+
+describe("xpRing", () => {
+  function ring(percent: number, opts?: Parameters<typeof xpRing>[1]) {
+    const host = document.createElement("div");
+    renderTemplate(xpRing(percent, opts), host);
+    const svg = host.querySelector("svg")!;
+    const fill = svg.querySelector("[data-xp-ring-fill]")!;
+    return {
+      svg,
+      fill,
+      percent: svg.getAttribute("data-xp-ring-percent"),
+      style: fill.getAttribute("style") ?? "",
+      cls: fill.getAttribute("class") ?? "",
+    };
+  }
+
+  it("keeps the fill within 0..100", () => {
+    expect(ring(42).style).toContain("stroke-dasharray: 42 100");
+    expect(ring(42).percent).toBe("42");
+    expect(ring(150).style).toContain("stroke-dasharray: 100 100");
+    expect(ring(-20).style).toContain("stroke-dasharray: 0 100");
+  });
+
+  it("draws an empty ring for a non-number, and nothing at all for an empty one", () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, 0]) {
+      const r = ring(value);
+      expect(r.style).toContain("stroke-dasharray: 0 100");
+      expect(r.style).toContain("opacity: 0");
+    }
+    expect(ring(0.5).style).toContain("opacity: 1");
+  });
+
+  it("is a circle of the size asked, the stroke inside its box", () => {
+    const r = ring(50, { size: 32, stroke: 2.5 });
+    expect(r.svg.getAttribute("viewBox")).toBe("0 0 32 32");
+    const circle = r.fill;
+    expect(Number(circle.getAttribute("r")) + 2.5 / 2).toBe(16);
+    expect(r.svg.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("eases only when asked, and not for a draw that snaps", () => {
+    expect(ring(50).cls).not.toContain("transition");
+    expect(ring(50, { animate: true }).cls).toContain(
+      "transition-[stroke-dasharray]",
+    );
+    expect(ring(50, { animate: true }).cls).toContain(
+      "motion-reduce:transition-none",
+    );
+    expect(ring(50, { animate: true, snap: true }).cls).not.toContain(
+      "transition",
+    );
+  });
+
+  it("pulses only when asked", () => {
+    expect(ring(50).svg.getAttribute("class")).not.toContain("df-ring-pulse");
+    expect(ring(50, { pulse: true }).svg.getAttribute("class")).toContain(
+      "df-ring-pulse",
+    );
   });
 });
