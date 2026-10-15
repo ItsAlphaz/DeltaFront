@@ -11,6 +11,7 @@ vi.mock("../../src/client/ApiBase", () => ({
 import type { GameXpResponse } from "@openfront/shared/ApiSchemas";
 import { getAuthHeader } from "../../src/client/Auth";
 import {
+  fetchLiveXp,
   fetchMyGameXp,
   fetchProgressionConfig,
   fetchProgressionMe,
@@ -563,5 +564,139 @@ describe("account page and leaderboard calls", () => {
     expect(await fetchXpLeaderboard(5)).toBe(false);
     fetchMock.mockResolvedValue(jsonResponse({ players: "bad" }));
     expect(await fetchXpLeaderboard(1)).toBe(false);
+  });
+});
+
+describe("pollGameXp's default cadence", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("looks every second at first, so the XP shows within a moment of being stored", async () => {
+    const fetcher = fetcherOf([{ status: "pending" }]);
+    void pollGameXp("g1", { fetcher, timeoutMs: 60_000 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(9_000);
+    // 12 seconds in: about twelve looks so far
+    expect(fetcher.mock.calls.length).toBeGreaterThanOrEqual(11);
+  });
+
+  it("then eases off to every three seconds", async () => {
+    const fetcher = fetcherOf([{ status: "pending" }]);
+    void pollGameXp("g1", { fetcher, timeoutMs: 120_000 });
+    await vi.advanceTimersByTimeAsync(13_000);
+    const early = fetcher.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(30_000);
+    // thirty seconds more: ten looks, not thirty
+    expect(fetcher.mock.calls.length - early).toBeLessThanOrEqual(11);
+    expect(fetcher.mock.calls.length - early).toBeGreaterThanOrEqual(9);
+  });
+
+  it("an explicit interval is kept", async () => {
+    const fetcher = fetcherOf([{ status: "pending" }]);
+    void pollGameXp("g1", { fetcher, intervalMs: 10_000, timeoutMs: 60_000 });
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("fetchLiveXp", () => {
+  const body = {
+    gameId: "g1",
+    status: "live",
+    mode: "full",
+    reason: null,
+    total: 75,
+    breakdown: null,
+    pending: ["placement"],
+    alive: true,
+    winner: false,
+  };
+  const respond = (status: number, json: unknown = {}) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(json), {
+            status,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.mocked(getAuthHeader).mockResolvedValue("Bearer test-token");
+  });
+
+  it("reads the preview of a running game, with the caller's token", async () => {
+    respond(200, body);
+    const result = await fetchLiveXp("g1");
+    expect(result).toMatchObject({
+      status: "ok",
+      data: { total: 75, status: "live" },
+    });
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toBe("https://api.test/users/@me/xp/live/g1");
+    expect((init!.headers as Record<string, string>).Authorization).toBe(
+      "Bearer test-token",
+    );
+  });
+
+  it("not reported: none, so the caller can ask again", async () => {
+    respond(404);
+    expect(await fetchLiveXp("g1")).toEqual({ status: "none" });
+    respond(500);
+    expect(await fetchLiveXp("g1")).toEqual({ status: "none" });
+  });
+
+  it("signed out or refused: unavailable, so the caller stops asking", async () => {
+    respond(401);
+    expect(await fetchLiveXp("g1")).toEqual({ status: "unavailable" });
+    respond(403);
+    expect(await fetchLiveXp("g1")).toEqual({ status: "unavailable" });
+    vi.mocked(getAuthHeader).mockResolvedValue("");
+    expect(await fetchLiveXp("g1")).toEqual({ status: "unavailable" });
+  });
+
+  it("a body it cannot read is unavailable, never a figure", async () => {
+    respond(200, { gameId: 5 });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await fetchLiveXp("g1")).toEqual({ status: "unavailable" });
+  });
+
+  it("an unknown status reads as nothing to show, never a parse error", async () => {
+    respond(200, { ...body, status: "brand_new_state" });
+    expect(await fetchLiveXp("g1")).toMatchObject({
+      status: "ok",
+      data: { status: "none" },
+    });
+  });
+
+  it("a network failure is none", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("offline");
+      }),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await fetchLiveXp("g1")).toEqual({ status: "none" });
+  });
+
+  it("encodes the game id", async () => {
+    respond(404);
+    await fetchLiveXp("a/b c");
+    expect(String(vi.mocked(fetch).mock.calls[0][0])).toBe(
+      "https://api.test/users/@me/xp/live/a%2Fb%20c",
+    );
   });
 });

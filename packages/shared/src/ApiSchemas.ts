@@ -243,6 +243,46 @@ export type GameXpEligible = z.infer<typeof GameXpEligibleSchema>;
 export type GameXpIneligible = z.infer<typeof GameXpIneligibleSchema>;
 export type GameXpResponse = z.infer<typeof GameXpResponseSchema>;
 
+// GET /users/@me/xp/live/:gameId — what the caller's XP for a game still running
+// (or just settled, before its record is stored) stands at, worked out by the
+// account API from what the game server reports. It is a preview: only the
+// stored game pays XP (GET /users/@me/xp/:gameId), and the amounts here use the
+// same rules.
+//   live       playing: the match XP earned so far
+//   pending    eliminated and still there: the XP is theirs once the result is
+//              settled, if they stay until then
+//   settled    the result is in (a winner decided): victory and placement
+//              included for the winner, the XP being stored
+//   forfeited  left before the result: no XP
+//   none       this game pays them nothing (`reason` says why)
+export const LiveXpStatusSchema = z.enum([
+  "live",
+  "pending",
+  "settled",
+  "forfeited",
+  "none",
+]);
+export type LiveXpStatus = z.infer<typeof LiveXpStatusSchema>;
+export const LiveXpResponseSchema = z.object({
+  gameId: z.string(),
+  status: LiveXpStatusSchema.catch("none"),
+  // How far the game progresses: "reduced" is lifetime XP only (private, unlisted
+  // and low-population games). Null when it pays nothing.
+  mode: z.enum(["full", "reduced"]).nullable().catch(null),
+  reason: z.string().nullable().optional().catch(null),
+  // The match XP the preview stands at (0 once forfeited or when nothing is paid).
+  total: z.number().catch(0),
+  breakdown: XpBreakdownSchema.nullable().catch(null),
+  // What the match still has to decide before it is final: placement and
+  // victory, and (full games) the challenges and season XP paid with the game.
+  pending: z
+    .array(z.enum(["placement", "victory", "challenges", "season"]))
+    .catch([]),
+  alive: z.boolean().catch(true),
+  winner: z.boolean().catch(false),
+});
+export type LiveXpResponse = z.infer<typeof LiveXpResponseSchema>;
+
 // GET /public/player/:publicId/progress — another player's level. No auth.
 export const PublicProgressSchema = z.object({
   prestige: z.number(),

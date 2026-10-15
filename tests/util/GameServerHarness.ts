@@ -173,6 +173,8 @@ export function makeGame(opts: GameOpts = {}): GameServer {
     archive: vi.fn(async () => {}),
     // A failed replay: a disputed vote archives its own result.
     replayWinner: vi.fn(async () => null),
+    // The XP preview's feed to the account API: inert unless a test reads it.
+    reportProgress: vi.fn(async () => {}),
     fetchTribes: vi.fn(async () => []),
   };
   if (opts.telemetry !== undefined) deps.telemetry = opts.telemetry;

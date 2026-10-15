@@ -39,6 +39,7 @@ import { GameRightSidebar } from "./layers/GameRightSidebar";
 import { HeadsUpMessage } from "./layers/HeadsUpMessage";
 import { ImmunityTimer } from "./layers/ImmunityTimer";
 import { InGamePromo } from "./layers/InGamePromo";
+import { LiveXpPanel } from "./layers/LiveXpPanel";
 import { MainRadialMenu } from "./layers/MainRadialMenu";
 import { MatchEventFeed } from "./layers/MatchEventFeed";
 import { MatchEventLogModal } from "./layers/MatchEventLogModal";
@@ -179,6 +180,13 @@ export function createRenderer(
   }
   winModal.eventBus = eventBus;
   winModal.game = game;
+
+  const liveXpPanel = document.querySelector("live-xp-panel") as LiveXpPanel;
+  if (!(liveXpPanel instanceof LiveXpPanel)) {
+    console.error("live xp panel not found");
+  }
+  liveXpPanel.eventBus = eventBus;
+  liveXpPanel.game = game;
 
   const newLobbyPrompt = document.querySelector(
     "new-lobby-prompt",
@@ -403,6 +411,7 @@ export function createRenderer(
     controlPanel,
     playerInfo,
     winModal,
+    liveXpPanel,
     newLobbyPrompt,
     replayPanel,
     matchEventFeed,

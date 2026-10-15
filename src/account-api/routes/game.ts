@@ -1,9 +1,11 @@
 import { ID } from "@openfront/engine-api/Schemas";
+import { LiveProgressSchema } from "@openfront/shared/LiveProgress";
 import { GameRecordSchema } from "@openfront/shared/WireSchemas";
 import express, { type Router } from "express";
 import { gunzipSync } from "node:zlib";
 import { z } from "zod";
 import { ingestGameRecord, recordProblem } from "../domain/ingest";
+import { acceptProgress, liveXpStore } from "../domain/liveXp";
 import type { AppDeps } from "./common";
 import { requireServerKey } from "./server";
 
@@ -74,6 +76,8 @@ export function gameRouter(deps: AppDeps): Router {
         );
         if (outcome.duplicate)
           log.info("game record repeated", { id: id.data });
+        // The stored game has the final say: the running-game preview is done.
+        liveXpStore.delete(id.data);
         res.json({ ok: true });
       } catch (error) {
         // Nothing was stored (one transaction), so the server can send it again.
@@ -82,6 +86,62 @@ export function gameRouter(deps: AppDeps): Router {
           error: error instanceof Error ? error.message : String(error),
         });
         res.status(500).json({ error: "ingest_failed" });
+      }
+    },
+  );
+
+  // A running game's progress, as its server sees it (LiveProgress): who is
+  // alive, who eliminated whom, who stayed and who left, who acted, and once it
+  // is settled the result. Kept in memory for the players' XP preview
+  // (GET /users/@me/xp/live/:gameId) and never turned into XP: only the stored
+  // game awards it.
+  router.post(
+    "/game/:id/progress",
+    serverOnly,
+    requireServerKey(pool, deps.limiters),
+    express.json({ limit: "2mb" }),
+    async (req, res) => {
+      const id = ID.safeParse(req.params.id);
+      if (!id.success) {
+        res.status(400).json({ error: "invalid_game_id" });
+        return;
+      }
+      if (progression === undefined) {
+        // Progression is off here: nothing to preview.
+        res.json({ ok: true, ignored: true });
+        return;
+      }
+      const parsed = LiveProgressSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error: "invalid_progress",
+          reason: z.prettifyError(parsed.error).slice(0, 500),
+        });
+        return;
+      }
+      if (parsed.data.gameID !== id.data) {
+        res.status(400).json({ error: "game_id_mismatch" });
+        return;
+      }
+      try {
+        // A game that is already stored has its XP; a late report (a server
+        // that sent one before archiving) would only leave a stale preview.
+        const stored = await pool.query(
+          "SELECT 1 FROM games WHERE game_code = $1",
+          [id.data],
+        );
+        if (stored.rows.length > 0) {
+          res.json({ ok: true, ignored: true });
+          return;
+        }
+        await acceptProgress(pool, parsed.data);
+        res.json({ ok: true });
+      } catch (error) {
+        log.error("live progress failed", {
+          id: id.data,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        res.status(500).json({ error: "progress_failed" });
       }
     },
   );

@@ -27,6 +27,7 @@ const HUD_TAGS = [
   "chat-display",
   "player-info-overlay",
   "win-modal",
+  "live-xp-panel",
   "new-lobby-prompt",
   "replay-panel",
   "game-right-sidebar",

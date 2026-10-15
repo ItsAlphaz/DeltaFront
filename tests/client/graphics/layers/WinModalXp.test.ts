@@ -68,6 +68,7 @@ import type { GameView } from "../../../../src/client/view";
 
 const GAME_ID = "gXPTEST01";
 const XP_URL = `https://api.test/users/@me/xp/${GAME_ID}`;
+const LIVE_URL = `https://api.test/users/@me/xp/live/${GAME_ID}`;
 
 // Progression on: /users/@me carries progress, level 1 before any XP.
 const signedIn = {
@@ -127,10 +128,18 @@ function json(body: unknown, status = 200): Response {
 }
 
 // Answers the XP endpoint from a queue; once it runs dry, the last answer
-// repeats. Anything else is a test bug.
-function stubXpEndpoint(answers: (() => Response)[]) {
+// repeats. The preview of a running game (the live endpoint) has its own queue,
+// not found unless a test says otherwise. Anything else is a test bug.
+function stubXpEndpoint(
+  answers: (() => Response)[],
+  live: (() => Response)[] = [() => new Response("", { status: 404 })],
+) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url === LIVE_URL) {
+      const next = live.length > 1 ? live.shift()! : live[0];
+      return next();
+    }
     if (url !== XP_URL) throw new Error(`unexpected fetch ${url}`);
     const next = answers.length > 1 ? answers.shift()! : answers[0];
     return next();
@@ -138,6 +147,12 @@ function stubXpEndpoint(answers: (() => Response)[]) {
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
+
+// The calls for the stored game's XP (not the preview of a running one).
+const storedCalls = (fetchMock: ReturnType<typeof vi.fn>) =>
+  fetchMock.mock.calls.filter(([url]) => String(url) === XP_URL);
+const liveCalls = (fetchMock: ReturnType<typeof vi.fn>) =>
+  fetchMock.mock.calls.filter(([url]) => String(url) === LIVE_URL);
 
 const notFound = () => new Response("", { status: 404 });
 
@@ -249,12 +264,15 @@ describe("WinModal XP section", () => {
     // Never a number while pending.
     expect(panel()!.textContent).not.toContain("progression.xp_total");
 
-    await settle(3_000);
+    // The first looks come every second.
+    await settle(1_000);
     expect(xpState()).toBe("calculating");
 
-    await settle(3_000);
+    await settle(1_000);
     expect(xpState()).toBe("result");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // First looks come every second, so the stored XP shows within a moment
+    // of being stored: 3 answers by t=3s.
+    expect(storedCalls(fetchMock)).toHaveLength(3);
     await finishReveal();
     const text = panel()!.textContent!;
     expect(text).toContain('progression.xp_total:{"xp":"212"}');
@@ -1252,11 +1270,123 @@ describe("WinModal XP section", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("waits for the game to end when the player dies mid-game", async () => {
+  // A running game's XP, as the API's preview reports it.
+  const livePreview =
+    (over: Record<string, unknown> = {}) =>
+    () =>
+      json({
+        gameId: GAME_ID,
+        status: "pending",
+        mode: "full",
+        reason: null,
+        total: 150,
+        breakdown: {
+          leftEarly: false,
+          played: 100,
+          time: 0,
+          placement: 0,
+          win: 0,
+          eliminations: 50,
+          eliminationCount: 2,
+          firstGame: 0,
+          firstWin: 0,
+          feats: 0,
+          subtotal: 150,
+          gamePermille: 1000,
+          repeatPermille: 1000,
+          subscriberPermille: 1000,
+          playerCount: 8,
+          capped: false,
+          softCapped: false,
+          total: 150,
+        },
+        pending: ["placement", "challenges", "season"],
+        alive: false,
+        winner: false,
+        ...over,
+      });
+
+  it("shows the pending XP, not a wait message, when the player dies mid-game", async () => {
+    const fetchMock = stubXpEndpoint([notFound], [livePreview()]);
+    await mount(makeGame({ ended: false, alive: false }));
+    await settle();
+    expect(xpState()).toBe("live");
+    const card = panel()!.querySelector("live-xp-card")!;
+    expect(
+      card.getAttribute("data-live-status") ??
+        card
+          .querySelector("[data-live-status]")
+          ?.getAttribute("data-live-status"),
+    ).toBe("pending");
+    expect(panel()!.textContent).toContain("progression.live_pending_note");
+    expect(panel()!.textContent).toContain("progression.live_pending_amount");
+    // the old "wait until the end" line is gone for good
+    expect(panel()!.textContent).not.toContain("awaiting_end");
+    // and the stored XP is not asked for before the game is over
+    expect(storedCalls(fetchMock)).toHaveLength(0);
+    expect(liveCalls(fetchMock).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps the preview current while the player waits", async () => {
+    let total = 150;
+    const answers = [() => livePreview({ total })()];
+    const fetchMock = stubXpEndpoint([notFound], answers);
+    await mount(makeGame({ ended: false, alive: false }));
+    await settle();
+    const first = liveCalls(fetchMock).length;
+    // five seconds on, it reads the preview again (the figure moved)
+    total = 200;
+    await settle(5_000);
+    expect(liveCalls(fetchMock).length).toBeGreaterThan(first);
+    // the figure eases to the new amount, then rests on it
+    await settle(1_500);
+    expect(panel()!.textContent).toContain('"xp":"200"');
+  });
+
+  it("says nothing, and asks nothing of the stored game, when the API has no preview", async () => {
     const fetchMock = stubXpEndpoint([notFound]);
     await mount(makeGame({ ended: false, alive: false }));
-    expect(xpState()).toBe("awaiting_end");
-    expect(fetchMock).not.toHaveBeenCalled();
+    await settle();
+    expect(xpState()).toBe("hidden");
+    expect(storedCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("when the result comes in, shows the confirmed win while the stored XP is looked for", async () => {
+    const settledPreview = livePreview({
+      status: "settled",
+      winner: true,
+      alive: true,
+      pending: ["challenges", "season"],
+    });
+    stubXpEndpoint(
+      [notFound, notFound, () => json(eligible())],
+      [settledPreview],
+    );
+    await mount(makeGame({ ended: true }));
+    await settle();
+    expect(xpState()).toBe("live");
+    expect(panel()!.textContent).toContain("progression.live_winner_note");
+    // then the stored XP replaces it, within a couple of seconds
+    await settle(2_000);
+    expect(xpState()).toBe("result");
+  });
+
+  it("shows a forfeit at once when the preview says the player left before the result", async () => {
+    stubXpEndpoint(
+      [notFound, () => json(eligible())],
+      [livePreview({ status: "forfeited", total: 0, reason: "left_early" })],
+    );
+    await mount(makeGame({ ended: true }));
+    await settle();
+    expect(panel()!.textContent).toContain("progression.live_forfeited_note");
+  });
+
+  it("remembers the game while XP is at stake, and forgets it once the stored XP is shown", async () => {
+    window.localStorage.removeItem("df.pendingXp");
+    stubXpEndpoint([notFound, () => json(eligible())], [livePreview()]);
+    await mount(makeGame({ ended: false, alive: false }));
+    await settle();
+    expect(window.localStorage.getItem("df.pendingXp")).toContain(GAME_ID);
   });
 
   it("stays hidden in a replay", async () => {

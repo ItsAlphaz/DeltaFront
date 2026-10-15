@@ -2,6 +2,7 @@ import type { GameType } from "@openfront/engine-api/game/GameTypes";
 import type {
   GameXpEligible,
   GameXpResponse,
+  LiveXpResponse,
 } from "@openfront/shared/ApiSchemas";
 import {
   MAX_RUN_XP,
@@ -31,6 +32,7 @@ import {
 } from "../Progression";
 import { translateText } from "../Utils";
 import "./LevelBadge";
+import "./LiveXpCard";
 import { formatXp, xpBonusText, xpProgressText } from "./XpBar";
 
 // What the XP section of a finished game is showing. The caller owns the
@@ -40,8 +42,10 @@ export type GameXpPanelState =
   | { kind: "hidden" }
   // Not signed in: XP needs an account.
   | { kind: "signed_out" }
-  // The player died but the game is still running; XP comes at the end.
-  | { kind: "awaiting_end" }
+  // The game is still running (or its result just came in): the XP the player
+  // stands at, as the account API works it out from the game server's report.
+  // `playerAlive` is the player's own view of whether they are still in it.
+  | { kind: "live"; data: LiveXpResponse; playerAlive: boolean | null }
   // Waiting for the server to process the game. Never shows a number.
   | { kind: "calculating" }
   | { kind: "result"; data: GameXpResponse };
@@ -1648,8 +1652,14 @@ export class GameXpPanel extends LitElement {
         return nothing;
       case "signed_out":
         return this.renderNote("progression.sign_in_to_earn", "signed_out");
-      case "awaiting_end":
-        return this.renderNote("progression.awaiting_end", "awaiting_end");
+      case "live":
+        return this.frame(
+          html`<live-xp-card
+            .data=${s.data}
+            .playerAlive=${s.playerAlive}
+          ></live-xp-card>`,
+          "live",
+        );
       case "calculating":
         return this.renderCalculating();
       case "result":

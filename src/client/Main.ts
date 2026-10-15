@@ -841,6 +841,12 @@ class Client {
         localStorage.getItem(STEAM_GRANT_NOTICE_KEY),
       );
 
+      // A game left before its XP was seen: tell what it came to, in the
+      // background (nothing happens unless one was remembered).
+      if (userMeResponse !== false) {
+        void import("./PendingXp").then((m) => m.resolvePendingXp());
+      }
+
       if (userMeResponse !== false) {
         console.log(
           `Your player ID is ${userMeResponse.player.publicId}\n` +

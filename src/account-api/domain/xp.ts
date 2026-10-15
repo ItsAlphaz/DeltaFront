@@ -3,6 +3,7 @@ import {
   ALLIANCE_INDEX_FORMED,
   OTHER_INDEX_BUILT,
 } from "@openfront/engine-api/StatsSchemas";
+import { GAMEPLAY_INTENTS } from "@openfront/shared/LiveProgress";
 import type { GameRecord } from "@openfront/shared/WireSchemas";
 import { ACCOUNT_RULES, ECONOMY, PERMILLE, PROGRESSION } from "./constants";
 import { countedVerdict, winnerClientIds, type CountedFacts } from "./stats";
@@ -102,27 +103,6 @@ export type PlayerIneligibleReason =
   | "no_winner"
   | "no_action"
   | "admin_actor";
-
-/** What the player did that counts as playing: not spawning, chatting, emoji or host controls. */
-const GAMEPLAY_INTENTS: ReadonlySet<string> = new Set([
-  "attack",
-  "cancel_attack",
-  "boat",
-  "cancel_boat",
-  "allianceRequest",
-  "allianceReject",
-  "allianceExtension",
-  "breakAlliance",
-  "targetPlayer",
-  "donate_gold",
-  "donate_troops",
-  "build_unit",
-  "upgrade_structure",
-  "delete_unit",
-  "embargo",
-  "embargo_all",
-  "move_warship",
-]);
 
 /** The clients that took at least one gameplay action. Intents are stamped by the server. */
 export function clientsWhoActed(turns: GameRecord["turns"]): Set<string> {

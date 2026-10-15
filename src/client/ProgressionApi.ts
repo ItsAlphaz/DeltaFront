@@ -2,6 +2,8 @@ import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import {
   type GameXpResponse,
   GameXpResponseSchema,
+  type LiveXpResponse,
+  LiveXpResponseSchema,
   type PrestigeResponse,
   PrestigeResponseSchema,
   type ProgressionConfig,
@@ -78,6 +80,56 @@ export async function fetchMyGameXp(
   }
 }
 
+// How often a running game's XP preview is read again: the server's own report
+// moves every ten seconds (its agreed live stats), so asking faster would only
+// repeat the answer.
+export const LIVE_XP_POLL_MS = 5_000;
+
+export type LiveXpFetchResult =
+  | { status: "ok"; data: LiveXpResponse }
+  // 404: the game is not reported (yet, or any more: it was stored) or a
+  // transient failure. Ask again while the game is on.
+  | { status: "none" }
+  // A conclusion: signed out, progression off, or a body we cannot read.
+  | { status: "unavailable" };
+
+// GET /users/@me/xp/live/:gameId — what the caller's XP stands at in a game
+// that is still running (a preview: only the stored game awards XP).
+export async function fetchLiveXp(
+  gameId: string,
+  signal?: AbortSignal,
+): Promise<LiveXpFetchResult> {
+  if (!ACCOUNT_FEATURES.progression) return { status: "unavailable" };
+  try {
+    const authorization = await getAuthHeader();
+    if (authorization === "") return { status: "unavailable" };
+    const res = await fetch(
+      `${getApiBase()}/users/@me/xp/live/${encodeURIComponent(gameId)}`,
+      {
+        headers: { Accept: "application/json", Authorization: authorization },
+        signal: requestSignal(signal),
+      },
+    );
+    if (res.status === 404) return { status: "none" };
+    if (res.status === 401 || res.status === 403) {
+      return { status: "unavailable" };
+    }
+    if (!res.ok) return { status: "none" };
+    const parsed = LiveXpResponseSchema.safeParse(await res.json());
+    if (!parsed.success) {
+      console.warn("fetchLiveXp: Zod validation failed", parsed.error);
+      return { status: "unavailable" };
+    }
+    return { status: "ok", data: parsed.data };
+  } catch (err) {
+    if (!signal?.aborted) console.warn("fetchLiveXp: request failed", err);
+    return { status: "none" };
+  }
+}
+
+// How long the first, quicker looks for a finished game's XP last.
+const FAST_POLL_WINDOW_MS = 12_000;
+
 export interface PollGameXpOptions {
   intervalMs?: number;
   timeoutMs?: number;
@@ -98,11 +150,16 @@ export async function pollGameXp(
   gameId: string,
   opts: PollGameXpOptions = {},
 ): Promise<GameXpResponse | null> {
-  const intervalMs = opts.intervalMs ?? 3_000;
   const timeoutMs = opts.timeoutMs ?? 60_000;
   const fetcher = opts.fetcher ?? fetchMyGameXp;
-  const deadline = Date.now() + timeoutMs;
+  const startedAt = Date.now();
+  const deadline = startedAt + timeoutMs;
   for (;;) {
+    // The result is usually stored within a moment of the game being settled:
+    // look every second at first, then ease off. An explicit interval is kept.
+    const intervalMs =
+      opts.intervalMs ??
+      (Date.now() - startedAt < FAST_POLL_WINDOW_MS ? 1_000 : 3_000);
     if (opts.signal?.aborted) return null;
     const result = await fetcher(gameId, opts.signal);
     if (opts.signal?.aborted) return null;

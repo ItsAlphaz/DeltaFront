@@ -28,6 +28,7 @@ import {
 import { isAdminRole } from "@openfront/shared/ApiSchemas";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
+import type { LiveProgress } from "@openfront/shared/LiveProgress";
 import {
   adminCommandInvalidatesResult,
   hasPermission,
@@ -86,6 +87,12 @@ import { ListingState } from "./ListingState";
 import { identityFor, MatchTelemetryRecorder } from "./MatchTelemetryRecorder";
 import { friendsLookup, NameVisibility } from "./NameVisibility";
 import { poolTargetFor } from "./PoolRouting";
+import {
+  buildProgress,
+  postProgress,
+  progressFeedEnabled,
+  ProgressTracker,
+} from "./ProgressFeed";
 import { Roster } from "./Roster";
 import { ServerEnv } from "./ServerEnv";
 import { SocketIngress } from "./SocketIngress";
@@ -168,6 +175,9 @@ export interface GameServerDeps {
   archive: (record: PartialGameRecord) => Promise<void>;
   // Replays the game to settle a disputed winner vote (see settleWinner).
   replayWinner: WinnerReplayer;
+  // Tells the account API how a running game is going, for the players' XP
+  // preview (see ProgressFeed). Best effort: it never holds the game up.
+  reportProgress: (progress: LiveProgress) => Promise<void>;
   fetchTribes: typeof fetchCustomTribes;
   env: () => GameEnv;
   turnIntervalMs: () => number;
@@ -192,6 +202,7 @@ export function defaultGameServerDeps(): GameServerDeps {
   return {
     archive: (record) => archive(finalizeGameRecord(record)),
     replayWinner: replayWinnerInChild,
+    reportProgress: postProgress,
     fetchTribes: fetchCustomTribes,
     env: () => ServerEnv.env(),
     turnIntervalMs: () => ServerEnv.turnIntervalMs(),
@@ -283,6 +294,15 @@ export class GameServer {
   // The settled winner's entry is when the result was determined
   // (GameEndInfo.resultTurn): anyone who left after it left after the result.
   private readonly firstVoteTurn = new Map<string, number>();
+
+  // What this server alone knows about the game's progression, reported to the
+  // account API so players can see their XP while they play (see ProgressFeed).
+  private readonly progress = new ProgressTracker();
+  // The agreed live-stats turn last reported, and whether the roster changed
+  // since. Reporting stops once the game is archived: the stored game takes over.
+  private lastProgressTurn = -1;
+  private progressDirty = false;
+  private progressStopped = false;
 
   // Player reports filed this game, keyed "<reportedBy>:<reported>" so each
   // pair counts once. Never in the turn log (who reported whom is staff-only);
@@ -870,7 +890,7 @@ export class GameServer {
     this.log.info("client rejoining", { clientID, lastTurn });
     // Also closes the old WebSocket, to prevent resource leaks.
     this.clients.reconnect(client, ws);
-    this.leftAtTurn.delete(client.clientID);
+    if (this.leftAtTurn.delete(client.clientID)) this.progressDirty = true;
     if (identityUpdate && !this.hasStarted()) {
       // A pre-start identity change to a different name means the player
       // switched to a custom name, so the check is dropped. The server only
@@ -988,6 +1008,52 @@ export class GameServer {
     if (client.spectator || this.clients.isConnected(client)) return;
     if (!this.hasStarted() || this.leftAtTurn.has(client.clientID)) return;
     this.leftAtTurn.set(client.clientID, this.turns.length);
+    this.progressDirty = true;
+  }
+
+  // Reports the game's progress to the account API when something moved: a new
+  // agreed live snapshot, or someone leaving or coming back.
+  private reportProgressIfChanged(): void {
+    if (this.progressStopped || this.stage !== "started") return;
+    if (!progressFeedEnabled()) return;
+    const live = this.liveStatsVote.latest();
+    if (live === null) return;
+    if (live.turn === this.lastProgressTurn && !this.progressDirty) return;
+    this.lastProgressTurn = live.turn;
+    this.progressDirty = false;
+    this.sendProgress(null);
+  }
+
+  private sendProgress(result: LiveProgress["result"]): void {
+    if (!progressFeedEnabled()) return;
+    const started = this._startTime ?? Date.now();
+    const progress = buildProgress(this.progress, {
+      gameID: this.id,
+      turn: this.turns.length,
+      elapsedSeconds: Math.max(0, (Date.now() - started) / 1000),
+      config: {
+        gameType: String(this.gameStartInfo.config.gameType),
+        gameMode: String(this.gameStartInfo.config.gameMode),
+        rankedType:
+          this.gameStartInfo.config.rankedType === undefined
+            ? null
+            : String(this.gameStartInfo.config.rankedType),
+        listed: this.gameStartInfo.listed ?? null,
+      },
+      adminActions: this.adminActionRecords(),
+      result,
+      live: this.liveStatsVote.latest(),
+      roster: this.gameStartInfo.players.map((p) => {
+        const client = this.clients.get(p.clientID);
+        return {
+          clientID: p.clientID,
+          persistentID: client?.persistentID ?? null,
+          connected: client !== undefined && this.clients.isConnected(client),
+          leftTurn: this.leftAtTurn.get(p.clientID) ?? null,
+        };
+      }),
+    });
+    this.deps.reportProgress(progress).catch(() => {});
   }
 
   private handleClientDisconnect(client: Client) {
@@ -1274,6 +1340,9 @@ export class GameServer {
     const config = configWithoutPool(this.gameConfig);
     delete config.allowedPublicIds;
     delete config.nameRevealPublicIds;
+    // With progression on every game's clients report the live stats the server
+    // votes on: that is what lets a player see their XP while they play.
+    if (progressFeedEnabled()) config.liveStatsEnabled = true;
 
     const result = WireGameStartInfoSchema.safeParse({
       gameID: this.id,
@@ -1566,6 +1635,7 @@ export class GameServer {
 
   private addIntent(intent: StampedIntent) {
     this.intents.push(intent);
+    this.progress.noteIntent(intent);
   }
 
   private sendStartGameMsg(ws: WebSocket, lastTurn: number) {
@@ -1643,6 +1713,7 @@ export class GameServer {
 
     this.handleSynchronization();
     this.checkDisconnectedStatus();
+    if (this.turns.length % 10 === 0) this.reportProgressIfChanged();
 
     const msg = encodeServerMessage(
       {
@@ -2207,6 +2278,12 @@ export class GameServer {
         } satisfies PlayerRecord;
       },
     );
+    // Tell the account API the result is in before the record goes up, so the
+    // players' XP preview can say so at once; the stored game then pays it.
+    if (winner?.winner !== undefined && resultTurn !== undefined) {
+      this.sendProgress({ winner: winner.winner, resultTurn });
+    }
+    this.progressStopped = true;
     this.telemetry.noteArchiveAttempted();
     this.deps.archive(
       createPartialGameRecord(

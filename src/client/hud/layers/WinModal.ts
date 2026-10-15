@@ -30,10 +30,16 @@ import {
 } from "../../Cosmetics";
 import { crazyGamesSDK } from "../../CrazyGamesSDK";
 import { isDesktopShell } from "../../DesktopShell";
+import { clearPendingXp, rememberPendingXp } from "../../PendingXpStore";
 import { Platform } from "../../Platform";
 import { MAX_PRESTIGE, reachedLegendThisGame } from "../../Progression";
 import { resolveXpAccount } from "../../ProgressionAccount";
-import { fetchProgressionConfig, pollGameXp } from "../../ProgressionApi";
+import {
+  fetchLiveXp,
+  fetchProgressionConfig,
+  LIVE_XP_POLL_MS,
+  pollGameXp,
+} from "../../ProgressionApi";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
@@ -83,6 +89,8 @@ export class WinModal extends LitElement implements Controller {
   // Polling starts once, at the end of the game.
   private xpPolling = false;
   private xpAbort: AbortController | null = null;
+  // While the game goes on after the player died: re-reading the XP preview.
+  private liveTimer: ReturnType<typeof setInterval> | null = null;
   // Whose XP the section shows: the Legend ceremony plays once per account.
   private xpPublicId: string | null = null;
   // The Legend ceremony, fetched only for a player who could become a Legend
@@ -500,14 +508,51 @@ export class WinModal extends LitElement implements Controller {
   }
 
   disconnectedCallback(): void {
+    this.stopLiveXp();
     this.xpAbort?.abort();
     super.disconnectedCallback();
   }
 
   /**
+   * Shows the XP preview for the game that is still on (the player died, or the
+   * result just came in): what the account API works out from the game server's
+   * report. It follows the report until the stored game's XP replaces it.
+   */
+  private startLiveXp(gameId: string): void {
+    void this.refreshLiveXp(gameId);
+    this.liveTimer ??= setInterval(
+      () => void this.refreshLiveXp(gameId),
+      LIVE_XP_POLL_MS,
+    );
+  }
+
+  private stopLiveXp(): void {
+    if (this.liveTimer === null) return;
+    clearInterval(this.liveTimer);
+    this.liveTimer = null;
+  }
+
+  private async refreshLiveXp(gameId: string): Promise<void> {
+    const result = await fetchLiveXp(gameId);
+    // The stored game's XP, once polled for, owns the section.
+    if (this.xpPolling) return;
+    if (result.status === "unavailable") {
+      this.stopLiveXp();
+      return;
+    }
+    if (result.status !== "ok" || result.data.status === "none") return;
+    this.xpView = {
+      kind: "live",
+      data: result.data,
+      playerAlive: this.game.myPlayer()?.isAlive() ?? null,
+    };
+    if (result.data.status !== "forfeited") rememberPendingXp(gameId);
+  }
+
+  /**
    * Fills the XP section. `gameOver` is false when the player died while the
-   * game carries on: the server only awards XP once the game is archived, so
-   * that just says so, and the poll starts when the game really ends.
+   * game carries on: the XP is then shown as the preview of what is pending,
+   * and the poll for the stored XP starts when the game really ends.
    */
   private async updateXp(gameOver: boolean): Promise<void> {
     if (this.xpPolling) return;
@@ -554,11 +599,15 @@ export class WinModal extends LitElement implements Controller {
       // call owns the section from then on.
       if (this.xpPolling) return;
       if (!gameOver) {
-        this.xpView = { kind: "awaiting_end" };
+        this.startLiveXp(game.gameID());
         return;
       }
+      this.stopLiveXp();
       this.xpPolling = true;
       this.xpView = { kind: "calculating" };
+      // The server has the result before the game is stored: say so at once
+      // (and that a win is confirmed) while the stored XP is looked for.
+      void this.showSettledPreview(game.gameID());
       this.xpAbort = new AbortController();
       // The game server replays the game to check the winner before it
       // archives it, which can take a while for a long game.
@@ -571,12 +620,32 @@ export class WinModal extends LitElement implements Controller {
       }
       // Timed out, signed out or unreadable: hide rather than show an error
       // (or, worse, a zero).
+      if (result !== null) clearPendingXp();
       this.xpView =
         result === null ? { kind: "hidden" } : { kind: "result", data: result };
     } catch (err) {
       console.warn("WinModal: XP section failed", err);
       this.xpView = { kind: "hidden" };
     }
+  }
+
+  // The result is in but the game is not stored yet: show what the API already
+  // knows (a confirmed win with its XP, or a forfeit) instead of a bare spinner.
+  private async showSettledPreview(gameId: string): Promise<void> {
+    const result = await fetchLiveXp(gameId);
+    if (this.xpView.kind !== "calculating") return;
+    if (result.status !== "ok") return;
+    if (
+      result.data.status !== "settled" &&
+      result.data.status !== "forfeited"
+    ) {
+      return;
+    }
+    this.xpView = {
+      kind: "live",
+      data: result.data,
+      playerAlive: this.game.myPlayer()?.isAlive() ?? null,
+    };
   }
 
   private _handleExit() {

@@ -493,6 +493,38 @@ function gameMetrics(
 
 const utcDay = (at: Date) => at.toISOString().slice(0, 10);
 
+/**
+ * How many counted games `userId` completed with each of `others` in the day
+ * before `endedAt`, other than game `excludeGameId` (the repeated-opponents check).
+ */
+export async function priorGamesWith(
+  db: Pick<PoolClient, "query">,
+  userId: string,
+  others: readonly string[],
+  endedAt: Date,
+  excludeGameId: string,
+): Promise<number[]> {
+  if (others.length === 0 || others.length > PROGRESSION.repeat.maxOthers) {
+    return [];
+  }
+  const from = new Date(
+    endedAt.getTime() - PROGRESSION.repeat.windowHours * 3_600_000,
+  );
+  const { rows } = await db.query<{ other: string; n: number }>(
+    `SELECT b.user_id AS other, count(*)::int AS n
+       FROM game_players a
+       JOIN game_players b ON b.game_id = a.game_id AND b.user_id <> a.user_id
+       JOIN games g ON g.id = a.game_id
+      WHERE a.user_id = $1 AND b.user_id = ANY($2::uuid[])
+        AND a.completed AND b.completed AND g.counts_for_stats
+        AND g.id <> $3 AND g.ended_at >= $4 AND g.ended_at <= $5
+      GROUP BY b.user_id`,
+    [userId, others, excludeGameId, from, endedAt],
+  );
+  const byOther = new Map(rows.map((r) => [r.other, r.n]));
+  return others.map((id) => byOther.get(id) ?? 0);
+}
+
 /** The other eligible players' shared prior games with this one, for the repeated-opponents check. */
 async function sharedPriorGames(
   tx: PoolClient,
@@ -503,25 +535,7 @@ async function sharedPriorGames(
   const others = ctx.eligible
     .map((e) => e.userId)
     .filter((id) => id !== player.userId);
-  if (others.length === 0 || others.length > PROGRESSION.repeat.maxOthers) {
-    return [];
-  }
-  const from = new Date(
-    ctx.endedAt.getTime() - PROGRESSION.repeat.windowHours * 3_600_000,
-  );
-  const { rows } = await tx.query<{ other: string; n: number }>(
-    `SELECT b.user_id AS other, count(*)::int AS n
-       FROM game_players a
-       JOIN game_players b ON b.game_id = a.game_id AND b.user_id <> a.user_id
-       JOIN games g ON g.id = a.game_id
-      WHERE a.user_id = $1 AND b.user_id = ANY($2::uuid[])
-        AND a.completed AND b.completed AND g.counts_for_stats
-        AND g.id <> $3 AND g.ended_at >= $4 AND g.ended_at <= $5
-      GROUP BY b.user_id`,
-    [player.userId, others, gameId, from, ctx.endedAt],
-  );
-  const byOther = new Map(rows.map((r) => [r.other, r.n]));
-  return others.map((id) => byOther.get(id) ?? 0);
+  return priorGamesWith(tx, player.userId, others, ctx.endedAt, gameId);
 }
 
 async function distinctMapsInWeek(

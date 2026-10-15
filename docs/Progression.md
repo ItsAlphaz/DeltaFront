@@ -149,6 +149,57 @@ no `leftTurn`, so it is never held against anyone. A record from before these fi
 its heartbeat intents (`mark_disconnected`) as of the last turn. The same rule applies to the full
 and the reduced award; admin-modified games and the admin who used a command earn nothing, as before.
 
+## XP while you play
+
+You see your XP as the game goes, not only after it. It is a **preview**: only the stored
+game ever awards XP, exactly once.
+
+```
+game server ──POST /game/:id/progress──▶ account API ──GET /users/@me/xp/live/:id──▶ client
+ (what only it knows)                    (the same XP functions     (draws it, works nothing out)
+                                          as the final award)
+```
+
+- **The report** (`LiveProgress`, `packages/shared/src/LiveProgress.ts`) comes from the game
+  server's own state and never from a client: who is alive and who eliminated whom (the
+  majority-voted live stats, which every game now has on while `progression` is on), the turns
+  each player was last agreed alive and first agreed dead, who is connected and when anyone left
+  (the roster, `leftTurn`), who took a gameplay action and who ran staff commands (the intents
+  it stamps; `GAMEPLAY_INTENTS` is one set shared with the final award), and, once the winner is
+  settled, the result and `resultTurn`. It is sent when a new snapshot is agreed, when someone
+  leaves or returns, and the moment the result is settled, before the record is uploaded. A single
+  client's own live-stats message changes nothing: the server only takes a majority.
+- **The preview** (`domain/liveXp.ts`) turns that into XP with `progressionEligibility`,
+  `computeMatchXp` and `computeReducedXp`, so the figure uses the final award's rules, multipliers
+  and daily caps. It is kept in memory (never in the ledger), dropped when the stored game
+  arrives, and a report for an already stored game is ignored.
+- **The client** only reads it (`LiveXpPanel` in the HUD, `LiveXpCard`, the end-of-game section).
+
+| State       | When                                                           | Shows                                                                     |
+| ----------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `live`      | playing                                                        | "Match XP +150": taking part and each valid elimination, the multiplier   |
+| `pending`   | eliminated and still there                                     | "150 XP pending: stay until the result is finalized"                      |
+| `settled`   | the result is in                                               | the winner's victory and placement are final; "finalizing, you can leave" |
+| `forfeited` | left before the result                                         | "XP forfeited: you left before your result was finalized"                 |
+| `none`      | the game pays nothing (guest, ranked, staff test, admin actor) | nothing                                                                   |
+
+What is shown at once: participation, the first-game bonus, valid eliminations (a victim counts once
+they are known to have lasted the two-minute minimum), the game's multiplier and a reduced match's x0.25.
+What stays pending: placement for everyone but a settled winner, victory until the result, and
+challenge, season and clan progress, which are paid with the stored game. A reduced game has nothing
+competitive pending.
+
+**Why there is no separate early award.** The record is uploaded the moment the winner is settled
+(`settleWinner` archives at once; a disputed vote first waits for the server's own replay, and the
+result is then not final), so the stored game and the result already arrive together; what
+used to make XP feel late was that nobody could see anything before then, and the XP was only looked
+for every three seconds. A second write path would need the turn log (who acted, who sent staff
+commands, disconnects), the stored `game_players` rows (challenges, season, clan XP and the rewards
+hang off them) and would duplicate the ledger logic, for no earlier result. So the settled winner is
+shown their final figure from the server's own result, and the stored game then awards exactly that
+(the unique ledger key is user + game). A player who leaves from "You won" is told what was awarded
+(or forfeited) by a toast the next time the page loads (`PendingXp`).
+
 ## Anti-farming
 
 Counted-game gate for the full award (private, unlisted and low-population games pay only the reduced, lifetime-only one; ranked and singleplayer pay nothing), no XP for players
@@ -273,6 +324,8 @@ hidden page and inside another site's frame (`flourishAllowed`).
 | -------------------------------------------------------- | ---------------------------------------------------------- |
 | `GET /users/@me`                                         | adds `progress`, `levelHidden`, unclaimed `rewards`        |
 | `GET /users/@me/xp/:gameId`                              | the XP of the caller's game (404 until processed)          |
+| `GET /users/@me/xp/live/:gameId`                         | the XP a running game stands at (a preview; 404 if none)   |
+| `POST /game/:id/progress`                                | a game server's report of a running game (server key only) |
 | `POST /users/@me/prestige`                               | prestige (needs `Idempotency-Key`)                         |
 | `GET /progression/me`                                    | account page: challenges, season, track, titles, recent XP |
 | `PUT /users/@me/title`                                   | choose a title                                             |

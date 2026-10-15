@@ -31,6 +31,7 @@ import express, {
 import { withTransaction } from "../db/tx";
 import { ACCOUNT_RULES } from "../domain/constants";
 import { claimProgressionRewards } from "../domain/economy";
+import { liveXpFor } from "../domain/liveXp";
 import { prestigeAccount, setDisplayTitle } from "../domain/progressionOps";
 import { clientIp } from "../http";
 import {
@@ -101,6 +102,26 @@ export function progressionRouter(deps: AppDeps): Router {
     }
     return user;
   }
+
+  // -- the XP a running game stands at (a preview; the stored game pays) ------
+
+  router.get("/users/@me/xp/live/:gameId", async (req, res) => {
+    const user = await account(req, res);
+    if (user === null) return;
+    const id = ID.safeParse(req.params.gameId);
+    if (!id.success) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+    // Not reported (yet, any more, or not the caller's game): indistinguishable
+    // on purpose. Once the game is stored the final endpoint answers instead.
+    const live = await liveXpFor(pool, id.data, user.id);
+    if (live === null) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+    res.json(live);
+  });
 
   // -- the XP one finished game earned --------------------------------------
 

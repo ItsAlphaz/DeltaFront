@@ -463,4 +463,35 @@ describe("countUp", () => {
     countUp(500, (v) => seen.push(v));
     expect(seen).toEqual([500]);
   });
+
+  it("eases from a starting value, up or down, ending exactly on the target", () => {
+    vi.useFakeTimers();
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) =>
+      setTimeout(() => {
+        now += 100;
+        cb(now);
+      }, 100),
+    );
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+    const up: number[] = [];
+    countUp(1000, (v) => up.push(v), 500, 400);
+    vi.advanceTimersByTime(1000);
+    expect(up[0]).toBe(400);
+    expect(up[up.length - 1]).toBe(1000);
+    expect(Math.min(...up)).toBe(400);
+    const down: number[] = [];
+    countUp(100, (v) => down.push(v), 500, 900);
+    vi.advanceTimersByTime(1000);
+    expect(down[0]).toBe(900);
+    expect(down[down.length - 1]).toBe(100);
+    expect(Math.max(...down)).toBe(900);
+  });
+
+  it("has nothing to ease when it is already there", () => {
+    const seen: number[] = [];
+    countUp(500, (v) => seen.push(v), 900, 500);
+    expect(seen).toEqual([500]);
+  });
 });

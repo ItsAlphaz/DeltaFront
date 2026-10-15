@@ -255,6 +255,8 @@ export class LangSelector extends LitElement {
       "leaderboard-clan-table",
       "build-menu",
       "win-modal",
+      "live-xp-panel",
+      "live-xp-card",
       "game-starting-modal",
       "top-bar",
       "player-panel",
