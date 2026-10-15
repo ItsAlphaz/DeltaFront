@@ -778,6 +778,12 @@ export const ClientMessageSchema = zb.discriminatedUnion("type", [
 export const PlayerRecordSchema = WirePlayerSchema.extend({
   persistentID: PersistentIdSchema.nullable(), // WARNING: PII
   stats: PlayerStatsSchema,
+  // The server turn at which this player's connection was last lost, for a
+  // player who was still gone when the record was written (cleared when they
+  // return). Stamped by the game server from its own roster, never from a
+  // client. Absent for a player who was connected, and on records from before
+  // it existed.
+  leftTurn: z.number().int().nonnegative().optional(),
 });
 
 export type PlayerRecord = z.infer<typeof PlayerRecordSchema>;
@@ -816,6 +822,12 @@ export const GameEndInfoSchema = GameStartInfoSchema.extend({
   // Staff commands relayed in this game (see AdminActionRecordSchema). Absent
   // when there were none, and on records from before it existed.
   adminActions: AdminActionRecordSchema.array().max(64).optional(),
+  // The server turn at which the result was determined: the first valid vote
+  // for the settled winner, or the tick the server's own replay declared it on.
+  // A player who left at or after it left after the result (see
+  // PlayerRecord.leftTurn). Absent when there is no winner, and on records from
+  // before it existed.
+  resultTurn: z.number().int().nonnegative().optional(),
 });
 
 export type GameEndInfo = z.infer<typeof GameEndInfoSchema>;

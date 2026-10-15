@@ -68,6 +68,7 @@ exports[`GameServer wire transcript > matches the golden transcript for a script
       ],
       "publicGameType": undefined,
       "reports": [],
+      "resultTurn": 21,
       "start": 1700000002000,
       "tribes": undefined,
       "visibleAt": 1700000001000,

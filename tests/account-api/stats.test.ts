@@ -12,6 +12,7 @@ import {
   countsForStats,
   isCompleted,
   modeBucket,
+  RESULT_GRACE_TURNS,
   resultFor,
   statsToJson,
   sumPlayerStats,
@@ -219,9 +220,22 @@ describe("the completed-game rule", () => {
       ).toBe(true);
     });
 
-    it("an eliminated player must be connected when eliminated, not at the end", () => {
+    it("an eliminated player must still be there at the end: gone before it is leaving early", () => {
       const players = [account(1), { ...account(2), fate: { killedAt: 3000 } }];
-      // gone before the elimination: not completed
+      // eliminated, then gone well before the end: left early
+      expect(
+        completed(
+          {
+            players,
+            lastTurn: 6000,
+            disconnects: [
+              { clientID: clientIdOf(1), turn: 4000, isDisconnected: true },
+            ],
+          },
+          1,
+        ),
+      ).toBe(false);
+      // gone before even being eliminated: left early too
       expect(
         completed(
           {
@@ -234,14 +248,15 @@ describe("the completed-game rule", () => {
           1,
         ),
       ).toBe(false);
-      // gone only after the elimination: completed
+      // eliminated while briefly disconnected, back and staying: completed
       expect(
         completed(
           {
             players,
             lastTurn: 6000,
             disconnects: [
-              { clientID: clientIdOf(1), turn: 4000, isDisconnected: true },
+              { clientID: clientIdOf(1), turn: 2900, isDisconnected: true },
+              { clientID: clientIdOf(1), turn: 3500, isDisconnected: false },
             ],
           },
           1,
@@ -249,12 +264,26 @@ describe("the completed-game rule", () => {
       ).toBe(true);
     });
 
-    it("disconnecting on the very turn of the end or elimination counts as disconnected", () => {
+    it("disconnecting a moment before the end counts as gone after the result, not before it", () => {
+      // the heartbeat notices a closed connection ~30s late, so a record without
+      // the server's own roster allows RESULT_GRACE_TURNS of slack
       expect(
         completed({
           lastTurn: 6000,
           disconnects: [
             { clientID: clientIdOf(0), turn: 6000, isDisconnected: true },
+          ],
+        }),
+      ).toBe(true);
+      expect(
+        completed({
+          lastTurn: 6000,
+          disconnects: [
+            {
+              clientID: clientIdOf(0),
+              turn: 6000 - RESULT_GRACE_TURNS - 1,
+              isDisconnected: true,
+            },
           ],
         }),
       ).toBe(false);

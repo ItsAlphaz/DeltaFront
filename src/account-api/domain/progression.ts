@@ -21,8 +21,13 @@ import {
   type ChallengePeriod,
   type GameMetrics,
 } from "./challenges";
-import { ECONOMY, PERMILLE, PROGRESSION } from "./constants";
-import { isCompleted, resultFor } from "./stats";
+import { PERMILLE, PROGRESSION } from "./constants";
+import {
+  isCompletedOutcome,
+  playerProgressionOutcome,
+  resultFor,
+  type PlayerProgressionOutcome,
+} from "./stats";
 import {
   alliancesFormed,
   computeMatchXp,
@@ -375,7 +380,9 @@ export interface GameXpContext {
   placement: PlacementTable;
   acted: ReadonlySet<string>;
   adminSenders: ReadonlySet<string>;
-  /** clientID -> completed, for the account holders. */
+  /** clientID -> what the game came to for them (see playerProgressionOutcome), for the account holders. */
+  outcomes: ReadonlyMap<string, PlayerProgressionOutcome>;
+  /** clientID -> completed (a completing outcome), for the account holders. */
   completed: ReadonlyMap<string, boolean>;
   /** Eligible humans: account holders who completed the game and acted. */
   eligible: ReadonlyArray<{ userId: string; clientID: string }>;
@@ -442,19 +449,18 @@ export function playerIneligibleReason(
 ): PlayerIneligibleReason | null {
   if (player.kind === "guest") return "guest";
   if (ctx.completed.get(player.clientID) !== true) {
-    const stats = ctx.record.info.players.find(
-      (p) => p.clientID === player.clientID,
-    )?.stats;
-    if (ctx.record.info.winner === undefined) return "no_winner";
-    if (stats?.killedAt !== undefined) {
-      return stats.killedAt < BigInt(ECONOMY.minEliminationTick)
-        ? "eliminated_early"
-        : "left_early";
+    switch (ctx.outcomes.get(player.clientID)) {
+      case "no_winner":
+        return "no_winner";
+      case "eliminated_early":
+        return "eliminated_early";
+      case "not_spawned":
+        return "not_spawned";
+      default:
+        // left_early, disconnected_early, or an outcome the context does not
+        // carry: the player did not stay to the result.
+        return "left_early";
     }
-    if (stats?.finalTiles === undefined || stats.finalTiles <= 0n) {
-      return "not_spawned";
-    }
-    return "left_early";
   }
   if (ctx.adminSenders.has(player.clientID)) return "admin_actor";
   if (!ctx.acted.has(player.clientID)) return "no_action";
@@ -882,13 +888,24 @@ export async function awardPlayerXp(
   };
 }
 
-/** Whether each account holder in a record completed the game (the same rule Credits use). */
-export function completedByClient(
+/** What the game came to for each account holder in a record (the one rule Credits, the clan threshold and XP share). */
+export function outcomesByClient(
   record: Pick<GameRecord, "info" | "turns">,
   clientIds: readonly string[],
   counted: boolean,
+): Map<string, PlayerProgressionOutcome> {
+  return new Map(
+    clientIds.map(
+      (id) => [id, playerProgressionOutcome(record, id, counted)] as const,
+    ),
+  );
+}
+
+/** Whether each account holder in a record completed the game. */
+export function completedByClient(
+  outcomes: ReadonlyMap<string, PlayerProgressionOutcome>,
 ): Map<string, boolean> {
   return new Map(
-    clientIds.map((id) => [id, isCompleted(record, id, counted)] as const),
+    [...outcomes].map(([id, outcome]) => [id, isCompletedOutcome(outcome)]),
   );
 }

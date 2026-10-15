@@ -122,10 +122,37 @@ reward. The ledger row records why (`private_game`, `unlisted_game`,
 Review flags stored with each game (`xp_result.flags`, shown on the admin user page):
 `reduced`, `repeat_group`, `soft_cap`, `cap_hit`, `admin_counted`, `tiny_win`.
 
+## Who finished the game
+
+Dying costs nothing; leaving early does. One rule, `playerProgressionOutcome` in
+`domain/stats.ts`, answers from the record alone (never from a client) and decides Credits,
+the clan threshold and XP alike:
+
+| Outcome                     | When                                                                   | Earns |
+| --------------------------- | ---------------------------------------------------------------------- | ----- |
+| `completed_alive`           | alive when the result was determined, and still there                  | yes   |
+| `completed_eliminated`      | eliminated after the first two minutes and stayed to the result        | yes   |
+| `won_and_left_after_result` | on the winning side and left only after the result was determined      | yes   |
+| `left_early`                | the server lost the connection before the result and it did not return | no    |
+| `disconnected_early`        | an older record whose heartbeat says gone, with no roster to say when  | no    |
+| `eliminated_early`          | eliminated in the first two minutes (a free kill, not a game played)   | no    |
+| `not_spawned`, `no_winner`  | never owned land; the game had no settled winner                       | no    |
+
+The game server stamps what it alone knows into the archived record: `info.resultTurn` (the
+turn the first valid vote for the settled winner arrived at, or the tick its own replay found
+the result on) and, for each player still gone when the record was written, `leftTurn` (the
+turn their connection was lost; cleared if they return). A player gone at or after the result
+left after the game was decided, so a winner who clicks Exit on "You won" is paid even though the
+archive and the post-game timer are still running; `RESULT_GRACE_TURNS` (5 turns) allows for the
+result reaching the server a moment after the clients' simulations. A drop that comes back leaves
+no `leftTurn`, so it is never held against anyone. A record from before these fields is judged by
+its heartbeat intents (`mark_disconnected`) as of the last turn. The same rule applies to the full
+and the reduced award; admin-modified games and the admin who used a command earn nothing, as before.
+
 ## Anti-farming
 
-Counted-game gate for the full award (private, unlisted and low-population games pay only the reduced, lifetime-only one; ranked and singleplayer pay nothing), no XP for leavers or players
-who never acted, bots and nations excluded, elimination limit and victim survival
+Counted-game gate for the full award (private, unlisted and low-population games pay only the reduced, lifetime-only one; ranked and singleplayer pay nothing), no XP for players
+who left before the result or never acted (see below), bots and nations excluded, elimination limit and victim survival
 rule, the player-count and repeated-opponent multipliers, the per-match cap, the daily
 soft cap, one transaction per game keyed on the game code with unique ledger rows. No
 IP address is used. Guests earn nothing, and an XP-earning account needs a Discord or

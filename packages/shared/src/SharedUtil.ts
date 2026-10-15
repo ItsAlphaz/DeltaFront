@@ -85,6 +85,8 @@ export function createPartialGameRecord(
   // Whether a private lobby was publicly listed (GameStartInfo.listed). The
   // API tells an unlisted game from a listed one by it.
   listed?: boolean,
+  // The server turn the result was determined at (GameEndInfoSchema.resultTurn).
+  resultTurn?: number,
 ): PartialGameRecord {
   const duration = Math.floor((end - start) / 1000);
   const num_turns = allTurns.length;
@@ -116,6 +118,7 @@ export function createPartialGameRecord(
       reports,
       publicGameType,
       ...(listed === undefined ? {} : { listed }),
+      ...(resultTurn === undefined ? {} : { resultTurn }),
       ...(adminActions !== undefined && adminActions.length > 0
         ? { adminActions }
         : {}),

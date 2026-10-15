@@ -9,6 +9,7 @@ import { applyGameReward, gameReward } from "./economy";
 import {
   awardPlayerXp,
   completedByClient,
+  outcomesByClient,
   seasonAt,
   type GameXpContext,
 } from "./progression";
@@ -393,12 +394,14 @@ async function buildXpContext(
 ): Promise<GameXpContext> {
   const { record, eligibility, players } = input;
   // The completed-game rule is the Credits one; a reduced game is judged by it
-  // too (there was a winner, the player survived or lasted two minutes).
-  const completed = completedByClient(
+  // too (there was a winner, the player survived or lasted two minutes, and
+  // stayed to the result).
+  const outcomes = outcomesByClient(
     record,
     players.map((p) => p.clientID),
     eligibility.mode !== "none",
   );
+  const completed = completedByClient(outcomes);
   const acted = clientsWhoActed(record.turns);
   const eligible = players
     .filter((p) => completed.get(p.clientID) === true && acted.has(p.clientID))
@@ -412,6 +415,7 @@ async function buildXpContext(
     placement: placements(record, input.isFfa),
     acted,
     adminSenders: adminCommandSenders(record.turns),
+    outcomes,
     completed,
     eligible,
     map: input.map,

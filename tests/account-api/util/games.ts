@@ -46,6 +46,12 @@ export interface PlayerSpec {
   /** Took a gameplay action (an attack). Default: the game's `allAct`. */
   acts?: boolean;
   clanTag?: string | null;
+  /**
+   * The server turn this player's connection was last lost at, and never
+   * restored (PlayerRecord.leftTurn). Only meaningful with the game's
+   * `resultTurn`: a player without it was connected when the record was written.
+   */
+  leftTurn?: number;
 }
 
 export interface GameSpec {
@@ -68,6 +74,12 @@ export interface GameSpec {
   extraIntents?: unknown[];
   /** The server's record of staff commands (info.adminActions). */
   adminActions?: unknown[];
+  /**
+   * The turn the result was determined at (info.resultTurn). Setting it makes
+   * this a record from the current game server, whose roster says who stayed
+   * (`leftTurn`); without it the record is judged by its heartbeat intents only.
+   */
+  resultTurn?: number;
   disconnects?: Array<{
     clientID: string;
     turn: number;
@@ -98,6 +110,7 @@ export function buildRecord(gameID: string, spec: GameSpec): GameRecord {
       clanTag: p.clanTag ?? null,
       persistentID: p.user?.id ?? randomUUID(),
       stats,
+      ...(p.leftTurn === undefined ? {} : { leftTurn: p.leftTurn }),
     };
   });
   const winner =
@@ -156,6 +169,7 @@ export function buildRecord(gameID: string, spec: GameSpec): GameRecord {
       publicGameType: "ffa",
       reports: [],
       ...(spec.listed === undefined ? {} : { listed: spec.listed }),
+      ...(spec.resultTurn === undefined ? {} : { resultTurn: spec.resultTurn }),
       ...(spec.adminActions === undefined
         ? {}
         : { adminActions: spec.adminActions }),

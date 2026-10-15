@@ -274,6 +274,16 @@ export class GameServer {
   private readonly winnerVote = new WinnerVote();
   private readonly liveStatsVote = new LiveStatsVote();
 
+  // When each player's connection was last lost, as a turn number, for the
+  // players who are still gone: the roster's own word on who stayed to the end
+  // and who left early. Cleared when the player comes back. Never from a
+  // client; archived as PlayerRecord.leftTurn.
+  private readonly leftAtTurn = new Map<ClientID, number>();
+  // The turn the first vote for each candidate result arrived at, by voteKey.
+  // The settled winner's entry is when the result was determined
+  // (GameEndInfo.resultTurn): anyone who left after it left after the result.
+  private readonly firstVoteTurn = new Map<string, number>();
+
   // Player reports filed this game, keyed "<reportedBy>:<reported>" so each
   // pair counts once. Never in the turn log (who reported whom is staff-only);
   // emitted as info.reports of the archived record (see handleReport).
@@ -860,6 +870,7 @@ export class GameServer {
     this.log.info("client rejoining", { clientID, lastTurn });
     // Also closes the old WebSocket, to prevent resource leaks.
     this.clients.reconnect(client, ws);
+    this.leftAtTurn.delete(client.clientID);
     if (identityUpdate && !this.hasStarted()) {
       // A pre-start identity change to a different name means the player
       // switched to a custom name, so the check is dropped. The server only
@@ -970,8 +981,18 @@ export class GameServer {
     }
   }
 
+  // Remembers the turn a player's connection was lost at (the first time, if it
+  // drops and the roster then prunes it too). Only a player of a started game:
+  // a spectator has no result to leave early from.
+  private noteLeft(client: Client): void {
+    if (client.spectator || this.clients.isConnected(client)) return;
+    if (!this.hasStarted() || this.leftAtTurn.has(client.clientID)) return;
+    this.leftAtTurn.set(client.clientID, this.turns.length);
+  }
+
   private handleClientDisconnect(client: Client) {
     this.clients.markLeft(client);
+    this.noteLeft(client);
     this.checkWinnerAfterElectorateShrink();
 
     // hasStarted() includes prestart: during the lobby -> game transition
@@ -1706,6 +1727,7 @@ export class GameServer {
     }
     const stale = this.clients.pruneStale(Date.now(), 60_000);
     for (const client of stale) {
+      this.noteLeft(client);
       this.log.info("no pings received, terminating connection", {
         clientID: client.clientID,
         persistentID: client.persistentID,
@@ -1998,6 +2020,7 @@ export class GameServer {
     // The persistentID is banned whether or not the client is still
     // connected; only a connected one is told and cut off.
     if (this.clients.kick(client)) {
+      this.noteLeft(client);
       this.log.info("Kicking client from game", {
         clientID: client.clientID,
         persistentID: client.persistentID,
@@ -2127,7 +2150,7 @@ export class GameServer {
             outcome,
           });
         }
-        this.archiveGame(replayed, turns, endTime);
+        this.archiveGame(replayed, turns, endTime, replayed.tick ?? undefined);
       })
       .catch((error) => {
         this.log.error(`error archiving replayed game: ${error}`, {
@@ -2140,7 +2163,15 @@ export class GameServer {
     winner: { winner?: Winner; allPlayersStats: AllPlayersStats } | null,
     turns: Turn[] = this.turns,
     endTime: number = Date.now(),
+    // The tick the server's own replay found the result on, when it ran one.
+    replayTick?: number,
   ) {
+    // When the result was determined: the replay's tick, else the turn the
+    // first vote for the settled result arrived at.
+    const resultTurn =
+      winner?.winner === undefined
+        ? undefined
+        : (replayTick ?? this.firstVoteTurn.get(voteKey(winner)));
     this.log.info("archiving game", {
       gameID: this.id,
       winner: winner?.winner,
@@ -2169,6 +2200,10 @@ export class GameServer {
           teamIndex: player.teamIndex,
           friends: player.friends,
           isLobbyCreator: player.isLobbyCreator,
+          // Still gone from the game when it was archived, and since when.
+          ...(this.leftAtTurn.has(player.clientID)
+            ? { leftTurn: this.leftAtTurn.get(player.clientID) }
+            : {}),
         } satisfies PlayerRecord;
       },
     );
@@ -2189,6 +2224,7 @@ export class GameServer {
         this.publicGameType,
         this.adminActionRecords(),
         this.gameStartInfo.listed,
+        resultTurn,
       ),
     );
   }
@@ -2283,6 +2319,9 @@ export class GameServer {
       client.ip,
     );
     client.reportedVote = { winner: clientMsg.winner, key: winnerKey };
+    if (!this.firstVoteTurn.has(winnerKey)) {
+      this.firstVoteTurn.set(winnerKey, this.turns.length);
+    }
 
     this.log.info(
       `received winner vote ${clientMsg.winner}, ${votes}/${activeUniqueIPs} votes for this winner`,

@@ -139,35 +139,161 @@ export function wasConnectedAt(
 }
 
 /**
- * A completed game, for Credits and the clan threshold. All of:
- *  1. the game counts (`counted`, from countsForStats);
- *  2. it ended with a winner;
- *  3. the player survived to the end (`finalTiles` set, owning land) or was
- *     eliminated (`killedAt`) at or after ECONOMY.minEliminationTick;
- *  4. the player was connected at that moment (the end for a survivor, the
- *     elimination for the eliminated).
+ * What a player's game came to, for Credits, the clan threshold and XP: one
+ * answer from the record alone, never from what a client said. The first three
+ * are completed; the rest are not.
+ */
+export type PlayerProgressionOutcome =
+  /** Alive when the result was determined, and stayed to it. */
+  | "completed_alive"
+  /** Eliminated (after the minimum) and stayed to the result. */
+  | "completed_eliminated"
+  /** On the winning side and left only after the result was determined. */
+  | "won_and_left_after_result"
+  /** Left (the server lost their connection and they did not come back) before the result. */
+  | "left_early"
+  /** Gone from the heartbeat's point of view, on a record that does not say when they left. */
+  | "disconnected_early"
+  /** Eliminated before the minimum: a fresh spawn taking a free kill is not a game played. */
+  | "eliminated_early"
+  /** Never owned land. */
+  | "not_spawned"
+  /** The game ended without a settled winner. */
+  | "no_winner"
+  /** The game itself does not count (see countedVerdict). */
+  | "not_counted";
+
+const COMPLETING: ReadonlySet<PlayerProgressionOutcome> = new Set([
+  "completed_alive",
+  "completed_eliminated",
+  "won_and_left_after_result",
+]);
+
+/** Whether the outcome is a completed game. */
+export function isCompletedOutcome(outcome: PlayerProgressionOutcome): boolean {
+  return COMPLETING.has(outcome);
+}
+
+/**
+ * How many turns before the result a departure still counts as after it: the
+ * result reaches the server a moment after the clients' simulations reach it,
+ * and a connection is only noticed gone a moment after it closes (turns are a
+ * tenth of a second each).
+ */
+export const RESULT_GRACE_TURNS = 5;
+
+/** Where a player stood at the result: with the game, or gone, and since when. */
+type Presence =
+  | { kind: "present" }
+  | { kind: "left_after_result" }
+  | { kind: "gone"; recorded: boolean };
+
+/**
+ * Whether the player stayed to the result.
+ *
+ * A record the game server wrote with a `resultTurn` carries the server's own
+ * roster: a player without a `leftTurn` was connected when it was written (they
+ * may have dropped and come back on the way: that is not leaving), one with it
+ * was gone, and since that turn. Gone at or after the result is leaving after
+ * the game was decided; gone before it is leaving early.
+ *
+ * An older record has only the heartbeat's `mark_disconnected` intents: the
+ * player is present unless their latest state, as of the last turn, is
+ * disconnected, and then they are gone since that intent.
+ */
+function presenceAtResult(
+  record: Pick<GameRecord, "info" | "turns">,
+  player: GameRecord["info"]["players"][number],
+): Presence {
+  const resultTurn = record.info.resultTurn;
+  if (resultTurn !== undefined) {
+    if (player.leftTurn === undefined) return { kind: "present" };
+    return player.leftTurn + RESULT_GRACE_TURNS >= resultTurn
+      ? { kind: "left_after_result" }
+      : { kind: "gone", recorded: true };
+  }
+  const end = endTurn(record);
+  if (wasConnectedAt(record.turns, player.clientID, end)) {
+    return { kind: "present" };
+  }
+  return disconnectedSince(record.turns, player.clientID, end) +
+    RESULT_GRACE_TURNS >=
+    end
+    ? { kind: "left_after_result" }
+    : { kind: "gone", recorded: false };
+}
+
+/** The turn of the client's latest `mark_disconnected` up to `moment`, 0 if there is none. */
+function disconnectedSince(
+  turns: GameRecord["turns"],
+  clientID: string,
+  moment: number,
+): number {
+  let since = 0;
+  for (const turn of turns) {
+    if (turn.turnNumber > moment) continue;
+    for (const intent of turn.intents) {
+      if (
+        intent.type === "mark_disconnected" &&
+        intent.clientID === clientID &&
+        intent.isDisconnected
+      ) {
+        since = Math.max(since, turn.turnNumber);
+      }
+    }
+  }
+  return since;
+}
+
+/**
+ * The player's outcome. A player completes a game if the game counts, it ended
+ * with a settled winner, they owned land (or were eliminated at or after
+ * ECONOMY.minEliminationTick), and they stayed to the result: alive, or
+ * eliminated and still there, or gone only after the result was determined.
+ * Being eliminated is a placement, not a reason to lose anything; leaving
+ * before the result is. A temporary disconnect that came back is not leaving.
+ */
+export function playerProgressionOutcome(
+  record: Pick<GameRecord, "info" | "turns">,
+  clientID: string,
+  counted: boolean,
+): PlayerProgressionOutcome {
+  if (!counted) return "not_counted";
+  if (record.info.winner === undefined) return "no_winner";
+  const player = record.info.players.find((p) => p.clientID === clientID);
+  if (player === undefined) return "not_spawned";
+  const killedAt = player.stats?.killedAt;
+  const finalTiles = player.stats?.finalTiles;
+  const eliminated = killedAt !== undefined;
+  if (!eliminated && !(finalTiles !== undefined && finalTiles > 0n)) {
+    return "not_spawned";
+  }
+  if (eliminated && killedAt < BigInt(ECONOMY.minEliminationTick)) {
+    return "eliminated_early";
+  }
+  const presence = presenceAtResult(record, player);
+  if (presence.kind === "gone") {
+    return presence.recorded ? "left_early" : "disconnected_early";
+  }
+  if (eliminated) return "completed_eliminated";
+  return presence.kind === "left_after_result" &&
+    resultFor(clientID, record.info.winner) === "victory"
+    ? "won_and_left_after_result"
+    : "completed_alive";
+}
+
+/**
+ * A completed game, for Credits, the clan threshold and XP: the outcome is one
+ * of the completing ones (see playerProgressionOutcome).
  */
 export function isCompleted(
   record: Pick<GameRecord, "info" | "turns">,
   clientID: string,
   counted: boolean,
 ): boolean {
-  if (!counted) return false;
-  if (record.info.winner === undefined) return false;
-  const player = record.info.players.find((p) => p.clientID === clientID);
-  if (player === undefined) return false;
-  const killedAt = player.stats?.killedAt;
-  const finalTiles = player.stats?.finalTiles;
-  let moment: number;
-  if (killedAt !== undefined) {
-    if (killedAt < BigInt(ECONOMY.minEliminationTick)) return false;
-    moment = Number(killedAt);
-  } else if (finalTiles !== undefined && finalTiles > 0n) {
-    moment = endTurn(record);
-  } else {
-    return false;
-  }
-  return wasConnectedAt(record.turns, clientID, moment);
+  return isCompletedOutcome(
+    playerProgressionOutcome(record, clientID, counted),
+  );
 }
 
 // ------------------------------------------------------------------ stats
