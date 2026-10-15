@@ -1,6 +1,6 @@
 {
   "name": "deltafront-client",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "DeltaFront is a fast-paced multiplayer strategy game where players battle for territory, build their nations, form alliances, and dominate the front. A fork of OpenFront.",
   "license": "AGPL-3.0-only",
   "private": true,
