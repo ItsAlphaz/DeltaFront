@@ -86,7 +86,12 @@ describe("updateAccountNavButton", () => {
     );
     // The core regression: a Steam-authed user must read as logged in.
     expect(hidden(nav.signInText)).toBe(true);
+    // the picture shows once it has loaded; the person icon stands in until then
+    expect(hidden(nav.avatar)).toBe(true);
+    expect(hidden(nav.personIcon)).toBe(false);
+    nav.avatar.dispatchEvent(new Event("load"));
     expect(hidden(nav.avatar)).toBe(false);
+    expect(hidden(nav.personIcon)).toBe(true);
     expect(nav.avatar.getAttribute("src")).toBe(
       "https://avatars.steamstatic.com/abc_full.jpg",
     );
@@ -127,6 +132,7 @@ describe("updateAccountNavButton", () => {
       }),
     );
     // Discord is checked first, so its avatar wins — not the Steam one.
+    nav.avatar.dispatchEvent(new Event("load"));
     expect(hidden(nav.avatar)).toBe(false);
     expect(nav.avatar.getAttribute("src")).toBe(
       "https://cdn/discord-avatar.png",
@@ -148,6 +154,7 @@ describe("updateAccountNavButton", () => {
 
   it("updates the mobile trigger from the same call", () => {
     updateAccountNavButton(userMe({ discord: discordUser }));
+    nav.mobile.avatar.dispatchEvent(new Event("load"));
     expect(hidden(nav.mobile.avatar)).toBe(false);
     expect(nav.mobile.avatar.getAttribute("src")).toBe(
       "https://cdn/discord-avatar.png",

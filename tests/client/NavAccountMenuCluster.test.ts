@@ -325,8 +325,9 @@ describe("the pill", () => {
       expect(
         q("[data-account-trigger]").hasAttribute("data-account-border"),
       ).toBe(true);
-      // the plain pill's avatar is the bigger one
-      expect(classes("[data-account-avatar]")).toContain("w-8");
+      // the plain pill's picture is the bigger one: its face is 32px
+      expect(classes("[data-account-face]")).toContain("h-8");
+      expect(classes("[data-account-face]")).toContain("w-8");
     }
   });
 
@@ -465,7 +466,7 @@ describe("mobile", () => {
   it("without a level it is just the avatar", async () => {
     await respond(userMe(null));
     expect(el.querySelector("[data-xp-ring]")).toBeNull();
-    expect(classes("[data-account-avatar]")).toContain("w-8");
+    expect(classes("[data-account-face]")).toContain("w-8");
   });
 });
 

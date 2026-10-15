@@ -96,15 +96,26 @@ function updateInstance(
     setBordered(true);
   };
 
+  // The picture is shown once it is loaded; until then (and if it never does)
+  // the person icon stands in, so the trigger never looks like it is still
+  // loading. The same address is never assigned again: reassigning `src` makes
+  // the browser load the image afresh, which is what a refresh of the account
+  // (an XP change, a level) must not do to a picture that is already there.
   const showAvatar = (src: string, alt?: string) => {
     if (avatarEl) {
       avatarEl.alt = alt ?? translateText("main.discord_avatar_alt");
+      const reveal = () => {
+        if (avatarEl._navToken !== navToken) return;
+        avatarEl.classList.remove("hidden");
+        personIconEl?.classList.add("hidden");
+      };
       // If the avatar fails to load (bad URL / CDN issue / offline), fall back
       // to the provider-neutral logged-in state rather than leaving a broken
       // image or a mismatched default (the button is used by Discord and Steam).
       avatarEl.onerror = () => {
         if (avatarEl._navToken !== navToken) return;
         avatarEl.onerror = null;
+        avatarEl.onload = null;
         showLoggedInPlain();
       };
       avatarEl.onload = () => {
@@ -112,11 +123,22 @@ function updateInstance(
         if (avatarEl._navToken !== navToken) return;
         // Clear error handler after a successful load.
         avatarEl.onerror = null;
+        reveal();
       };
-      avatarEl.src = src;
-      avatarEl.classList.remove("hidden");
+      if (avatarEl.getAttribute("src") !== src) {
+        avatarEl.classList.add("hidden");
+        avatarEl.src = src;
+      }
+      if (avatarEl.complete && avatarEl.naturalWidth > 0) {
+        // already there (cached, or loaded by an earlier update)
+        avatarEl.onerror = null;
+        reveal();
+      } else {
+        personIconEl?.classList.remove("hidden");
+      }
+    } else {
+      personIconEl?.classList.add("hidden");
     }
-    personIconEl?.classList.add("hidden");
     emailBadgeEl?.classList.add("hidden");
     signInTextEl?.classList.add("hidden");
     setBordered(false);

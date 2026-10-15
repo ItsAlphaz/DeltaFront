@@ -397,9 +397,7 @@ export class NavAccountMenu extends LitElement {
   render(): TemplateResult {
     return html`
       <div class="relative" data-account-nav>
-        ${this.variant === "mobile"
-          ? this.renderMobileTrigger()
-          : this.renderDesktopTrigger()}
+        ${this.renderTrigger(this.variant)}
       </div>
     `;
   }
@@ -492,18 +490,48 @@ export class NavAccountMenu extends LitElement {
   // the button. The ring eases to a new value when XP changes; a level gained
   // resets it without sweeping backwards, bounces the badge and pulses the ring
   // (none of it under reduced motion).
-  private renderRingCluster(
-    variant: "desktop" | "mobile",
+  private renderCluster(variant: "desktop" | "mobile"): TemplateResult {
+    const progress = this.progress();
+    const d = RING[variant];
+    const ring = progress !== null;
+    // The same elements, in the same places, with or without a level: the
+    // picture, its spinner and its fallback are driven imperatively
+    // (NavAccountButton), so they must never be replaced when the level arrives
+    // or changes: only their wrappers' classes and the extras around them change.
+    return html`<span
+      data-account-cluster=${ring ? "" : nothing}
+      class="relative block shrink-0 ${ring ? `${d.box} ${d.lift}` : ""}"
+      title=${progress === null
+        ? nothing
+        : `${levelBadgeLabel(progress.level, progress.prestige, progress.legend)} · ${xpProgressText(progress.xpInLevel, progress.xpForNext)}`}
+    >
+      ${progress === null
+        ? nothing
+        : xpRing(levelFraction(progress.xpInLevel, progress.xpForNext) * 100, {
+            size: d.size,
+            stroke: d.stroke,
+            animate: true,
+            snap: this.levelUp,
+            pulse: this.levelUp,
+          })}
+      <span
+        data-account-face
+        class="${ring
+          ? `absolute ${d.face} bg-white/10 [&_[data-account-email-badge]]:hidden!`
+          : "relative h-8 w-8"} flex items-center justify-center overflow-hidden rounded-full"
+      >
+        ${this.renderIdentityIcons(variant === "desktop")}
+      </span>
+      ${progress === null ? nothing : this.renderRingExtras(d, progress)}
+    </span>`;
+  }
+
+  // What sits on the ring: the mark of something waiting, the level badge and
+  // the prestige emblem beside it. They take no pointer events of their own.
+  private renderRingExtras(
+    d: (typeof RING)[keyof typeof RING],
     progress: Progress,
   ): TemplateResult {
-    const d = RING[variant];
-    const percent = levelFraction(progress.xpInLevel, progress.xpForNext) * 100;
-    const label = levelBadgeLabel(
-      progress.level,
-      progress.prestige,
-      progress.legend,
-    );
-    const title = `${label} · ${xpProgressText(progress.xpInLevel, progress.xpForNext)}`;
     // Something waiting for the player: Credits to claim, or a prestige to take.
     const rewards =
       this.userMeResponse === false
@@ -511,30 +539,7 @@ export class NavAccountMenu extends LitElement {
         : (this.userMeResponse.player.rewards?.length ?? 0);
     const attention = progress.canPrestige || rewards > 0;
     const ranked = progress.legend || progress.prestige > 0;
-    return html`<span
-      data-account-cluster
-      class="relative block shrink-0 ${d.box} ${d.lift}"
-      title=${title}
-    >
-      ${xpRing(percent, {
-        size: d.size,
-        stroke: d.stroke,
-        animate: true,
-        snap: this.levelUp,
-        pulse: this.levelUp,
-      })}
-      <span
-        data-account-face
-        class="absolute ${d.face} flex items-center justify-center overflow-hidden rounded-full bg-white/10"
-      >
-        ${this.renderIdentityIcons({
-          ids: variant === "desktop",
-          avatarClass: "h-full w-full",
-          iconClass: "h-4 w-4",
-          badgeClass: null,
-        })}
-      </span>
-      ${attention
+    return html`${attention
         ? html`<span
             data-account-attention
             class="pointer-events-none absolute -right-0.5 -top-0.5 z-10 h-2 w-2 rounded-full bg-df-red-bright ring-[1.5px] ring-black"
@@ -573,28 +578,25 @@ export class NavAccountMenu extends LitElement {
           class="block whitespace-nowrap rounded-md bg-df-red ${d.badge} font-display font-bold uppercase leading-none tracking-wider text-white ring-[1.5px] ring-black/70"
           >${levelBadgeText(progress)}</span
         >
-      </span>
-    </span>`;
+      </span>`;
   }
 
   // Avatar / spinner / person icon / email badge, shared by both triggers.
-  // `ids` is populated for the desktop instance only — NavAccountButton and
-  // CrazyGamesAccountButton drive that one by id — while the data-account-*
+  // `ids` is populated for the desktop instance only: NavAccountButton and
+  // CrazyGamesAccountButton drive that one by id, while the data-account-*
   // hooks are what both instances are updated through.
-  private renderIdentityIcons(opts: {
-    ids: boolean;
-    avatarClass: string;
-    iconClass: string;
-    // The email account's corner badge; null where there is no room for it
-    // (the ring cluster: the level badge and marks own its edges).
-    badgeClass: string | null;
-  }): TemplateResult {
-    const id = (name: string) => (opts.ids ? name : undefined);
+  //
+  // Every class on these elements is fixed: the updater shows and hides them by
+  // editing `hidden` on the live element, and a class that came from a changing
+  // binding would be rewritten (and `hidden` with it) the next time it changed.
+  // Their size comes from the face around them.
+  private renderIdentityIcons(ids: boolean): TemplateResult {
+    const id = (name: string) => (ids ? name : undefined);
     return html`
       <img
         id=${ifDefined(id("nav-account-avatar"))}
         data-account-avatar
-        class="hidden ${opts.avatarClass} rounded-full object-cover"
+        class="hidden h-full w-full rounded-full object-cover"
         alt=""
         data-i18n-alt="main.discord_avatar_alt"
         referrerpolicy="no-referrer"
@@ -602,13 +604,13 @@ export class NavAccountMenu extends LitElement {
       <span
         id=${ifDefined(id("nav-account-loading-spinner"))}
         data-account-spinner
-        class="w-4 h-4 border-2 border-white/30 border-t-white/80 rounded-full animate-spin"
+        class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white/80"
         aria-hidden="true"
       ></span>
       <svg
         id=${ifDefined(id("nav-account-person-icon"))}
         data-account-person-icon
-        class="hidden ${opts.iconClass}"
+        class="hidden h-[60%] w-[60%]"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
         fill="none"
@@ -621,131 +623,68 @@ export class NavAccountMenu extends LitElement {
         <path d="M20 21a8 8 0 0 0-16 0" />
         <path d="M12 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
       </svg>
-      ${opts.badgeClass === null
-        ? nothing
-        : html`<span
-            id=${ifDefined(id("nav-account-email-badge"))}
-            data-account-email-badge
-            class="hidden ${opts.badgeClass} w-4 h-4 rounded-full bg-slate-900/80 border border-white/20 flex items-center justify-center"
-            aria-hidden="true"
-          >
-            <svg
-              class="w-2.5 h-2.5 text-white/80"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M4 6h16v12H4z" />
-              <path d="m4 7 8 6 8-6" />
-            </svg>
-          </span>`}
+      <span
+        id=${ifDefined(id("nav-account-email-badge"))}
+        data-account-email-badge
+        class="hidden absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border border-white/20 bg-slate-900/80"
+        aria-hidden="true"
+      >
+        <svg
+          class="h-2.5 w-2.5 text-white/80"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 6h16v12H4z" />
+          <path d="m4 7 8 6 8-6" />
+        </svg>
+      </span>
     `;
   }
 
-  // Desktop nav pill. Ids are load-bearing: NavAccountButton and
-  // CrazyGamesAccountButton drive this instance by id.
-  //
-  // With a level to show the pill holds the ring cluster and the chevron, and
-  // keeps its outline whatever the identity (so it opts out of the imperative
-  // border toggle, `data-account-border`, which is for the plain pill). Without
-  // one it is the plain pill: the avatar, the sign-in label and the chevron.
-  private renderDesktopTrigger(): TemplateResult {
-    const progress = this.progress();
-    if (progress === null) {
-      return html`
-        <button
-          id="nav-account-button"
-          data-account-trigger
-          data-account-border
-          aria-haspopup="menu"
-          aria-expanded=${this.menuOpen ? "true" : "false"}
-          @click=${this.handleTriggerClick}
-          class="nav-menu-item relative h-10 items-center rounded-full flex justify-center gap-2 px-3 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white"
-          data-page="page-account"
-          aria-label=${this.triggerLabel()}
-          data-i18n-title="main.account"
-        >
-          <span class="relative flex items-center justify-center gap-2">
-            ${this.renderIdentityIcons({
-              ids: true,
-              avatarClass: "w-8 h-8",
-              iconClass: "w-5 h-5",
-              badgeClass: "absolute bottom-0 right-0",
-            })}
-            <span
-              id="nav-account-signin-text"
-              data-account-signin-text
-              class="hidden text-xs font-bold tracking-widest"
-              data-i18n="main.sign_in"
-            >
-            </span>
-          </span>
-          ${this.renderChevron()}
-        </button>
-      `;
-    }
+  // The trigger, one template for every state (with a level, without one,
+  // signed out) so the picture is never rebuilt. Desktop is a pill; with a level
+  // it holds the ring cluster and keeps its outline whatever the identity (so it
+  // opts out of the imperative border toggle, `data-account-border`, which is for
+  // the plain pill). Ids are load-bearing on the desktop one: NavAccountButton
+  // and CrazyGamesAccountButton drive it by id. Mobile is the avatar (in its
+  // ring, with a level) or person icon only, plus the chevron.
+  private renderTrigger(variant: "desktop" | "mobile"): TemplateResult {
+    const ring = this.progress() !== null;
+    const desktop = variant === "desktop";
     return html`
       <button
-        id="nav-account-button"
+        id=${ifDefined(desktop ? "nav-account-button" : undefined)}
         data-account-trigger
+        data-account-border=${desktop && !ring ? "" : nothing}
         aria-haspopup="menu"
         aria-expanded=${this.menuOpen ? "true" : "false"}
         @click=${this.handleTriggerClick}
-        class="nav-menu-item relative h-12 items-center rounded-full flex justify-center gap-2 pl-2.5 pr-3 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white"
+        class=${desktop
+          ? `nav-menu-item relative ${ring ? "h-12 pl-2.5 pr-3" : "h-10 px-3"} items-center rounded-full flex justify-center gap-2 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white`
+          : "nav-menu-item h-10 flex items-center justify-center gap-1 pl-1 pr-1.5 rounded-full text-white/90 cursor-pointer transition-colors"}
         data-page="page-account"
         aria-label=${this.triggerLabel()}
         data-i18n-title="main.account"
       >
-        ${this.renderRingCluster("desktop", progress)}
-        <!-- level with the ring's centre, not the badge under it -->
-        <span class="mb-1 flex h-[38px] items-center"
+        ${this.renderCluster(variant)}
+        <!-- The sign-in label is desktop-only and only on the plain pill (the
+             shared updater toggles it); on the top bar the icon alone is the
+             affordance, so the element is kept but never shows text. -->
+        <span
+          id=${ifDefined(desktop ? "nav-account-signin-text" : undefined)}
+          data-account-signin-text
+          class="hidden text-xs font-bold tracking-widest"
+          data-i18n=${ifDefined(desktop ? "main.sign_in" : undefined)}
+        ></span>
+        <span
+          class="flex items-center ${ring && desktop ? "mb-1 h-[38px]" : ""}"
           >${this.renderChevron()}</span
         >
-        <span
-          id="nav-account-signin-text"
-          data-account-signin-text
-          class="hidden"
-        ></span>
-      </button>
-    `;
-  }
-
-  // Mobile top-bar trigger: the avatar (in its ring, with a level) or person
-  // icon only, plus the chevron.
-  private renderMobileTrigger(): TemplateResult {
-    const progress = this.progress();
-    return html`
-      <button
-        data-account-trigger
-        aria-haspopup="menu"
-        aria-expanded=${this.menuOpen ? "true" : "false"}
-        @click=${this.handleTriggerClick}
-        class="nav-menu-item h-10 flex items-center justify-center gap-1 pl-1 pr-1.5 rounded-full text-white/90 cursor-pointer transition-colors"
-        data-page="page-account"
-        aria-label=${this.triggerLabel()}
-        data-i18n-title="main.account"
-      >
-        ${progress === null
-          ? html`<span
-              class="relative flex items-center justify-center w-8 h-8"
-            >
-              ${this.renderIdentityIcons({
-                ids: false,
-                avatarClass: "w-8 h-8",
-                iconClass: "w-7 h-7",
-                badgeClass: "absolute -bottom-0.5 -right-0.5",
-              })}
-            </span>`
-          : this.renderRingCluster("mobile", progress)}
-        <!-- The sign-in label is desktop-only; on the top bar the icon alone is
-             the affordance, so keep the element (the shared updater toggles it)
-             but never show text. -->
-        <span data-account-signin-text class="hidden"></span>
-        ${this.renderChevron()}
       </button>
     `;
   }
