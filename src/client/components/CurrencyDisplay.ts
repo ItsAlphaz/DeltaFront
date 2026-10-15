@@ -1,7 +1,8 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
-import { html, LitElement } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { html, LitElement, PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { translateText } from "../Utils";
+import { countUp } from "../utilities/CountUp";
 import "./CreditsIcon";
 import "./PlutoniumIcon";
 
@@ -45,8 +46,41 @@ export class CurrencyDisplay extends LitElement {
   @property({ type: Boolean })
   large = false;
 
+  // Eases the Credits figure up from 0 the first time it shows (the account
+  // page's opening). Never under reduced motion; the real value is always what
+  // it ends on.
+  @property({ type: Boolean })
+  countIn = false;
+
+  @state() private counting: number | null = null;
+  private counted = false;
+  private stopCounting: (() => void) | null = null;
+
   createRenderRoot() {
     return this;
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.stopCounting?.();
+    this.stopCounting = null;
+  }
+
+  protected willUpdate(changed: PropertyValues<this>): void {
+    super.willUpdate(changed);
+    if (
+      this.counted ||
+      !this.countIn ||
+      typeof this.soft !== "number" ||
+      !(this.soft > 0)
+    ) {
+      return;
+    }
+    this.counted = true;
+    const target = this.soft;
+    this.stopCounting = countUp(target, (value) => {
+      this.counting = value >= target ? null : value;
+    });
   }
 
   render() {
@@ -55,7 +89,10 @@ export class CurrencyDisplay extends LitElement {
     const hard = ACCOUNT_FEATURES.payments
       ? formatCurrencyAmount(this.hard)
       : null;
-    const soft = formatCurrencyAmount(this.soft);
+    const soft =
+      this.counting !== null
+        ? this.counting.toLocaleString()
+        : formatCurrencyAmount(this.soft);
     if (hard === null && soft === null) return html``;
 
     const compact = this.compact;

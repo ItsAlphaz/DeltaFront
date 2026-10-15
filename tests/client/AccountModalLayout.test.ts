@@ -175,6 +175,8 @@ function userMe(
   } as unknown as UserMeResponse;
 }
 
+let openings = 1000;
+
 describe("AccountModal — the redesigned Account page", () => {
   let modal: AccountModal;
 
@@ -204,6 +206,11 @@ describe("AccountModal — the redesigned Account page", () => {
     internals.isLoadingUser = false;
     modal.requestUpdate();
     await modal.updateComplete;
+    await (
+      modal.querySelector("account-profile-header") as {
+        updateComplete: Promise<unknown>;
+      } | null
+    )?.updateComplete;
   }
   const settled = async () => {
     // the panel's own fetch, then the modal re-rendering with its answer
@@ -252,12 +259,12 @@ describe("AccountModal — the redesigned Account page", () => {
       ),
     );
     await settled();
-    expect(q("[data-account-level-line]")?.textContent).toContain(
+    expect(q("[data-ph-level-line]")?.textContent).toContain(
       "progression.rank_",
     );
-    expect(q("[data-account-level-chip]")?.textContent?.trim()).toBe("12");
+    expect(q("[data-ph-level-chip]")?.textContent?.trim()).toBe("12");
     expect(q("[data-xp-bar]")?.getAttribute("aria-valuenow")).toBe("25");
-    expect(q("[data-account-credits] currency-display")).not.toBeNull();
+    expect(q("[data-ph-aside=credits] currency-display")).not.toBeNull();
     // the panel's three challenges, one done
     expect(modal.querySelectorAll("[data-progression-challenge]")).toHaveLength(
       3,
@@ -275,17 +282,17 @@ describe("AccountModal — the redesigned Account page", () => {
       new Promise<ProgressionMe>((resolve) => (answer = resolve)),
     );
     await show(userMe({ google: { email: "me@example.com" } }));
-    const select = () => q("[data-account-title]") as HTMLSelectElement;
+    const select = () => q("[data-ph-title-select]") as HTMLSelectElement;
     // nothing to choose from yet, and no milestone; the level is already there
     expect(select().disabled).toBe(true);
-    expect(q("[data-account-milestone]")).toBeNull();
-    expect(q("[data-account-level-line]")).not.toBeNull();
+    expect(q("[data-ph-milestone]")).toBeNull();
+    expect(q("[data-ph-level-line]")).not.toBeNull();
     expect(q("[data-progression-panel]")).toBeNull();
 
     answer(progression());
     await vi.waitFor(() => expect(select().disabled).toBe(false));
     expect([...select().options].map((o) => o.value)).toEqual(["", "veteran"]);
-    expect(q("[data-account-milestone]")).not.toBeNull();
+    expect(q("[data-ph-milestone]")).not.toBeNull();
     expect(q("[data-progression-panel]")).not.toBeNull();
   });
 
@@ -294,13 +301,13 @@ describe("AccountModal — the redesigned Account page", () => {
       await show(userMe({ google: { email: "me@example.com" } }));
       await settled();
       await vi.waitFor(() =>
-        expect((q("[data-account-title]") as HTMLSelectElement).disabled).toBe(
-          false,
-        ),
+        expect(
+          (q("[data-ph-title-select]") as HTMLSelectElement).disabled,
+        ).toBe(false),
       );
     }
     const choose = (value: string) => {
-      const select = q("[data-account-title]") as HTMLSelectElement;
+      const select = q("[data-ph-title-select]") as HTMLSelectElement;
       select.value = value;
       select.dispatchEvent(new Event("change"));
     };
@@ -321,9 +328,9 @@ describe("AccountModal — the redesigned Account page", () => {
       choose("veteran");
       await vi.waitFor(() => expect(putDisplayTitle).toHaveBeenCalled());
       await vi.waitFor(() =>
-        expect((q("[data-account-title]") as HTMLSelectElement).disabled).toBe(
-          false,
-        ),
+        expect(
+          (q("[data-ph-title-select]") as HTMLSelectElement).disabled,
+        ).toBe(false),
       );
       choose("");
       await vi.waitFor(() =>
@@ -447,13 +454,106 @@ describe("AccountModal — the redesigned Account page", () => {
     await show(
       userMe({ google: { email: "me@example.com" } }, { progress: undefined }),
     );
-    expect(q("[data-account-identity]")).not.toBeNull();
-    expect(q("[data-account-progression]")).toBeNull();
-    expect(q("[data-account-title-row]")).toBeNull();
+    expect(q("[data-ph-identity]")).not.toBeNull();
+    expect(q("[data-ph-progression]")).toBeNull();
+    expect(q("[data-ph-title-row]")).toBeNull();
     expect(q("progression-panel")).toBeNull();
     expect(q("[data-linked-accounts]")).not.toBeNull();
-    expect(q("[data-account-credits] currency-display")).not.toBeNull();
+    expect(q("[data-ph-aside=credits] currency-display")).not.toBeNull();
     expect(fetchProgressionMe).not.toHaveBeenCalled();
+  });
+
+  describe("the Account page's entrance", () => {
+    // a fresh opening of the modal, as onOpen counts them
+    // (each test gets its own modal, so name the opening from a shared count)
+    const reopen = () => {
+      (modal as unknown as { openCount: number }).openCount = ++openings;
+    };
+    const sections = () => [...modal.querySelectorAll(".df-enter")];
+    const page = () => q(".flex.flex-col.gap-6")!;
+
+    it("brings the sections in one after another, once per opening", async () => {
+      reopen();
+      await show(userMe({ google: { email: "me@example.com" } }));
+      await settled();
+      expect(page().classList.contains("account-intro")).toBe(true);
+      // the header first, then the challenges, then the linked accounts
+      const index = (el: Element) =>
+        Number((el as HTMLElement).style.getPropertyValue("--i"));
+      expect(index(q("account-profile-header")!)).toBe(0);
+      expect(index(q("[data-progression-challenges]")!)).toBe(1);
+      expect(index(q("[data-linked-accounts]")!)).toBe(4);
+      expect(sections().length).toBeGreaterThan(5);
+      // the rows within a card come in after it, in order
+      const rows = [...modal.querySelectorAll("[data-progression-challenge]")];
+      // two daily rows, then the weekly one after the three daily slots
+      expect(rows.map(index)).toEqual([2, 3, 5]);
+    });
+
+    it("not again when you come back to the Account tab", async () => {
+      reopen();
+      await show(userMe({ google: { email: "me@example.com" } }));
+      await settled();
+      expect(page().classList.contains("account-intro")).toBe(true);
+      // the same opening: Stats, then back. (Rendered again, in place.)
+      modal.setActiveTab("stats");
+      await modal.updateComplete;
+      modal.setActiveTab("account");
+      await modal.updateComplete;
+      await settled();
+      expect(page().classList.contains("account-intro")).toBe(false);
+      // sections are still there and still ordered; they just do not animate
+      expect(q("[data-account-header]")).not.toBeNull();
+    });
+
+    it("plays again for the next opening", async () => {
+      reopen();
+      await show(userMe({ google: { email: "me@example.com" } }));
+      await settled();
+      reopen();
+      modal.requestUpdate();
+      await modal.updateComplete;
+      expect(page().classList.contains("account-intro")).toBe(true);
+    });
+
+    it("never under reduced motion, or on a hidden page", async () => {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn((query: string) => ({ matches: query.includes("reduce") })),
+      );
+      reopen();
+      await show(userMe({ google: { email: "me@example.com" } }));
+      expect(page().classList.contains("account-intro")).toBe(false);
+      vi.unstubAllGlobals();
+      vi.stubGlobal("localStorage", {
+        getItem: vi.fn(() => null),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+      });
+      const hidden = vi
+        .spyOn(document, "visibilityState", "get")
+        .mockReturnValue("hidden");
+      reopen();
+      modal.requestUpdate();
+      await modal.updateComplete;
+      expect(page().classList.contains("account-intro")).toBe(false);
+      hidden.mockRestore();
+    });
+
+    it("drops the entrance once it has landed, so nothing keeps animating", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout"] });
+      try {
+        reopen();
+        await show(userMe({ google: { email: "me@example.com" } }));
+        expect(page().classList.contains("account-intro")).toBe(true);
+        vi.advanceTimersByTime(1900);
+        await modal.updateComplete;
+        expect(page().classList.contains("account-intro")).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("the Account, Stats and Games tabs", () => {

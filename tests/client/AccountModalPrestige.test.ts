@@ -127,6 +127,11 @@ describe("AccountModal — after a prestige", () => {
     (modal as unknown as { isLoadingUser: boolean }).isLoadingUser = false;
     modal.requestUpdate();
     await modal.updateComplete;
+    await (
+      modal.querySelector("account-profile-header") as {
+        updateComplete: Promise<unknown>;
+      } | null
+    )?.updateComplete;
   });
 
   afterEach(() => {
@@ -139,13 +144,18 @@ describe("AccountModal — after a prestige", () => {
   // The Prestige button of the account header's progression band.
   const pressPrestige = () =>
     modal
-      .querySelector<HTMLButtonElement>("[data-account-prestige-button]")!
+      .querySelector<HTMLButtonElement>("[data-ph-prestige-button]")!
       .click();
   const own = () =>
     (modal as unknown as { userMeResponse: UserMeResponse }).userMeResponse;
   const settle = async () => {
     await new Promise((r) => setTimeout(r, 0));
     await modal.updateComplete;
+    await (
+      modal.querySelector("account-profile-header") as {
+        updateComplete: Promise<unknown>;
+      } | null
+    )?.updateComplete;
   };
 
   it("opens the prestige flow on the press", async () => {

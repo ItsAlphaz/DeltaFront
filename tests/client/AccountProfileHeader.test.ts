@@ -14,9 +14,8 @@ vi.mock("../../src/client/Utils", () => ({
 }));
 
 import {
-  accountProfileHeader,
+  AccountProfileHeader,
   linkedHandle,
-  type AccountProfileHeaderProps,
 } from "../../src/client/components/AccountProfileHeader";
 import { segmentedXpBar } from "../../src/client/components/XpBar";
 
@@ -81,19 +80,25 @@ let host: HTMLElement;
 const onTitleChange = vi.fn();
 const onPrestige = vi.fn();
 
-function mount(over: Partial<AccountProfileHeaderProps> = {}): HTMLElement {
-  render(
-    accountProfileHeader({
-      player: player(),
-      identity: identity(),
-      progression: progression(),
-      prestigeable: true,
-      onTitleChange,
-      onPrestige,
-      ...over,
-    }),
-    host,
+async function mount(
+  over: Partial<AccountProfileHeader> = {},
+): Promise<HTMLElement> {
+  const el = document.createElement(
+    "account-profile-header",
+  ) as AccountProfileHeader;
+  Object.assign(el, {
+    player: player(),
+    identity: identity(),
+    progression: progression(),
+    prestigeable: true,
+    ...over,
+  });
+  el.addEventListener("title-change", (e) =>
+    onTitleChange((e as CustomEvent).detail),
   );
+  el.addEventListener("prestige-request", () => onPrestige());
+  host.replaceChildren(el);
+  await el.updateComplete;
   return host;
 }
 const q = (sel: string) => host.querySelector(sel);
@@ -107,78 +112,116 @@ beforeEach(() => {
 afterEach(() => host.remove());
 
 describe("account profile header: the one top card", () => {
-  it("is a single card with an identity band, a progression band and a title band, in that order", () => {
-    mount();
+  const bands = (card: Element) =>
+    [...card.children]
+      .map((c) =>
+        c
+          .getAttributeNames()
+          .find((n) => /^data-ph-(identity|progression|title-row)$/.test(n)),
+      )
+      .filter((n) => n !== undefined);
+
+  it("is a single card with an identity band, a progression band and a title band, in that order", async () => {
+    await mount();
     const card = q("[data-account-header]")!;
-    expect(
-      [...card.children].map((c) =>
-        c.getAttributeNames().find((n) => n.startsWith("data-account-")),
-      ),
-    ).toEqual([
-      "data-account-identity",
-      "data-account-progression",
-      "data-account-title-row",
+    expect(bands(card)).toEqual([
+      "data-ph-identity",
+      "data-ph-progression",
+      "data-ph-title-row",
     ]);
     // each band after the first sits under a full-width rule
-    expect(q("[data-account-progression]")?.className).toContain("border-t");
-    expect(q("[data-account-title-row]")?.className).toContain("border-t");
+    expect(q("[data-ph-progression]")?.className).toContain("border-t");
+    expect(q("[data-ph-title-row]")?.className).toContain("border-t");
+    // the hex pattern is behind everything, the card is the profile system's
+    expect(card.hasAttribute("data-ph-root")).toBe(true);
+    expect(card.querySelector(":scope > svg pattern")).not.toBeNull();
   });
 
-  it("keeps the XP bar in its own band, never beside the avatar", () => {
-    mount();
+  it("keeps the XP bar in its own band, never beside the avatar", async () => {
+    await mount();
     const bar = q("[data-xp-bar]")!;
-    expect(q("[data-account-progression]")?.contains(bar)).toBe(true);
-    expect(q("[data-account-identity]")?.contains(bar)).toBe(false);
-    expect(q("[data-account-avatar]")?.parentElement?.contains(bar)).toBe(
-      false,
-    );
-    // padded on every side, with space between the lines inside the band
-    expect(q("[data-account-progression]")?.className).toMatch(/\bp-5\b/);
-    expect(q("[data-account-progression]")?.className).toMatch(/\bgap-3\b/);
+    expect(q("[data-ph-progression]")?.contains(bar)).toBe(true);
+    expect(q("[data-ph-identity]")?.contains(bar)).toBe(false);
+    expect(q("[data-ph-avatar]")?.parentElement?.contains(bar)).toBe(false);
   });
 
-  it("shows the identity alone when progression is off", () => {
-    mount({ player: player({ progress: undefined }) });
-    expect(q("[data-account-identity]")).not.toBeNull();
-    expect(q("[data-account-progression]")).toBeNull();
-    expect(q("[data-account-title-row]")).toBeNull();
-    expect(q("[data-account-level-chip]")).toBeNull();
+  it("separates the progression band from the identity: room under the avatar, a stronger rule, a shade of its own, room above the level", async () => {
+    await mount();
+    const identity = q("[data-ph-identity]")!.className;
+    const band = q("[data-ph-progression]")!.className;
+    // the identity band's bottom padding clears the chip overhanging the avatar
+    expect(identity).toMatch(/\bpb-9\b/);
+    expect(identity).toMatch(/\bsm:pb-10\b/);
+    // the band: a stronger rule than the others, its own shade, real top room
+    expect(band).toContain("border-white/15");
+    expect(band).toContain("bg-black/25");
+    expect(band).toMatch(/\bpt-7\b/);
+    expect(band).toMatch(/\bsm:pt-8\b/);
+    // and more air between its lines than before
+    expect(band).toMatch(/\bgap-4\b/);
+    expect(q("[data-ph-title-row]")!.className).toContain("border-white/10");
+  });
+
+  it("puts the band's lines in order: level, milestone and XP, then the bar", async () => {
+    await mount();
+    const band = q("[data-ph-progression]")!;
+    const order = [
+      "[data-ph-level-line]",
+      "[data-ph-milestone]",
+      "[data-xp-bar]",
+    ].map((sel) => band.querySelector(sel)!);
+    for (let i = 1; i < order.length; i++) {
+      expect(
+        order[i - 1].compareDocumentPosition(order[i]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
+  it("shows the identity alone when progression is off", async () => {
+    await mount({ player: player({ progress: undefined }) });
+    expect(q("[data-ph-identity]")).not.toBeNull();
+    expect(q("[data-ph-progression]")).toBeNull();
+    expect(q("[data-ph-title-row]")).toBeNull();
+    expect(q("[data-ph-level-chip]")).toBeNull();
     expect(q("[data-xp-bar]")).toBeNull();
     expect(q("#account-username")?.textContent).toBe("Alphaz");
   });
 });
 
 describe("identity band", () => {
-  it("shows the name, the clan tag, the linked handle and the avatar", () => {
-    mount();
+  it("shows the name, the clan tag, the linked handle and the avatar", async () => {
+    await mount();
     expect(q("#account-username")?.textContent).toBe("Alphaz");
-    expect(text("[data-account-clan]")).toBe("[DELTA]");
-    expect(text("[data-account-handle]")).toBe("@i_alphaz");
-    expect(
-      q("[data-account-handle]")?.getAttribute("data-account-handle-kind"),
-    ).toBe("discord");
-    const img = q("[data-account-avatar] img") as HTMLImageElement;
+    expect(text("[data-ph-clan]")).toBe("[DELTA]");
+    expect(text("[data-ph-handle]")).toBe("@i_alphaz");
+    expect(q("[data-ph-handle]")?.getAttribute("data-ph-handle-kind")).toBe(
+      "discord",
+    );
+    const img = q("[data-ph-avatar] img") as HTMLImageElement;
     expect(img.getAttribute("src")).toBe("https://cdn.example/7/abc.png");
   });
 
-  it("keeps the clan tag and the linked handle out of the name and the status block", () => {
-    mount();
+  it("keeps the clan tag and the linked handle out of the name and the status block", async () => {
+    await mount();
     const status = q("#account-status")!;
-    expect(status.contains(q("[data-account-clan]"))).toBe(false);
-    expect(status.contains(q("[data-account-handle]"))).toBe(false);
+    expect(status.contains(q("[data-ph-clan]"))).toBe(false);
+    expect(status.contains(q("[data-ph-handle]"))).toBe(false);
     expect(q("#account-username")?.textContent).not.toContain("DELTA");
     // the sign-in identity never leaks into the verified / staff block
     expect(status.textContent).not.toContain("i_alphaz");
   });
 
-  it("falls back to the initial when there is no avatar", () => {
-    mount({ identity: identity({ discord: { ...DISCORD, avatar: null } }) });
-    expect(q("[data-account-avatar] img")).toBeNull();
-    expect(text("[data-account-avatar]")).toBe("A");
+  it("falls back to the initial when there is no avatar", async () => {
+    await mount({
+      identity: identity({ discord: { ...DISCORD, avatar: null } }),
+    });
+    expect(q("[data-ph-avatar] img")).toBeNull();
+    expect(text("[data-ph-avatar]")).toBe("A");
   });
 
-  it("uses a Steam avatar and persona for a Steam account", () => {
-    mount({
+  it("uses a Steam avatar and persona for a Steam account", async () => {
+    await mount({
       identity: {
         steam: {
           steamId: "1",
@@ -188,12 +231,12 @@ describe("identity band", () => {
       } as unknown as Identity,
     });
     expect(
-      (q("[data-account-avatar] img") as HTMLImageElement).getAttribute("src"),
+      (q("[data-ph-avatar] img") as HTMLImageElement).getAttribute("src"),
     ).toBe("https://cdn/x.jpg");
-    expect(text("[data-account-handle]")).toBe("SnugglePuppy");
+    expect(text("[data-ph-handle]")).toBe("SnugglePuppy");
   });
 
-  it("names the linked identity in the order discord, google, email, steam", () => {
+  it("names the linked identity in the order discord, google, email, steam", async () => {
     expect(linkedHandle(identity({ google: { email: "a@b.c" } }))?.kind).toBe(
       "discord",
     );
@@ -207,8 +250,8 @@ describe("identity band", () => {
     expect(linkedHandle(null)).toBeNull();
   });
 
-  it("puts the check beside the name and the badges as chips under it", () => {
-    mount();
+  it("puts the check beside the name and the badges as chips under it", async () => {
+    await mount();
     const username = q("#account-username")!;
     expect(
       username.parentElement?.querySelector(
@@ -221,22 +264,22 @@ describe("identity band", () => {
     expect(text("#account-staff-chip")).toContain("staff.owner");
     // the owner chip is the red one; the other roles are neutral
     expect(q("#account-staff-chip")?.className).toContain("border-df-red/50");
-    mount({ player: player({ staffRole: "mod" }) });
+    await mount({ player: player({ staffRole: "mod" }) });
     expect(q("#account-staff-chip")?.className).not.toContain(
       "border-df-red/50",
     );
     expect(text("#account-staff-chip")).toContain("staff.mod");
   });
 
-  it("shows neither chip for an ordinary account", () => {
-    mount({ player: player({ verified: false, staffRole: undefined }) });
+  it("shows neither chip for an ordinary account", async () => {
+    await mount({ player: player({ verified: false, staffRole: undefined }) });
     expect(q("#account-verified-chip")).toBeNull();
     expect(q("#account-staff-chip")).toBeNull();
     expect(q("#account-status")?.querySelector("svg")).toBeNull();
   });
 
-  it("tells a verified account with no username to set one", () => {
-    mount({ player: player({ username: null, staffRole: undefined }) });
+  it("tells a verified account with no username to set one", async () => {
+    await mount({ player: player({ username: null, staffRole: undefined }) });
     expect(q("#account-username")).toBeNull();
     const guidance = q("#account-verified-needs-username")!;
     expect(guidance.textContent).toContain(
@@ -247,9 +290,9 @@ describe("identity band", () => {
     window.location.hash = "";
   });
 
-  it("shows the Credits balance with its label, as the big number of the card", () => {
-    mount();
-    const credits = q("[data-account-credits]")!;
+  it("shows the Credits balance with its label, as the big number of the card", async () => {
+    await mount();
+    const credits = q("[data-ph-aside=credits]")!;
     expect(credits.textContent).toContain("account_modal.credits_label");
     const display = credits.querySelector("currency-display") as unknown as {
       soft: number;
@@ -262,21 +305,21 @@ describe("identity band", () => {
 });
 
 describe("progression band", () => {
-  it("reads LEVEL · RANK, then the milestone and the XP, then the bar", () => {
-    mount();
-    const line = text("[data-account-level-line]")!;
+  it("reads LEVEL · RANK, then the milestone and the XP, then the bar", async () => {
+    await mount();
+    const line = text("[data-ph-level-line]")!;
     expect(line).toContain('progression.level:{"level":1}');
     expect(line).toContain("progression.rank_recruit");
-    expect(text("[data-account-milestone]")).toBe(
+    expect(text("[data-ph-milestone]")).toBe(
       'progression.next_milestone:{"level":5,"credits":"250"}',
     );
-    expect(text("[data-account-xp-text]")).toBe(
+    expect(text("[data-ph-xp-text]")).toBe(
       'progression.xp_progress:{"current":"0","next":"500"}',
     );
-    const band = q("[data-account-progression]")!;
+    const band = q("[data-ph-progression]")!;
     const order = [
-      "[data-account-level-line]",
-      "[data-account-milestone]",
+      "[data-ph-level-line]",
+      "[data-ph-milestone]",
       "[data-xp-bar]",
     ].map((sel) => band.querySelector(sel)!);
     for (let i = 1; i < order.length; i++) {
@@ -287,22 +330,20 @@ describe("progression band", () => {
     }
   });
 
-  it("puts the level on the avatar corner, with its full name for a screen reader", () => {
-    mount({
+  it("puts the level on the avatar corner, with its full name for a screen reader", async () => {
+    await mount({
       player: player({
         progress: { ...PROGRESS, level: 47, prestige: 2 },
       }),
     });
-    const chip = q("[data-account-level-chip]")!;
+    const chip = q("[data-ph-level-chip]")!;
     expect(chip.textContent?.trim()).toBe("47");
     expect(chip.getAttribute("aria-label")).toContain("progression.level");
-    expect(q("[data-account-avatar]")?.parentElement?.contains(chip)).toBe(
-      true,
-    );
+    expect(q("[data-ph-avatar]")?.parentElement?.contains(chip)).toBe(true);
   });
 
-  it("draws the XP as a segmented bar that matches the level's progress", () => {
-    mount({
+  it("draws the XP as a segmented bar that matches the level's progress", async () => {
+    await mount({
       player: player({
         progress: { ...PROGRESS, level: 12, xpInLevel: 1000, xpForNext: 4000 },
       }),
@@ -315,26 +356,26 @@ describe("progression band", () => {
     );
     expect(bar.querySelectorAll("[data-xp-segment]")).toHaveLength(10);
     // XP numbers are aligned on a shared figure grid and never wrap mid-number
-    expect(q("[data-account-xp-text]")?.className).toContain("tabular-nums");
+    expect(q("[data-ph-xp-text]")?.className).toContain("tabular-nums");
   });
 
-  it("shows prestige, and the emblem, once the player has prestiged", () => {
-    mount({
+  it("shows prestige, and the emblem, once the player has prestiged", async () => {
+    await mount({
       player: player({
         progress: { ...PROGRESS, level: 30, prestige: 3 },
       }),
     });
-    expect(text("[data-account-prestige]")).toBe(
+    expect(text("[data-ph-prestige]")).toBe(
       'progression.prestige:{"prestige":3}',
     );
-    expect(q("[data-account-emblem]")).not.toBeNull();
-    mount();
-    expect(q("[data-account-prestige]")).toBeNull();
-    expect(q("[data-account-emblem]")).toBeNull();
+    expect(q("[data-ph-emblem]")).not.toBeNull();
+    await mount();
+    expect(q("[data-ph-prestige]")).toBeNull();
+    expect(q("[data-ph-emblem]")).toBeNull();
   });
 
-  it("reads LEGEND, with a full bar and no next level", () => {
-    mount({
+  it("reads LEGEND, with a full bar and no next level", async () => {
+    await mount({
       player: player({
         progress: {
           ...PROGRESS,
@@ -347,58 +388,56 @@ describe("progression band", () => {
       }),
       progression: progression({ nextMilestone: null }),
     });
-    expect(text("[data-account-level-line]")).toContain("progression.legend");
-    expect(text("[data-account-xp-text]")).toBe("progression.max_level");
+    expect(text("[data-ph-level-line]")).toContain("progression.legend");
+    expect(text("[data-ph-xp-text]")).toBe("progression.max_level");
     expect(q("[data-xp-bar]")?.getAttribute("aria-valuenow")).toBe("100");
-    expect(q("[data-account-milestone]")).toBeNull();
+    expect(q("[data-ph-milestone]")).toBeNull();
   });
 
-  it("offers Prestige only at level 100 on a page that handles it", () => {
+  it("offers Prestige only at level 100 on a page that handles it", async () => {
     const ready = {
       ...PROGRESS,
       level: 100,
       xpForNext: 0,
       canPrestige: true,
     };
-    mount({ player: player({ progress: ready }) });
-    const button = q(
-      "[data-account-prestige-button]",
-    ) as HTMLButtonElement | null;
+    await mount({ player: player({ progress: ready }) });
+    const button = q("[data-ph-prestige-button]") as HTMLButtonElement | null;
     expect(button).not.toBeNull();
     button!.click();
     expect(onPrestige).toHaveBeenCalledTimes(1);
 
-    mount({ player: player({ progress: ready }), prestigeable: false });
-    expect(q("[data-account-prestige-button]")).toBeNull();
-    mount();
-    expect(q("[data-account-prestige-button]")).toBeNull();
+    await mount({ player: player({ progress: ready }), prestigeable: false });
+    expect(q("[data-ph-prestige-button]")).toBeNull();
+    await mount();
+    expect(q("[data-ph-prestige-button]")).toBeNull();
   });
 });
 
 describe("display title", () => {
-  const select = () => q("[data-account-title]") as HTMLSelectElement;
+  const select = () => q("[data-ph-title-select]") as HTMLSelectElement;
 
-  it("labels the choice and says where it shows", () => {
-    mount();
-    const row = q("[data-account-title-row]")!;
+  it("labels the choice and says where it shows", async () => {
+    await mount();
+    const row = q("[data-ph-title-row]")!;
     expect(row.textContent).toContain("progression.display_title");
     expect(row.textContent).toContain("progression.display_title_hint");
   });
 
-  it("lists No title and each earned title, with the chosen one selected", () => {
-    mount({ progression: progression({ selectedTitle: "veteran" }) });
+  it("lists No title and each earned title, with the chosen one selected", async () => {
+    await mount({ progression: progression({ selectedTitle: "veteran" }) });
     expect([...select().options].map((o) => o.value)).toEqual([
       "",
       "veteran",
       "prestige:1",
     ]);
     expect(select().selectedOptions[0].value).toBe("veteran");
-    mount();
+    await mount();
     expect(select().selectedOptions[0].value).toBe("");
   });
 
-  it("reports a choice, and No title as null", () => {
-    mount();
+  it("reports a choice, and No title as null", async () => {
+    await mount();
     select().value = "prestige:1";
     select().dispatchEvent(new Event("change"));
     expect(onTitleChange).toHaveBeenLastCalledWith("prestige:1");
@@ -407,42 +446,42 @@ describe("display title", () => {
     expect(onTitleChange).toHaveBeenLastCalledWith(null);
   });
 
-  it("is disabled until the titles are known, and while one is being saved", () => {
-    mount({ progression: null });
+  it("is disabled until the titles are known, and while one is being saved", async () => {
+    await mount({ progression: null });
     expect(select().disabled).toBe(true);
     // the title already chosen still shows, from the account itself
-    mount({
+    await mount({
       progression: null,
       player: player({ progress: { ...PROGRESS, title: "veteran" } }),
     });
     expect(select().disabled).toBe(true);
-    mount({ savingTitle: true });
+    await mount({ savingTitle: true });
     expect(select().disabled).toBe(true);
-    mount();
+    await mount();
     expect(select().disabled).toBe(false);
   });
 });
 
 describe("responsive structure", () => {
-  it("stacks the identity and Credits on a phone, side by side from sm", () => {
-    mount();
-    const band = q("[data-account-identity]")!.className;
+  it("stacks the identity and Credits on a phone, side by side from sm", async () => {
+    await mount();
+    const band = q("[data-ph-identity]")!.className;
     expect(band).toContain("flex-col");
     expect(band).toContain("sm:flex-row");
     expect(band).toContain("sm:justify-between");
   });
 
-  it("stacks the title label over its select on a phone, full width", () => {
-    mount();
-    const row = q("[data-account-title-row]")!.className;
+  it("stacks the title label over its select on a phone, full width", async () => {
+    await mount();
+    const row = q("[data-ph-title-row]")!.className;
     expect(row).toContain("flex-col");
     expect(row).toContain("sm:flex-row");
-    expect(q("[data-account-title]")?.className).toContain("w-full");
-    expect(q("[data-account-title]")?.className).toContain("sm:w-64");
+    expect(q("[data-ph-title-select]")?.className).toContain("w-full");
+    expect(q("[data-ph-title-select]")?.className).toContain("sm:w-64");
   });
 
-  it("truncates a long name, clan tag and handle instead of widening the card", () => {
-    mount({
+  it("truncates a long name, clan tag and handle instead of widening the card", async () => {
+    await mount({
       player: player({
         username: "A".repeat(80),
         clans: [{ tag: "LONGTAG" }],
@@ -453,25 +492,25 @@ describe("responsive structure", () => {
     });
     expect(q("#account-username")?.className).toContain("truncate");
     expect(q("#account-username")?.className).toContain("min-w-0");
-    expect(q("[data-account-clan]")?.className).toContain("truncate");
-    expect(q("[data-account-handle]")?.className).toContain("truncate");
+    expect(q("[data-ph-clan]")?.className).toContain("truncate");
+    expect(q("[data-ph-handle]")?.className).toContain("truncate");
     // the column that holds them may shrink below its content
-    expect(q("[data-account-handle]")?.parentElement?.className).toContain(
+    expect(q("[data-ph-handle]")?.parentElement?.className).toContain(
       "min-w-0",
     );
     // the avatar and the Credits keep their size
-    expect(q("[data-account-avatar]")?.parentElement?.className).toContain(
+    expect(q("[data-ph-avatar]")?.parentElement?.className).toContain(
       "shrink-0",
     );
-    expect(q("[data-account-credits]")?.className).toContain("shrink-0");
+    expect(q("[data-ph-aside=credits]")?.className).toContain("shrink-0");
   });
 
-  it("lets the XP line wrap under the level instead of overflowing", () => {
-    mount();
-    const xpRow = q("[data-account-xp-text]")!.parentElement!;
+  it("lets the XP line wrap under the level instead of overflowing", async () => {
+    await mount();
+    const xpRow = q("[data-ph-xp-text]")!.parentElement!;
     expect(xpRow.className).toContain("flex-wrap");
-    expect(q("[data-account-xp-text]")?.className).toContain("shrink-0");
-    expect(q("[data-account-level-line]")?.className).toContain("break-words");
+    expect(q("[data-ph-xp-text]")?.className).toContain("shrink-0");
+    expect(q("[data-ph-level-line]")?.className).toContain("break-words");
   });
 });
 
@@ -489,14 +528,14 @@ describe("segmented XP bar", () => {
       (f) => f.style.width,
     );
 
-  it("is ten empty segments at zero", () => {
+  it("is ten empty segments at zero", async () => {
     const el = bar(0);
     expect(states(el)).toEqual(Array(10).fill("empty"));
     expect(el.getAttribute("aria-valuenow")).toBe("0");
     expect(el.getAttribute("role")).toBe("progressbar");
   });
 
-  it("fills whole segments, then part of the next one", () => {
+  it("fills whole segments, then part of the next one", async () => {
     const el = bar(55);
     expect(states(el)).toEqual([
       "full",
@@ -514,14 +553,14 @@ describe("segmented XP bar", () => {
     expect(el.getAttribute("aria-valuenow")).toBe("55");
   });
 
-  it("is full at 100 and clamps what is out of range", () => {
+  it("is full at 100 and clamps what is out of range", async () => {
     expect(states(bar(100))).toEqual(Array(10).fill("full"));
     expect(states(bar(250))).toEqual(Array(10).fill("full"));
     expect(states(bar(-5))).toEqual(Array(10).fill("empty"));
     expect(bar(Number.NaN).getAttribute("aria-valuenow")).toBe("0");
   });
 
-  it("takes another segment count, and announces one value, not the pieces", () => {
+  it("takes another segment count, and announces one value, not the pieces", async () => {
     const el = bar(50, { segments: 4, valueText: "half" });
     expect(states(el)).toEqual(["full", "full", "empty", "empty"]);
     expect(el.getAttribute("aria-valuetext")).toBe("half");

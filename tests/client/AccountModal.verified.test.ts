@@ -116,6 +116,11 @@ describe("AccountModal — verified account status", () => {
     internals.isLoadingUser = false;
     modal.requestUpdate();
     await modal.updateComplete;
+    await (
+      modal.querySelector("account-profile-header") as {
+        updateComplete: Promise<unknown>;
+      } | null
+    )?.updateComplete;
   }
 
   const status = () => modal.querySelector("#account-status");
@@ -177,9 +182,9 @@ describe("AccountModal — verified account status", () => {
     // The sign-in identity is rendered outside the status block: under the
     // name in the header, and as a row of the Linked accounts card.
     expect(status()?.textContent).not.toContain("owner@example.com");
-    expect(
-      modal.querySelector("[data-account-handle]")?.textContent?.trim(),
-    ).toBe("owner@example.com");
+    expect(modal.querySelector("[data-ph-handle]")?.textContent?.trim()).toBe(
+      "owner@example.com",
+    );
     expect(
       modal.querySelector('[data-linked-provider="google"]')?.textContent,
     ).toContain("owner@example.com");

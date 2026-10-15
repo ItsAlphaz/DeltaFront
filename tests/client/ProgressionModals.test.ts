@@ -221,7 +221,7 @@ describe("player profile level", () => {
 
   // The profile card's level parts.
   const levelLine = () =>
-    modal.querySelector("profile-card [data-profile-level-line]");
+    modal.querySelector("profile-card [data-ph-level-line]");
 
   it("shows another player's level from the public endpoint", async () => {
     fetchPublicPlayerProgress.mockResolvedValue({
@@ -235,9 +235,9 @@ describe("player profile level", () => {
       'progression.level:{"level":12}',
     );
     expect(levelLine()!.textContent).not.toContain("progression.prestige");
-    expect(
-      modal.querySelector("[data-profile-lifetime]")!.textContent,
-    ).toContain("4,200");
+    expect(modal.querySelector("[data-ph-lifetime]")!.textContent).toContain(
+      "4,200",
+    );
     // No XP-in-level from this API: no bar.
     expect(modal.querySelector("profile-card [data-xp-bar]")).toBeNull();
     expect(fetchPublicPlayerProgress).toHaveBeenCalledWith("someone-else");

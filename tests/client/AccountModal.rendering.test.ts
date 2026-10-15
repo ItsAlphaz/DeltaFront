@@ -123,6 +123,11 @@ describe("AccountModal — rendering", () => {
     (modal as unknown as { isLoadingUser: boolean }).isLoadingUser = false;
     modal.requestUpdate();
     await modal.updateComplete;
+    await (
+      modal.querySelector("account-profile-header") as {
+        updateComplete: Promise<unknown>;
+      } | null
+    )?.updateComplete;
   }
 
   // onOpen kicks off getUserMe(); let the microtasks settle before asserting on

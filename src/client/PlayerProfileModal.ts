@@ -243,6 +243,8 @@ export class PlayerProfileModal extends BaseModal {
             .username=${this.username ?? this.publicId ?? ""}
             .clanTag=${this.clans[0]?.tag ?? null}
             .progress=${this.progress}
+            .verified=${this.verified ?? isVerifiedUsername(this.username)}
+            .staffRole=${this.staffRole}
             .openKey=${`profile-${this.openCount}`}
           ></profile-card>`}
       <player-stats-tree-view

@@ -42,19 +42,19 @@ describe("<profile-card>", () => {
   it("shows the name, clan, prestige and level, the XP bar and lifetime XP", async () => {
     await render({ username: "Iamlewis", clanTag: "OF", progress: PRESTIGE_3 });
     expect(card.querySelector("[data-profile-card='full']")).not.toBeNull();
-    expect(text("[data-profile-name]")).toContain("Iamlewis");
-    expect(text("[data-profile-clan]")).toContain("[OF]");
-    const line = text("[data-profile-level-line]")!;
+    expect(text("[data-ph-name]")).toContain("Iamlewis");
+    expect(text("[data-ph-clan]")).toContain("[OF]");
+    const line = text("[data-ph-level-line]")!;
     expect(line).toContain('progression.prestige:{"prestige":3}');
     expect(line).toContain('progression.level:{"level":47}');
     expect(card.querySelector("level-badge")).not.toBeNull();
     expect(
       card.querySelector("[data-xp-bar]")!.getAttribute("aria-valuenow"),
     ).toBe("62");
-    expect(text("[data-profile-xp]")).toContain(
+    expect(text("[data-ph-xp-text]")).toContain(
       'progression.xp_progress:{"current":"1,490","next":"2,410"}',
     );
-    expect(text("[data-profile-lifetime]")).toContain("212,400");
+    expect(text("[data-ph-lifetime]")).toContain("212,400");
   });
 
   it("never repeats the games and wins the stats below it show", async () => {
@@ -88,11 +88,10 @@ describe("<profile-card>", () => {
       username: "New",
       progress: { prestige: 0, level: 5, legend: false, lifetimeXp: 900 },
     });
-    expect(text("[data-profile-level-line]")).not.toContain(
-      "progression.prestige",
-    );
+    expect(text("[data-ph-level-line]")).not.toContain("progression.prestige");
     expect(card.querySelector("[data-xp-bar]")).toBeNull();
-    expect(text("[data-profile-lifetime]")).toContain("900");
+    expect(card.querySelector("[data-ph-xp-text]")).toBeNull();
+    expect(text("[data-ph-lifetime]")).toContain("900");
   });
 
   it("shows a Legend as Legend, with a full bar at max level", async () => {
@@ -107,11 +106,11 @@ describe("<profile-card>", () => {
         xpForNext: 0,
       },
     });
-    expect(text("[data-profile-level-line]")).toContain("progression.legend");
+    expect(text("[data-ph-level-line]")).toContain("progression.legend");
     expect(
       card.querySelector("[data-xp-bar]")!.getAttribute("aria-valuenow"),
     ).toBe("100");
-    expect(text("[data-profile-xp]")).toContain("progression.max_level");
+    expect(text("[data-ph-xp-text]")).toContain("progression.max_level");
   });
 
   it("renders nothing while progression is off", async () => {
@@ -124,8 +123,8 @@ describe("<profile-card>", () => {
       username: "Iamlewis",
       progress: { ...PRESTIGE_3, title: "veteran" },
     });
-    expect(text("[data-profile-rank]")).toBe("progression.rank_lieutenant");
-    expect(text("[data-profile-title]")).toBe("progression.title_veteran");
+    expect(text("[data-ph-rank]")).toBe("progression.rank_lieutenant");
+    expect(text("[data-ph-title]")).toBe("★ progression.title_veteran");
   });
 
   it("shows the rank alone without a title, and the running season on the full card only", async () => {
@@ -136,8 +135,8 @@ describe("<profile-card>", () => {
         season: { name: "Opening", level: 18, xp: 7850 },
       },
     });
-    expect(card.querySelector("[data-profile-title]")).toBeNull();
-    expect(text("[data-profile-season]")).toContain(
+    expect(card.querySelector("[data-ph-title]")).toBeNull();
+    expect(text("[data-ph-season]")).toContain(
       'progression.profile_season:{"name":"Opening","level":18,"xp":"7,850"}',
     );
     card.remove();
@@ -150,6 +149,7 @@ describe("<profile-card>", () => {
       },
     });
     expect(card.querySelector("[data-profile-season]")).toBeNull();
+    expect(card.querySelector("[data-ph-season]")).toBeNull();
     expect(text("[data-profile-rank]")).toBe("progression.rank_lieutenant");
   });
 });
@@ -166,7 +166,7 @@ describe("<profile-card> opening flourish", () => {
     xpForNext: 0,
   };
 
-  // jsdom lays nothing out: a 600x220 card with its badge at the top left.
+  // jsdom lays nothing out: a 600x220 card with its avatar at the top left.
   const rect = (x: number, y: number, w: number, h: number) =>
     ({
       x,
@@ -182,7 +182,7 @@ describe("<profile-card> opening flourish", () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
-        if (this.tagName === "LEVEL-BADGE") return rect(44, 50, 120, 120);
+        if (this.matches("[data-ph-avatar]")) return rect(44, 50, 120, 120);
         if (this.matches("[data-profile-card]")) return rect(20, 10, 600, 220);
         return rect(0, 0, 0, 0);
       },
@@ -222,14 +222,14 @@ describe("<profile-card> opening flourish", () => {
     svg.dispatchEvent(e);
   };
 
-  it("opens the full card with the blue pulse from behind the badge", async () => {
+  it("opens the full card with the blue pulse from behind the avatar", async () => {
     const { card, section } = await show({ openKey: freshKey() });
     expect(section.classList.contains("profile-card-intro")).toBe(true);
     const pulse = pulseOf(card)!;
     expect(pulse.dataset.profilePulse).toBe("blue");
     const svg = pulse.querySelector<SVGElement>("svg")!;
     expect(svg.classList.contains("profile-card-pulse-blue")).toBe(true);
-    // Centred on the badge, in the card's own pixels, reaching the farthest
+    // Centred on the avatar, in the card's own pixels, reaching the farthest
     // corner and a band past it.
     expect(svg.style.getPropertyValue("--cx")).toBe("84px");
     expect(svg.style.getPropertyValue("--cy")).toBe("100px");

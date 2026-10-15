@@ -23,7 +23,7 @@ import {
   reauthAfterCrazyGamesChange,
   steamLogin,
 } from "./Auth";
-import { accountProfileHeader } from "./components/AccountProfileHeader";
+import "./components/AccountProfileHeader";
 import "./components/baseComponents/stats/PlayerGameHistoryView";
 import type { PlayerGameHistoryCache } from "./components/baseComponents/stats/PlayerGameHistoryView";
 import "./components/baseComponents/stats/PlayerStatsTable";
@@ -39,6 +39,7 @@ import "./components/EmailSignIn";
 import "./components/FriendsList";
 import type { PrestigeFlow } from "./components/PrestigeFlow";
 import "./components/ProfileCard";
+import { claimOpening } from "./components/ProfileHeaderBase";
 import "./components/ProgressionPanel";
 import type { ProgressionPanel } from "./components/ProgressionPanel";
 import "./components/RewardsPanel";
@@ -91,6 +92,10 @@ export class AccountModal extends BaseModal {
   @state() private isLoadingUser: boolean = false;
   // Counts openings, to key the profile card's once-per-open flourish.
   private openCount = 0;
+  // Which opening the Account page's entrance was decided for, and whether it
+  // is playing (see playAccountIntro).
+  private introOpening = -1;
+  private introPlaying = false;
   // Replaceable for tests.
   loadPrestigeFlow: () => Promise<unknown> = loadPrestigeFlow;
   // Set on CrazyGames when a CrazyGames user is signed in. Their identity comes
@@ -243,6 +248,10 @@ export class AccountModal extends BaseModal {
   }
 
   private renderTab(tab: string): TemplateResult {
+    // Leaving the Account tab ends its entrance: coming back never replays it.
+    if (tab === "stats" || tab === "games" || tab === "friends") {
+      this.introPlaying = false;
+    }
     switch (tab) {
       case "stats":
         return this.renderStatsTab();
@@ -280,12 +289,33 @@ export class AccountModal extends BaseModal {
     this.open({ tab: "friends" });
   }
 
+  // Whether the page's sections come in this opening: once per opening of the
+  // modal, never again on a tab switch, never under reduced motion. The class
+  // is dropped after the last section has landed.
+  private playAccountIntro(): boolean {
+    if (this.introOpening !== this.openCount) {
+      this.introOpening = this.openCount;
+      this.introPlaying = claimOpening(`account-page-${this.openCount}`);
+      if (this.introPlaying) {
+        window.setTimeout(() => {
+          this.introPlaying = false;
+          this.requestUpdate();
+        }, 1800);
+      }
+    }
+    return this.introPlaying;
+  }
+
   private renderAccountTab(): TemplateResult {
     if (this.crazyGamesUser) {
       return this.renderCrazyGamesAccount(this.crazyGamesUser);
     }
     return html`
-      <div class="flex flex-col gap-6">
+      <div
+        class="flex flex-col gap-6 ${this.playAccountIntro()
+          ? "account-intro"
+          : ""}"
+      >
         ${this.renderAccountHeader()} ${this.renderProgressionPanel()}
         ${this.renderLinkedAccounts()} ${this.renderRewardsPanel()}
         ${this.renderCreatorCodePanel()} ${this.renderDesktopLinkGateAction()}
@@ -299,15 +329,19 @@ export class AccountModal extends BaseModal {
   private renderAccountHeader(): TemplateResult | typeof nothing {
     const player = this.userMeResponse?.player;
     if (!player) return nothing;
-    return accountProfileHeader({
-      player,
-      identity: this.userMeResponse?.user,
-      progression: this.progressionMe,
-      prestigeable: true,
-      savingTitle: this.savingTitle,
-      onTitleChange: (title) => void this.chooseTitle(title),
-      onPrestige: () => void this.handlePrestigeRequest(),
-    });
+    return html`<account-profile-header
+      class="df-enter block"
+      style="--i: 0"
+      .player=${player}
+      .identity=${this.userMeResponse?.user}
+      .progression=${this.progressionMe}
+      .prestigeable=${true}
+      .savingTitle=${this.savingTitle}
+      .openKey=${`account-${this.openCount}`}
+      @title-change=${(e: CustomEvent<string | null>) =>
+        void this.chooseTitle(e.detail)}
+      @prestige-request=${this.handlePrestigeRequest}
+    ></account-profile-header>`;
   }
 
   private chooseTitle = async (title: string | null): Promise<void> => {
@@ -524,7 +558,9 @@ export class AccountModal extends BaseModal {
       .username=${player.username ?? player.publicId}
       .clanTag=${player.clans?.[0]?.tag ?? null}
       .progress=${player.progress}
-      .openKey=${`account-${this.openCount}`}
+      .verified=${player.verified === true}
+      .staffRole=${player.staffRole}
+      .openKey=${`account-stats-${this.openCount}`}
       prestigeable
       @prestige-request=${this.handlePrestigeRequest}
     ></profile-card>`;
@@ -654,6 +690,7 @@ export class AccountModal extends BaseModal {
     if (me.discord) {
       rows.push(
         this.renderLinkedRow(
+          rows.length,
           "discord",
           "account_modal.provider_discord",
           `@${me.discord.username}`,
@@ -670,6 +707,7 @@ export class AccountModal extends BaseModal {
     if (me.google) {
       rows.push(
         this.renderLinkedRow(
+          rows.length,
           "google",
           "account_modal.provider_google",
           me.google.email,
@@ -685,6 +723,7 @@ export class AccountModal extends BaseModal {
     if (me.email) {
       rows.push(
         this.renderLinkedRow(
+          rows.length,
           "email",
           "account_modal.provider_email",
           me.email,
@@ -710,6 +749,7 @@ export class AccountModal extends BaseModal {
       // and the player should know why.
       rows.push(
         this.renderLinkedRow(
+          rows.length,
           "steam",
           "account_modal.provider_steam",
           html`<steam-user-header .data=${me.steam}></steam-user-header>`,
@@ -727,7 +767,8 @@ export class AccountModal extends BaseModal {
     if (rows.length === 0 && ctas.length === 0) return nothing;
     return html`<section
       data-linked-accounts
-      class="flex flex-col gap-4 rounded-xl border border-white/10 bg-df-panel p-5 sm:p-7"
+      class="df-enter flex flex-col gap-4 rounded-xl border border-white/10 bg-df-panel p-5 sm:p-7"
+      style="--i: 4"
     >
       <h3
         class="m-0 font-display text-lg font-bold uppercase tracking-[0.25em] text-white"
@@ -742,6 +783,7 @@ export class AccountModal extends BaseModal {
   }
 
   private renderLinkedRow(
+    order: number,
     provider: string,
     nameKey: string,
     identity: string | TemplateResult,
@@ -750,7 +792,8 @@ export class AccountModal extends BaseModal {
   ): TemplateResult {
     return html`<div
       data-linked-provider=${provider}
-      class="flex flex-col gap-2 border border-white/10 bg-white/[0.04] p-3 sm:p-4"
+      class="df-enter flex flex-col gap-2 border border-white/10 bg-white/[0.04] p-3 sm:p-4"
+      style="--i: ${5 + order}"
     >
       <div class="flex items-center gap-4">
         ${mark}

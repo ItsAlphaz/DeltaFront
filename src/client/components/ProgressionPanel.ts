@@ -137,7 +137,8 @@ export class ProgressionPanel extends LitElement {
     const unclaimed = me.seasonTrack.filter((t) => t.rewardId !== null).length;
     return html`<section
       data-progression-season
-      class="${CARD} flex flex-col gap-4"
+      class="${CARD} df-enter flex flex-col gap-4"
+      style="--i: 2"
     >
       <div
         class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
@@ -195,13 +196,15 @@ export class ProgressionPanel extends LitElement {
   // with the progress.
   private renderChallenge(
     c: ProgressionMe["challenges"]["daily"]["items"][number],
+    order: number,
   ): TemplateResult {
     const percent = Math.min(100, (c.progress / c.target) * 100);
     const count = `${formatXp(Math.min(c.progress, c.target))} / ${formatXp(c.target)}`;
     return html`<div
       data-progression-challenge=${c.id}
       data-complete=${c.completed ? "true" : nothing}
-      class="flex items-stretch border border-white/10 bg-white/[0.04]"
+      class="df-enter flex items-stretch border border-white/10 bg-white/[0.04]"
+      style="--i: ${2 + order}"
     >
       <div class="flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-5">
         <div class="flex items-baseline justify-between gap-3">
@@ -260,7 +263,8 @@ export class ProgressionPanel extends LitElement {
     const done = all.filter((c) => c.completed).length;
     return html`<section
       data-progression-challenges
-      class="${CARD} flex flex-col gap-6"
+      class="${CARD} df-enter flex flex-col gap-6"
+      style="--i: 1"
     >
       <div
         class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
@@ -297,7 +301,9 @@ export class ProgressionPanel extends LitElement {
                 })}
               </span>
             </div>
-            ${data.items.map((c) => this.renderChallenge(c))}
+            ${data.items.map((c, i) =>
+              this.renderChallenge(c, i + (period === "weekly" ? 3 : 0)),
+            )}
           </div>`,
       )}
     </section>`;
@@ -305,7 +311,11 @@ export class ProgressionPanel extends LitElement {
 
   private renderHistory(me: ProgressionMe): TemplateResult | typeof nothing {
     if (me.history.length === 0) return nothing;
-    return html`<details data-progression-history class="${CARD}">
+    return html`<details
+      data-progression-history
+      class="${CARD} df-enter"
+      style="--i: 3"
+    >
       <summary
         class="cursor-pointer font-display text-sm font-bold uppercase tracking-[0.25em] text-white/60"
       >

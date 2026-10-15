@@ -2248,7 +2248,8 @@
     "version_mismatch": "This game was created with a different version. Cannot join."
   },
   "profile_card": {
-    "lifetime_xp": "Lifetime XP"
+    "lifetime_xp": "Lifetime XP",
+    "to_next": "{xp} XP to level {level}"
   },
   "progression": {
     "awaiting_end": "XP is awarded when the game ends.",

@@ -226,9 +226,12 @@ The Account tab is three cards, top to bottom, all drawn from `GET /users/@me` a
 1. **Profile header** (`components/AccountProfileHeader.ts`): one card in three bands. The
    identity band holds the avatar with a level chip, the clan tag, the username with its
    verified check, the linked handle, the Verified / owner / admin / mod chips and the Credits
-   balance. Under a rule, the progression band reads `LEVEL n · RANK` (and Prestige), the next
-   milestone and `xp / next XP`, with the segmented XP bar on its own row, and Prestige at level 100. Under another rule, the display title selector. The XP is never beside the avatar, and
-   on a phone every group stacks while names, tags and handles truncate.
+   balance. Under a rule and a shade of its own, the progression band reads `LEVEL n · RANK`
+   (and Prestige), the next milestone and `xp / next XP`, with the segmented XP bar on its own
+   row, and Prestige at level 100. Under another rule, the display title selector. The XP is
+   never beside the avatar: the identity band's bottom padding clears the level chip, and the
+   progression band has room above its level line. On a phone every group stacks while names,
+   tags and handles truncate.
 2. **Challenges and season** (`components/ProgressionPanel.ts`): the Challenges card with
    "n of 6 complete", the daily and weekly sets each with their reset timer, and per row the
    name, `progress / target`, a thin bar and a reward column (`+XP`, and Credits where the
@@ -240,6 +243,29 @@ The Account tab is three cards, top to bottom, all drawn from `GET /users/@me` a
 The header and the panel never fetch for each other: the panel announces what it read
 (`progression-loaded`) and the modal hands the titles and the milestone to the header. Without
 the `progression` feature only the identity band and the Linked accounts card show.
+
+### One profile system
+
+Another player's Stats page (`components/ProfileCard.ts`, the `full` variant, also heading your
+own Stats tab) is the same header, drawn by the same pieces: `ProfileHeaderView.ts` (avatar and
+level chip, name with its discriminator and badges, the Verified / staff chips, the LEVEL · RANK
+line, the segmented XP bar and the shared spacing tokens, every hook `data-ph-*`) and opened by
+the same flourish (`ProfileHeaderBase.ts`). What is private stays on your page (Credits, the
+linked handle, the title select, Prestige, the linked accounts); another player's card shows the
+public parts instead (lifetime XP, the title they chose to show, the season, how far to the next
+level). `ProfileCard` also keeps its `compact` row for the CrazyGames account page.
+
+### Motion
+
+The flourish another player's profile always had is kept, and your own page shares it: once per
+opening (`openKey`; not on a tab switch) the avatar and its level chip settle in with a bounce,
+the XP bar fills segment by segment, the level line and Credits/lifetime figure rise, a sheen
+crosses the card and a pulse of light runs out from behind the avatar through the card's hex
+pattern (gold, and returning, for a Legend). On the Account page the sections and the challenge
+and linked-account rows then come in one after another (`.account-intro .df-enter`, ordered by
+`--i`) and the Credits figure counts up (`<currency-display countIn>`). All of it animates only
+opacity and transforms, takes no clicks, and is switched off under `prefers-reduced-motion`, on a
+hidden page and inside another site's frame (`flourishAllowed`).
 
 ## API
 

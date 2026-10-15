@@ -93,6 +93,7 @@ export function segmentedXpBar(
         data-xp-segment
         data-filled=${part >= 100 ? "full" : part > 0 ? "partial" : "empty"}
         class="h-full min-w-0 flex-1 overflow-hidden bg-white/10"
+        style="--seg: ${i}"
       >
         <div
           data-xp-segment-fill
