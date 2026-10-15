@@ -379,8 +379,8 @@ describe("user-setting audio tab", () => {
       ).value;
     expect(sliderValue("music")).toBe(50);
     expect(sliderValue("effects")).toBe(70);
-    // Web, and nothing stored any more, so master is silent.
-    expect(sliderValue("master")).toBe(0);
+    // Nothing stored any more, so master is back at its 90% default.
+    expect(sliderValue("master")).toBe(90);
     expect(checkbox(el, "audio-mute-on-blur-toggle").checked).toBe(false);
   });
 
