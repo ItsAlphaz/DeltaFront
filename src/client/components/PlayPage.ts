@@ -34,7 +34,7 @@ export class PlayPage extends LitElement {
           class="lg:hidden fixed left-0 right-0 top-[var(--top-ad-height,0px)] z-40 pt-[env(safe-area-inset-top)] bg-df-bg-secondary border-b border-df-border"
         >
           <div
-            class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center h-14 px-2 gap-2"
+            class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center h-14 px-2 gap-2"
           >
             <button
               id="hamburger-btn"
@@ -62,12 +62,12 @@ export class PlayPage extends LitElement {
             </button>
 
             <div
-              class="col-start-2 flex h-7 max-w-[28vw] items-center justify-center min-w-0"
+              class="col-start-2 flex h-7 max-w-[160px] justify-self-center items-center justify-center min-w-0"
             >
               <img
                 src=${assetUrl("images/branding/deltafront-logo.png")}
                 alt="DeltaFront"
-                class="pixelated h-full w-auto max-w-full object-contain"
+                class="h-full w-auto max-w-full object-contain"
               />
             </div>
 
@@ -97,7 +97,7 @@ export class PlayPage extends LitElement {
           <img
             src=${assetUrl("images/branding/deltafront-logo.png")}
             alt="DeltaFront"
-            class="pixelated block h-(--df-logo) w-auto"
+            class="block h-auto w-[calc(var(--df-logo)*4.2)] max-w-full"
             draggable="false"
           />
           <div

@@ -31,7 +31,7 @@ export class GameStartingModal extends LitElement {
         <img
           src=${assetUrl("images/branding/deltafront-icon.png")}
           alt=""
-          class="pixelated mx-auto mb-4 size-16 motion-safe:animate-pulse"
+          class="mx-auto mb-4 h-16 w-auto motion-safe:animate-pulse"
           draggable="false"
         />
         <p

@@ -89,7 +89,7 @@ export class MobileNavBar extends LitElement {
             <img
               src=${assetUrl("images/branding/deltafront-logo.png")}
               alt="DeltaFront"
-              class="pixelated w-auto h-auto max-w-[220px] max-h-[4.5rem]"
+              class="w-auto h-auto max-w-[220px] max-h-[4.5rem]"
             />
             <div
               id="game-version"
