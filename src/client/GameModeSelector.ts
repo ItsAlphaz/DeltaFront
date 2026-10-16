@@ -712,7 +712,7 @@ export class GameModeSelector extends LitElement {
              row (FFA wider). Tablet puts FFA on its own row above the other
              two; phones stack them. -->
         <section
-          class="mt-8 flex min-w-0 flex-col gap-2 px-4 sm:px-0 lg:mt-(--df-gap-up) lg:flex-1 lg:min-h-0"
+          class="mt-8 flex min-w-0 flex-col gap-2 p-3 lg:mt-(--df-gap-up) lg:flex-1 lg:min-h-0"
         >
           ${this.renderUpcomingHeading()}
           ${this.lobbies === null
