@@ -93,7 +93,7 @@ export class PlayPage extends LitElement {
         <!-- Hero (desktop): the wordmark and the build's version, centred. The
              version is stamped into .game-version-display at boot
              (renderNavVersion), as it is in the nav drawer. -->
-        <div class="hidden lg:flex flex-col items-center shrink-0">
+        <div class="hidden lg:flex flex-col items-center shrink-0 mt-[38px]">
           <img
             src=${assetUrl("images/branding/deltafront-logo.png")}
             alt="DeltaFront"
