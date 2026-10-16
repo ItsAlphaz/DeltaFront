@@ -268,6 +268,24 @@ export type GameXpEligible = z.infer<typeof GameXpEligibleSchema>;
 export type GameXpIneligible = z.infer<typeof GameXpIneligibleSchema>;
 export type GameXpResponse = z.infer<typeof GameXpResponseSchema>;
 
+// GET /users/@me/solo/:gameId — where a singleplayer match stands:
+//   unknown    the API has no submission from the caller for this game
+//   queued     received, waiting for its replay
+//   verifying  being replayed now
+//   paid       done: `result` is the award (GET /users/@me/xp/:gameId's body)
+//   rejected   refused: `reason` is the server's code, `result` the ineligible
+//              reason the XP panel has words for
+// An unknown status reads as `unknown`, so an API that adds one never breaks the poll.
+export const SoloStatusResponseSchema = z.object({
+  gameId: z.string(),
+  status: z
+    .enum(["unknown", "queued", "verifying", "paid", "rejected"])
+    .catch("unknown"),
+  reason: z.string().optional().catch(undefined),
+  result: GameXpResponseSchema.optional().catch(undefined),
+});
+export type SoloStatusResponse = z.infer<typeof SoloStatusResponseSchema>;
+
 // GET /users/@me/xp/live/:gameId — what the caller's XP for a game still running
 // (or just settled, before its record is stored) stands at, worked out by the
 // account API from what the game server reports. The amounts use the same rules

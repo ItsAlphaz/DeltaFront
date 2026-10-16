@@ -1,15 +1,25 @@
+import { ID } from "@openfront/engine-api/Schemas";
 import { PartialGameRecordSchema } from "@openfront/shared/WireSchemas";
 import express, { type Router } from "express";
 import { gzipSync } from "node:zlib";
 import { z } from "zod";
 import { SOLO } from "../domain/constants";
+import { soloStatusFor } from "../domain/soloStatus";
 import { soloProblem } from "../domain/soloVerify";
 import { clientIp } from "../http";
 import { activeBan, getUser } from "../repo/users";
 import { authenticate, type AppDeps } from "./common";
 
 /**
- * Where a browser hands in a singleplayer match for XP: `POST /archive_singleplayer_game`
+ * Singleplayer XP: where a browser hands a match in, and where it asks how it
+ * went.
+ *
+ *   GET /users/@me/solo/:gameId   unknown | queued | verifying | paid | rejected
+ *     (always 200 for the caller's own query; `paid` and `rejected` carry the
+ *     award or the refusal, so one answer is the whole result and nothing has to
+ *     be read from the multiplayer XP route)
+ *
+ * The upload: `POST /archive_singleplayer_game`
  * (the client's long-standing upload, bearer token, a gzipped record).
  *
  * The upload is not believed: it is checked for shape here, kept, and replayed on
@@ -118,6 +128,10 @@ export function soloRouter(deps: AppDeps): Router {
         });
         switch (outcome.status) {
           case "queued":
+            log.info("solo match queued", {
+              gameCode: parsed.data.info.gameID,
+              bytes: json.length,
+            });
             res.status(202).json({ ok: true, status: "queued" });
             return;
           case "duplicate":
@@ -141,6 +155,29 @@ export function soloRouter(deps: AppDeps): Router {
       }
     },
   );
+
+  router.get("/users/@me/solo/:gameId", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!solo) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+    const claims = await authenticate(req, deps);
+    const user = claims === null ? null : await getUser(pool, claims.userId);
+    if (user === null || user.deletedAt !== null) {
+      res.status(401).json({ error: "unauthorized" });
+      return;
+    }
+    const id = ID.safeParse(req.params.gameId);
+    if (!id.success) {
+      res.status(400).json({ error: "invalid_game_id" });
+      return;
+    }
+    res.json({
+      gameId: id.data,
+      ...(await soloStatusFor(pool, user.id, id.data)),
+    });
+  });
 
   return router;
 }

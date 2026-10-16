@@ -30,6 +30,7 @@ import {
   ReplaySpeedChangeEvent,
 } from "./InputHandler";
 import { startSingleplayerHeartbeat } from "./SingleplayerHeartbeat";
+import { reportSoloUpload } from "./SoloUpload";
 import {
   defaultReplaySpeedMultiplier,
   ReplaySpeedMultiplier,
@@ -349,11 +350,18 @@ export class LocalServer {
     unloading: boolean,
   ): Promise<void> {
     this.archiveInFlight = true;
+    const gameID = record.info.gameID;
+    reportSoloUpload(gameID, { state: "uploading" });
     try {
       const authHeader = await getAuthHeader();
       if (authHeader === "") {
         // The archive API requires a session. Guests have one too, so this
         // only trips when none could be established (e.g. API unreachable).
+        reportSoloUpload(gameID, {
+          state: "failed",
+          retryable: true,
+          status: null,
+        });
         return;
       }
       // Replays refuse to load unless the archived commit matches the client
@@ -380,13 +388,44 @@ export class LocalServer {
       );
       if (response.ok) {
         this.archived = true;
+        // 202 queued / 200 already had it / 200 ignored (a guest)
+        const body = (await response.json().catch(() => null)) as {
+          status?: string;
+        } | null;
+        reportSoloUpload(
+          gameID,
+          body?.status === "ignored"
+            ? { state: "ignored" }
+            : { state: "queued" },
+        );
       } else {
         console.error(
           `Failed to archive singleplayer game: ${response.status}`,
         );
+        // What is worth trying again: a server error, a busy queue, a rate limit
+        // (not the daily one), an expired session. The API refusing the record
+        // itself (400, 403, 404, 413) will refuse it again.
+        const retryable =
+          response.status >= 500 ||
+          response.status === 401 ||
+          (response.status === 429 &&
+            (await response
+              .json()
+              .then((b: { error?: string }) => b.error !== "daily_limit")
+              .catch(() => true)));
+        reportSoloUpload(gameID, {
+          state: "failed",
+          retryable,
+          status: response.status,
+        });
       }
     } catch (error) {
       console.warn("Failed to archive singleplayer game:", error);
+      reportSoloUpload(gameID, {
+        state: "failed",
+        retryable: true,
+        status: null,
+      });
     } finally {
       this.archiveInFlight = false;
     }

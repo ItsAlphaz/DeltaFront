@@ -1,4 +1,4 @@
-import { GameType } from "@openfront/engine-api/game/GameTypes";
+import type { GameType } from "@openfront/engine-api/game/GameTypes";
 import type {
   GameXpEligible,
   GameXpResponse,
@@ -33,6 +33,7 @@ import {
   type XpLineKey,
   type XpMultiplierKey,
 } from "../Progression";
+import type { SoloFailure, SoloPhase } from "../SoloXpApi";
 import { translateText } from "../Utils";
 import "./LevelBadge";
 import "./LiveXpCard";
@@ -51,6 +52,11 @@ export type GameXpPanelState =
   | { kind: "live"; data: LiveXpResponse; playerAlive: boolean | null }
   // Waiting for the server to process the game. Never shows a number.
   | { kind: "calculating" }
+  // A singleplayer match on its way to the account API's replay, and what it is
+  // waiting for. Never shows a number.
+  | { kind: "solo"; phase: SoloPhase }
+  // A solo match that could not be verified, and whether trying again can help.
+  | { kind: "solo_failed"; failure: SoloFailure; retryable: boolean }
   | { kind: "result"; data: GameXpResponse };
 
 // Segments the big bar is drawn in. The gaps are decoration: the fill is one
@@ -156,6 +162,22 @@ function finalLineValues(data: GameXpEligible): number[] {
     data.breakdown.total,
   );
 }
+
+const SOLO_PHASE_KEYS: Record<SoloPhase, string> = {
+  uploading: "progression.solo_phase_uploading",
+  queued: "progression.solo_phase_queued",
+  verifying: "progression.solo_phase_verifying",
+};
+
+const SOLO_FAILURE_KEYS: Record<SoloFailure, string> = {
+  upload: "progression.solo_failed_upload",
+  refused_upload: "progression.solo_failed_refused_upload",
+  unsupported: "progression.solo_failed_unsupported",
+  unreachable: "progression.solo_failed_unreachable",
+  timeout: "progression.solo_failed_timeout",
+  verify_failed: "progression.solo_failed_verify_failed",
+  signed_out: "progression.solo_failed_signed_out",
+};
 
 @customElement("game-xp-panel")
 export class GameXpPanel extends LitElement {
@@ -637,6 +659,62 @@ export class GameXpPanel extends LitElement {
     );
   }
 
+  // A solo match on its way: a spinner and what it is waiting for.
+  private renderSoloPhase(phase: SoloPhase): TemplateResult {
+    return this.frame(
+      html`<div
+        data-xp-solo-phase=${phase}
+        class="flex items-center gap-2 text-sm text-white/80"
+      >
+        <span
+          class="w-4 h-4 shrink-0 border-2 border-white/30 border-t-white/80 rounded-full animate-spin"
+          aria-hidden="true"
+        ></span>
+        <span>${translateText(SOLO_PHASE_KEYS[phase])}</span>
+      </div>`,
+      "solo",
+    );
+  }
+
+  // A solo match that could not be verified: what happened, and a way to try
+  // again where trying again can help. Never a spinner and never an amount.
+  private renderSoloFailed(
+    failure: SoloFailure,
+    retryable: boolean,
+  ): TemplateResult {
+    return this.frame(
+      html`<div data-xp-solo-failed=${failure} class="flex flex-col gap-2">
+        <div
+          class="text-xs font-bold uppercase tracking-[0.18em] text-amber-300"
+        >
+          ${translateText("progression.solo_failed_heading")}
+        </div>
+        <p class="m-0 text-sm text-white/80">
+          ${translateText(SOLO_FAILURE_KEYS[failure])}
+        </p>
+        ${retryable
+          ? html`<button
+              type="button"
+              data-xp-solo-retry
+              class="self-start rounded-md border border-white/25 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/10"
+              @click=${(e: Event) => {
+                e.stopPropagation();
+                this.dispatchEvent(
+                  new CustomEvent("solo-retry", {
+                    bubbles: true,
+                    composed: true,
+                  }),
+                );
+              }}
+            >
+              ${translateText("progression.solo_retry")}
+            </button>`
+          : nothing}
+      </div>`,
+      "solo_failed",
+    );
+  }
+
   private renderCalculating(): TemplateResult {
     return this.frame(
       html`<div class="flex items-center gap-2 text-sm text-white/80">
@@ -644,13 +722,7 @@ export class GameXpPanel extends LitElement {
           class="w-4 h-4 shrink-0 border-2 border-white/30 border-t-white/80 rounded-full animate-spin"
           aria-hidden="true"
         ></span>
-        <span
-          >${translateText(
-            this.gameType === GameType.Singleplayer
-              ? "progression.calculating_solo"
-              : "progression.calculating",
-          )}</span
-        >
+        <span>${translateText("progression.calculating")}</span>
       </div>`,
       "calculating",
     );
@@ -1762,6 +1834,10 @@ export class GameXpPanel extends LitElement {
         );
       case "calculating":
         return this.renderCalculating();
+      case "solo":
+        return this.renderSoloPhase(s.phase);
+      case "solo_failed":
+        return this.renderSoloFailed(s.failure, s.retryable);
       case "result":
         if (!s.data.eligible) {
           return this.renderNote(

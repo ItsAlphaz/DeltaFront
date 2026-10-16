@@ -2,6 +2,7 @@
 import {
   GameXpResponseSchema,
   ProgressionMeSchema,
+  SoloStatusResponseSchema,
   UserMeResponseSchema,
   XpHistoryEntrySchema,
 } from "@openfront/shared/ApiSchemas";
@@ -410,7 +411,7 @@ describeDb("when a solo match happened is when it was received", () => {
     // and the stored game is dated by receipt, not by the claim
     const [g] = await q(
       h,
-      "SELECT ended_at::date::text AS day FROM games WHERE game_code = $1",
+      "SELECT (ended_at AT TIME ZONE 'UTC')::date::text AS day FROM games WHERE game_code = $1",
       [gameID],
     );
     expect(g.day).toBe(today);
@@ -844,6 +845,128 @@ describeDb("replays that fail for their own reasons", () => {
     await submitSolo(h, user, gzipRecord(record));
     expect((await waitDecided(h, id)).status).toBe("paid");
     expect(await ledgerOf(h, user)).toHaveLength(1);
+  });
+});
+
+describeDb("GET /users/@me/solo/:gameId: where a match stands", () => {
+  const status = async (h: Harness, who: TestUser | null, id: string) => {
+    const res = await call(h, `/users/@me/solo/${id}`, {
+      bearer: who?.jwt,
+      origin: null,
+    });
+    return {
+      status: res.status,
+      body:
+        res.status === 200
+          ? SoloStatusResponseSchema.parse(await res.json())
+          : null,
+    };
+  };
+
+  it("says unknown for a match the account never submitted, never 404", async () => {
+    const { h } = await harness();
+    const user = await makeUser(h);
+    expect(await status(h, user, "neverseen")).toMatchObject({
+      status: 200,
+      body: { gameId: "neverseen", status: "unknown" },
+    });
+  });
+
+  it("walks queued, verifying, paid (with the award), and the answer never changes what was paid", async () => {
+    // the rows are set by hand; the service's own worker only looks again in 15 s
+    const { h } = await harness();
+    const user = await makeUser(h);
+    const record = soloRecord();
+    const id = (record.info as { gameID: string }).gameID;
+    await q(
+      h,
+      "INSERT INTO solo_submissions (game_code, user_id, record_gz, status) VALUES ($1, $2, $3, 'pending')",
+      [id, user.id, gzipRecord(record)],
+    );
+    expect((await status(h, user, id)).body?.status).toBe("queued");
+    await q(
+      h,
+      "UPDATE solo_submissions SET status = 'running', started_at = now() WHERE game_code = $1",
+      [id],
+    );
+    expect((await status(h, user, id)).body?.status).toBe("verifying");
+    // the real worker pays it
+    const worker = createSoloWorker(h.db.pool, {
+      log: silentLogger,
+      replayer: stubReplayer(replayed()),
+      progression: { validFlares: null },
+    });
+    await q(
+      h,
+      "UPDATE solo_submissions SET status = 'pending', started_at = NULL WHERE game_code = $1",
+      [id],
+    );
+    await worker.drain();
+    const first = await status(h, user, id);
+    expect(first.body?.status).toBe("paid");
+    const result = first.body?.result;
+    expect(result?.eligible && result.breakdown.total).toBe(350);
+    expect(result?.eligible && result.mode).toBe("solo");
+    // asked again and again: the same answer, and nothing more paid
+    for (let i = 0; i < 4; i++) {
+      expect((await status(h, user, id)).body).toEqual(first.body);
+    }
+    expect(await ledgerOf(h, user)).toHaveLength(1);
+    expect((await progressOf(h, user)).lifetime).toBe(350);
+  });
+
+  it("says rejected with the reason the panel has words for", async () => {
+    const { h, answers } = await harness();
+    const user = await makeUser(h);
+    const { gameID } = await play(
+      h,
+      user,
+      {},
+      answers,
+      replayed({ hashes: { checked: 5, mismatched: 1 } }),
+    );
+    const { body } = await status(h, user, gameID);
+    expect(body).toMatchObject({
+      status: "rejected",
+      reason: "desync",
+      result: { eligible: false, reason: "solo_unverified" },
+    });
+  });
+
+  it("says rejected verify_failed when the API's own replay could not run", async () => {
+    const { h, answers } = await harness();
+    const user = await makeUser(h);
+    const { gameID } = await play(h, user, {}, answers, new Error("crash"));
+    expect((await status(h, user, gameID)).body).toMatchObject({
+      status: "rejected",
+      reason: "verify_failed",
+    });
+  });
+
+  it("only the owner sees it; no session is 401; a malformed id is 400; progression off serves no route", async () => {
+    const { h } = await harness();
+    const [a, b] = [await makeUser(h), await makeUser(h)];
+    const { gameID } = await play(h, a);
+    expect((await status(h, a, gameID)).body?.status).toBe("paid");
+    expect((await status(h, b, gameID)).body?.status).toBe("unknown");
+    expect((await status(h, null, gameID)).status).toBe(401);
+    expect((await status(h, a, "bad id!")).status).toBe(400);
+    const off = await harness("accounts");
+    const user = await makeUser(off.h);
+    expect((await status(off.h, user, gameID)).status).toBe(404);
+  });
+
+  it("is served with the launch features alone: accounts, store, inventory, clans, leaderboards, progression", async () => {
+    const { h } = await harness(
+      "accounts,store,inventory,clans,leaderboards,progression",
+    );
+    const user = await makeUser(h);
+    const { gameID } = await play(h, user);
+    expect((await status(h, user, gameID)).body?.status).toBe("paid");
+    // and so is the upload
+    expect((await submitSolo(h, user, gzipRecord(soloRecord()))).status).toBe(
+      202,
+    );
   });
 });
 

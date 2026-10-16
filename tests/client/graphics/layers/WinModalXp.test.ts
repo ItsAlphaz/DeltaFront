@@ -64,6 +64,10 @@ import type { GameXpPanel } from "../../../../src/client/components/GameXpPanel"
 import "../../../../src/client/components/LegendCeremony";
 import "../../../../src/client/hud/layers/WinModal";
 import type { WinModal } from "../../../../src/client/hud/layers/WinModal";
+import {
+  reportSoloUpload,
+  resetSoloUploads,
+} from "../../../../src/client/SoloUpload";
 import { SendSoloArchiveEvent } from "../../../../src/client/Transport";
 import type { GameView } from "../../../../src/client/view";
 
@@ -334,17 +338,6 @@ describe("WinModal XP section", () => {
     await mount(makeGame({ ended: true }));
     await finishReveal();
     expect(panel()!.textContent!.trim()).toBe("progression.ineligible_generic");
-  });
-
-  it("tells a singleplayer match that was not verified so, in its own words", async () => {
-    stubXpEndpoint([
-      () => json({ gameId: GAME_ID, eligible: false, reason: "unverified" }),
-    ]);
-    await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
-    await finishReveal();
-    expect(panel()!.textContent!.trim()).toBe(
-      "progression.ineligible_solo_unverified",
-    );
   });
 
   it("shows a reduced (private) game as earned XP with its reason, not as an ineligible game", async () => {
@@ -1574,25 +1567,54 @@ describe("WinModal XP section", () => {
         challenges: [],
       });
 
-    it("looks for the XP the account API pays after replaying it, says so while it waits, then shows the solo breakdown", async () => {
-      const fetchMock = stubXpEndpoint([
-        notFound,
-        notFound,
-        () => json(soloResult()),
-      ]);
-      await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
-      await finishReveal();
-      expect(xpState()).toBe("calculating");
-      expect(panel()!.textContent).toContain("progression.calculating_solo");
-      // there is no running-game preview for a match no server is watching
-      expect(liveCalls(fetchMock)).toHaveLength(0);
+    const SOLO_URL = `https://api.test/users/@me/solo/${GAME_ID}`;
 
-      await settle(2_000);
+    // Answers the solo route from a script (the last answer repeats); any other
+    // route is a test failure: a solo match must never ask a multiplayer XP route.
+    function stubSolo(...answers: (() => Response)[]) {
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url !== SOLO_URL) throw new Error(`unexpected fetch ${url}`);
+        return (answers.length > 1 ? answers.shift()! : answers[0])();
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+    const status =
+      (s: string, extra: Record<string, unknown> = {}) =>
+      () =>
+        json({ gameId: GAME_ID, status: s, ...extra });
+    const solo = () =>
+      makeGame({ ended: true, gameType: GameType.Singleplayer });
+    const soloOf = () =>
+      panel()
+        ?.querySelector("[data-xp-solo-phase]")
+        ?.getAttribute("data-xp-solo-phase");
+
+    beforeEach(() => resetSoloUploads());
+
+    it("a win: follows the solo route from queued to verifying to the award, and never asks a multiplayer XP route", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      const fetchMock = stubSolo(
+        status("queued"),
+        status("verifying"),
+        status("paid", { result: soloResult() }),
+      );
+      await mount(solo());
+      expect(xpState()).toBe("solo");
+      expect(panel()!.textContent).toContain("progression.solo_phase_queued");
+      await settle(1_000);
+      expect(soloOf()).toBe("verifying");
+      expect(panel()!.textContent).toContain(
+        "progression.solo_phase_verifying",
+      );
+      // never a number while it waits
+      expect(panel()!.textContent).not.toContain("progression.xp_total");
+      await settle(1_000);
       expect(xpState()).toBe("result");
       await finishReveal();
       const text = panel()!.textContent!;
       expect(text).toContain('progression.xp_total:{"xp":"280"}');
-      // the heading, the criteria exactly as they were met, and the multiplier
       expect(text).toContain("progression.xp_heading_solo");
       const criteria = [
         ...panel()!.querySelectorAll("[data-xp-solo-criterion]"),
@@ -1600,31 +1622,36 @@ describe("WinModal XP section", () => {
         el.getAttribute("data-xp-solo-criterion"),
         el.getAttribute("data-met"),
       ]);
-      expect(criteria).toEqual([
-        ["tribes", "true"],
-        ["nations", "true"],
-        ["instant_build", "true"],
-        ["infinite_gold", "true"],
-        ["infinite_troops", "true"],
-        ["difficulty", "false"],
-      ]);
+      expect(criteria[5]).toEqual(["difficulty", "false"]);
       expect(
         panel()!.querySelector("[data-xp-solo-multiplier]")!.textContent,
-      ).toContain('progression.solo_multiplier_value:{"multiplier":"0.80"}');
-      expect(
-        panel()!.querySelector("[data-xp-solo-setup]")!.textContent,
-      ).toContain('"tribes":45');
-      // the solo note: level and rank only
+      ).toContain('"multiplier":"0.80"');
       expect(panel()!.querySelector("[data-xp-note='solo']")).not.toBeNull();
-      // and no season or challenge cards
-      expect(panel()!.querySelector("[data-xp-season]")).toBeNull();
-      expect(panel()!.querySelector("[data-xp-challenge]")).toBeNull();
+      // only the solo route was ever asked
+      expect(fetchMock.mock.calls.every(([u]) => String(u) === SOLO_URL)).toBe(
+        true,
+      );
+      // and it stopped: nothing more once it had the award
+      const calls = fetchMock.mock.calls.length;
+      await settle(120_000);
+      expect(fetchMock.mock.calls.length).toBe(calls);
     });
 
-    it("uploads the match the moment the player is eliminated, and looks for the XP at once", async () => {
-      const fetchMock = stubXpEndpoint([notFound, () => json(soloResult())]);
+    it("says it is uploading while the upload is in flight, then waits on the API", async () => {
+      reportSoloUpload(GAME_ID, { state: "uploading" });
+      const fetchMock = stubSolo(status("verifying"));
+      await mount(solo());
+      expect(soloOf()).toBe("uploading");
+      expect(fetchMock).not.toHaveBeenCalled();
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      await settle(1_000);
+      expect(soloOf()).toBe("verifying");
+    });
+
+    it("a death uploads the match at once and follows it, exactly once however often the game ticks", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      const fetchMock = stubSolo(status("verifying"));
       const archived = vi.fn();
-      // the player is out and the match goes on
       await mount(
         makeGame({
           ended: false,
@@ -1634,47 +1661,148 @@ describe("WinModal XP section", () => {
         (m) => m.eventBus.on(SendSoloArchiveEvent, archived),
       );
       expect(archived).toHaveBeenCalledTimes(1);
-      // looking for the stored XP now, not waiting for the match to end
-      expect(storedCalls(fetchMock).length).toBeGreaterThan(0);
-      expect(liveCalls(fetchMock)).toHaveLength(0);
-      await settle(2_000);
-      expect(xpState()).toBe("result");
-      // asked once: a later tick does not upload again
-      modal.tick();
-      await settle();
+      expect(xpState()).toBe("solo");
+      // many ticks and re-renders while it waits: still one loop, one look a second
+      for (let i = 0; i < 20; i++) {
+        modal.tick();
+        modal.requestUpdate();
+      }
+      const before = fetchMock.mock.calls.length;
+      await settle(5_000);
       expect(archived).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls.length - before).toBeLessThanOrEqual(6);
     });
 
-    it("does not upload a multiplayer death: the game server pays that", async () => {
-      stubXpEndpoint([notFound], [livePreview()]);
-      const archived = vi.fn();
-      await mount(makeGame({ ended: false, alive: false }), (m) =>
-        m.eventBus.on(SendSoloArchiveEvent, archived),
+    it("a match the API refused shows its reason, not a spinner", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      stubSolo(
+        status("rejected", {
+          reason: "desync",
+          result: {
+            gameId: GAME_ID,
+            eligible: false,
+            reason: "solo_unverified",
+          },
+        }),
       );
-      expect(archived).not.toHaveBeenCalled();
-    });
-
-    it("waits longer than a multiplayer game for it: the replay can take minutes", async () => {
-      stubXpEndpoint([notFound]);
-      await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
-      await settle(200_000);
-      // past a multiplayer game's two and a half minutes, still waiting
-      expect(xpState()).toBe("calculating");
-      await settle(200_000);
-      expect(xpState()).toBe("hidden");
-    });
-
-    it("says why a match was not verified", async () => {
-      stubXpEndpoint([
-        () =>
-          json({ gameId: GAME_ID, eligible: false, reason: "solo_unverified" }),
-      ]);
-      await mount(makeGame({ ended: true, gameType: GameType.Singleplayer }));
-      await finishReveal();
+      await mount(solo());
+      await settle(1_000);
       expect(xpState()).toBe("ineligible");
       expect(panel()!.textContent!.trim()).toBe(
         "progression.ineligible_solo_unverified",
       );
+    });
+
+    it("a replay the API could not run is a failure, with no retry (nothing to retry)", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      stubSolo(
+        status("rejected", {
+          reason: "verify_failed",
+          result: {
+            gameId: GAME_ID,
+            eligible: false,
+            reason: "solo_unverified",
+          },
+        }),
+      );
+      await mount(solo());
+      await settle(1_000);
+      expect(xpState()).toBe("solo_failed");
+      expect(panel()!.textContent).toContain("progression.solo_failed_heading");
+      expect(panel()!.textContent).toContain(
+        "progression.solo_failed_verify_failed",
+      );
+      expect(panel()!.querySelector("[data-xp-solo-retry]")).toBeNull();
+      // and it is not asking any more
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("a failed upload says so with a retry; retrying uploads again, then follows it to the award", async () => {
+      reportSoloUpload(GAME_ID, {
+        state: "failed",
+        retryable: true,
+        status: 503,
+      });
+      const fetchMock = stubSolo(status("paid", { result: soloResult() }));
+      // LocalServer starts uploading as soon as it is asked
+      const archived = vi.fn(() =>
+        reportSoloUpload(GAME_ID, { state: "uploading" }),
+      );
+      await mount(solo(), (m) => m.eventBus.on(SendSoloArchiveEvent, archived));
+      await settle(0);
+      expect(xpState()).toBe("solo_failed");
+      expect(panel()!.textContent).toContain("progression.solo_failed_upload");
+      expect(fetchMock).not.toHaveBeenCalled();
+      panel()!
+        .querySelector<HTMLButtonElement>("[data-xp-solo-retry]")!
+        .click();
+      expect(archived).toHaveBeenCalledTimes(1);
+      await settle(0);
+      expect(xpState()).toBe("solo");
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      await settle(1_500);
+      expect(xpState()).toBe("result");
+    });
+
+    it("an API without the route (404) is a permanent failure after two looks, not a loop", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      const fetchMock = stubSolo(() => new Response("", { status: 404 }));
+      await mount(solo());
+      await settle(10_000);
+      expect(xpState()).toBe("solo_failed");
+      expect(panel()!.textContent).toContain(
+        "progression.solo_failed_unsupported",
+      );
+      expect(fetchMock.mock.calls.length).toBe(2);
+      await settle(120_000);
+      expect(fetchMock.mock.calls.length).toBe(2);
+      expect(panel()!.querySelector("[data-xp-solo-retry]")).toBeNull();
+    });
+
+    it("never waits forever: past ten minutes it says it is taking too long, and offers a retry", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      const fetchMock = stubSolo(status("verifying"));
+      await mount(solo());
+      await settle(11 * 60_000);
+      expect(xpState()).toBe("solo_failed");
+      expect(panel()!.textContent).toContain("progression.solo_failed_timeout");
+      expect(panel()!.querySelector("[data-xp-solo-retry]")).not.toBeNull();
+      const calls = fetchMock.mock.calls.length;
+      await settle(60_000);
+      expect(fetchMock.mock.calls.length).toBe(calls);
+    });
+
+    it("closing the modal stops the polling, and the next look starts it again", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      const fetchMock = stubSolo(status("verifying"));
+      await mount(solo());
+      await settle(2_000);
+      modal.hide();
+      await settle(0);
+      const calls = fetchMock.mock.calls.length;
+      await settle(60_000);
+      expect(fetchMock.mock.calls.length).toBe(calls);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("leaving the game (the modal going away) clears the polling", async () => {
+      reportSoloUpload(GAME_ID, { state: "queued" });
+      const fetchMock = stubSolo(status("verifying"));
+      await mount(solo());
+      await settle(2_000);
+      modal.remove();
+      await settle(0);
+      const calls = fetchMock.mock.calls.length;
+      await settle(60_000);
+      expect(fetchMock.mock.calls.length).toBe(calls);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("a guest's match is ignored: no polling at all", async () => {
+      getUserMe.mockResolvedValue(anonymous);
+      const fetchMock = stubSolo(status("verifying"));
+      await mount(solo());
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

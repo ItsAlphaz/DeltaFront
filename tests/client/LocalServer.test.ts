@@ -21,6 +21,7 @@ vi.mock("src/client/ClientEnv", () => ({
 }));
 
 import { LocalServer } from "../../src/client/LocalServer";
+import { resetSoloUploads, soloUploadOf } from "../../src/client/SoloUpload";
 
 // jsdom doesn't provide CompressionStream; use Node's implementation.
 if (typeof globalThis.CompressionStream === "undefined") {
@@ -155,6 +156,88 @@ describe("LocalServer archiving", () => {
       "player",
       CLIENT_ID,
     ]);
+  });
+
+  describe("what became of the upload is reported for the end screen", () => {
+    beforeEach(() => resetSoloUploads());
+    const upload = async (response: () => Promise<Response>) => {
+      fetchMock.mockClear();
+      fetchMock.mockImplementationOnce(response);
+      const server = makeServer(false);
+      server.start();
+      server.onMessage(winnerMsg);
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      await new Promise((r) => setTimeout(r, 5));
+      return soloUploadOf("gameID12");
+    };
+    const json = (body: unknown, status: number) =>
+      new Response(JSON.stringify(body), { status });
+
+    it("uploading while in flight, queued once the API has it", async () => {
+      let release: (r: Response) => void = () => {};
+      fetchMock.mockImplementationOnce(
+        () => new Promise<Response>((resolve) => (release = resolve)),
+      );
+      const server = makeServer(false);
+      server.start();
+      server.onMessage(winnerMsg);
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      expect(soloUploadOf("gameID12")).toEqual({ state: "uploading" });
+      release(json({ ok: true, status: "queued" }, 202));
+      await vi.waitFor(() =>
+        expect(soloUploadOf("gameID12")).toEqual({ state: "queued" }),
+      );
+    });
+
+    it("an upload the API already had is queued too; a guest's is ignored", async () => {
+      expect(
+        await upload(async () => json({ ok: true, status: "duplicate" }, 200)),
+      ).toEqual({ state: "queued" });
+      resetSoloUploads();
+      expect(
+        await upload(async () =>
+          json({ ok: true, status: "ignored", reason: "guest" }, 200),
+        ),
+      ).toEqual({ state: "ignored" });
+    });
+
+    it("a server error, a busy queue, a rate limit, an expired session and no connection can be retried", async () => {
+      for (const status of [500, 503, 401]) {
+        resetSoloUploads();
+        expect(await upload(async () => json({ error: "x" }, status))).toEqual({
+          state: "failed",
+          retryable: true,
+          status,
+        });
+      }
+      resetSoloUploads();
+      expect(
+        await upload(async () => json({ error: "rate_limited" }, 429)),
+      ).toMatchObject({ state: "failed", retryable: true });
+      resetSoloUploads();
+      expect(await upload(() => Promise.reject(new Error("offline")))).toEqual({
+        state: "failed",
+        retryable: true,
+        status: null,
+      });
+    });
+
+    it("a record the API refused, a daily limit, a missing route and a size limit will not work again", async () => {
+      for (const [status, body] of [
+        [400, { error: "invalid_record" }],
+        [413, { error: "payload_too_large" }],
+        [403, { error: "banned" }],
+        [404, { error: "not_found" }],
+        [429, { error: "daily_limit" }],
+      ] as const) {
+        resetSoloUploads();
+        expect(await upload(async () => json(body, status))).toEqual({
+          state: "failed",
+          retryable: false,
+          status,
+        });
+      }
+    });
   });
 
   it("archiveNow does nothing in a replay", async () => {

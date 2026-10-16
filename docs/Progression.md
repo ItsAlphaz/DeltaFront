@@ -354,13 +354,34 @@ same moment, or another account sending the same code changes nothing. Limits: 2
 50 a day per account (429), 200 waiting in all (503, the client tries again), 32 MB unpacked (413).
 Decided rows are kept 30 days (without the record), then pruned.
 
-The player sees "Verifying your solo match…" on the end screen while the replay runs (a few
-seconds, up to minutes for a long match; the page looks for up to six minutes),
-then the award: `GET /users/@me/xp/:gameId` answers 404 while it is waiting, the award once paid, or
-`{ eligible: false, reason }` once refused (`left_early` for a match left unfinished, `no_action`,
-`not_spawned`, otherwise `solo_unverified`). A solo player who is **eliminated** has their match
-uploaded at that moment (the death screen starts looking for the XP at once); a win is uploaded when
-it happens.
+### Following a match: its own route and states
+
+A solo match is **not** followed through the multiplayer XP routes (`/users/@me/xp/:gameId`
+answers 404 for a match that is waiting and for one that never arrived, and
+`/users/@me/xp/live/:gameId` is a game server's report). It has its own:
+`GET /users/@me/solo/:gameId` answers 200 with `status` `unknown` (nothing from this account for the
+game), `queued`, `verifying`, `paid` (with `result`, the award) or `rejected` (with the server's
+`reason` and a `result` the panel has words for: `left_early`, `no_action`, `not_spawned`, otherwise
+`solo_unverified`). `GET /users/@me/xp/:gameId` still answers for a stored game and a refusal.
+
+The end screen (`pollSoloXp`, `SoloXpApi.ts`) follows it with what became of the **upload**
+(`LocalServer` reports it per game: `uploading`, `queued`, `ignored` for a guest, or `failed` with
+whether trying again can help), because a match that never arrived and one still waiting look the same
+to the server:
+
+    uploading -> queued -> verifying -> the award, or a refusal with its reason
+        |           |           |
+     failed      failed      failed      (a message, and Retry where retrying can help)
+
+One loop, ever; it stops at the first conclusion, when the modal closes (the win starts it again if
+there is still something to wait for) or goes away, and past 10 minutes (`timeout`, with Retry). A
+failed upload is reported at once; an API that has nothing for a match uploaded 20 seconds ago has
+lost it (`upload`, Retry); a 404 on the route (an API without it) is permanent after a second look
+(`unsupported`); six failures to reach the API in a row are `unreachable`; the API giving up on the
+replay (`verify_failed`) cannot be retried. Retry uploads the match again if it never arrived, then
+follows it again. A solo player who is **eliminated** has the match uploaded at that moment; a win
+when it happens. The API logs `solo match queued`, `solo replay finished` (with the time it took),
+`solo match paid` or `solo match refused` (with the reason), and `solo worker started`.
 
 ### What the player sees
 
@@ -507,20 +528,21 @@ hidden page and inside another site's frame (`flourishAllowed`).
 
 ## API
 
-| Endpoint                                                 | Purpose                                                    |
-| -------------------------------------------------------- | ---------------------------------------------------------- |
-| `GET /users/@me`                                         | adds `progress`, `levelHidden`, unclaimed `rewards`        |
-| `GET /users/@me/xp/:gameId`                              | the XP of the caller's game, or a death's award (404 else) |
-| `GET /users/@me/xp/live/:gameId`                         | the XP a running game stands at (404 if none)              |
-| `POST /game/:id/progress`                                | a game server's report of a running game; pays a death     |
-| `POST /archive_singleplayer_game`                        | a browser's solo match: queued, replayed, then paid        |
-| `POST /users/@me/prestige`                               | prestige (needs `Idempotency-Key`)                         |
-| `GET /progression/me`                                    | account page: challenges, season, track, titles, recent XP |
-| `PUT /users/@me/title`                                   | choose a title                                             |
-| `GET /public/player/:publicId/progress`                  | another player's level (404 if hidden or a guest)          |
-| `GET /public/progression/config`                         | curve, ranks, milestones, running season                   |
-| `GET /leaderboard/xp`, `GET /leaderboard/season?season=` | XP boards                                                  |
-| `POST /rewards/:id/claim`, `POST /rewards/claim-all`     | Credits rewards                                            |
+| Endpoint                                                 | Purpose                                                     |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| `GET /users/@me`                                         | adds `progress`, `levelHidden`, unclaimed `rewards`         |
+| `GET /users/@me/xp/:gameId`                              | the XP of the caller's game, or a death's award (404 else)  |
+| `GET /users/@me/xp/live/:gameId`                         | the XP a running game stands at (404 if none)               |
+| `POST /game/:id/progress`                                | a game server's report of a running game; pays a death      |
+| `POST /archive_singleplayer_game`                        | a browser's solo match: queued, replayed, then paid         |
+| `GET /users/@me/solo/:gameId`                            | where a solo match stands: queued, verifying, paid, refused |
+| `POST /users/@me/prestige`                               | prestige (needs `Idempotency-Key`)                          |
+| `GET /progression/me`                                    | account page: challenges, season, track, titles, recent XP  |
+| `PUT /users/@me/title`                                   | choose a title                                              |
+| `GET /public/player/:publicId/progress`                  | another player's level (404 if hidden or a guest)           |
+| `GET /public/progression/config`                         | curve, ranks, milestones, running season                    |
+| `GET /leaderboard/xp`, `GET /leaderboard/season?season=` | XP boards                                                   |
+| `POST /rewards/:id/claim`, `POST /rewards/claim-all`     | Credits rewards                                             |
 
 All answer 404 while the feature is off. Admin endpoints and permissions are in
 [StaffAdmin.md](StaffAdmin.md).

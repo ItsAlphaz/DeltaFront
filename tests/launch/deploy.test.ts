@@ -257,6 +257,18 @@ describe("the nginx edge configuration", () => {
     expect(text).toMatch(/proxy_read_timeout 3600s;/);
   });
 
+  it("lets a solo match's upload through (8 MB, exactly that path): the 1 MB default would refuse a long match", () => {
+    expect(text).toMatch(
+      /location = \/archive_singleplayer_game \{\s*client_max_body_size 8m;/,
+    );
+    expect(text.match(/client_max_body_size 8m/g)).toHaveLength(1);
+    // and it is proxied to the API like the rest
+    const block = text.slice(
+      text.indexOf("location = /archive_singleplayer_game"),
+    );
+    expect(block.slice(0, 600)).toContain("proxy_pass http://df_api;");
+  });
+
   it("allows the 100 MB game archive only on /game/ and keeps /ready off the internet", () => {
     expect(text).toMatch(
       /location \^~ \/game\/ \{\s*client_max_body_size 100m;/,

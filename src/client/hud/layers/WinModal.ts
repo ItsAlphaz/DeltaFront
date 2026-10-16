@@ -40,6 +40,8 @@ import {
   OUT_XP_POLL_MS,
   pollGameXp,
 } from "../../ProgressionApi";
+import { soloUploadOf } from "../../SoloUpload";
+import { pollSoloXp } from "../../SoloXpApi";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { SendSoloArchiveEvent, SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
@@ -52,9 +54,6 @@ type LegendCeremonyModule = typeof import("../../components/LegendCeremony");
 let xpPanelModule: Promise<unknown> | null = null;
 // How long the end-of-game XP is waited for before the section gives up.
 const XP_POLL_TIMEOUT_MS = 150_000;
-// A solo match is replayed on the server before it is paid, which can take a few
-// minutes for a long one.
-const SOLO_XP_POLL_TIMEOUT_MS = 6 * 60_000;
 
 function loadGameXpPanel(): void {
   xpPanelModule ??= import("../../components/GameXpPanel").catch(
@@ -94,6 +93,8 @@ export class WinModal extends LitElement implements Controller {
   // The player's reduced award for a death is on the panel: it is final.
   private finalShown = false;
   private xpAbort: AbortController | null = null;
+  // A solo match's own follow-up is running (one loop, ever).
+  private soloFollowing = false;
   // While the game goes on after the player died: re-reading the XP preview.
   private liveTimer: ReturnType<typeof setInterval> | null = null;
   // Whose XP the section shows: the Legend ceremony plays once per account.
@@ -135,6 +136,7 @@ export class WinModal extends LitElement implements Controller {
             .onScreen=${this.isVisible}
             .gameType=${this.game?.config().gameConfig().gameType ?? null}
             @xp-legend=${this.onXpLegend}
+            @solo-retry=${this.onSoloRetry}
           ></game-xp-panel>
           ${this.innerHtml()}
         </div>
@@ -509,6 +511,10 @@ export class WinModal extends LitElement implements Controller {
 
   hide() {
     this.isVisible = false;
+    // A solo match's poll runs for the person looking at it: with the modal
+    // closed it stops (the win, or the next look, starts it again if there is
+    // still something to wait for). The server pays regardless.
+    if (this.soloFollowing) this.xpAbort?.abort();
     this.requestUpdate();
   }
 
@@ -632,7 +638,13 @@ export class WinModal extends LitElement implements Controller {
       // The game may have ended while this was resolving; the end-of-game
       // call owns the section from then on.
       if (this.xpPolling) return;
-      if (!gameOver && !solo) {
+      // A singleplayer match has its own route and states: it is not a game a
+      // server watched, so none of the multiplayer XP routes know of it.
+      if (solo) {
+        await this.followSolo(game.gameID());
+        return;
+      }
+      if (!gameOver) {
         this.startLiveXp(game.gameID());
         return;
       }
@@ -640,16 +652,14 @@ export class WinModal extends LitElement implements Controller {
       this.xpPolling = true;
       this.xpView = { kind: "calculating" };
       // The server has the result before the game is stored: say so at once
-      // (and that a win is confirmed) while the stored XP is looked for. A solo
-      // match has no such preview: nothing watches it until it is uploaded.
-      if (!solo) void this.showSettledPreview(game.gameID());
+      // (and that a win is confirmed) while the stored XP is looked for.
+      void this.showSettledPreview(game.gameID());
       this.xpAbort = new AbortController();
       // The game server replays the game to check the winner before it
-      // archives it, which can take a while for a long game; the account API
-      // replays a solo match the same way before it pays it.
+      // archives it, which can take a while for a long game.
       const result = await pollGameXp(game.gameID(), {
         signal: this.xpAbort.signal,
-        timeoutMs: solo ? SOLO_XP_POLL_TIMEOUT_MS : XP_POLL_TIMEOUT_MS,
+        timeoutMs: XP_POLL_TIMEOUT_MS,
       });
       if (result?.eligible && reachedLegendThisGame(result)) {
         this.preloadLegendCeremony();
@@ -664,6 +674,72 @@ export class WinModal extends LitElement implements Controller {
       this.xpView = { kind: "hidden" };
     }
   }
+
+  /**
+   * A solo match, from upload to result: one loop (`soloFollowing`), which shows
+   * what the match is waiting for, ends on the first conclusion (the award, a
+   * refusal, or a failure the player is told about, with a retry where one can
+   * help) and stops when the modal closes or goes away.
+   */
+  private async followSolo(gameId: string): Promise<void> {
+    if (this.soloFollowing) return;
+    this.soloFollowing = true;
+    this.xpPolling = true;
+    this.stopLiveXp();
+    const abort = new AbortController();
+    this.xpAbort = abort;
+    this.xpView = {
+      kind: "solo",
+      phase: soloUploadOf(gameId)?.state === "queued" ? "queued" : "uploading",
+    };
+    try {
+      const outcome = await pollSoloXp(gameId, {
+        signal: abort.signal,
+        onPhase: (phase) => {
+          if (!abort.signal.aborted) this.xpView = { kind: "solo", phase };
+        },
+      });
+      if (outcome.kind === "aborted") return;
+      if (outcome.kind === "failed") {
+        this.xpView = {
+          kind: "solo_failed",
+          failure: outcome.failure,
+          retryable: outcome.retryable,
+        };
+        return;
+      }
+      if (outcome.data.eligible && reachedLegendThisGame(outcome.data)) {
+        this.preloadLegendCeremony();
+      }
+      clearPendingXp();
+      this.xpView = { kind: "result", data: outcome.data };
+      // The account has the XP now: the nav's level and ring can catch up.
+      document.dispatchEvent(
+        new CustomEvent("xp-awarded", { detail: { gameId } }),
+      );
+    } catch (err) {
+      console.warn("WinModal: solo XP failed", err);
+      this.xpView = {
+        kind: "solo_failed",
+        failure: "unreachable",
+        retryable: true,
+      };
+    } finally {
+      this.soloFollowing = false;
+      this.xpPolling = false;
+      if (this.xpAbort === abort) this.xpAbort = null;
+    }
+  }
+
+  // "Retry" on a failed solo match: upload it again if it never arrived, then follow it again.
+  private onSoloRetry = (): void => {
+    if (this.xpView.kind !== "solo_failed" || this.soloFollowing) return;
+    const gameId = this.game.gameID();
+    if (soloUploadOf(gameId)?.state === "failed") {
+      this.eventBus.emit(new SendSoloArchiveEvent());
+    }
+    void this.followSolo(gameId);
+  };
 
   // The result is in but the game is not stored yet: show what the API already
   // knows (a confirmed win with its XP, or a forfeit) instead of a bare spinner.

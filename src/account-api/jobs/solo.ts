@@ -188,7 +188,14 @@ export function createSoloWorker(
     const turns: Turn[] = decompressGameRecord(
       record as unknown as GameRecord,
     ).turns;
+    const replayStart = Date.now();
     const replay = await replayer(soloGameStart(record), turns);
+    log.info("solo replay finished", {
+      gameCode: job.game_code,
+      ok: replay.ok,
+      ms: Date.now() - replayStart,
+      turns: turns.length,
+    });
     if (!replay.ok && stopping) {
       // The service is stopping and ended the replay: not the match's doing, so
       // it goes back in the line untouched.
@@ -303,6 +310,7 @@ export function createSoloWorker(
     start() {
       if (running) return;
       running = true;
+      log.info("solo worker started");
       void loop();
     },
     async stop() {

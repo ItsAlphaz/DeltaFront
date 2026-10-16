@@ -28,13 +28,13 @@ import express, {
   type Response,
   type Router,
 } from "express";
-import type { Pool } from "pg";
 import { withTransaction } from "../db/tx";
 import { ACCOUNT_RULES } from "../domain/constants";
 import { claimProgressionRewards } from "../domain/economy";
 import { liveXpFor } from "../domain/liveXp";
 import { earlyAwardOf } from "../domain/progression";
 import { prestigeAccount, setDisplayTitle } from "../domain/progressionOps";
+import { eligibleXpBody, soloStatusFor } from "../domain/soloStatus";
 import { clientIp } from "../http";
 import {
   allSeasons,
@@ -57,35 +57,6 @@ import { activeBan, getUser, getUserByPublicId } from "../repo/users";
 import { authenticate, jsonBody, type AppDeps } from "./common";
 
 const PUBLIC_ID = /^[A-Za-z0-9]{6,32}$/;
-
-/**
- * Why a submitted singleplayer match earned nothing, as the reason the XP panel
- * knows, or null while it is waiting (or was never submitted by this account).
- * Only the causes a player can understand get words of their own; everything
- * about the record or the replay is "unverified".
- */
-async function refusedSoloReason(
-  db: Pick<Pool, "query">,
-  userId: string,
-  gameCode: string,
-): Promise<string | null> {
-  const { rows } = await db.query<{ reason: string | null }>(
-    `SELECT reason FROM solo_submissions
-      WHERE game_code = $1 AND user_id = $2 AND status = 'rejected'`,
-    [gameCode, userId],
-  );
-  if (rows.length === 0) return null;
-  switch (rows[0].reason) {
-    case "no_result":
-      return "left_early";
-    case "no_action":
-      return "no_action";
-    case "not_spawned":
-      return "not_spawned";
-    default:
-      return "solo_unverified";
-  }
-}
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{8,100}$/;
 const REWARD_ID = /^\d{1,18}$/;
 
@@ -156,15 +127,7 @@ export function progressionRouter(deps: AppDeps): Router {
 
   // -- the XP one game earned --------------------------------------------------
 
-  /** The wire form of an eligible stored result, with the rank of the level it reached. */
-  const eligibleBody = (gameId: string, stored: object): GameXpResponse => {
-    const after = (stored as { after: ReturnType<typeof progressState> }).after;
-    return {
-      ...stored,
-      gameId,
-      after: { ...after, rank: rankForLevel(after.level) },
-    } as unknown as GameXpResponse;
-  };
+  const eligibleBody = eligibleXpBody;
 
   router.get("/users/@me/xp/:gameId", async (req, res) => {
     const user = await account(req, res);
@@ -191,9 +154,9 @@ export function progressionRouter(deps: AppDeps): Router {
         // A singleplayer match that was refused says why (a short, player-facing
         // reason); one still waiting for its replay, or never submitted, is not
         // found yet.
-        const refused = await refusedSoloReason(pool, user.id, id.data);
-        if (refused !== null) {
-          res.json({ gameId: id.data, eligible: false, reason: refused });
+        const solo = await soloStatusFor(pool, user.id, id.data);
+        if (solo.status === "rejected") {
+          res.json(solo.result);
           return;
         }
         res.status(404).json({ error: "not_found" });
