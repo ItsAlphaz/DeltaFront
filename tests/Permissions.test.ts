@@ -5,6 +5,7 @@ import {
   API_ASSIGNABLE_ROLES,
   canActOnTarget,
   canChangeRole,
+  canModifyOwnProgression,
   hasPermission,
   isStaff,
   PERMISSIONS,
@@ -274,6 +275,14 @@ describe("who may change whose role", () => {
     expect(canActOnTarget("mod", "flagged")).toBe(true);
     expect(canActOnTarget(null, null)).toBe(false);
     expect(canActOnTarget("flagged", null)).toBe(false);
+  });
+
+  it("only the owner may change their own progression", () => {
+    expect(canModifyOwnProgression("owner")).toBe(true);
+    expect(canModifyOwnProgression("root")).toBe(true); // the legacy owner
+    for (const role of ["admin", "mod", "flagged", "", null, undefined]) {
+      expect(canModifyOwnProgression(role)).toBe(false);
+    }
   });
 });
 

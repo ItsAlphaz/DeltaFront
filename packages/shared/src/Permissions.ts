@@ -264,6 +264,18 @@ export function canActOnTarget(
   return rank[actor] > rank[target];
 }
 
+/**
+ * Whether a role may change its OWN progression (XP and season XP). The self
+ * restriction on moderation stays for everyone else: only the owner, who already
+ * holds every grant, may use the XP tools on their own account. The API decides
+ * this from the role it loaded for the signed-in account, never from the request.
+ */
+export function canModifyOwnProgression(
+  role: string | null | undefined,
+): boolean {
+  return staffRoleOf(role) === "owner";
+}
+
 // ---------------------------------------------------------------- badges
 
 /** What to say about a staff role, for a tooltip and an accessible label. */

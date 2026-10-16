@@ -100,7 +100,9 @@ See [Progression.md](Progression.md). XP changes follow the wallet pattern: a re
 (required), the audit row written first (`xp:grant`, `xp:revoke`, `xp:set`,
 `season:create|update|close|reset-user`) with actor, role, target, amount and
 before/after, and an `xp_ledger` row whose reference is the audit id. `canActOnTarget`
-applies and nobody changes their own XP from the web panel (the CLI is the operator). A
+applies, and only the owner (`canModifyOwnProgression`) may change their own XP or season XP from the web panel: an
+admin or moderator gets `SELF_ACTION`. The API decides from the role stored on the account, not the token, and an
+owner's self-change is audited like any other with `self: true` in its details. A
 grant is at most 100,000 XP per command; a revoke larger than the run is refused; `set`
 moves lifetime XP by the difference. A revoke never takes back a reward already
 unlocked. CLI: `xp:show`, `xp:grant`, `xp:revoke`, `xp:set`, `season:list`,

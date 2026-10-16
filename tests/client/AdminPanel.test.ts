@@ -487,7 +487,7 @@ describe("<admin-users-view>", () => {
 });
 
 describe("<admin-progression-card>", () => {
-  async function mountCard(role: Role) {
+  async function mountCard(role: Role, target = "TARGET0001") {
     const el = document.createElement(
       "admin-progression-card",
     ) as HTMLElement & {
@@ -496,7 +496,7 @@ describe("<admin-progression-card>", () => {
       updateComplete: Promise<boolean>;
     };
     el.me = me(role);
-    el.publicId = "TARGET0001";
+    el.publicId = target;
     document.body.append(el);
     await el.updateComplete;
     await tick();
@@ -549,6 +549,30 @@ describe("<admin-progression-card>", () => {
     el.remove();
     el = await mountCard("owner");
     expect(el.querySelector("[data-admin-xp-set]")).not.toBeNull();
+  });
+
+  it("the owner viewing themselves has the tools; an admin keeps the message", async () => {
+    let el = await mountCard("owner", "STAFF00001");
+    expect(el.querySelector("[data-admin-xp-tools]")).not.toBeNull();
+    expect(el.querySelector("[data-admin-xp-self-locked]")).toBeNull();
+    await fill(el, "100", "testing");
+    (el.querySelector("[data-admin-xp-grant]") as HTMLButtonElement).click();
+    await tick();
+    expect(api.adjustXp).toHaveBeenCalledWith(
+      "STAFF00001",
+      "grant",
+      100,
+      "testing",
+      false,
+    );
+    el.remove();
+    api.adjustXp.mockClear();
+    el = await mountCard("admin", "STAFF00001");
+    expect(el.querySelector("[data-admin-xp-tools]")).toBeNull();
+    expect(
+      el.querySelector("[data-admin-xp-self-locked]")?.textContent,
+    ).toContain("admin_panel.error_SELF_ACTION");
+    expect(api.adjustXp).not.toHaveBeenCalled();
   });
 
   it("nothing is sent without a reason or with a bad amount", async () => {

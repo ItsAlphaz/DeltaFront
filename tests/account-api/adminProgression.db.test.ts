@@ -138,7 +138,7 @@ describeDb("who may use the XP tools", () => {
     expect((await send(h, nobody, "POST", xp, grant)).status).toBe(403);
   });
 
-  it("never lets staff change their own XP, or that of an account at or above their role", async () => {
+  it("never lets an admin change their own XP, or that of an account at or above their role", async () => {
     const h = await harness();
     const admin = await account(h, "admin");
     const otherAdmin = await account(h, "admin");
@@ -151,13 +151,205 @@ describeDb("who may use the XP tools", () => {
         reason: REASON,
       });
     expect((await post(admin, admin)).status).toBe(403);
-    expect((await post(owner, owner)).status).toBe(403);
     expect((await post(admin, otherAdmin)).status).toBe(403);
     expect((await post(admin, owner)).status).toBe(403);
     expect((await post(owner, admin)).status).toBe(200);
     expect((await post(admin, user)).status).toBe(200);
     expect(await progress(h, owner)).toBeUndefined();
     expect(await progress(h, otherAdmin)).toBeUndefined();
+  });
+});
+
+describeDb("the owner changing their own progression", () => {
+  const xpRoute = (u: TestUser) => `/admin/users/${u.publicId}/xp`;
+  const seasonRoute = (u: TestUser) =>
+    `/admin/users/${u.publicId}/season-reset`;
+  const body = (action: "grant" | "revoke" | "set", amount: number) => ({
+    action,
+    amount,
+    reason: REASON,
+    ...(action === "grant" ? {} : { confirm: true }),
+  });
+
+  it("lets the owner grant, revoke and set their own run XP", async () => {
+    const h = await harness();
+    const owner = await account(h, "owner");
+    await seed(h, owner, 1_000, 1_000);
+    expect(
+      (await send(h, owner, "POST", xpRoute(owner), body("grant", 200))).status,
+    ).toBe(200);
+    expect((await progress(h, owner)).run).toBe(1_200);
+    expect(
+      (await send(h, owner, "POST", xpRoute(owner), body("revoke", 300)))
+        .status,
+    ).toBe(200);
+    expect((await progress(h, owner)).run).toBe(900);
+    expect(
+      (await send(h, owner, "POST", xpRoute(owner), body("set", 500))).status,
+    ).toBe(200);
+    expect((await progress(h, owner)).run).toBe(500);
+  });
+
+  it("lets the owner grant themselves season XP and reset it", async () => {
+    const h = await harness();
+    const owner = await account(h, "owner");
+    await seed(h, owner, 1_000, 1_000);
+    const [season] = await q(
+      h,
+      "INSERT INTO seasons (number, name, starts_at, ends_at) VALUES (1, 'Live', now() - interval '1 day', now() + interval '5 days') RETURNING id::text AS id",
+    );
+    const res = await send(h, owner, "POST", xpRoute(owner), {
+      ...body("grant", 400),
+      countsForSeason: true,
+    });
+    expect(res.status).toBe(200);
+    const seasonXp = async () =>
+      (
+        await q(
+          h,
+          "SELECT xp::int AS xp FROM user_season_progress WHERE season_id = $1 AND user_id = $2",
+          [season.id, owner.id],
+        )
+      )[0].xp;
+    expect(await seasonXp()).toBe(400);
+    expect(
+      (
+        await send(h, owner, "POST", seasonRoute(owner), {
+          reason: REASON,
+          confirm: true,
+        })
+      ).status,
+    ).toBe(200);
+    expect(await seasonXp()).toBe(0);
+  });
+
+  it("still refuses an admin and a moderator on their own account, for every tool", async () => {
+    const h = await harness();
+    for (const role of ["admin", "mod"]) {
+      const who = await account(h, role);
+      expect(
+        (await send(h, who, "POST", xpRoute(who), body("grant", 5))).status,
+      ).toBe(403);
+      expect(
+        (
+          await send(h, who, "POST", seasonRoute(who), {
+            reason: REASON,
+            confirm: true,
+          })
+        ).status,
+      ).toBe(403);
+    }
+    const admin = await account(h, "admin");
+    const refused = await send(
+      h,
+      admin,
+      "POST",
+      xpRoute(admin),
+      body("grant", 5),
+    );
+    expect(await refused.json()).toMatchObject({ error: "SELF_ACTION" });
+    expect(await progress(h, admin)).toBeUndefined();
+    expect(
+      await q(h, "SELECT 1 FROM admin_audit_log WHERE action LIKE 'xp:%'"),
+    ).toHaveLength(0);
+  });
+
+  it("does not trust a token that says owner: the role is read from the account", async () => {
+    const h = await harness();
+    const admin = await account(h, "admin");
+    const { jwt } = await h.tokens.issue({
+      userId: admin.id,
+      role: "owner",
+      provider: "discord",
+      sid: (
+        await q(
+          h,
+          "SELECT family_id::text AS f FROM refresh_sessions WHERE user_id = $1",
+          [admin.id],
+        )
+      )[0].f,
+    });
+    const res = await call(h, xpRoute(admin), {
+      method: "POST",
+      bearer: jwt,
+      origin: null,
+      json: body("grant", 5),
+    });
+    expect(res.status).toBe(403);
+    expect(await progress(h, admin)).toBeUndefined();
+  });
+
+  it("still lets the owner and an admin change other players", async () => {
+    const h = await harness();
+    const owner = await account(h, "owner");
+    const admin = await account(h, "admin");
+    const user = await account(h);
+    expect(
+      (await send(h, owner, "POST", xpRoute(user), body("grant", 10))).status,
+    ).toBe(200);
+    expect(
+      (await send(h, admin, "POST", xpRoute(user), body("grant", 10))).status,
+    ).toBe(200);
+    expect((await progress(h, user)).run).toBe(20);
+    // the owner is still protected from an admin, and one owner from another
+    expect(
+      (await send(h, admin, "POST", xpRoute(owner), body("grant", 10))).status,
+    ).toBe(403);
+    const otherOwner = await account(h, "owner");
+    expect(
+      (await send(h, owner, "POST", xpRoute(otherOwner), body("grant", 10)))
+        .status,
+    ).toBe(403);
+  });
+
+  it("audits every owner self-change, marked as one", async () => {
+    const h = await harness();
+    const owner = await account(h, "owner");
+    const user = await account(h);
+    await seed(h, owner, 1_000, 1_000);
+    await send(h, owner, "POST", xpRoute(owner), body("grant", 100));
+    await send(h, owner, "POST", xpRoute(owner), body("revoke", 50));
+    await send(h, owner, "POST", xpRoute(owner), body("set", 700));
+    await send(h, owner, "POST", xpRoute(user), body("grant", 10));
+    const rows = await q(
+      h,
+      "SELECT action, actor, actor_role, actor_user_id, target_id, details FROM admin_audit_log WHERE action LIKE 'xp:%' ORDER BY id",
+    );
+    expect(rows.map((r) => r.action)).toEqual([
+      "xp:grant",
+      "xp:revoke",
+      "xp:set",
+      "xp:grant",
+    ]);
+    for (const row of rows.slice(0, 3)) {
+      expect(row).toMatchObject({
+        actor: owner.publicId,
+        actor_role: "owner",
+        actor_user_id: owner.id,
+        target_id: owner.publicId,
+      });
+      expect(row.details).toMatchObject({ reason: REASON, self: true });
+      expect(row.details.amount).toBeGreaterThan(0);
+      expect(row.details.before).toBeDefined();
+      expect(row.details.after).toBeDefined();
+    }
+    expect(rows[3].target_id).toBe(user.publicId);
+    expect(rows[3].details.self).toBe(false);
+    // and the season reset, which records the same
+    await q(
+      h,
+      "INSERT INTO seasons (number, name, starts_at, ends_at) VALUES (1, 'Live', now() - interval '1 day', now() + interval '5 days')",
+    );
+    await send(h, owner, "POST", seasonRoute(owner), {
+      reason: REASON,
+      confirm: true,
+    });
+    const [reset] = await q(
+      h,
+      "SELECT target_id, details FROM admin_audit_log WHERE action = 'season:reset-user'",
+    );
+    expect(reset.target_id).toBe(owner.publicId);
+    expect(reset.details).toMatchObject({ reason: REASON, self: true });
   });
 });
 

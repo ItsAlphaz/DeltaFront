@@ -12,6 +12,7 @@ import {
 import {
   canActOnTarget,
   canChangeRole,
+  canModifyOwnProgression,
   hasPermission,
   permissionsOf,
   staffRoleOf,
@@ -253,7 +254,11 @@ export function adminRouter(deps: AppDeps, readiness?: Readiness): Router {
     return user;
   }
 
-  /** Whether the actor may take a moderation action on the target (never on oneself). */
+  /**
+   * Whether the actor may take a moderation action on the target (never on
+   * oneself, unless `allowSelf`: only the progression tools pass it, and only
+   * for an owner).
+   */
   function mayActOn(
     staff: Staff,
     target: UserRow,
@@ -1421,7 +1426,10 @@ export function adminRouter(deps: AppDeps, readiness?: Readiness): Router {
         }
         const user = await targetOf(req, res);
         if (user === null) return;
-        if (!mayActOn(staff, user, res)) return;
+        if (
+          !mayActOn(staff, user, res, canModifyOwnProgression(staff.user.role))
+        )
+          return;
         if (body.action !== "grant" && !confirmed(res, body.confirm)) return;
         const result = await withTransaction(pool, (db) =>
           adjustXp(
@@ -1458,7 +1466,10 @@ export function adminRouter(deps: AppDeps, readiness?: Readiness): Router {
       async (staff, body, req, res) => {
         const user = await targetOf(req, res);
         if (user === null) return;
-        if (!mayActOn(staff, user, res)) return;
+        if (
+          !mayActOn(staff, user, res, canModifyOwnProgression(staff.user.role))
+        )
+          return;
         if (!confirmed(res, body.confirm)) return;
         const result = await withTransaction(pool, (db) =>
           resetSeasonXp(db, staff.ctx, user.publicId, body.reason),

@@ -3,7 +3,11 @@ import type {
   AdminProgression,
   AdminXpHistory,
 } from "@openfront/shared/AdminSchemas";
-import { hasPermission, type Permission } from "@openfront/shared/Permissions";
+import {
+  canModifyOwnProgression,
+  hasPermission,
+  type Permission,
+} from "@openfront/shared/Permissions";
 import { html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { adminApi } from "../AdminApi";
@@ -53,6 +57,14 @@ export class AdminProgressionCard extends LitElement {
     return hasPermission(this.me.role, permission);
   }
 
+  /** Your own account, which only the owner may change (the API enforces it too). */
+  private get selfLocked(): boolean {
+    return (
+      this.publicId === this.me.publicId &&
+      !canModifyOwnProgression(this.me.role)
+    );
+  }
+
   private async load(page = 1): Promise<void> {
     const id = this.publicId;
     const [progress, history] = await Promise.all([
@@ -74,7 +86,7 @@ export class AdminProgressionCard extends LitElement {
     action: "grant" | "revoke" | "set",
     permission: Permission,
   ): Promise<void> {
-    if (this.busy || !this.can(permission)) return;
+    if (this.busy || !this.can(permission) || this.selfLocked) return;
     const amount = Number(this.amount);
     const reason = this.reason.trim();
     if (
@@ -174,7 +186,14 @@ export class AdminProgressionCard extends LitElement {
       ${this.can("admin.xp.grant") ||
       this.can("admin.xp.revoke") ||
       this.can("admin.xp.set")
-        ? this.renderTools()
+        ? this.selfLocked
+          ? html`<p
+              class="m-0 text-sm text-df-text-muted"
+              data-admin-xp-self-locked
+            >
+              ${t("error_SELF_ACTION")}
+            </p>`
+          : this.renderTools()
         : nothing}
       ${this.notice === null
         ? nothing

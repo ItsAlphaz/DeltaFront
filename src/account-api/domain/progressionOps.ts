@@ -254,6 +254,7 @@ export async function adjustXp(
     amount,
     reason,
     countsForSeason: options.countsForSeason,
+    self: ctx.actorUserId === user.id,
   });
   const season = options.countsForSeason
     ? await seasonAt(tx, new Date())
@@ -328,6 +329,7 @@ export async function resetSeasonXp(
     before,
     after: 0,
     reason,
+    self: ctx.actorUserId === user.id,
   });
   return { before, after: 0, season: season.number };
 }
