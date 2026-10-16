@@ -43,3 +43,22 @@ map-generator/map-generator.exe
 
 # Account API dev signing key (generated on first dev run)
 /.account-api-dev/
+
+# The private production store (docs/PrivateStore.md) is its own repository, kept
+# OUTSIDE this one. Ignored so a checkout dropped in here can never be committed.
+/private-store/
+/DeltaFront-Private-Store/
+/store-private/
+/.private-store/
+/catalog-private/
+# A production catalog copied into the sample folder by mistake. The sample has
+# no effects.json (its effects are in cosmetics.json) and no sub-folders.
+/src/account-api/catalog/effects.json
+/src/account-api/catalog/private/
+/src/account-api/catalog/assets/*/
+# Design sources and unused variants never belong in the public repository.
+*.psd
+*.ai
+*.xcf
+*.kra
+*.sketch

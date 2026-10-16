@@ -117,7 +117,7 @@ systemctl enable --now deltafront-backup.timer deltafront-healthcheck.timer
 npm run launch:check -- --probe
 ```
 
-The admin command line reads `DATABASE_URL` from the environment. Run it as `df-api` with `api.env` loaded:
+The admin command line reads `DATABASE_URL` from the environment (and, for the `item:*` commands, `DF_CATALOG_DIR` / `DF_CATALOG_ASSET_DIR`, so a granted item is checked against the production catalog). Run it as `df-api` with `api.env` loaded:
 
 ```bash
 sudo -u df-api sh -c 'set -a; . /etc/deltafront/api.env; cd /opt/deltafront/current; exec npm run admin -- user:find <publicId>'
@@ -173,6 +173,8 @@ The API refuses to start with email on and a missing or placeholder key, a malfo
 **Operating it.** `npm run admin -- email:status` prints counts only (pending, expired unused, used, requested in the last hour), never an address or token. Used and expired links are deleted a day after they expire by the maintenance job; deleting an account removes the links that would add an address to it. Bounces and complaints are in the provider's dashboard: this API does not read them. There is no tool to read a token or to sign in as someone, by design.
 
 ## 5. Updating, and going back
+
+> **The store catalog is separate from this update.** The production cosmetic catalog is a private repository, checked out (or copied) at `/opt/deltafront-private/store` and named in `api.env` by `DF_CATALOG_DIR` / `DF_CATALOG_ASSET_DIR`. This procedure deploys the public release and never needs a credential for it, but expects that folder to exist; a configured catalog that is missing stops the API from starting. Update the store with its own steps ([PrivateStore.md](PrivateStore.md)).
 
 ```bash
 git -C /opt/deltafront/releases clone … <new-commit>          # or unpack

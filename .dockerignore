@@ -16,3 +16,8 @@ coverage*
 tests/
 scripts/replay/
 scripts/split-packages/
+private-store/
+DeltaFront-Private-Store/
+store-private/
+.private-store/
+catalog-private/

@@ -1,6 +1,7 @@
 import {
   ColorPaletteSchema,
   CosmeticsSchema,
+  CrownSchema,
   EFFECT_TYPES,
   EffectSchema,
   FlagSchema,
@@ -12,25 +13,46 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod/v4";
-import { effectFlare, flagFlare, hasFlareShape, patternFlare } from "./flares";
+import {
+  crownFlare,
+  effectFlare,
+  flagFlare,
+  hasFlareShape,
+  patternFlare,
+} from "./flares";
 
 /**
  * The DeltaFront cosmetic catalog (docs/DeltaFrontAccountsPlan.md sections 9.3
  * and 10, decision D6).
  *
- * `cosmetics.json` is the one source of item definitions. It is the client's
- * own `CosmeticsSchema` shape plus `defaultFlares` (the free items every
- * account owns), and it is checked here, strictly, before the API will start:
- * a catalog with a mistake in it is a boot failure, never a half-working
- * store. Assets are the files in `assets/`; the catalog refers to them by bare
- * file name and the API expands that to its own URL.
+ * Two places can hold it:
  *
- * Adding an item is data only: an entry in the JSON (and a file in `assets/`
- * for a flag), then a deploy.
+ *   - the PUBLIC SAMPLE, `cosmetics.json` and `assets/` beside this file: a
+ *     handful of items, enough to run the store, the inventory and the tests;
+ *   - the PRODUCTION catalog, a private directory the operator points the API
+ *     at with DF_CATALOG_DIR (and DF_CATALOG_ASSET_DIR). It is not in this
+ *     repository (docs/PrivateStore.md).
+ *
+ * A catalog directory holds `cosmetics.json` (the client's own `CosmeticsSchema`
+ * shape plus `defaultFlares`, the free items every account owns) and,
+ * optionally, `effects.json` (`{ "effects": { ... } }`, merged in). It is
+ * checked here, strictly, before the API will start: a catalog with a mistake
+ * in it is a boot failure, never a half-working store, and a configured catalog
+ * that cannot be read never falls back to the sample (owned items would vanish).
+ *
+ * Assets are bare file names the catalog refers to, in the asset directory.
+ * Only the files the catalog names are read: nothing else in that directory
+ * (sources, unused variants, a listing) is ever loaded or served, and the API
+ * expands a name to its own URL.
  */
 
+/** The public sample catalog: this folder (`cosmetics.json`, `assets/`). */
 export const CATALOG_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const ASSET_ROUTE = "/cosmetics/assets";
+
+/** Where the production catalog and its images are (absolute paths; unset means the sample). */
+export const CATALOG_DIR_ENV = "DF_CATALOG_DIR";
+export const CATALOG_ASSET_DIR_ENV = "DF_CATALOG_ASSET_DIR";
 
 /** An asset is a bare lowercase file name with an image extension. */
 const ASSET_FILE = /^[a-z0-9_]{1,48}\.(svg|png|webp)$/;
@@ -41,7 +63,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 /** Placeholder art is tiny; anything bigger is not a placeholder. */
 export const MAX_ASSET_BYTES = 256 * 1024;
-export const MAX_ITEMS = 500;
+export const MAX_ITEMS = 1500;
 
 export interface CatalogAsset {
   file: string;
@@ -63,6 +85,15 @@ export interface Catalog {
   /** Every flare the catalog can grant, sorted. */
   validFlares: ReadonlySet<string>;
   assets: ReadonlyMap<string, CatalogAsset>;
+  /** Where it was read from; null for a catalog built from text (tests). */
+  source: CatalogSource | null;
+}
+
+export interface CatalogSource {
+  dir: string;
+  assetDir: string;
+  /** True when the operator configured the directory; false for the public sample. */
+  configured: boolean;
 }
 
 export class CatalogError extends Error {
@@ -74,7 +105,7 @@ export class CatalogError extends Error {
   }
 }
 
-// z.strictObject: a key the V1 catalog does not allow (crowns, skins, packs,
+// z.strictObject: a key the V1 catalog does not allow (skins, packs,
 // currencyPacks, subscriptions, tribeNames, lobbyQueue) is an error, not
 // something quietly dropped.
 const SourceSchema = z.strictObject({
@@ -82,6 +113,7 @@ const SourceSchema = z.strictObject({
   colorPalettes: z.record(z.string(), ColorPaletteSchema),
   patterns: z.record(z.string(), PatternSchema),
   flags: z.record(z.string(), FlagSchema),
+  crowns: z.record(z.string(), CrownSchema).optional(),
   effects: z.partialRecord(
     z.enum(EFFECT_TYPES),
     z.record(z.string(), EffectSchema),
@@ -164,6 +196,8 @@ export function parseCatalog(
   text: string,
   assetFiles: ReadonlyMap<string, Buffer>,
   publicOrigin: string,
+  /** What the version is the hash of, when the text was assembled from several files. */
+  versionOf: string = text,
 ): Catalog {
   const issues: string[] = [];
 
@@ -320,6 +354,14 @@ export function parseCatalog(
     flags[key] = { ...flag, url: assetUrl(where, flag.url) ?? flag.url };
   }
 
+  const crowns: NonNullable<Cosmetics["crowns"]> = {};
+  for (const [key, crown] of Object.entries(source.crowns ?? {})) {
+    const where = `crowns.${key}`;
+    checkItem(where, key, crown);
+    addFlare(where, crownFlare(crown.name));
+    crowns[key] = { ...crown, url: assetUrl(where, crown.url) ?? crown.url };
+  }
+
   const effects: Record<string, Record<string, unknown>> = {};
   const effectNames = new Map<string, string>();
   for (const [effectType, byName] of Object.entries(source.effects)) {
@@ -375,6 +417,7 @@ export function parseCatalog(
     colorPalettes: source.colorPalettes,
     patterns: source.patterns,
     flags,
+    ...(source.crowns === undefined ? {} : { crowns }),
     effects,
   });
   if (!served.success) {
@@ -384,31 +427,219 @@ export function parseCatalog(
   }
   const body = JSON.stringify(served.data);
   return {
-    version: sha256(text),
+    version: sha256(versionOf),
     body,
     etag: `"${sha256(body).slice(0, 32)}"`,
     cosmetics: served.data,
     defaultFlares: [...defaults].sort(),
     validFlares: new Set([...flares].sort()),
     assets,
+    source: null,
   };
 }
 
-/** Reads the catalog and its assets from disk and validates them. */
+/**
+ * The catalog directories named by the environment: both null means the public
+ * sample. Problems come back as lines (the caller turns them into its own error),
+ * so a bad value is reported rather than quietly ignored.
+ */
+export function catalogEnv(env: Record<string, string | undefined>): {
+  dir: string | null;
+  assetDir: string | null;
+  issues: string[];
+} {
+  const issues: string[] = [];
+  const read = (name: string): string | null => {
+    const value = env[name]?.trim();
+    if (value === undefined || value === "") return null;
+    if (!path.isAbsolute(value)) {
+      issues.push(`${name} must be an absolute path`);
+      return null;
+    }
+    if (value.includes("\0")) {
+      issues.push(`${name} is not a valid path`);
+      return null;
+    }
+    return path.resolve(value);
+  };
+  const dir = read(CATALOG_DIR_ENV);
+  const assetDir = read(CATALOG_ASSET_DIR_ENV);
+  if (assetDir !== null && dir === null && issues.length === 0) {
+    issues.push(`${CATALOG_ASSET_DIR_ENV} needs ${CATALOG_DIR_ENV} as well`);
+  }
+  return { dir, assetDir, issues };
+}
+
+const catalogFile = (
+  dir: string,
+  name: string,
+  required: boolean,
+): string | null => {
+  const full = path.join(dir, name);
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(full);
+  } catch (error) {
+    if (!required && (error as NodeJS.ErrnoException).code === "ENOENT")
+      return null;
+    throw new CatalogError([
+      `${name} cannot be read in ${dir}: ${(error as NodeJS.ErrnoException).code ?? "error"}`,
+    ]);
+  }
+  if (!stat.isFile() || stat.size > MAX_CATALOG_BYTES) {
+    throw new CatalogError([
+      `${name} in ${dir} is not a regular file of a sensible size`,
+    ]);
+  }
+  return fs.readFileSync(full, "utf8");
+};
+
+/** The asset names a parsed catalog source refers to (`url` of flags, crowns and effects). */
+function referencedAssets(json: unknown): string[] {
+  const out = new Set<string>();
+  const visit = (group: unknown) => {
+    if (group === null || typeof group !== "object") return;
+    for (const item of Object.values(group as Record<string, unknown>)) {
+      const url = (item as { url?: unknown } | null)?.url;
+      if (typeof url === "string") out.add(url);
+    }
+  };
+  const source = json as {
+    flags?: unknown;
+    crowns?: unknown;
+    effects?: unknown;
+  };
+  visit(source.flags);
+  visit(source.crowns);
+  if (source.effects !== null && typeof source.effects === "object") {
+    for (const byName of Object.values(
+      source.effects as Record<string, unknown>,
+    ))
+      visit(byName);
+  }
+  return [...out];
+}
+
+/**
+ * One asset the catalog names: a regular file directly inside the asset
+ * directory. A name that is not a bare file name, a missing file, a symlink or
+ * anything that resolves outside the directory is left out, and parseCatalog
+ * reports it as the catalog's problem (it names a file that does not exist).
+ */
+function readAsset(
+  assetRoot: string,
+  name: string,
+  issues: string[],
+): Buffer | null {
+  if (!ASSET_FILE.test(name)) return null;
+  const full = path.join(assetRoot, name);
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(full);
+  } catch {
+    return null;
+  }
+  if (!stat.isFile()) {
+    issues.push(
+      `assets/${name}: is not a regular file (links are not followed)`,
+    );
+    return null;
+  }
+  if (stat.size > MAX_ASSET_BYTES) {
+    issues.push(`assets/${name}: larger than ${MAX_ASSET_BYTES} bytes`);
+    return null;
+  }
+  const real = fs.realpathSync(full);
+  if (path.dirname(real) !== fs.realpathSync(assetRoot)) {
+    issues.push(`assets/${name}: resolves outside the asset directory`);
+    return null;
+  }
+  return fs.readFileSync(real);
+}
+
+const MAX_CATALOG_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Reads the catalog and its assets from disk and validates them. With no
+ * options it is the public sample; `dir` (and `assetDir`, default `<dir>/assets`)
+ * name a configured catalog, which must be complete and valid or this throws.
+ */
 export function loadCatalog(options: {
   publicOrigin: string;
   dir?: string;
+  assetDir?: string;
 }): Catalog {
+  const configured = options.dir !== undefined;
   const dir = options.dir ?? CATALOG_DIR;
-  const text = fs.readFileSync(path.join(dir, "cosmetics.json"), "utf8");
-  const assetDir = path.join(dir, "assets");
-  const files = new Map<string, Buffer>();
-  if (fs.existsSync(assetDir)) {
-    for (const entry of fs.readdirSync(assetDir, { withFileTypes: true })) {
-      if (entry.isFile() && !entry.name.startsWith(".")) {
-        files.set(entry.name, fs.readFileSync(path.join(assetDir, entry.name)));
+  const assetRoot = options.assetDir ?? path.join(dir, "assets");
+  const issues: string[] = [];
+
+  const cosmeticsText = catalogFile(dir, "cosmetics.json", true)!;
+  const effectsText = catalogFile(dir, "effects.json", false);
+  let text = cosmeticsText;
+  let versionOf = cosmeticsText;
+  let json: unknown;
+  try {
+    json = JSON.parse(cosmeticsText);
+  } catch (error) {
+    throw new CatalogError([
+      `cosmetics.json is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    ]);
+  }
+  if (effectsText !== null) {
+    let extra: unknown;
+    try {
+      extra = JSON.parse(effectsText);
+    } catch (error) {
+      throw new CatalogError([
+        `effects.json is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      ]);
+    }
+    // (Both files are valid JSON now, so the duplicate-key scan below can read them.)
+    for (const key of findDuplicateKeys(effectsText)) {
+      issues.push(`effects.json ${key}: defined twice (duplicate item or key)`);
+    }
+    for (const key of findDuplicateKeys(cosmeticsText)) {
+      issues.push(`${key}: defined twice (duplicate item or key)`);
+    }
+    const parsed = z
+      .strictObject({
+        effects: z.record(z.string(), z.record(z.string(), z.unknown())),
+      })
+      .safeParse(extra);
+    if (!parsed.success) {
+      throw new CatalogError(
+        parsed.error.issues.map(
+          (i) => `effects.json ${i.path.join(".") || "(file)"}: ${i.message}`,
+        ),
+      );
+    }
+    const merged = json as {
+      effects?: Record<string, Record<string, unknown>>;
+    };
+    merged.effects ??= {};
+    for (const [type, byName] of Object.entries(parsed.data.effects)) {
+      const into = (merged.effects[type] ??= {});
+      for (const [name, effect] of Object.entries(byName)) {
+        if (name in into)
+          issues.push(
+            `effects.${type}.${name}: defined in both cosmetics.json and effects.json`,
+          );
+        into[name] = effect;
       }
     }
+    if (issues.length > 0) throw new CatalogError(issues);
+    text = JSON.stringify(merged);
+    versionOf = `${cosmeticsText}\n${effectsText}`;
   }
-  return parseCatalog(text, files, options.publicOrigin);
+
+  const files = new Map<string, Buffer>();
+  for (const name of referencedAssets(json)) {
+    const bytes = readAsset(assetRoot, name, issues);
+    if (bytes !== null) files.set(name, bytes);
+  }
+  if (issues.length > 0) throw new CatalogError(issues);
+  const catalog = parseCatalog(text, files, options.publicOrigin, versionOf);
+  catalog.source = { dir, assetDir: assetRoot, configured };
+  return catalog;
 }

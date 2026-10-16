@@ -5,7 +5,12 @@ import {
 import { randomBytes } from "node:crypto";
 import type { Pool } from "pg";
 import { hasFlareShape, isWildcardFlare } from "../catalog/flares";
-import { loadCatalog, type Catalog } from "../catalog/load";
+import {
+  catalogEnv,
+  CatalogError,
+  loadCatalog,
+  type Catalog,
+} from "../catalog/load";
 import { withTransaction } from "../db/tx";
 import {
   adjustCredits,
@@ -185,9 +190,21 @@ async function userByPublicId(
   return rows[0];
 }
 
-/** The catalog the item commands check flares against. Asset URLs are not used here. */
+/**
+ * The catalog the item commands check flares against: the one the API serves,
+ * so DF_CATALOG_DIR and DF_CATALOG_ASSET_DIR in the command's environment (the
+ * same `api.env`) decide it, and a configured catalog that cannot be loaded is
+ * an error, never a silent fall back to the sample. Asset URLs are not used here.
+ */
 function catalogOf(io: AdminIo): Catalog {
-  return io.catalog ?? loadCatalog({ publicOrigin: "http://localhost" });
+  if (io.catalog !== undefined) return io.catalog;
+  const where = catalogEnv(io.env);
+  if (where.issues.length > 0) throw new CatalogError(where.issues);
+  return loadCatalog({
+    publicOrigin: "http://localhost",
+    dir: where.dir ?? undefined,
+    assetDir: where.assetDir ?? undefined,
+  });
 }
 
 /** A Credits amount: a whole number from 1 up to the per-command limit. */
@@ -950,6 +967,11 @@ export async function runAdminCommand(
     if (error instanceof AdminUsageError) {
       io.err(error.message);
       return 2;
+    }
+    // The configured catalog is unusable: say so, and never fall back to the sample.
+    if (error instanceof CatalogError) {
+      io.err(error.message);
+      return 1;
     }
     // A refused operation (shared with the HTTP API) reads as a usage error here.
     if (error instanceof AdminOpError) {

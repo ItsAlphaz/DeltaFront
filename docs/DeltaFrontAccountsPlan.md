@@ -874,7 +874,8 @@ Client changes (small):
 
   No store, inventory or server code changes.
 
-- **V1 omits** `currencyPacks`, `subscriptions`, `tribeNames`, `lobbyQueue`, `skins`, `crowns` and `packs` (bundles are hard-currency-only in the contract). Every item has `product: null` and only `priceSoft`.
+- **V1 omits** `currencyPacks`, `subscriptions`, `tribeNames`, `lobbyQueue`, `skins` (the image-based kind; the Store's "Skins" tab is the `patterns`) and `packs` (bundles are hard-currency-only in the contract). Every item has `product: null` and only `priceSoft`. **Crowns** (`crown:<name>` flares, 128 x 128 images) are supported, so the Store's Crowns tab and the Inventory's Crowns slot are live.
+- **Two catalogs: a public sample and a private production one.** The file in the repository is a deliberately small sample (the original eight items and a few plain ones, enough to run and test the store). The real catalog is a private repository the API loads from `DF_CATALOG_DIR` / `DF_CATALOG_ASSET_DIR`; it replaces the sample, a configured catalog that cannot be read stops the boot, and the admin item tools validate against the same one. See [PrivateStore.md](PrivateStore.md).
 
 **Content rules** (enforced by review and by the catalog test in section 19):
 

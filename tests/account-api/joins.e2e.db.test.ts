@@ -13,6 +13,7 @@ import {
   runAdminCommand,
   type AdminIo,
 } from "../../src/account-api/admin/commands";
+import { loadCatalog } from "../../src/account-api/catalog/load";
 import type { Turnstile } from "../../src/account-api/turnstile";
 import { makeUser, type TestUser } from "./util/games";
 import {
@@ -25,6 +26,11 @@ import {
   startHarness,
   type Harness,
 } from "./util/harness";
+import {
+  makePrivateCatalog,
+  PRIVATE_ITEMS,
+  type PrivateCatalog,
+} from "./util/privateCatalog";
 import { makeWorkDir, startScript } from "./util/runScript";
 import { describeDb } from "./util/testDb";
 
@@ -556,10 +562,13 @@ describeDb(
 );
 
 describeDb(
-  "cosmetics at join, with the real game server and the real catalog (inventory feature)",
+  "cosmetics at join, with the real game server and a private production catalog (DF_CATALOG_DIR, inventory feature)",
   () => {
     let h: Harness;
     let server: GameServer;
+    // The production setup: the API loads a catalog that is not the public
+    // sample, and the game server learns it from the API over HTTP.
+    let priv: PrivateCatalog;
     const shopperMock = createMockProviders({
       buyer: {
         discord: {
@@ -585,7 +594,7 @@ describeDb(
         const r = await runAdminCommand(
           h.db.pool,
           ["item:grant", me.player.publicId, flare],
-          io,
+          { ...io, env: priv.env },
         );
         expect(r).toBe(0);
       }
@@ -609,10 +618,12 @@ describeDb(
           );
         }
       }
+      priv = makePrivateCatalog();
       h = await startHarness({
         fixedPort: 8787,
         turnstile,
         features: "accounts,inventory,store",
+        extraEnv: priv.env,
         fetchFn: shopperMock.fetchFn,
         // These tests create many guests from one address.
         limits: { guestCreation: { max: 1000, windowMs: 60_000 } },
@@ -640,6 +651,7 @@ describeDb(
     afterAll(async () => {
       await server?.stop();
       await h?.close();
+      priv?.cleanup();
     });
 
     it("loaded the DeltaFront catalog and the reserved tag list from the account API", () => {
@@ -671,6 +683,56 @@ describeDb(
       expect(outcome.messages).toBeGreaterThan(0);
     }, 30_000);
 
+    it("admits a flag only the private catalog has, once an admin has granted it, and not before", async () => {
+      const flare = `flag:${PRIVATE_ITEMS.adminFlag}`;
+      const refused = await admitted([], { flag: flare });
+      expect(refused.closed?.reason).toBe(REASON.CosmeticsForbidden);
+      const outcome = await admitted([flare], { flag: flare });
+      expect(outcome.closed, server.output().slice(-1500)).toBeNull();
+      expect(outcome.messages).toBeGreaterThan(0);
+    }, 30_000);
+
+    it("admits an owned crown, and an owned effect in every slot at once", async () => {
+      // One priced effect for every slot the game has: each effect type, and each bomb.
+      const { cosmetics } = loadCatalog({
+        publicOrigin: "http://localhost",
+        dir: priv.dir,
+        assetDir: priv.assetDir,
+      });
+      const effects: Record<string, string> = {};
+      for (const [type, byName] of Object.entries(cosmetics.effects ?? {})) {
+        for (const effect of Object.values(byName ?? {})) {
+          const slot =
+            effect.effectType === "nukeExplosion"
+              ? effect.attributes.nukeType
+              : type;
+          effects[slot] ??= effect.name;
+        }
+      }
+      expect(Object.keys(effects).sort()).toEqual(
+        [
+          "atom",
+          "hydro",
+          "mirvWarhead",
+          "nukeTrail",
+          "railroad",
+          "structures",
+          "train",
+          "transportShipTrail",
+          "warship",
+        ].sort(),
+      );
+      const outcome = await admitted(
+        [
+          `crown:${PRIVATE_ITEMS.crown}`,
+          ...Object.values(effects).map((name) => `effect:${name}`),
+        ],
+        { crownName: PRIVATE_ITEMS.crown, effects },
+      );
+      expect(outcome.closed, server.output().slice(-1500)).toBeNull();
+      expect(outcome.messages).toBeGreaterThan(0);
+    }, 30_000);
+
     it.each([
       ["a flag the account does not own", { flag: "flag:split_field" }],
       [
@@ -692,7 +754,13 @@ describeDb(
       ["an item that is not in the catalog", { flag: "flag:made_up" }],
       ["a wildcard flag", { flag: "flag:*" }],
       ["a skin (the catalog has none)", { skinName: "delta_stripes" }],
-      ["a crown (the catalog has none)", { crownName: "gold" }],
+      ["a crown that is not in the catalog", { crownName: "gold" }],
+      ["a crown it does not own", { crownName: PRIVATE_ITEMS.crown }],
+      ["a crown only the public sample has", { crownName: "sample_crown" }],
+      [
+        "an effect of the right type it does not own",
+        { effects: { nukeTrail: PRIVATE_ITEMS.effects.nukeTrail } },
+      ],
       ["a colour it was never sold", { color: "#ff0000" }],
     ] as Array<[string, PlayerCosmeticRefs]>)(
       "refuses a join that claims %s",
@@ -744,7 +812,7 @@ describeDb(
             "--reason",
             "test",
           ],
-          io,
+          { ...io, env: priv.env },
         ),
       ).toBe(0);
       const second = await createGame(p.jwt);
@@ -876,7 +944,7 @@ describeDb(
         await runAdminCommand(
           h.db.pool,
           ["wallet:grant", me.player.publicId, "1000", "--reason", "e2e"],
-          io,
+          { ...io, env: priv.env },
         ),
       ).toBe(0);
       const cosmetics: PlayerCosmeticRefs = { flag: "flag:split_field" };

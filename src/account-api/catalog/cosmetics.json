@@ -78,6 +78,15 @@
       "rarity": "uncommon"
     }
   },
+  "crowns": {
+    "sample_crown": {
+      "name": "sample_crown",
+      "priceSoft": 500,
+      "url": "sample_crown.svg",
+      "product": null,
+      "rarity": "common"
+    }
+  },
   "effects": {
     "transportShipTrail": {
       "red_wake": {
@@ -104,6 +113,131 @@
         },
         "product": null,
         "rarity": "epic"
+      }
+    },
+    "nukeTrail": {
+      "sample_nuke_trail": {
+        "name": "sample_nuke_trail",
+        "priceSoft": 600,
+        "effectType": "nukeTrail",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "colorSize": 6,
+          "movementSpeed": 8
+        },
+        "product": null,
+        "rarity": "common"
+      }
+    },
+    "nukeExplosion": {
+      "sample_atom_ring": {
+        "name": "sample_atom_ring",
+        "priceSoft": 700,
+        "effectType": "nukeExplosion",
+        "attributes": {
+          "type": "shockwave",
+          "nukeType": "atom",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "size": 80,
+          "speed": 80,
+          "thickness": 3,
+          "transitionSpeed": 1
+        },
+        "product": null,
+        "rarity": "common"
+      },
+      "sample_hydro_ring": {
+        "name": "sample_hydro_ring",
+        "priceSoft": 700,
+        "effectType": "nukeExplosion",
+        "attributes": {
+          "type": "shockwave",
+          "nukeType": "hydro",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "size": 220,
+          "speed": 140,
+          "thickness": 5,
+          "transitionSpeed": 1
+        },
+        "product": null,
+        "rarity": "common"
+      },
+      "sample_mirv_ring": {
+        "name": "sample_mirv_ring",
+        "priceSoft": 700,
+        "effectType": "nukeExplosion",
+        "attributes": {
+          "type": "shockwave",
+          "nukeType": "mirvWarhead",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "size": 44,
+          "speed": 50,
+          "thickness": 2,
+          "transitionSpeed": 1
+        },
+        "product": null,
+        "rarity": "common"
+      }
+    },
+    "structures": {
+      "sample_structures": {
+        "name": "sample_structures",
+        "priceSoft": 600,
+        "effectType": "structures",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "common"
+      }
+    },
+    "warship": {
+      "sample_warship": {
+        "name": "sample_warship",
+        "priceSoft": 600,
+        "effectType": "warship",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "common"
+      }
+    },
+    "train": {
+      "sample_train": {
+        "name": "sample_train",
+        "priceSoft": 600,
+        "effectType": "train",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "common"
+      }
+    },
+    "railroad": {
+      "sample_railroad": {
+        "name": "sample_railroad",
+        "priceSoft": 600,
+        "effectType": "railroad",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#f5f5f5"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "common"
       }
     }
   }

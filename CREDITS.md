@@ -136,18 +136,22 @@ Licensed under [CC BY-SA 3.0 DE](https://creativecommons.org/licenses/by-sa/3.0/
 
 ## Cosmetic catalog (placeholders)
 
-The items in `src/account-api/catalog/cosmetics.json` and the images in `src/account-api/catalog/assets/` are **DeltaFront placeholders**, drawn for DeltaFront (simple geometric shapes in its black, white and red palette). None of them is OpenFront artwork or derived from it, and they are made available under the same CC BY-SA 4.0 asset licence as the rest of the DeltaFront artwork (see `LICENSE-ASSETS`). The owner can replace any of them.
+The items in `src/account-api/catalog/cosmetics.json` and the images in `src/account-api/catalog/assets/` are a small **public sample catalog**, **DeltaFront placeholders** drawn for DeltaFront (simple geometric shapes in its black, white and red palette), so the store, the inventory and the game can be run and tested. None of them is OpenFront artwork or derived from it, and they are made available under the same CC BY-SA 4.0 asset licence as the rest of the DeltaFront artwork (see `LICENSE-ASSETS`).
 
-| Item (catalog name) | Kind                     | Asset / data                                                                                                   |
-| ------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `delta_stripes`     | Pattern (`ember`, `ash`) | Diagonal stripes, drawn as a bitmap in `scripts/cosmetics/bitmaps/delta_stripes.txt`                           |
-| `grid_check`        | Pattern (`ember`)        | Checkerboard, drawn as a bitmap in `scripts/cosmetics/bitmaps/grid_check.txt`                                  |
-| `delta_mark`        | Flag                     | `delta_mark.svg`: a red triangle on black                                                                      |
-| `split_field`       | Flag                     | `split_field.svg`: black and white halves with a red bar                                                       |
-| `red_wake`          | Effect (ship trail)      | No file: a red-to-white gradient set in the catalog                                                            |
-| `officer_chevrons`  | Pattern (`ash`)          | Chevrons, drawn as a bitmap in `scripts/cosmetics/bitmaps/officer_chevrons.txt`; a level 50 reward, never sold |
-| `recruit_banner`    | Flag                     | `recruit_banner.svg`: red and white bars on black; a level 10 reward, never sold                               |
-| `colonel_wake`      | Effect (ship trail)      | No file: a white-to-red gradient set in the catalog; a level 75 reward, never sold                             |
+DeltaFront's **production store** (its full catalog and artwork) is not in this repository: it is a separate private catalog, loaded at runtime (`docs/PrivateStore.md`), and is All Rights Reserved. Nothing in it is OpenFront artwork either. The CC BY-SA 4.0 licence above covers the sample items listed here and nothing else.
+
+| Item (catalog name)                                                                                                                                        | Kind                       | Asset / data                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `delta_stripes`                                                                                                                                            | Pattern (`ember`, `ash`)   | Diagonal stripes, drawn as a bitmap in `scripts/cosmetics/bitmaps/delta_stripes.txt`                           |
+| `grid_check`                                                                                                                                               | Pattern (`ember`)          | Checkerboard, drawn as a bitmap in `scripts/cosmetics/bitmaps/grid_check.txt`                                  |
+| `delta_mark`                                                                                                                                               | Flag                       | `delta_mark.svg`: a red triangle on black                                                                      |
+| `split_field`                                                                                                                                              | Flag                       | `split_field.svg`: black and white halves with a red bar                                                       |
+| `red_wake`                                                                                                                                                 | Effect (ship trail)        | No file: a red-to-white gradient set in the catalog                                                            |
+| `officer_chevrons`                                                                                                                                         | Pattern (`ash`)            | Chevrons, drawn as a bitmap in `scripts/cosmetics/bitmaps/officer_chevrons.txt`; a level 50 reward, never sold |
+| `recruit_banner`                                                                                                                                           | Flag                       | `recruit_banner.svg`: red and white bars on black; a level 10 reward, never sold                               |
+| `colonel_wake`                                                                                                                                             | Effect (ship trail)        | No file: a white-to-red gradient set in the catalog; a level 75 reward, never sold                             |
+| `sample_crown`                                                                                                                                             | Crown                      | `sample_crown.svg`: a plain red three-point crown with a white band                                            |
+| `sample_nuke_trail`, `sample_atom_ring`, `sample_hydro_ring`, `sample_mirv_ring`, `sample_structures`, `sample_warship`, `sample_train`, `sample_railroad` | Effects (one of each type) | No files: red-and-white settings in the catalog, there so the store and the game can be run and tested         |
 
 The Credits coin (`resources/images/CreditsIcon.svg`) is DeltaFront artwork as well.
 

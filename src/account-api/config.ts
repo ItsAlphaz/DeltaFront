@@ -11,6 +11,7 @@ import {
   type AccountFeatures,
 } from "@openfront/shared/AccountFeatures";
 import { z } from "zod";
+import { catalogEnv } from "./catalog/load";
 
 /**
  * Environment parsing and validation for the account API.
@@ -83,6 +84,11 @@ export interface AccountApiConfig {
   /** The action a Turnstile token must carry; null skips the check. */
   turnstileAction: string | null;
   features: AccountFeatures;
+  /**
+   * Where the production cosmetic catalog and its images are (DF_CATALOG_DIR,
+   * DF_CATALOG_ASSET_DIR). Both null: the public sample catalog in the repository.
+   */
+  catalog: { dir: string | null; assetDir: string | null };
   email: EmailConfig;
   jwt: {
     privateKeyPath: string | null;
@@ -420,6 +426,8 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
 
   // Email magic links (M8).
   const email = parseEmail(env, { strict, mode, features, issues, warnings });
+  const catalogLocation = catalogEnv(env);
+  issues.push(...catalogLocation.issues);
 
   // What the enabled features need. Only enforced outside dev: a developer can
   // run with features on and no providers to work on one thing at a time.
@@ -473,6 +481,7 @@ export function loadConfig(env: Env = process.env): AccountApiConfig {
     turnstileHostnames,
     turnstileAction,
     features,
+    catalog: { dir: catalogLocation.dir, assetDir: catalogLocation.assetDir },
     email,
     jwt,
     oauth,

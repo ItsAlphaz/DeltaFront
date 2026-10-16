@@ -1,4 +1,4 @@
-import { effectFlare, flagFlare, patternFlare } from "./flares";
+import { crownFlare, effectFlare, flagFlare, patternFlare } from "./flares";
 import type { Catalog } from "./load";
 
 /**
@@ -30,7 +30,7 @@ const isPrice = (value: unknown): value is number =>
 /**
  * The flare and price for a request, or null when the catalog does not sell it:
  * an unknown name (own properties only, so `constructor` and friends are just
- * unknown), a kind V1 has none of (skins, crowns), a palette the pattern does
+ * unknown), a kind V1 has none of (skins), a palette the pattern does
  * not have or has archived, a missing palette on a pattern that needs one, a
  * palette on anything else, or an item with no Credits price.
  */
@@ -65,6 +65,13 @@ export function findOffer(
       price = flag.priceSoft;
       break;
     }
+    case "crown": {
+      const crown = own(cosmetics.crowns, request.cosmeticName);
+      if (crown === undefined || palette !== undefined) return null;
+      flare = crownFlare(crown.name);
+      price = crown.priceSoft;
+      break;
+    }
     case "effect": {
       if (palette !== undefined) return null;
       const effect = Object.values(cosmetics.effects ?? {})
@@ -76,7 +83,7 @@ export function findOffer(
       break;
     }
     default:
-      // skins and crowns: the V1 catalog has none
+      // skins: the catalog has none
       return null;
   }
   if (!isPrice(price) || !catalog.validFlares.has(flare)) return null;

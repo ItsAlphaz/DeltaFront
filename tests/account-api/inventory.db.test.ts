@@ -93,11 +93,11 @@ describeDb("the catalog routes (inventory feature on)", () => {
       "subscriptions",
       "tribeNames",
       "lobbyQueue",
-      "crowns",
       "skins",
     ]) {
       expect(body).not.toHaveProperty(forbidden);
     }
+    expect(Object.keys(body.crowns)).toEqual(["sample_crown"]);
   });
 
   it("answers a repeat request with 304 when the ETag still matches", async () => {
@@ -117,13 +117,18 @@ describeDb("the catalog routes (inventory feature on)", () => {
   it("hands out asset URLs on this API that actually resolve to the artwork", async () => {
     const catalog = (await (await call(h, "/cosmetics.json")).json()) as {
       flags: Record<string, { url: string }>;
+      crowns: Record<string, { url: string }>;
     };
-    expect(Object.keys(catalog.flags)).toEqual([
+    expect(Object.keys(catalog.flags).slice(0, 3)).toEqual([
       "delta_mark",
       "split_field",
       "recruit_banner",
     ]);
-    for (const flag of Object.values(catalog.flags)) {
+    // Every flag and every crown image is served from this API.
+    for (const flag of [
+      ...Object.values(catalog.flags),
+      ...Object.values(catalog.crowns),
+    ]) {
       expect(
         flag.url.startsWith(`${h.config.publicOrigin}/cosmetics/assets/`),
       ).toBe(true);
@@ -652,7 +657,8 @@ describeDb("admin: item:grant, item:revoke, item:list", () => {
       ["flag:not_in_catalog", /not an item in the catalog/],
       ["pattern:delta_stripes:neon", /not an item in the catalog/],
       ["pattern:delta_stripes", /not an item in the catalog/],
-      ["crown:gold", /is not a flare/],
+      ["crown:gold", /not an item in the catalog/],
+      ["skin:gold", /is not a flare/],
       ["pattern:*", /wildcard/],
       ["flag:*", /wildcard/],
       ["*", /wildcard/],

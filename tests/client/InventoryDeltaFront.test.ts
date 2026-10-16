@@ -4,7 +4,15 @@ import type { Cosmetics } from "@openfront/shared/CosmeticSchemas";
 import type { LitElement } from "lit";
 import fs from "node:fs";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { loadCatalog } from "../../src/account-api/catalog/load";
 import { getUserMe } from "../../src/client/Api";
 import { userAuth } from "../../src/client/Auth";
@@ -25,6 +33,10 @@ import type { CosmeticCard } from "../../src/client/components/CosmeticCard";
 import "../../src/client/components/DesktopNavBar";
 import type { InventoryLoadoutBar } from "../../src/client/components/InventoryLoadoutBar";
 import "../../src/client/components/MobileNavBar";
+import {
+  makePrivateCatalog,
+  PRIVATE_ITEMS,
+} from "../account-api/util/privateCatalog";
 
 // The inventory as DeltaFront ships it: the real placeholder catalog
 // (src/account-api/catalog), the flares /users/@me reports, and the real
@@ -47,6 +59,15 @@ vi.mock("../../src/client/Cosmetics", async (importOriginal) => ({
 const FREE = "pattern:delta_stripes:ash";
 const shipped = loadCatalog({ publicOrigin: "https://api.test" });
 const catalog = shipped.cosmetics as Cosmetics;
+// A production-style catalog (DF_CATALOG_DIR): items the public sample does not have.
+const privateFixture = makePrivateCatalog();
+const privateLoaded = loadCatalog({
+  publicOrigin: "https://api.test",
+  dir: privateFixture.dir,
+  assetDir: privateFixture.assetDir,
+});
+const privateCatalog = privateLoaded.cosmetics as Cosmetics;
+afterAll(() => privateFixture.cleanup());
 
 function userWith(flares: string[], soft = 1250): UserMeResponse {
   return {
@@ -88,14 +109,15 @@ async function showTab(modal: InventoryModal, tab: string) {
 async function openInventory(
   user: UserMeResponse | false,
   ownership: "loaded" | "guest" | "error" | "loading" = "loaded",
+  cosmetics: Cosmetics = catalog,
 ): Promise<InventoryModal> {
   vi.mocked(getUserMe).mockResolvedValue(user);
-  vi.mocked(fetchCosmetics).mockResolvedValue(catalog);
+  vi.mocked(fetchCosmetics).mockResolvedValue(cosmetics);
   const modal = document.createElement("inventory-modal") as InventoryModal;
   modal.setAttribute("inline", "");
   document.body.appendChild(modal);
   Object.assign(modal as unknown as Record<string, unknown>, {
-    cosmetics: catalog,
+    cosmetics,
     userMeResponse: user,
     ownershipState: ownership,
     isLoading: false,
@@ -178,7 +200,7 @@ describe("the inventory page with the DeltaFront catalog", () => {
     expect(cardKeys(modal).filter((k) => k.startsWith("flag:"))).toEqual([]);
   });
 
-  it("has no crowns slot, because the V1 catalog has no crowns", async () => {
+  it("has a crowns slot, because the catalog defines crowns", async () => {
     const modal = await openInventory(userWith([FREE]));
     const bar = modal.querySelector(
       "inventory-loadout-bar",
@@ -186,6 +208,7 @@ describe("the inventory page with the DeltaFront catalog", () => {
     expect(bar.entries.map((e) => e.category)).toEqual([
       "skins",
       "flags",
+      "crowns",
       "effects",
     ]);
   });
@@ -264,6 +287,57 @@ describe("the inventory page with the DeltaFront catalog", () => {
   });
 });
 
+describe("the inventory page with a private production catalog", () => {
+  const owned = [
+    FREE,
+    `flag:${PRIVATE_ITEMS.adminFlag}`,
+    `flag:${PRIVATE_ITEMS.flag}`,
+    `crown:${PRIVATE_ITEMS.crown}`,
+    `pattern:${PRIVATE_ITEMS.pattern}:ember`,
+    `effect:${PRIVATE_ITEMS.effects.transportShipTrail}`,
+  ];
+
+  it("shows the private items the account owns, and equips them", async () => {
+    const modal = await openInventory(
+      userWith(owned),
+      "loaded",
+      privateCatalog,
+    );
+    const settings = new UserSettings();
+    await showTab(modal, "skins");
+    const pattern = card(modal, `pattern:${PRIVATE_ITEMS.pattern}:ember`)!;
+    expect(pattern).toBeTruthy();
+    pattern.onActivate!(pattern.resolved);
+    await modal.updateComplete;
+    expect(settings.getSelectedPatternName(privateCatalog)?.name).toBe(
+      PRIVATE_ITEMS.pattern,
+    );
+    await showTab(modal, "flags");
+    // An admin-granted flag (no price) is in the inventory like any other.
+    const flag = card(modal, `flag:${PRIVATE_ITEMS.adminFlag}`)!;
+    flag.onActivate!(flag.resolved);
+    await modal.updateComplete;
+    expect(settings.getFlag()).toBe(`flag:${PRIVATE_ITEMS.adminFlag}`);
+    await showTab(modal, "crowns");
+    const crown = card(modal, `crown:${PRIVATE_ITEMS.crown}`)!;
+    expect(crown).toBeTruthy();
+    crown.onActivate!(crown.resolved);
+    await modal.updateComplete;
+    expect(settings.getSelectedCrownName()).toBe(PRIVATE_ITEMS.crown);
+  });
+
+  it("offers no card for a private item the account does not own, or for a sample-only one", async () => {
+    const modal = await openInventory(
+      userWith([FREE]),
+      "loaded",
+      privateCatalog,
+    );
+    await showTab(modal, "flags");
+    expect(card(modal, `flag:${PRIVATE_ITEMS.adminFlag}`)).toBeUndefined();
+    expect(cardKeys(modal).some((k) => k.includes("sample_"))).toBe(false);
+  });
+});
+
 describe("equipping and unequipping", () => {
   it("equips an owned pattern and flag, and Unequip clears them", async () => {
     const modal = await openInventory(userWith([FREE, "flag:delta_mark"]));
@@ -309,7 +383,11 @@ describe("what a join sends: selections are checked against ownership", () => {
     vi.mocked(fetchCosmetics).mockImplementation(async () => catalog);
   });
 
-  async function refsFor(flares: string[], select: (s: UserSettings) => void) {
+  async function refsFor(
+    flares: string[],
+    select: (s: UserSettings) => void,
+    served: string = shipped.body,
+  ) {
     vi.mocked(getUserMe).mockResolvedValue(userWith(flares));
     const actual = await vi.importActual<
       typeof import("../../src/client/Cosmetics")
@@ -323,7 +401,7 @@ describe("what a join sends: selections are checked against ownership", () => {
       vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => JSON.parse(shipped.body),
+        json: async () => JSON.parse(served),
       })),
     );
     actual.invalidateCosmetics();
@@ -331,6 +409,36 @@ describe("what a join sends: selections are checked against ownership", () => {
     vi.unstubAllGlobals();
     return { refs, settings };
   }
+
+  it("sends a private catalog's items the account owns at join (crown, flag, effect, pattern), and drops a sample item it no longer has", async () => {
+    const owned = await refsFor(
+      [
+        FREE,
+        `flag:${PRIVATE_ITEMS.adminFlag}`,
+        `crown:${PRIVATE_ITEMS.crown}`,
+        `effect:${PRIVATE_ITEMS.effects.nukeTrail}`,
+      ],
+      (s) => {
+        s.setFlag(`flag:${PRIVATE_ITEMS.adminFlag}`);
+        s.setSelectedCrownName(PRIVATE_ITEMS.crown);
+        s.setSelectedEffectName("nukeTrail", PRIVATE_ITEMS.effects.nukeTrail);
+      },
+      privateLoaded.body,
+    );
+    expect(owned.refs.flag).toBe(`flag:${PRIVATE_ITEMS.adminFlag}`);
+    expect(owned.refs.crownName).toBe(PRIVATE_ITEMS.crown);
+    expect(owned.refs.effects).toEqual({
+      nukeTrail: PRIVATE_ITEMS.effects.nukeTrail,
+    });
+    // After the deployment switches to the private catalog, a sample item chosen earlier is gone.
+    const stale = await refsFor(
+      [FREE, "crown:sample_crown"],
+      (s) => s.setSelectedCrownName("sample_crown"),
+      privateLoaded.body,
+    );
+    expect(stale.refs.crownName).toBeUndefined();
+    expect(stale.settings.getSelectedCrownName()).toBeNull();
+  });
 
   it("keeps an owned selection", async () => {
     const { refs } = await refsFor([FREE, "flag:delta_mark"], (s) => {

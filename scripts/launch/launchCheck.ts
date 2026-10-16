@@ -570,15 +570,31 @@ export async function runLaunchChecks(
   // ------------------------------------------------------- catalog and clans
   if (config !== null) {
     try {
-      const catalog = loadCatalog({ publicOrigin: config.publicOrigin });
+      const catalog = loadCatalog({
+        publicOrigin: config.publicOrigin,
+        dir: config.catalog.dir ?? undefined,
+        assetDir: config.catalog.assetDir ?? undefined,
+      });
       add(
         result(
           "catalog",
           "the cosmetic catalog is valid",
           "pass",
-          `${catalog.validFlares.size} cosmetics, version ${catalog.version.slice(0, 8)}`,
+          `${catalog.source?.configured ? "configured" : "public sample"}: ${catalog.validFlares.size} cosmetics, version ${catalog.version.slice(0, 8)}`,
         ),
       );
+      // The sample is for development: a public deployment with no production
+      // catalog would sell a handful of items (and drop what players own).
+      if (!catalog.source?.configured) {
+        add(
+          result(
+            "catalog-source",
+            "the production cosmetic catalog is configured (DF_CATALOG_DIR)",
+            "warn",
+            "serving the public sample catalog; see docs/PrivateStore.md",
+          ),
+        );
+      }
     } catch (error) {
       add(
         result(

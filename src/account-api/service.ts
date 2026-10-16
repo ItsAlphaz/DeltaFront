@@ -72,7 +72,7 @@ export interface ServiceOverrides {
   /** Replace the configured email delivery (tests). */
   mailer?: Mailer;
   limits?: Partial<Record<RateLimitName, RateLimit>>;
-  /** Read the cosmetic catalog from here instead of `src/account-api/catalog`. */
+  /** Read the cosmetic catalog (and its `assets/`) from here instead of the configured or sample one. */
   catalogDir?: string;
   /** Replay singleplayer matches with this instead of the engine subprocess (tests). */
   soloReplayer?: SoloReplayer;
@@ -105,9 +105,24 @@ export async function buildBackend(
   const catalog = usesCosmeticCatalog(config.features)
     ? loadCatalog({
         publicOrigin: config.publicOrigin,
-        dir: overrides.catalogDir,
+        dir: overrides.catalogDir ?? config.catalog.dir ?? undefined,
+        assetDir: overrides.catalogDir
+          ? undefined
+          : (config.catalog.assetDir ?? undefined),
       })
     : null;
+  if (catalog !== null) {
+    log.info("cosmetic catalog loaded", {
+      source: catalog.source?.configured ? "configured" : "public sample",
+      items: catalog.validFlares.size,
+      version: catalog.version.slice(0, 12),
+    });
+    if (config.env !== "dev" && !catalog.source?.configured) {
+      log.warn(
+        "serving the public sample catalog: set DF_CATALOG_DIR to the production catalog (docs/PrivateStore.md)",
+      );
+    }
+  }
   return {
     config,
     log,

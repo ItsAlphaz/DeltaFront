@@ -2,7 +2,15 @@ import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import type { Cosmetics } from "@openfront/shared/CosmeticSchemas";
 import type { LitElement } from "lit";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { loadCatalog } from "../../src/account-api/catalog/load";
 import { getUserMe, purchaseWithCurrency } from "../../src/client/Api";
 import { fetchCosmetics } from "../../src/client/Cosmetics";
@@ -15,6 +23,10 @@ import type { CosmeticCard } from "../../src/client/components/CosmeticCard";
 import "../../src/client/components/DesktopNavBar";
 import "../../src/client/components/MobileNavBar";
 import type { PurchaseButton } from "../../src/client/components/PurchaseButton";
+import {
+  makePrivateCatalog,
+  PRIVATE_ITEMS,
+} from "../account-api/util/privateCatalog";
 
 // The Credits store as DeltaFront ships it: the real placeholder catalog with
 // its prices, the real Store and Inventory components and the real purchase
@@ -44,7 +56,38 @@ vi.setConfig({ testTimeout: 30_000 });
 
 const FREE = "pattern:delta_stripes:ash";
 const shipped = loadCatalog({ publicOrigin: "https://api.test" });
-const catalog = shipped.cosmetics as Cosmetics;
+const full = shipped.cosmetics as Cosmetics;
+// A production-style catalog: not the public sample, with private items, loaded
+// the way the API does from DF_CATALOG_DIR and DF_CATALOG_ASSET_DIR.
+const privateFixture = makePrivateCatalog();
+const privateCatalog = loadCatalog({
+  publicOrigin: "https://api.test",
+  dir: privateFixture.dir,
+  assetDir: privateFixture.assetDir,
+}).cosmetics as Cosmetics;
+afterAll(() => privateFixture.cleanup());
+
+// Most tests here are about how the Store treats a few known items, so they use
+// the original eight (the first of each kind). The last describe uses the
+// catalogs a deployment really has: the public sample, and a private one.
+const pickKeys = <T>(from: Record<string, T> | undefined, keys: string[]) =>
+  Object.fromEntries(keys.map((key) => [key, from![key]]));
+const catalog: Cosmetics = {
+  ...full,
+  patterns: pickKeys(full.patterns, [
+    "delta_stripes",
+    "grid_check",
+    "officer_chevrons",
+  ]),
+  flags: pickKeys(full.flags, ["delta_mark", "split_field", "recruit_banner"]),
+  crowns: undefined,
+  effects: {
+    transportShipTrail: pickKeys(full.effects?.transportShipTrail, [
+      "red_wake",
+      "colonel_wake",
+    ]),
+  },
+};
 
 function user(
   flares: string[],
@@ -68,9 +111,10 @@ const originalLocation = window.location;
 async function openStore(
   me: UserMeResponse | false,
   tab: "cosmetics" | "effects" = "cosmetics",
+  cosmetics: Cosmetics = catalog,
 ): Promise<StoreModal> {
   vi.mocked(getUserMe).mockResolvedValue(me);
-  vi.mocked(fetchCosmetics).mockResolvedValue(catalog);
+  vi.mocked(fetchCosmetics).mockResolvedValue(cosmetics);
   store = document.createElement("store-modal") as StoreModal;
   store.setAttribute("inline", "");
   document.body.appendChild(store);
@@ -126,6 +170,7 @@ beforeEach(() => {
     "store.bundles": "Bundles",
     "store.tribes": "Tribes",
     "store.flags": "Flags",
+    "store.crowns": "Crowns",
     "store.patterns": "Skins",
     "store.owned": "Owned",
     "store.title": "Store",
@@ -212,7 +257,7 @@ describe("the Store page", () => {
     expect(keys()).toEqual(["cosmetics", "effects", "tribes"]);
   });
 
-  it("has no Crowns sub-tab, because the V1 catalog has no crowns", async () => {
+  it("has no Crowns sub-tab when the catalog has no crowns", async () => {
     await openStore(user([FREE], 1000));
     const subTabs = [...store.querySelectorAll("button")]
       .map((button) => button.textContent?.trim())
@@ -454,4 +499,91 @@ describe("navigation: the Store has its own feature", () => {
       expect(page(nav, "page-inventory")).not.toBeNull();
     },
   );
+});
+
+describe.each([
+  ["the public sample catalog", () => full, "sample_crown", 1],
+  [
+    "a private production catalog",
+    () => privateCatalog,
+    PRIVATE_ITEMS.crown,
+    1,
+  ],
+] as const)("the Store page with %s", (_name, cosmetics, crown, minCrowns) => {
+  const tabLabels = () =>
+    [...store.querySelectorAll("button")]
+      .map((button) => button.textContent?.trim())
+      .filter((text) => ["Skins", "Flags", "Crowns"].includes(text ?? ""));
+  const openCrowns = async (me: UserMeResponse) => {
+    await openStore(me, "cosmetics", cosmetics());
+    [...store.querySelectorAll("button")]
+      .find((b) => b.textContent?.trim() === "Crowns")!
+      .click();
+    await store.updateComplete;
+    await vi.waitFor(() =>
+      expect(cards().some((c) => c.resolved.type === "crown")).toBe(true),
+    );
+  };
+
+  it("has a Crowns sub-tab, and lists the crowns with their Credits prices", async () => {
+    await openStore(user([FREE], 5000), "cosmetics", cosmetics());
+    expect(tabLabels()).toEqual(["Skins", "Flags", "Crowns"]);
+    await openCrowns(user([FREE], 5000));
+    const crowns = cards().filter((c) => c.resolved.type === "crown");
+    expect(crowns.length).toBeGreaterThanOrEqual(minCrowns);
+    for (const c of crowns) {
+      expect(c.resolved.relationship).toBe("purchasable");
+    }
+    const priced = buttons().map((b) => b.priceSoft);
+    expect(priced.length).toBeGreaterThanOrEqual(minCrowns);
+    for (const price of priced) {
+      expect(price).toBeGreaterThan(0);
+      expect(price).toBeLessThanOrEqual(2000);
+    }
+    for (const b of buttons()) expect(b.priceHard).toBeNull();
+  });
+
+  it("marks a crown the account owns as Owned", async () => {
+    await openCrowns(user([FREE, `crown:${crown}`], 5000));
+    expect(
+      cards().find((c) => c.resolved.key === `crown:${crown}`)!.resolved
+        .relationship,
+    ).toBe("owned");
+  });
+
+  it("lists effects of every type in the Effects tab", async () => {
+    await openStore(user([FREE], 5000), "effects", cosmetics());
+    await vi.waitFor(() => expect(cards().length).toBeGreaterThan(0));
+    expect(cards().every((c) => c.resolved.type === "effect")).toBe(true);
+  });
+});
+
+describe("the Store page with a private production catalog", () => {
+  it("lists the private items, with their private prices, and none of the sample-only ones", async () => {
+    await openStore(user([FREE], 9000), "cosmetics", privateCatalog);
+    const keys = () => cards().map((c) => c.resolved.key);
+    expect(
+      keys().some((k) => k.startsWith(`pattern:${PRIVATE_ITEMS.pattern}`)),
+    ).toBe(true);
+    [...store.querySelectorAll("button")]
+      .find((b) => b.textContent?.trim() === "Flags")!
+      .click();
+    await store.updateComplete;
+    await vi.waitFor(() =>
+      expect(keys()).toContain(`flag:${PRIVATE_ITEMS.flag}`),
+    );
+    // The admin-only flag has no price: it is not offered for sale.
+    expect(keys()).not.toContain(`flag:${PRIVATE_ITEMS.adminFlag}`);
+    expect(keys()).not.toContain("crown:sample_crown");
+  });
+
+  it("keeps the effects a private catalog adds, each in its own tab", async () => {
+    await openStore(user([FREE], 9000), "effects", privateCatalog);
+    await vi.waitFor(() => expect(cards().length).toBeGreaterThan(0));
+    const names = () => cards().map((c) => c.resolved.key);
+    expect(names()).toContain(
+      `effect:transportShipTrail:${PRIVATE_ITEMS.effects.transportShipTrail}`,
+    );
+    expect(names().some((k) => k.includes("sample_"))).toBe(false);
+  });
 });

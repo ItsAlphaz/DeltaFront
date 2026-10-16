@@ -251,6 +251,66 @@ describeDb("POST /shop/purchase", () => {
       expect((await meOf(next)).player.flares).toContain("flag:delta_mark");
     });
 
+    it("sells every kind of item, each at its catalog price: a crown, a pattern palette, a flag, and an effect of each type", async () => {
+      const cosmetics = catalog.cosmetics;
+      const crown = Object.values(cosmetics.crowns ?? {}).find(
+        (c) => c.priceSoft !== undefined,
+      )!;
+      const pattern = cosmetics.patterns.grid_check;
+      const palette = pattern.colorPalettes![0].name;
+      const flag = cosmetics.flags.split_field;
+      const effects = Object.values(cosmetics.effects ?? {}).map(
+        (byName) =>
+          Object.values(byName ?? {}).find((e) => e.priceSoft !== undefined)!,
+      );
+      const wants: Array<[Record<string, string>, string, number]> = [
+        [
+          { cosmeticType: "crown", cosmeticName: crown.name },
+          `crown:${crown.name}`,
+          crown.priceSoft!,
+        ],
+        [
+          {
+            cosmeticType: "pattern",
+            cosmeticName: pattern.name,
+            colorPaletteName: palette,
+          },
+          `pattern:${pattern.name}:${palette}`,
+          pattern.priceSoft!,
+        ],
+        [
+          { cosmeticType: "flag", cosmeticName: flag.name },
+          `flag:${flag.name}`,
+          flag.priceSoft!,
+        ],
+        ...effects.map((e): [Record<string, string>, string, number] => [
+          { cosmeticType: "effect", cosmeticName: e.name },
+          `effect:${e.name}`,
+          e.priceSoft!,
+        ]),
+      ];
+      const total = wants.reduce((sum, [, , price]) => sum + price, 0);
+      const s = await shopper(total + 123);
+      for (const [body, flare, price] of wants) {
+        const before = await credits(s);
+        const res = await buy(s, { ...body, currencyType: "soft" });
+        expect(res.status, flare).toBe(200);
+        expect(await credits(s), flare).toBe(before - price);
+        expect(await owned(s), flare).toContain(flare);
+      }
+      expect(await credits(s)).toBe(123);
+      // A crown is bought by name alone: a palette on it is refused, nothing charged.
+      const before = await credits(s);
+      const refused = await buy(s, {
+        cosmeticType: "crown",
+        cosmeticName: crown.name,
+        colorPaletteName: "ember",
+        currencyType: "soft",
+      });
+      expect(refused.status).toBe(400);
+      expect(await credits(s)).toBe(before);
+    });
+
     it.each(Object.entries(PRICE) as Array<[Flare, number]>)(
       "charges the plan's price for %s: %i Credits",
       async (flare, price) => {

@@ -12,6 +12,7 @@
     "packages/*"
   ],
   "scripts": {
+    "catalog:check": "tsx scripts/cosmetics/check-catalog.ts",
     "build-dev": "concurrently \"tsc --noEmit\" \"vite build --mode development\"",
     "build-prod": "concurrently --kill-others-on-fail \"tsc --noEmit\" \"vite build\" && tsx scripts/buildAssetHashes.ts && tsx scripts/writeBuildFeatures.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p packages/engine-api && tsc --noEmit -p packages/engine-lib && tsc --noEmit -p packages/engine && tsc --noEmit -p packages/engine/src/worker && tsc --noEmit -p packages/shared && tsc --noEmit -p packages/zbin",

@@ -1,5 +1,11 @@
 // @vitest-environment node
-import { CosmeticsSchema } from "@openfront/shared/CosmeticSchemas";
+import {
+  CosmeticsSchema,
+  EFFECT_TYPES,
+  effectMatchesSlot,
+  findEffectForSlot,
+  NUKE_EXPLOSION_TYPES,
+} from "@openfront/shared/CosmeticSchemas";
 import { decodePatternData } from "@openfront/shared/PatternDecoder";
 import { base64url } from "jose";
 import fs from "node:fs";
@@ -12,6 +18,7 @@ import {
   parseBitmap,
 } from "../../scripts/cosmetics/encode-pattern";
 import {
+  crownFlare,
   effectFlare,
   flagFlare,
   hasFlareShape,
@@ -70,6 +77,32 @@ function issuesOf(run: () => unknown): string {
   throw new Error("expected the catalog to be rejected");
 }
 
+/** The items DeltaFront shipped first; level rewards point at some, so they never change. */
+const ORIGINAL_FLARES = [
+  "effect:colonel_wake",
+  "effect:red_wake",
+  "flag:delta_mark",
+  "flag:recruit_banner",
+  "flag:split_field",
+  "pattern:delta_stripes:ash",
+  "pattern:delta_stripes:ember",
+  "pattern:grid_check:ember",
+  "pattern:officer_chevrons:ash",
+];
+/** Every flare of the public sample catalog: the original eight and a few plain samples. */
+const SAMPLE_FLARES = [
+  ...ORIGINAL_FLARES,
+  "crown:sample_crown",
+  "effect:sample_atom_ring",
+  "effect:sample_hydro_ring",
+  "effect:sample_mirv_ring",
+  "effect:sample_nuke_trail",
+  "effect:sample_railroad",
+  "effect:sample_structures",
+  "effect:sample_train",
+  "effect:sample_warship",
+].sort();
+
 /** Cosmetics only progression hands out (milestone rewards): in the catalog, never for sale. */
 const REWARD_ONLY = new Set([
   "flag:recruit_banner",
@@ -85,24 +118,16 @@ const REWARD_ONLY_NAMES = new Set([
 describe("the shipped DeltaFront catalog", () => {
   const catalog = loadCatalog({ publicOrigin: ORIGIN });
 
-  it("loads, and holds exactly the planned placeholder set (docs plan 9.3)", () => {
-    expect([...catalog.validFlares]).toEqual([
-      "effect:colonel_wake",
-      "effect:red_wake",
-      "flag:delta_mark",
-      "flag:recruit_banner",
-      "flag:split_field",
-      "pattern:delta_stripes:ash",
-      "pattern:delta_stripes:ember",
-      "pattern:grid_check:ember",
-      "pattern:officer_chevrons:ash",
-    ]);
-    expect(Object.keys(catalog.cosmetics.patterns)).toEqual([
+  it("loads, keeps the original eight items exactly, and holds the small public sample", () => {
+    for (const flare of ORIGINAL_FLARES) {
+      expect(catalog.validFlares.has(flare), flare).toBe(true);
+    }
+    expect(Object.keys(catalog.cosmetics.patterns).slice(0, 3)).toEqual([
       "delta_stripes",
       "grid_check",
       "officer_chevrons",
     ]);
-    expect(Object.keys(catalog.cosmetics.flags)).toEqual([
+    expect(Object.keys(catalog.cosmetics.flags).slice(0, 3)).toEqual([
       "delta_mark",
       "split_field",
       "recruit_banner",
@@ -110,6 +135,17 @@ describe("the shipped DeltaFront catalog", () => {
     expect(catalog.cosmetics.effects?.transportShipTrail).toHaveProperty(
       "red_wake",
     );
+    // The public sample is small on purpose: the production catalog is private.
+    expect([...catalog.validFlares].sort()).toEqual(SAMPLE_FLARES);
+    expect(Object.keys(catalog.cosmetics.crowns ?? {})).toEqual([
+      "sample_crown",
+    ]);
+    for (const type of EFFECT_TYPES) {
+      expect(
+        Object.keys(catalog.cosmetics.effects?.[type] ?? {}).length,
+        type,
+      ).toBeGreaterThanOrEqual(1);
+    }
   });
 
   it("holds the cosmetics the level milestones give, and never offers them for sale", () => {
@@ -182,14 +218,16 @@ describe("the shipped DeltaFront catalog", () => {
     const everyItem = [
       ...Object.values(source.patterns),
       ...Object.values(source.flags),
+      ...Object.values(source.crowns),
       ...Object.values<any>(source.effects).flatMap((byName: any) =>
         Object.values(byName),
       ),
     ] as Array<Record<string, any>>;
 
-    it("has only the five V1 item kinds, and none of the real-money or premium sections", () => {
+    it("has only patterns, flags, crowns and effects, and none of the real-money or premium sections", () => {
       expect(Object.keys(source).sort()).toEqual([
         "colorPalettes",
+        "crowns",
         "defaultFlares",
         "effects",
         "flags",
@@ -201,12 +239,11 @@ describe("the shipped DeltaFront catalog", () => {
         "subscriptions",
         "tribeNames",
         "lobbyQueue",
-        "crowns",
         "skins",
       ]) {
         expect(source, forbidden).not.toHaveProperty(forbidden);
       }
-      expect(everyItem).toHaveLength(8);
+      expect(everyItem.length).toBeLessThan(40); // a sample, not a store
     });
 
     it("uses no premium (hard-currency) price, no Stripe product and no affiliate code", () => {
@@ -226,7 +263,7 @@ describe("the shipped DeltaFront catalog", () => {
       const names = everyItem.map((i) => i.name);
       expect(new Set(names).size).toBe(names.length);
       expect(findDuplicateKeys(sourceText)).toEqual([]);
-      for (const group of ["patterns", "flags"]) {
+      for (const group of ["patterns", "flags", "crowns"]) {
         for (const [key, item] of Object.entries<any>(source[group])) {
           expect(item.name).toBe(key);
         }
@@ -235,11 +272,14 @@ describe("the shipped DeltaFront catalog", () => {
 
     it("has every asset on disk, and no asset that nothing uses", () => {
       const referenced = new Set<string>();
-      for (const flag of Object.values<any>(source.flags)) {
-        referenced.add(flag.url);
+      for (const item of [
+        ...Object.values<any>(source.flags),
+        ...Object.values<any>(source.crowns),
+      ]) {
+        referenced.add(item.url);
         expect(
-          fs.existsSync(path.join(CATALOG_DIR, "assets", flag.url)),
-          flag.url,
+          fs.existsSync(path.join(CATALOG_DIR, "assets", item.url)),
+          item.url,
         ).toBe(true);
       }
       expect([...realAssets().keys()].sort()).toEqual([...referenced].sort());
@@ -283,9 +323,12 @@ describe("the shipped DeltaFront catalog", () => {
         expect(palette.has(p.primaryColor)).toBe(true);
         expect(palette.has(p.secondaryColor)).toBe(true);
       }
-      for (const colour of source.effects.transportShipTrail.red_wake.attributes
-        .colors) {
-        expect(palette.has(colour)).toBe(true);
+      for (const byName of Object.values<any>(source.effects)) {
+        for (const effect of Object.values<any>(byName)) {
+          for (const colour of effect.attributes.colors) {
+            expect(palette.has(colour), `${effect.name} ${colour}`).toBe(true);
+          }
+        }
       }
       for (const [name, bytes] of realAssets()) {
         const colours =
@@ -325,6 +368,46 @@ describe("catalog validation rejects a bad catalog", () => {
         }),
       ),
     ).toMatch(/effect name red_wake is already used under transportShipTrail/);
+  });
+
+  it("a crown whose asset is missing, or that is filed under the wrong name", () => {
+    const assets = realAssets();
+    assets.delete("sample_crown.svg");
+    expect(issuesOf(() => catalogWith(() => undefined, assets))).toMatch(
+      /crowns\.sample_crown\.url: assets\/sample_crown\.svg does not exist/,
+    );
+    expect(
+      issuesOf(() =>
+        catalogWith((c) => {
+          c.crowns.sample_crown.name = "something_else";
+        }),
+      ),
+    ).toMatch(/crowns\.sample_crown: the key and the item name differ/);
+  });
+
+  it("a crown with a premium price, a product, or a path as its asset", () => {
+    expect(
+      issuesOf(() =>
+        catalogWith((c) => {
+          c.crowns.sample_crown.priceHard = 5;
+          c.crowns.sample_crown.product = {
+            productId: "p",
+            priceId: "x",
+            price: "$1",
+          };
+          c.crowns.sample_crown.url = "../crown.svg";
+        }),
+      ),
+    ).toMatch(
+      /priceHard is not allowed[\s\S]*product must be null[\s\S]*must be a bare file name/,
+    );
+  });
+
+  it("a crown and a flag may not share an asset file name by accident (each crown has its own file)", () => {
+    const files = Object.values<any>(source.crowns).map((c) => c.url);
+    expect(new Set(files).size).toBe(files.length);
+    const flagFiles = Object.values<any>(source.flags).map((f) => f.url);
+    for (const file of files) expect(flagFiles).not.toContain(file);
   });
 
   it("a key that does not match the item's name", () => {
@@ -417,10 +500,6 @@ describe("catalog validation rejects a bad catalog", () => {
   });
 
   it.each([
-    [
-      "crowns",
-      { c: { name: "c", url: "x.svg", product: null, rarity: "common" } },
-    ],
     [
       "skins",
       { s: { name: "s", url: "x.svg", product: null, rarity: "common" } },
@@ -552,6 +631,7 @@ describe("catalog validation rejects a bad catalog", () => {
         catalogWith((c) => {
           c.patterns = {};
           c.flags = {};
+          c.crowns = {};
           c.effects = {};
           c.defaultFlares = [];
         }),
@@ -597,6 +677,7 @@ describe("flares", () => {
     );
     expect(patternFlare("plain", null)).toBe("pattern:plain");
     expect(flagFlare("delta_mark")).toBe("flag:delta_mark");
+    expect(crownFlare("sample_crown")).toBe("crown:sample_crown");
     expect(effectFlare("red_wake")).toBe("effect:red_wake");
   });
 
@@ -605,6 +686,7 @@ describe("flares", () => {
       "pattern:a:b",
       "pattern:a",
       "flag:x_1",
+      "crown:sample_crown",
       "effect:red_wake",
     ]) {
       expect(hasFlareShape(ok), ok).toBe(true);
@@ -618,7 +700,8 @@ describe("flares", () => {
       "flag:a b",
       "flag:",
       "skin:x",
-      "crown:x",
+      "crown:*",
+      "crown:Upper",
       "color:ff0000",
       "pattern:a:b:c",
       "flag:../x",
@@ -730,55 +813,120 @@ describe("the pattern encoder (scripts/cosmetics/encode-pattern.ts)", () => {
 describe("catalog prices (milestone M5)", () => {
   const catalog = loadCatalog({ publicOrigin: ORIGIN });
 
-  it("sells every non-default item, at the plan's prices (docs plan 9.3), in Credits only", () => {
-    const wanted = {
+  it("sells the original items at the plan's prices (docs plan 9.3), in Credits only", () => {
+    const priceOf = (request: Parameters<typeof findOffer>[1]) =>
+      findOffer(catalog, request)?.price;
+    expect({
+      "pattern:delta_stripes:ember": priceOf({
+        cosmeticType: "pattern",
+        cosmeticName: "delta_stripes",
+        colorPaletteName: "ember",
+      }),
+      "pattern:grid_check:ember": priceOf({
+        cosmeticType: "pattern",
+        cosmeticName: "grid_check",
+        colorPaletteName: "ember",
+      }),
+      "flag:delta_mark": priceOf({
+        cosmeticType: "flag",
+        cosmeticName: "delta_mark",
+      }),
+      "flag:split_field": priceOf({
+        cosmeticType: "flag",
+        cosmeticName: "split_field",
+      }),
+      "effect:red_wake": priceOf({
+        cosmeticType: "effect",
+        cosmeticName: "red_wake",
+      }),
+    }).toEqual({
       "pattern:delta_stripes:ember": 300,
       "pattern:grid_check:ember": 500,
       "flag:delta_mark": 400,
       "flag:split_field": 400,
       "effect:red_wake": 600,
-    };
-    const offers: Record<string, number | undefined> = {
-      "pattern:delta_stripes:ember": findOffer(catalog, {
-        cosmeticType: "pattern",
-        cosmeticName: "delta_stripes",
+    });
+  });
+
+  it("offers every other item at the catalog's own price: a crown, a pattern palette, every kind of effect", () => {
+    expect(
+      findOffer(catalog, {
+        cosmeticType: "crown",
+        cosmeticName: "sample_crown",
+      }),
+    ).toEqual({
+      flare: "crown:sample_crown",
+      price: source.crowns.sample_crown.priceSoft,
+    });
+    // A crown takes no palette, and a pattern needs one.
+    expect(
+      findOffer(catalog, {
+        cosmeticType: "crown",
+        cosmeticName: "sample_crown",
         colorPaletteName: "ember",
-      })?.price,
-      "pattern:grid_check:ember": findOffer(catalog, {
-        cosmeticType: "pattern",
-        cosmeticName: "grid_check",
-        colorPaletteName: "ember",
-      })?.price,
-      "flag:delta_mark": findOffer(catalog, {
-        cosmeticType: "flag",
-        cosmeticName: "delta_mark",
-      })?.price,
-      "flag:split_field": findOffer(catalog, {
-        cosmeticType: "flag",
-        cosmeticName: "split_field",
-      })?.price,
-      "effect:red_wake": findOffer(catalog, {
-        cosmeticType: "effect",
-        cosmeticName: "red_wake",
-      })?.price,
-    };
-    expect(offers).toEqual(wanted);
-    // Everything in the catalog is either bought with those prices or free by default.
-    const sellable = new Set(Object.keys(wanted));
-    for (const flare of catalog.validFlares) {
-      expect(
-        sellable.has(flare) ||
-          catalog.defaultFlares.includes(flare) ||
-          REWARD_ONLY.has(flare),
-        flare,
-      ).toBe(true);
+      }),
+    ).toBeNull();
+    // Everything in the catalog is for sale at a price or is a level reward.
+    let sold = 0;
+    for (const [name, p] of Object.entries<any>(source.patterns)) {
+      for (const palette of p.colorPalettes) {
+        const flare = `pattern:${name}:${palette.name}`;
+        const offer = findOffer(catalog, {
+          cosmeticType: "pattern",
+          cosmeticName: name,
+          colorPaletteName: palette.name,
+        });
+        if (offer === null) {
+          expect(
+            catalog.defaultFlares.includes(flare) || REWARD_ONLY.has(flare),
+            flare,
+          ).toBe(true);
+        } else {
+          expect(offer).toEqual({ flare, price: p.priceSoft });
+          sold++;
+        }
+      }
     }
+    for (const kind of ["flags", "crowns"] as const) {
+      for (const [name, item] of Object.entries<any>(source[kind])) {
+        const offer = findOffer(catalog, {
+          cosmeticType: kind === "flags" ? "flag" : "crown",
+          cosmeticName: name,
+        });
+        if (offer === null)
+          expect(REWARD_ONLY_NAMES.has(name), name).toBe(true);
+        else {
+          expect(offer.price).toBe(item.priceSoft);
+          sold++;
+        }
+      }
+    }
+    for (const byName of Object.values<any>(source.effects)) {
+      for (const [name, item] of Object.entries<any>(byName)) {
+        const offer = findOffer(catalog, {
+          cosmeticType: "effect",
+          cosmeticName: name,
+        });
+        if (offer === null)
+          expect(REWARD_ONLY_NAMES.has(name), name).toBe(true);
+        else {
+          expect(offer).toEqual({
+            flare: `effect:${name}`,
+            price: item.priceSoft,
+          });
+          sold++;
+        }
+      }
+    }
+    // (the free pattern is "for sale" here too: buying it answers "already owned")
+    expect(sold).toBe(catalog.validFlares.size - REWARD_ONLY.size);
   });
 
   it("prices are positive whole numbers, no item has a premium price or product, and the free item keeps its own palette free", () => {
     for (const item of [
       ...Object.values(source.patterns),
       ...Object.values(source.flags),
+      ...Object.values(source.crowns),
       ...Object.values<any>(source.effects).flatMap((byName: any) =>
         Object.values(byName),
       ),
@@ -799,13 +947,18 @@ describe("catalog prices (milestone M5)", () => {
     expect(catalog.defaultFlares).toEqual(["pattern:delta_stripes:ash"]);
   });
 
-  it("keeps the prices within reach of play: the dearest item costs no more than two days of the daily Credits cap", () => {
-    const dearest = Math.max(
-      ...(Object.values(source.patterns) as any[]).map((p) => p.priceSoft ?? 0),
-      ...(Object.values(source.flags) as any[]).map((p) => p.priceSoft ?? 0),
-      source.effects.transportShipTrail.red_wake.priceSoft,
+  it("keeps the prices within reach of play: no item costs more than two days of the daily Credits cap", () => {
+    const prices = [
+      ...Object.values<any>(source.patterns),
+      ...Object.values<any>(source.flags),
+      ...Object.values<any>(source.crowns),
+      ...Object.values<any>(source.effects).flatMap((byName: any) =>
+        Object.values<any>(byName),
+      ),
+    ].map((item) => item.priceSoft ?? 0);
+    expect(Math.max(...prices)).toBeLessThanOrEqual(
+      2 * ECONOMY.dailyGameplayCap,
     );
-    expect(dearest).toBeLessThanOrEqual(2 * ECONOMY.dailyGameplayCap);
   });
 
   it("findOffer: the request chooses what to buy, the catalog chooses the flare and the price", () => {
@@ -855,6 +1008,8 @@ describe("catalog prices (milestone M5)", () => {
     [{ cosmeticType: "effect", cosmeticName: "delta_mark" }],
     [{ cosmeticType: "skin", cosmeticName: "delta_stripes" }],
     [{ cosmeticType: "crown", cosmeticName: "delta_mark" }],
+    [{ cosmeticType: "crown", cosmeticName: "constructor" }],
+    [{ cosmeticType: "crown", cosmeticName: "__proto__" }],
   ])("findOffer sells nothing for %j", (request) => {
     expect(findOffer(catalog, request as never)).toBeNull();
   });
@@ -881,5 +1036,111 @@ describe("catalog prices (milestone M5)", () => {
         colorPaletteName: "ember",
       }),
     ).toBeNull();
+  });
+});
+
+describe("the public sample catalog", () => {
+  const catalog = loadCatalog({ publicOrigin: ORIGIN });
+
+  it("is small: the production store is a private catalog, not this repository", () => {
+    const files = realAssets();
+    expect(files.size).toBeLessThanOrEqual(8);
+    expect(catalog.validFlares.size).toBeLessThanOrEqual(24);
+    expect(sourceText.length).toBeLessThan(40 * 1024);
+  });
+
+  it("covers every kind the store and the game use: a pattern, a flag, a crown and an effect of every type and bomb", () => {
+    expect(Object.keys(catalog.cosmetics.patterns).length).toBeGreaterThan(0);
+    expect(Object.keys(catalog.cosmetics.flags).length).toBeGreaterThan(0);
+    expect(Object.keys(catalog.cosmetics.crowns ?? {}).length).toBeGreaterThan(
+      0,
+    );
+    const explosions = Object.values<any>(source.effects.nukeExplosion);
+    for (const bomb of NUKE_EXPLOSION_TYPES) {
+      expect(
+        explosions.some((e) => e.attributes.nukeType === bomb),
+        bomb,
+      ).toBe(true);
+    }
+    for (const type of EFFECT_TYPES)
+      expect(source.effects).toHaveProperty(type);
+  });
+
+  it("can equip every effect: the game finds it in its own slot and in no other", () => {
+    for (const [type, byName] of Object.entries<any>(source.effects)) {
+      for (const [name, effect] of Object.entries<any>(byName)) {
+        const slot =
+          type === "nukeExplosion" ? effect.attributes.nukeType : type;
+        expect(
+          findEffectForSlot(catalog.cosmetics, slot, name)?.name,
+          `${type} ${name}`,
+        ).toBe(name);
+        for (const other of [...EFFECT_TYPES, ...NUKE_EXPLOSION_TYPES]) {
+          if (other === slot || other === "nukeExplosion") continue;
+          expect(
+            effectMatchesSlot(
+              catalog.cosmetics.effects![type as "train"]![name],
+              other,
+            ),
+            `${name} in ${other}`,
+          ).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("keeps effect numbers where the renderer expects them", () => {
+    for (const byName of Object.values<any>(source.effects)) {
+      for (const [name, e] of Object.entries<any>(byName)) {
+        const a = e.attributes;
+        expect(a.colors.length, name).toBeGreaterThanOrEqual(2);
+        expect(a.colors.length, name).toBeLessThanOrEqual(
+          e.effectType === "nukeExplosion" ? 4 : 8,
+        );
+        for (const colour of a.colors) {
+          expect(colour, name).toMatch(/^#[0-9a-f]{6}$/);
+        }
+        if (a.type === "spiral") expect(e.effectType, name).toBe("nukeTrail");
+        if (e.effectType === "nukeExplosion") {
+          expect(a.size, name).toBeGreaterThan(0);
+          expect(a.speed, name).toBeGreaterThan(0);
+          expect(a.thickness, name).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it("draws every image as a small, self-contained SVG (no script, no outside reference)", () => {
+    for (const [file, bytes] of realAssets()) {
+      const text = bytes.toString("utf8");
+      expect(text, file).toMatch(
+        /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/,
+      );
+      expect(text, file).not.toMatch(
+        /<script|onload|onclick|javascript:|<image|<foreignObject|xlink:href|href=|url\(\s*['"]?https?:/i,
+      );
+      expect(bytes.length, file).toBeLessThan(8 * 1024);
+    }
+    for (const crown of Object.values<any>(source.crowns)) {
+      const text = fs.readFileSync(
+        path.join(CATALOG_DIR, "assets", crown.url),
+        "utf8",
+      );
+      // The renderer draws crowns in square cells.
+      expect(text, crown.name).toContain('viewBox="0 0 128 128"');
+    }
+  });
+
+  it("keeps every pattern within what the game decodes, in every palette it is sold in", () => {
+    for (const [name, p] of Object.entries<any>(source.patterns)) {
+      const decoded = decodePatternData(p.pattern, base64url.decode);
+      expect(decoded.width, name).toBeGreaterThanOrEqual(2);
+      expect(decoded.height, name).toBeGreaterThanOrEqual(2);
+      for (const palette of p.colorPalettes) {
+        expect(source.colorPalettes, `${name} ${palette.name}`).toHaveProperty(
+          palette.name,
+        );
+      }
+    }
   });
 });
