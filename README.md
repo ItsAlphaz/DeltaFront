@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/images/branding/deltafront-logo-readme.png" alt="DeltaFront" width="520">
+  <img src="resources/images/branding/deltafront-logo.png" alt="DeltaFront" width="520">
 </p>
 
 **DeltaFront** is a fast-paced multiplayer strategy game where players battle for territory, build their nations, form alliances, and dominate the front.
