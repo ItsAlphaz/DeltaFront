@@ -2,6 +2,8 @@
   <img src="resources/images/branding/deltafront-logo.png" alt="DeltaFront" width="520">
 </p>
 
+- - -
+
 **DeltaFront** is a fast-paced multiplayer strategy game where players battle for territory, build their nations, form alliances, and dominate the front.
 
 DeltaFront is an independent fork of [OpenFront](https://github.com/openfrontio/OpenFrontIO) (itself a fork/rewrite of [WarFront.io](https://github.com/WarFrontIO)). It is not affiliated with or endorsed by OpenFront Inc.
