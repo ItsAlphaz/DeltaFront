@@ -5,6 +5,7 @@ import {
   GameType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameConfig } from "@openfront/engine-api/Schemas";
+import { CRISIS_MINUTES_LONG } from "@openfront/engine-lib/capital/CapitalRules";
 import { renderDuration, translateText } from "../../client/Utils";
 
 // Non-default settings worth surfacing, shared by the join modal (post-join
@@ -107,7 +108,13 @@ export function notableLobbySettings(
   if (c.capitalSystem?.enabled)
     items.push({
       label: translateText("game_settings.capital_system"),
-      value: enabled,
+      // The default 3-minute CRISIS is not worth a word; a longer one is.
+      value:
+        c.capitalSystem.crisisMinutes === CRISIS_MINUTES_LONG
+          ? translateText("game_settings.capital_system_long_crisis", {
+              minutes: CRISIS_MINUTES_LONG,
+            })
+          : enabled,
     });
   if (c.overtime?.enabled)
     items.push({

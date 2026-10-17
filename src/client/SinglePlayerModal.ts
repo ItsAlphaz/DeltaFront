@@ -8,6 +8,10 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { TeamCountConfig } from "@openfront/engine-api/Schemas";
+import {
+  CRISIS_MINUTES_DEFAULT,
+  CRISIS_MINUTES_LONG,
+} from "@openfront/engine-lib/capital/CapitalRules";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
@@ -22,6 +26,7 @@ import "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
 import { BaseModal } from "./components/BaseModal";
 import "./components/GameConfigSettings";
+import type { CrisisMinutes } from "./components/GameConfigSettings";
 import { MEDAL_ORDER, medalIcon } from "./components/map/Medals";
 import "./components/ToggleInputCard";
 import { modalHeader } from "./components/ui/ModalHeader";
@@ -123,6 +128,8 @@ const DEFAULT_OPTIONS = {
   // On by default: the Capital System is part of how a match plays, and a
   // player can opt out of it here (docs/Capital.md).
   capitalSystem: true,
+  // How long a CRISIS lasts when the Capital System is on (3 or 5 minutes).
+  crisisMinutes: CRISIS_MINUTES_DEFAULT as CrisisMinutes,
   overtime: false,
   overtimeStartMinutes: undefined as number | undefined,
 } as const;
@@ -214,6 +221,7 @@ export class SinglePlayerModal extends BaseModal {
   @state() private doomsdayClockSpeed: DoomsdayClockSpeed =
     DEFAULT_OPTIONS.doomsdayClockSpeed;
   @state() private capitalSystem: boolean = DEFAULT_OPTIONS.capitalSystem;
+  @state() private crisisMinutes: CrisisMinutes = DEFAULT_OPTIONS.crisisMinutes;
   @state() private overtime: boolean = DEFAULT_OPTIONS.overtime;
   @state() private overtimeStartMinutes: number | undefined =
     DEFAULT_OPTIONS.overtimeStartMinutes;
@@ -564,6 +572,7 @@ export class SinglePlayerModal extends BaseModal {
                   {
                     labelKey: "game_settings.capital_system",
                     checked: this.capitalSystem,
+                    crisisMinutes: this.crisisMinutes,
                   },
                 ],
                 inputCards,
@@ -578,6 +587,7 @@ export class SinglePlayerModal extends BaseModal {
             @difficulty-selected=${this.handleConfigDifficultySelected}
             @doomsday-clock-speed-selected=${this
               .handleConfigDoomsdayClockSpeedSelected}
+            @crisis-minutes-selected=${this.handleConfigCrisisMinutesSelected}
             @game-mode-selected=${this.handleConfigGameModeSelected}
             @team-count-selected=${this.handleConfigTeamCountSelected}
             @bots-changed=${this.handleBotsChange}
@@ -631,6 +641,9 @@ export class SinglePlayerModal extends BaseModal {
       this.waterNukes !== DEFAULT_OPTIONS.waterNukes ||
       this.doomsdayClock !== DEFAULT_OPTIONS.doomsdayClock ||
       this.capitalSystem !== DEFAULT_OPTIONS.capitalSystem ||
+      // The length only matters when the system is on (startGame drops it when off).
+      (this.capitalSystem &&
+        this.crisisMinutes !== DEFAULT_OPTIONS.crisisMinutes) ||
       // Pace only matters when the mode is on (startGame drops it when off).
       (this.doomsdayClock &&
         this.doomsdayClockSpeed !== DEFAULT_OPTIONS.doomsdayClockSpeed) ||
@@ -709,6 +722,7 @@ export class SinglePlayerModal extends BaseModal {
     this.doomsdayClock = DEFAULT_OPTIONS.doomsdayClock;
     this.doomsdayClockSpeed = DEFAULT_OPTIONS.doomsdayClockSpeed;
     this.capitalSystem = DEFAULT_OPTIONS.capitalSystem;
+    this.crisisMinutes = DEFAULT_OPTIONS.crisisMinutes;
     this.overtime = DEFAULT_OPTIONS.overtime;
     this.overtimeStartMinutes = DEFAULT_OPTIONS.overtimeStartMinutes;
   }
@@ -757,6 +771,11 @@ export class SinglePlayerModal extends BaseModal {
   private handleConfigDoomsdayClockSpeedSelected = (e: Event) => {
     const customEvent = e as CustomEvent<{ speed: DoomsdayClockSpeed }>;
     this.doomsdayClockSpeed = customEvent.detail.speed;
+  };
+
+  private handleConfigCrisisMinutesSelected = (e: Event) => {
+    const customEvent = e as CustomEvent<{ minutes: CrisisMinutes }>;
+    this.crisisMinutes = customEvent.detail.minutes;
   };
 
   private handleConfigGameModeSelected = (e: Event) => {
@@ -1201,8 +1220,17 @@ export class SinglePlayerModal extends BaseModal {
                       },
                     }
                   : {}),
+                // The default length is not sent, so a default match's config is
+                // the same bytes it always was.
                 ...(this.capitalSystem
-                  ? { capitalSystem: { enabled: true } }
+                  ? {
+                      capitalSystem: {
+                        enabled: true,
+                        ...(this.crisisMinutes === CRISIS_MINUTES_LONG
+                          ? { crisisMinutes: CRISIS_MINUTES_LONG }
+                          : {}),
+                      },
+                    }
                   : {}),
                 ...(this.overtime
                   ? {

@@ -25,8 +25,13 @@ positional).
 
 Off means nothing exists: no capitals, no CRISIS, no insurgency, no extra hash
 or snapshot data, and the match plays exactly as it did before the feature.
-`crisisMinutes` is 3 (default) or 5; anything else reads as 3. A host can edit
-both while the lobby is open (`src/server/ConfigPatch.ts`).
+`crisisMinutes` is 3 (default) or 5; anything else reads as 3. Solo and Create
+Match offer both lengths on the Capital System card (it grows a "CRISIS: 3 min /
+5 min" choice while the system is on), and the default length is never sent, so a
+default match's config is the same bytes it always was. A host can edit both
+while the lobby is open (`src/server/ConfigPatch.ts`); the server replaces the
+whole `capitalSystem` object, so leaving the length out is how a host goes back
+to 3 minutes. Public lobbies have no choice: they keep the system off.
 
 ## Rules
 
@@ -166,5 +171,7 @@ script on `scripts/audio/dsp.ts`; run it to regenerate), shipped as
 
 `tests/capital/` (rules, payments, CRISIS, replacement, nation behaviour, the
 setting off), `tests/core/snapshot/CapitalSystem.test.ts` (round trip),
-`tests/server/CapitalSystemDefault.test.ts` (defaults) and
-`tests/client/capital/` (the countdown arithmetic, the overlay and the banner).
+`tests/server/CapitalSystemDefault.test.ts` (defaults),
+`tests/client/CrisisLength.test.ts` (the length choice in Solo, Create Match and
+the lobby summary) and `tests/client/capital/` (the countdown arithmetic, the
+overlay and the banner).

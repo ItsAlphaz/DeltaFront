@@ -10,6 +10,10 @@ import {
   isValidGameID,
   TeamCountConfig,
 } from "@openfront/engine-api/Schemas";
+import {
+  CRISIS_MINUTES_DEFAULT,
+  CRISIS_MINUTES_LONG,
+} from "@openfront/engine-lib/capital/CapitalRules";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { GameEnv } from "@openfront/shared/configuration/Env";
@@ -35,6 +39,7 @@ import { BaseModal } from "./components/BaseModal";
 import "./components/ConfirmDialog";
 import { CopyButton } from "./components/CopyButton";
 import "./components/GameConfigSettings";
+import type { CrisisMinutes } from "./components/GameConfigSettings";
 import "./components/InputCard";
 import "./components/InsufficientCurrencyDialog";
 import "./components/ListLobbyDialog";
@@ -99,6 +104,7 @@ export class HostLobbyModal extends BaseModal {
   @state() private doomsdayClockSpeed: DoomsdayClockSpeed = "normal";
   // On by default, like the server's bare private lobby (GameManager).
   @state() private capitalSystem: boolean = true;
+  @state() private crisisMinutes: CrisisMinutes = CRISIS_MINUTES_DEFAULT;
   @state() private overtime: boolean = false;
   @state() private overtimeStartMinutes: number | undefined = undefined;
   @state() private anonymizeNames: boolean = false;
@@ -725,6 +731,7 @@ export class HostLobbyModal extends BaseModal {
                   {
                     labelKey: "game_settings.capital_system",
                     checked: this.capitalSystem,
+                    crisisMinutes: this.crisisMinutes,
                   },
                   // Host cheats and public listing are mutually exclusive
                   // (the server rejects both combinations), so the controls
@@ -765,6 +772,7 @@ export class HostLobbyModal extends BaseModal {
             @difficulty-selected=${this.handleConfigDifficultySelected}
             @doomsday-clock-speed-selected=${this
               .handleConfigDoomsdayClockSpeedSelected}
+            @crisis-minutes-selected=${this.handleConfigCrisisMinutesSelected}
             @game-mode-selected=${this.handleConfigGameModeSelected}
             @team-count-selected=${this.handleConfigTeamCountSelected}
             @bots-changed=${this.handleBotsChange}
@@ -1053,6 +1061,7 @@ export class HostLobbyModal extends BaseModal {
     this.doomsdayClock = false;
     this.doomsdayClockSpeed = "normal";
     this.capitalSystem = true;
+    this.crisisMinutes = CRISIS_MINUTES_DEFAULT;
     this.overtime = false;
     this.overtimeStartMinutes = undefined;
     this.anonymizeNames = false;
@@ -1113,6 +1122,12 @@ export class HostLobbyModal extends BaseModal {
   private handleConfigDoomsdayClockSpeedSelected = (e: Event) => {
     const customEvent = e as CustomEvent<{ speed: DoomsdayClockSpeed }>;
     this.doomsdayClockSpeed = customEvent.detail.speed;
+    this.putGameConfig();
+  };
+
+  private handleConfigCrisisMinutesSelected = (e: Event) => {
+    const customEvent = e as CustomEvent<{ minutes: CrisisMinutes }>;
+    this.crisisMinutes = customEvent.detail.minutes;
     this.putGameConfig();
   };
 
@@ -1703,8 +1718,16 @@ export class HostLobbyModal extends BaseModal {
               ? { enabled: true, speed: this.doomsdayClockSpeed }
               : { enabled: false },
             // Same {enabled:false} rule: undefined is dropped by
-            // JSON.stringify, so the toggle could never turn off.
-            capitalSystem: { enabled: this.capitalSystem },
+            // JSON.stringify, so the toggle could never turn off. The default
+            // length is not sent: the server replaces the whole object, so
+            // leaving it out is how a host goes back to 3 minutes.
+            capitalSystem: {
+              enabled: this.capitalSystem,
+              ...(this.capitalSystem &&
+              this.crisisMinutes === CRISIS_MINUTES_LONG
+                ? { crisisMinutes: CRISIS_MINUTES_LONG }
+                : {}),
+            },
             // Same {enabled:false} rule as doomsdayClock above: undefined is
             // dropped by JSON.stringify, so the toggle could never turn off.
             overtime: this.overtime

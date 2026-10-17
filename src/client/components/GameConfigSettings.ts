@@ -10,6 +10,10 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { TeamCountConfig } from "@openfront/engine-api/Schemas";
 import {
+  CRISIS_MINUTES_DEFAULT,
+  CRISIS_MINUTES_LONG,
+} from "@openfront/engine-lib/capital/CapitalRules";
+import {
   DOOMSDAY_CLOCK_SPEEDS,
   DoomsdayClockSpeed,
 } from "@openfront/engine-lib/game/DoomsdayClock";
@@ -190,7 +194,19 @@ export interface ToggleOptionConfig {
   hidden?: boolean;
   // When set, this toggle's card expands to a pace dropdown while it is checked.
   doomsdayClockSpeed?: DoomsdayClockSpeed;
+  // When set, this toggle's card expands to a CRISIS length dropdown (3 or 5
+  // minutes) while it is checked (the Capital System).
+  crisisMinutes?: CrisisMinutes;
 }
+
+export type CrisisMinutes =
+  | typeof CRISIS_MINUTES_DEFAULT
+  | typeof CRISIS_MINUTES_LONG;
+
+export const CRISIS_LENGTHS: readonly CrisisMinutes[] = [
+  CRISIS_MINUTES_DEFAULT,
+  CRISIS_MINUTES_LONG,
+];
 
 export interface GameConfigSettingsData {
   map: {
@@ -285,6 +301,14 @@ export class GameConfigSettings extends LitElement {
     this.emit("doomsday-clock-speed-selected", { speed });
   };
 
+  private handleCrisisMinutesChange = (e: Event) => {
+    const minutes =
+      Number((e.target as HTMLSelectElement).value) === CRISIS_MINUTES_LONG
+        ? CRISIS_MINUTES_LONG
+        : CRISIS_MINUTES_DEFAULT;
+    this.emit("crisis-minutes-selected", { minutes });
+  };
+
   private handleGameModeSelect = (mode: GameMode) => {
     this.emit("game-mode-selected", { mode });
   };
@@ -328,6 +352,10 @@ export class GameConfigSettings extends LitElement {
       return this.renderDoomsdayClockToggle(toggle);
     }
 
+    if (toggle.crisisMinutes !== undefined) {
+      return this.renderCapitalSystemToggle(toggle);
+    }
+
     return renderTextCardButton(
       translateText(toggle.labelKey),
       toggle.checked,
@@ -367,6 +395,49 @@ export class GameConfigSettings extends LitElement {
                   (speed) => html`
                     <option value=${speed} ?selected=${selected === speed}>
                       ${translateText(`doomsday_clock_speed.${speed}`)}
+                    </option>
+                  `,
+                )}
+              </select>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  // The Capital System's card, like the doomsday clock's: when on, it grows to
+  // hold how long a CRISIS lasts. The dropdown stops propagation so choosing a
+  // length doesn't flip the toggle.
+  private renderCapitalSystemToggle(
+    toggle: ToggleOptionConfig,
+  ): TemplateResult {
+    const selected = toggle.crisisMinutes;
+    return html`
+      <div
+        class="${cardClass(
+          toggle.checked,
+          "p-4 flex flex-col items-center justify-center gap-2 text-center",
+        )}"
+        @click=${() => this.handleOptionToggle(toggle)}
+      >
+        <span class="${CARD_LABEL_CLASS} ${stateTextClass(toggle.checked)}">
+          ${translateText(toggle.labelKey)}
+        </span>
+        ${toggle.checked
+          ? html`
+              <select
+                data-crisis-minutes
+                aria-label=${translateText("game_settings.crisis_length")}
+                class="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs"
+                @click=${(e: Event) => e.stopPropagation()}
+                @change=${this.handleCrisisMinutesChange}
+              >
+                ${CRISIS_LENGTHS.map(
+                  (minutes) => html`
+                    <option value=${minutes} ?selected=${selected === minutes}>
+                      ${translateText("game_settings.crisis_length_option", {
+                        minutes,
+                      })}
                     </option>
                   `,
                 )}

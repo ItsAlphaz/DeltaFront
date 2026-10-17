@@ -1331,7 +1331,10 @@
   "game_settings": {
     "bots": "Tribes: ",
     "capital_system": "Capital System",
+    "capital_system_long_crisis": "Enabled, {minutes}-minute CRISIS",
     "compact_map": "Compact Map",
+    "crisis_length": "CRISIS length",
+    "crisis_length_option": "CRISIS: {minutes} min",
     "custom_alliances": "Alliance Duration",
     "disable_units": "Disable Units",
     "doomsday_clock": "Doomsday Clock",
