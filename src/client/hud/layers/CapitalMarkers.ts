@@ -102,13 +102,16 @@ export class CapitalMarkers extends LitElement implements Controller {
     style.textContent = `
       .df-capital-marker {
         position: absolute; left: 0; top: 0; box-sizing: border-box;
-        border-radius: 50%; padding: 15%;
+        /* No padding in percent: it resolves against the containing block (the
+           whole screen), which made every badge a disc hundreds of pixels wide. */
+        display: grid; place-items: center;
+        border-radius: 50%;
         background: var(--capital-color, #888);
         border: 2px solid rgba(255,255,255,.92);
         box-shadow: 0 0 0 1px rgba(0,0,0,.7), 0 2px 6px rgba(0,0,0,.6);
         will-change: transform;
       }
-      .df-capital-marker svg { width: 100%; height: 100%; display: block; }
+      .df-capital-marker svg { width: 70%; height: 70%; display: block; }
       .df-capital-marker.replacement { border-style: dashed; }
       .df-capital-marker.mine::after {
         content: ""; position: absolute; inset: -7px; border-radius: 50%;
