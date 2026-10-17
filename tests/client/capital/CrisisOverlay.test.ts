@@ -313,6 +313,20 @@ describe("CrisisOverlay", () => {
     expect(sub).toMatch(/text-shadow:[^;]*rgba\(0,\s*0,\s*0,\s*0\.9/);
   });
 
+  it("outlines the title itself in dark, so its orange reads on snow (measured at about 1.2 to 1 without)", () => {
+    const css = String(
+      (overlay.constructor as unknown as { styles: { cssText: string } }).styles
+        .cssText,
+    );
+    const title = css.match(/\.title\s*{([^}]*)}/)![1];
+    // The outline is in em, so it scales with the title through the announcement.
+    expect(title).toMatch(
+      /-webkit-text-stroke:\s*[\d.]+em\s+rgba\(\d+,\s*\d+,\s*\d+,\s*0\.[89]/,
+    );
+    // Drawn outside the fill, so it never eats into the letters.
+    expect(title).toMatch(/paint-order:\s*stroke fill/);
+  });
+
   it("takes no pointer events, so it never gets between the player and the front", () => {
     const css = String(
       (overlay.constructor as unknown as { styles: { cssText: string } }).styles

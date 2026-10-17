@@ -232,6 +232,12 @@ export class CrisisOverlay extends LitElement implements Controller {
       line-height: 1;
       letter-spacing: 0.08em;
       color: #ffb020;
+      /* A dark outline just outside the letters. The fill is orange, which on
+         snow is barely darker than the ground, and a glow cannot make up the
+         difference (measured: 1.1 to 1.4 to 1 without it). It scales with the
+         title, so it stays a thin edge at every size. */
+      -webkit-text-stroke: 0.06em rgba(24, 8, 0, 0.92);
+      paint-order: stroke fill;
       text-shadow:
         0 0 14px rgba(255, 120, 0, 0.9),
         0 0 36px rgba(227, 27, 35, 0.75),
