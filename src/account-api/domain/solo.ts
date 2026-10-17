@@ -153,6 +153,8 @@ export interface SoloXpBreakdown {
   win: number;
   eliminations: 0;
   eliminationCount: 0;
+  capitals: 0;
+  capitalCount: 0;
   firstGame: 0;
   firstWin: 0;
   subtotal: number;
@@ -221,6 +223,8 @@ export function computeSoloXp(input: SoloXpInput): SoloXpResult {
       win,
       eliminations: 0,
       eliminationCount: 0,
+      capitals: 0,
+      capitalCount: 0,
       firstGame: 0,
       firstWin: 0,
       subtotal,

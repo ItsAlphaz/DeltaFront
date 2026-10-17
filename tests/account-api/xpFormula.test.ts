@@ -13,6 +13,7 @@ import {
   playerCountPermille,
   progressionEligibility,
   repeatPermille,
+  validCapitalCaptures,
   validEliminations,
   type MatchXpInput,
 } from "../../src/account-api/domain/xp";
@@ -23,6 +24,7 @@ const base: MatchXpInput = {
   place: null,
   humans: 10,
   eliminations: 0,
+  capitalCaptures: 0,
   eligibleHumans: 10,
   repeatPermille: 1000,
   firstGameAvailable: false,
@@ -192,21 +194,37 @@ describe("repeated opponents", () => {
 });
 
 describe("caps", () => {
-  it("never pays more than 1,250 in a match, and flags it", () => {
-    // not reachable with the real lines; the cap is a tripwire, so force it
-    const r = computeMatchXp({
+  it("never pays more than 1,500 in a match, and flags it", () => {
+    // The best real game: every line at its limit, in the biggest games.
+    const best = computeMatchXp({
       ...base,
       victory: true,
       place: 1,
       eliminations: 6,
+      capitalCaptures: 3,
       eligibleHumans: 40,
       firstGameAvailable: true,
       firstWinAvailable: true,
     });
-    // (100 + 150 + 250 + 150 + 100 + 150) x 1.25 = 1125 < cap
-    expect(r.breakdown.total).toBe(1125);
-    expect(r.breakdown.capped).toBe(false);
-    expect(PROGRESSION.matchXpCap).toBe(1250);
+    // (100 + 150 + 250 + 150 + 120 + 100 + 150) x 1.25 = 1275 < cap
+    expect(best.breakdown.total).toBe(1_275);
+    expect(best.breakdown.capped).toBe(false);
+    expect(PROGRESSION.matchXpCap).toBe(1_500);
+    // The cap is a tripwire for what the lines cannot reach: force it.
+    const forced = computeMatchXp({
+      ...base,
+      victory: true,
+      place: 1,
+      eliminations: 6,
+      capitalCaptures: 3,
+      eligibleHumans: 40,
+      repeatPermille: 2_000,
+      firstGameAvailable: true,
+      firstWinAvailable: true,
+    });
+    expect(forced.breakdown.total).toBe(1_500);
+    expect(forced.breakdown.capped).toBe(true);
+    expect(forced.flags).toContain("cap_hit");
   });
 
   it("pays in full up to 6,000 a day and a quarter above it, splitting the game that crosses", () => {
@@ -314,6 +332,92 @@ describe("reading a game record", () => {
     });
     expect(validEliminations(record, "pl000001")).toBe(2);
     expect(validEliminations(record, "pl000002")).toBe(0);
+  });
+});
+
+describe("capital captures", () => {
+  it("pays 40 for each, and counts at most three in a game", () => {
+    expect(xp({ capitalCaptures: 0 })).toMatchObject({
+      capitals: 0,
+      capitalCount: 0,
+      subtotal: 100,
+    });
+    expect(xp({ capitalCaptures: 2 })).toMatchObject({
+      capitals: 80,
+      capitalCount: 2,
+      subtotal: 180,
+      total: 180,
+    });
+    expect(xp({ capitalCaptures: 5 })).toMatchObject({
+      capitals: 120,
+      capitalCount: 3,
+      subtotal: 220,
+    });
+    expect(xp({ capitalCaptures: -4 })).toMatchObject({ capitals: 0 });
+  });
+
+  it("is multiplied like every other line, by the size of the game", () => {
+    // Four players: half the award.
+    const small = xp({ capitalCaptures: 3, eligibleHumans: 4, humans: 4 });
+    expect(small.subtotal).toBe(220);
+    expect(small.total).toBe(110);
+  });
+
+  it("is only in a full award: a reduced one pays completed-match and elimination XP", () => {
+    const reduced = computeReducedXp({
+      reason: "private_game",
+      eliminations: 2,
+      earnedToday: 0,
+    }).breakdown;
+    expect(reduced.capitals).toBe(0);
+    expect(reduced.capitalCount).toBe(0);
+    // 100 + 2 x 25, a quarter of it.
+    expect(reduced.subtotal).toBe(150);
+    expect(reduced.total).toBe(37);
+  });
+
+  it("keeps the best possible game under the per-match tripwire", () => {
+    const best = xp({
+      victory: true,
+      place: 1,
+      humans: 40,
+      eliminations: 6,
+      capitalCaptures: 3,
+      eligibleHumans: 40,
+      firstGameAvailable: true,
+      firstWinAvailable: true,
+    });
+    // (100 + 150 + 250 + 150 + 120 + 100 + 150) x 1.25
+    expect(best.subtotal).toBe(1_020);
+    expect(best.total).toBe(1_275);
+    expect(best.capped).toBe(false);
+    expect(PROGRESSION.matchXpCap).toBeGreaterThan(best.total);
+  });
+
+  it("counts a capture once per owner, after the two minutes, of a player of the game, never your own", () => {
+    const record = buildRecord("gm000004", {
+      players: [
+        {
+          user: null,
+          stats: {
+            capitals: [
+              { victim: "pl000002", tick: "3000" },
+              { victim: "pl000002", tick: "3500" }, // the same owner again
+              { victim: "pl000003", tick: "300" }, // a free capture: 30 seconds in
+              { victim: "pl000001", tick: "4000" }, // your own
+              { victim: "nobody", tick: "4000" }, // not a player of this game
+              { victim: "pl000004", tick: "1200" }, // exactly at the minimum
+            ],
+          },
+        },
+        { user: null },
+        { user: null },
+        { user: null },
+      ],
+    });
+    expect(validCapitalCaptures(record, "pl000001")).toBe(2);
+    expect(validCapitalCaptures(record, "pl000002")).toBe(0);
+    expect(validCapitalCaptures(record, "stranger")).toBe(0);
   });
 });
 

@@ -458,6 +458,42 @@ describeDb("XP from a finished game", () => {
     expect(win.breakdown.eliminations).toBe(25);
   });
 
+  it("pays the capital-capture XP for each human owner whose capital was taken after two minutes, at most three", async () => {
+    const { h, key, users } = await setup(6);
+    const id = await play(h, key, {
+      allAct: true,
+      players: [
+        {
+          user: users[0],
+          stats: {
+            capitals: [
+              { victim: clientIdOf(1), tick: "3000" },
+              { victim: clientIdOf(1), tick: "3500" }, // the same owner again
+              { victim: clientIdOf(2), tick: "300" }, // a free capture
+              { victim: clientIdOf(3), tick: "4000" },
+              { victim: clientIdOf(4), tick: "5000" },
+              { victim: clientIdOf(5), tick: "6000" },
+            ],
+          },
+        },
+        { user: users[1], fate: { killedAt: 3000 } },
+        { user: users[2] },
+        { user: users[3] },
+        { user: users[4] },
+        { user: users[5] },
+      ],
+    });
+    const win = (await resultOf(h, id, users[0]))!.xp_result;
+    // Four owners count (1, 3, 4, 5), three are paid.
+    expect(win.breakdown.capitalCount).toBe(3);
+    expect(win.breakdown.capitals).toBe(120);
+    // It is part of the subtotal the multipliers act on.
+    expect(win.breakdown.subtotal).toBeGreaterThanOrEqual(220);
+    // The one who lost the capital earns nothing for it.
+    const victim = (await resultOf(h, id, users[1]))!.xp_result;
+    expect(victim.breakdown.capitals).toBe(0);
+  });
+
   it("uses the player-count multiplier bands on a real game", async () => {
     const { h, key, users } = await setup(16);
     const id = await play(h, key, {

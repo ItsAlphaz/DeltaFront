@@ -179,6 +179,9 @@ export const XpBreakdownSchema = z.object({
   // Eliminations of other players (25 each, at most 6) and how many counted.
   eliminations: z.number().default(0),
   eliminationCount: z.number().default(0),
+  // Capital captures (40 each, at most 3) and how many counted.
+  capitals: z.number().default(0),
+  capitalCount: z.number().default(0),
   firstGame: z.number().default(0),
   // The first eligible victory of the UTC day.
   firstWin: z.number().default(0),

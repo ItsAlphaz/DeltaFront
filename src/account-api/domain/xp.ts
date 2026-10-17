@@ -17,7 +17,7 @@ import { countedVerdict, winnerClientIds, type CountedFacts } from "./stats";
  *
  * Calculation, in whole numbers:
  *   subtotal = completed + placement (FFA) + victory + eliminations
- *              + first-game bonus + first-win bonus
+ *              + capital captures + first-game bonus + first-win bonus
  *   base     = floor(subtotal x playerCount x repeatedOpponents / 10^6)
  *   capped   = min(base, matchXpCap)
  *   paid     = capped, with what passes the daily soft cap at the soft rate
@@ -281,6 +281,33 @@ export function validEliminations(
   return victims.size;
 }
 
+/**
+ * The capital captures that count for a player: each human owner once, taken
+ * after the elimination minimum (a capital taken in the first two minutes is a
+ * free capture, like a free kill), never their own, and the owner must be a
+ * player of the game. Bots and nations are not in `capitals` at all, and the
+ * engine records only the capture the Capital System paid for, so a capital
+ * traded back and forth counts once. The per-game limit is applied by
+ * computeMatchXp.
+ */
+export function validCapitalCaptures(
+  record: Pick<GameRecord, "info">,
+  clientID: string,
+): number {
+  const me = record.info.players.find((p) => p.clientID === clientID);
+  const owners = new Set<string>();
+  for (const capture of me?.stats?.capitals ?? []) {
+    if (capture.victim === clientID || owners.has(capture.victim)) continue;
+    if (capture.tick < BigInt(ECONOMY.minEliminationTick)) continue;
+    const owner = record.info.players.find(
+      (p) => p.clientID === capture.victim,
+    );
+    if (owner === undefined) continue;
+    owners.add(capture.victim);
+  }
+  return owners.size;
+}
+
 /** The player-count multiplier (permille) for `eligible` eligible humans. */
 export function playerCountPermille(eligible: number): number {
   for (const band of PROGRESSION.playerCountBands) {
@@ -339,6 +366,8 @@ export interface MatchXpInput {
   humans: number;
   /** Counted eliminations (validEliminations), before the per-game limit. */
   eliminations: number;
+  /** Counted capital captures (validCapitalCaptures), before the per-game limit. */
+  capitalCaptures: number;
   /** Eligible humans: completed the game and acted (the player-count multiplier). */
   eligibleHumans: number;
   repeatPermille: number;
@@ -355,6 +384,9 @@ export interface MatchXpBreakdown {
   win: number;
   eliminations: number;
   eliminationCount: number;
+  /** Capital captures (40 each, at most 3) and how many counted. */
+  capitals: number;
+  capitalCount: number;
   firstGame: number;
   firstWin: number;
   subtotal: number;
@@ -395,10 +427,15 @@ export function computeMatchXp(input: MatchXpInput): MatchXpResult {
     PROGRESSION.maxEliminations,
   );
   const eliminations = eliminationCount * PROGRESSION.eliminationXp;
+  const capitalCount = Math.min(
+    Math.max(0, input.capitalCaptures),
+    PROGRESSION.maxCapitalCaptures,
+  );
+  const capitals = capitalCount * PROGRESSION.capitalCaptureXp;
   const firstGame = usedFirstGame ? PROGRESSION.firstGameBonus : 0;
   const firstWin = usedFirstWin ? PROGRESSION.firstWinBonus : 0;
   const subtotal =
-    played + placement + win + eliminations + firstGame + firstWin;
+    played + placement + win + eliminations + capitals + firstGame + firstWin;
 
   const base = Math.floor(
     (subtotal * gamePermille * input.repeatPermille) / (PERMILLE * PERMILLE),
@@ -420,6 +457,8 @@ export function computeMatchXp(input: MatchXpInput): MatchXpResult {
       win,
       eliminations,
       eliminationCount,
+      capitals,
+      capitalCount,
       firstGame,
       firstWin,
       subtotal,
@@ -471,6 +510,8 @@ export function computeReducedXp(input: ReducedXpInput): MatchXpResult {
       win: 0,
       eliminations,
       eliminationCount,
+      capitals: 0,
+      capitalCount: 0,
       firstGame: 0,
       firstWin: 0,
       subtotal,

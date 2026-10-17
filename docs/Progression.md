@@ -107,16 +107,26 @@ A player who does not qualify has a stored reason (`guest`, `no_action`, `left_e
 
 ### Full progression
 
-| Line                               | XP                                                                                         |
-| ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| Completed match                    | +100                                                                                       |
-| Placement (FFA only)               | top 50% +50 · top 25% +100 · top 10% +150, highest tier only                               |
-| Victory                            | +250                                                                                       |
-| Eliminations                       | +25 each, at most 6; the victim must have lasted two minutes; bots and nations never count |
-| First eligible game of the UTC day | +100                                                                                       |
-| First eligible win of the UTC day  | +150                                                                                       |
+| Line                               | XP                                                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Completed match                    | +100                                                                                              |
+| Placement (FFA only)               | top 50% +50 · top 25% +100 · top 10% +150, highest tier only                                      |
+| Victory                            | +250                                                                                              |
+| Eliminations                       | +25 each, at most 6; the victim must have lasted two minutes; bots and nations never count        |
+| Capitals captured                  | +40 each, at most 3; each human owner once, taken after two minutes; bots and nations never count |
+| First eligible game of the UTC day | +100                                                                                              |
+| First eligible win of the UTC day  | +150                                                                                              |
 
-`subtotal × player-count × repeated-opponents`, rounded down, then capped at **1,250**
+**Capital captures** come from the Capital System ([Capital.md](Capital.md)). The engine records a
+capture in the player's stats only when it paid the reward, which is once per owner and captor ever,
+and only for a human owner, so a capital traded back and forth, or a bot's or nation's, counts for
+nothing. The account API then counts each owner once, only if the capture came after the two-minute
+minimum (a capital taken in the first two minutes is a free capture, like a free kill) and the owner
+is a player of the game, up to three. It is a **full** award line only: a reduced or solo award pays
+nothing for it, and the live preview does not show it (the stored game decides, like placement).
+The reward is separate from the gold and troops a capture pays in the match.
+
+`subtotal × player-count × repeated-opponents`, rounded down, then capped at **1,500** (a tripwire: the best real game, every line at its limit in the biggest games, is 1,275)
 per match, then the **daily soft cap**: match XP above 6,000 in a UTC day is paid at
 25% (the game that crosses the line is split; there is no hard stop). Full games also
 advance the season, the challenges and clan XP.
@@ -290,7 +300,7 @@ something.
 
 ### The award
 
-`floor(subtotal x reduced x setup)`, then the per-match cap (1,250) and the daily soft cap, exactly
+`floor(subtotal x reduced x setup)`, then the per-match cap (1,500) and the daily soft cap, exactly
 as for any match XP.
 
 | Outcome (from the replay)                                | Subtotal   | Notes                                                            |

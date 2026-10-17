@@ -41,21 +41,27 @@ MatchEvents (packages/engine/src/game)  ──  GameUpdateType.MatchEvent update
 
 ## The events
 
-| Type                     | When                                         | Severity                         | Filter    |
-| ------------------------ | -------------------------------------------- | -------------------------------- | --------- |
-| `game_started`           | the spawn phase ends                         | normal                           | System    |
-| `game_ending`            | a winner is set (or the match is voided)     | critical                         | System    |
-| `player_eliminated`      | a player's last tile is gone                 | critical (a tribe: normal)       | Combat    |
-| `largest_nation_changed` | the largest nation (largest team) changes    | major                            | Territory |
-| `alliance_formed`        | a request is accepted                        | normal                           | Diplomacy |
-| `alliance_broken`        | someone breaks it (`broken`) or it runs out  | major (`expired`: normal)        | Diplomacy |
-| `major_territory_loss`   | a player has lost 25 / 50 / 75 % of its peak | normal at 25, major at 50 and 75 | Territory |
-| `admin_action`           | a staff command ran in the game              | major (`force_win`: critical)    | System    |
+| Type                     | When                                                                              | Severity                         | Filter    |
+| ------------------------ | --------------------------------------------------------------------------------- | -------------------------------- | --------- |
+| `game_started`           | the spawn phase ends                                                              | normal                           | System    |
+| `game_ending`            | a winner is set (or the match is voided)                                          | critical                         | System    |
+| `player_eliminated`      | a player's last tile is gone                                                      | critical (a tribe: normal)       | Combat    |
+| `largest_nation_changed` | the largest nation (largest team) changes                                         | major                            | Territory |
+| `alliance_formed`        | a request is accepted                                                             | normal                           | Diplomacy |
+| `alliance_broken`        | someone breaks it (`broken`) or it runs out                                       | major (`expired`: normal)        | Diplomacy |
+| `major_territory_loss`   | a player has lost 25 / 50 / 75 % of its peak                                      | normal at 25, major at 50 and 75 | Territory |
+| `admin_action`           | a staff command ran in the game                                                   | major (`force_win`: critical)    | System    |
+| `capital_captured`       | an enemy captures a capital ([Capital.md](Capital.md))                            | major                            | Combat    |
+| `insurgency_started`     | the owner of that capital organises a resistance ([Insurgency.md](Insurgency.md)) | major                            | Combat    |
+| `uprising_launched`      | a resistance launches an uprising                                                 | normal                           | Combat    |
+| `region_reclaimed`       | a resistance wins a region back                                                   | major                            | Territory |
+| `insurgency_ended`       | a resistance is over (`reason` says how)                                          | major                            | Combat    |
 
 Not built because the game has nothing for them: `war_declared` (there is no
-war or declaration state: attacks, embargoes and alliances are all there is)
-and `capital_captured` (there are no capitals). An event type is only added
-for a concept the engine really has.
+war or declaration state: attacks, embargoes and alliances are all there is).
+An event type is only added for a concept the engine really has: capitals and
+resistances exist only in a match with the Capital System on, and their events
+only then.
 
 ## Who gets credit for an elimination
 

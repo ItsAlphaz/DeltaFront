@@ -209,6 +209,17 @@ export interface Stats {
   // Record that player eliminated human victim at tick (OFM kill scoring).
   recordKill(player: Player, victim: Player, tick: number | bigint): void;
 
+  /**
+   * `captor` took the capital of `owner` (a human, by clientID) and was paid for
+   * it: recorded once per owner, for the XP a capture earns. A capture that paid
+   * nothing (the pair was paid before) is never recorded.
+   */
+  recordCapitalCapture(
+    captor: Player,
+    owner: Player,
+    tick: number | bigint,
+  ): void;
+
   // Player's train arrives at any station, generating gold
   trainSelfTrade(player: Player, gold: number | bigint): void;
 

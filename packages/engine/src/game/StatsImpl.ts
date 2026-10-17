@@ -545,6 +545,18 @@ export class StatsImpl implements Stats {
     p.kills.push({ victim: victimId, tick: _bigint(tick) });
   }
 
+  recordCapitalCapture(captor: Player, owner: Player, tick: BigIntLike): void {
+    if (owner.type() !== PlayerType.Human) return;
+    const victimId = owner.clientID();
+    if (victimId === null) return;
+    const p = this._makePlayerStats(captor);
+    if (p === undefined) return;
+    p.capitals ??= [];
+    // One per owner, whatever the caller does: the XP counts each once.
+    if (p.capitals.some((c) => c.victim === victimId)) return;
+    p.capitals.push({ victim: victimId, tick: _bigint(tick) });
+  }
+
   trainSelfTrade(player: Player, gold: BigIntLike): void {
     this._addGold(player, GOLD_INDEX_TRAIN_SELF, gold);
   }

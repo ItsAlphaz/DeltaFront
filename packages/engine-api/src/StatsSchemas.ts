@@ -222,6 +222,12 @@ export const PlayerStatsSchema = z
     spawnTile: zb.uint().optional(),
     // Appended (zbin field order). Airstrike stats keyed by strike type.
     air: z.partialRecord(AirUnitSchema, AtLeastOneNumberSchema).optional(),
+    // Appended (zbin field order). The humans whose capital this player captured,
+    // once each: the capture the reward was paid for (docs/Capital.md). Victim
+    // clientID and the tick, like `kills`; the account API reads it for XP.
+    capitals: z
+      .array(z.object({ victim: z.string(), tick: BigIntStringSchema }))
+      .optional(),
   })
   .optional();
 export type PlayerStats = z.infer<typeof PlayerStatsSchema>;

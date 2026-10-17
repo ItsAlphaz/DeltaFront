@@ -26,6 +26,8 @@ const breakdown = (over: Record<string, unknown> = {}) => ({
   win: 0,
   eliminations: 50,
   eliminationCount: 2,
+  capitals: 0,
+  capitalCount: 0,
   firstGame: 0,
   firstWin: 0,
   feats: 0,
@@ -141,6 +143,8 @@ describe("a running game's XP", () => {
         breakdown: breakdown({
           eliminations: 0,
           eliminationCount: 0,
+          capitals: 0,
+          capitalCount: 0,
           subtotal: 100,
           total: 100,
         }) as never,
@@ -179,6 +183,8 @@ describe("eliminated", () => {
       breakdown: breakdown({
         eliminations: 25,
         eliminationCount: 1,
+        capitals: 0,
+        capitalCount: 0,
         subtotal: 125,
         gamePermille: 250,
         reducedReason: "eliminated",
@@ -268,6 +274,8 @@ describe("a death that has been paid", () => {
     breakdown: breakdown({
       eliminations: 25,
       eliminationCount: 1,
+      capitals: 0,
+      capitalCount: 0,
       subtotal: 125,
       gamePermille: 250,
       reducedReason: "eliminated",
@@ -367,6 +375,8 @@ describe("a reduced match", () => {
     breakdown: breakdown({
       eliminations: 25,
       eliminationCount: 1,
+      capitals: 0,
+      capitalCount: 0,
       subtotal: 125,
       gamePermille: 250,
       reducedReason: "private_game",

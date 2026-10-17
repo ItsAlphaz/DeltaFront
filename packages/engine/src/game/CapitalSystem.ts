@@ -376,6 +376,8 @@ export class CapitalSystem {
       );
       captor.addGold(rewardGold);
       captor.addTroops(rewardTroops);
+      // The same once-per-pair rule pays XP: only a paid capture is recorded.
+      this.mg.stats().recordCapitalCapture(captor, owner, ticks);
     }
     this.captures.set(captor.smallID(), this.capturesBy(captor) + 1);
 

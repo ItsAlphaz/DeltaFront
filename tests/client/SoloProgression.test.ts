@@ -61,6 +61,8 @@ const breakdown = (over: Partial<XpBreakdown> = {}): XpBreakdown => ({
   win: 250,
   eliminations: 0,
   eliminationCount: 0,
+  capitals: 0,
+  capitalCount: 0,
   firstGame: 0,
   firstWin: 0,
   feats: 0,

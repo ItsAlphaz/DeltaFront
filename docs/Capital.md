@@ -73,6 +73,15 @@ stored in `paid`, so a rebuilt capital taken again by the same player, or a pair
 trading a capital back and forth, pays nothing the second time (the event still
 fires, with a reward of zero, and the banner says so).
 
+## XP
+
+The captor's gold and troops are paid in the match. A capture also earns progression XP
+([Progression.md](Progression.md)): 40 XP for each human owner whose capital a player captured, at
+most three in a game, in full awards only. It follows the same once-per-pair rule as the reward: the
+engine records a capture in the player's stats (`capitals`: victim and tick) at the moment it pays,
+never for a capture that paid nothing and never for a bot or a nation, and the account API counts
+each owner once, only after the first two minutes of the match.
+
 ## Wire, state and determinism
 
 - Intent: `found_capital { tile }` (appended to `IntentSchema`).

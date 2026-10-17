@@ -137,6 +137,8 @@ describe("GameXpResponseSchema", () => {
       // the fields later rules added read as "none"
       eliminations: 0,
       eliminationCount: 0,
+      capitals: 0,
+      capitalCount: 0,
       firstWin: 0,
       repeatPermille: 1000,
       playerCount: 0,

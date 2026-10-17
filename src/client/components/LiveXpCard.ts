@@ -135,7 +135,11 @@ export class LiveXpCard extends LitElement {
                 ? translateText("progression.live_eliminations", {
                     count: breakdown.eliminationCount,
                   })
-                : translateText(XP_LINE_LABEL_KEYS[line.key])}</span
+                : line.key === "capitals" && breakdown.capitalCount > 0
+                  ? translateText("progression.live_capitals", {
+                      count: breakdown.capitalCount,
+                    })
+                  : translateText(XP_LINE_LABEL_KEYS[line.key])}</span
             >
             <span
               class="shrink-0 whitespace-nowrap font-bold tabular-nums text-yellow-300"

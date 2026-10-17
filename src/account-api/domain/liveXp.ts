@@ -507,6 +507,8 @@ async function playing(
       place: a.victory && a.ffa ? 1 : null,
       humans: game.progress.players.length,
       eliminations: a.eliminations,
+      // Counted from the stored game: the live standings do not carry captures.
+      capitalCaptures: 0,
       eligibleHumans: Math.max(1, a.participants),
       repeatPermille: context.repeat,
       firstGameAvailable: context.firstGameAvailable,

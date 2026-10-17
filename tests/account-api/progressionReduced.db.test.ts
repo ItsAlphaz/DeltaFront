@@ -149,6 +149,30 @@ describeDb("a reduced game: private, unlisted and low-population", () => {
     ).toBe("private_game");
   });
 
+  it("pays nothing for a captured capital in a private game: completed match and eliminations only", async () => {
+    const { h, key, users } = await setup();
+    const spec = ffa6(users, { type: "Private" });
+    spec.players[0] = {
+      user: users[0],
+      stats: {
+        kills: [{ victim: clientIdOf(1), tick: "30000" }],
+        capitals: [
+          { victim: clientIdOf(2), tick: "3000" },
+          { victim: clientIdOf(3), tick: "4000" },
+        ],
+      },
+    };
+    const id = await play(h, key, spec);
+    const winner = await resultOf(h, id, users[0]);
+    expect(winner.xp_result.breakdown).toMatchObject({
+      reducedReason: "private_game",
+      capitals: 0,
+      capitalCount: 0,
+      // 100 + 25, a quarter of it: the captures changed nothing.
+      total: 31,
+    });
+  });
+
   it("pays a public game short of humans a reduced award instead of nothing", async () => {
     const { h, key, users } = await setup(1);
     const id = await play(h, key, {

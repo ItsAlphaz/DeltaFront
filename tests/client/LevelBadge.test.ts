@@ -249,6 +249,8 @@ describe("progression helpers", () => {
     feats: 0,
     eliminations: 0,
     eliminationCount: 0,
+    capitals: 0,
+    capitalCount: 0,
     firstWin: 0,
     repeatPermille: 1000,
     playerCount: 0,
@@ -266,6 +268,50 @@ describe("progression helpers", () => {
       { key: "placement", amount: 25 },
       { key: "firstGame", amount: 100 },
     ]);
+  });
+
+  it("lists captured capitals between eliminations and the daily bonuses, and an old row simply has none", () => {
+    expect(
+      visibleXpLines({
+        ...breakdown,
+        played: 100,
+        placement: 0,
+        eliminations: 50,
+        eliminationCount: 2,
+        capitals: 80,
+        capitalCount: 2,
+        firstGame: 100,
+        subtotal: 330,
+      }).map((l) => l.key),
+    ).toEqual(["played", "eliminations", "capitals", "firstGame"]);
+    // A stored game scored before captures existed parses with none.
+    const parsed = GameXpResponseSchema.parse({
+      gameId: "g",
+      eligible: true,
+      breakdown: {
+        played: 100,
+        subtotal: 100,
+        gamePermille: 1000,
+        total: 100,
+      },
+      before: { prestige: 0, level: 1, xpInLevel: 0, xpForNext: 100 },
+      after: {
+        prestige: 0,
+        level: 2,
+        xpInLevel: 0,
+        xpForNext: 100,
+        lifetimeXp: 100,
+        legend: false,
+        canPrestige: false,
+      },
+    });
+    if (!parsed.eligible) throw new Error("expected eligible");
+    expect(parsed.breakdown.capitals).toBe(0);
+    expect(parsed.breakdown.capitalCount).toBe(0);
+    expect(visibleXpLines(parsed.breakdown).map((l) => l.key)).toEqual([
+      "played",
+    ]);
+    expect(en.progression.line_capitals).toBe("Capitals captured");
   });
 
   it("shows XP no known source accounts for as its own line", () => {

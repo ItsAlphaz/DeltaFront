@@ -55,13 +55,20 @@ export const PROGRESSION = deepFreeze({
   /** XP for each elimination, and how many count in one game. */
   eliminationXp: 25,
   maxEliminations: 6,
+  /**
+   * XP for capturing a human's capital, once per owner (the capture the Capital
+   * System paid for), and how many count in one game. A full award only: a
+   * reduced one pays completed-match and elimination XP, nothing more.
+   */
+  capitalCaptureXp: 40,
+  maxCapitalCaptures: 3,
   /** UTC-daily bonuses: the first eligible game, and the first eligible win. */
   firstGameBonus: 100,
   firstWinBonus: 150,
   /** A game with a smaller player-count multiplier than this cannot use a daily bonus. */
   dailyBonusMinPermille: 500,
-  /** The most match XP one game can pay (a tripwire: the real maximum is 1,125). */
-  matchXpCap: 1_250,
+  /** The most match XP one game can pay (a tripwire: the real maximum is 1,275). */
+  matchXpCap: 1_500,
   /** Match XP per UTC day paid in full; above it XP is paid at the soft rate. */
   dailySoftCap: 6_000,
   softCapRatePermille: 250,

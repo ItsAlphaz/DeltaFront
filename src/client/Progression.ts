@@ -132,6 +132,7 @@ type XpSourceKey =
   | "placement"
   | "win"
   | "eliminations"
+  | "capitals"
   | "firstGame"
   | "firstWin"
   | "feats";
@@ -146,6 +147,7 @@ export const XP_LINE_KEYS: readonly XpSourceKey[] = [
   "placement",
   "win",
   "eliminations",
+  "capitals",
   "firstGame",
   "firstWin",
   "feats",
@@ -158,6 +160,7 @@ export const XP_LINE_LABEL_KEYS: Record<XpLineKey, string> = {
   placement: "progression.line_placement",
   win: "progression.line_win",
   eliminations: "progression.line_eliminations",
+  capitals: "progression.line_capitals",
   firstGame: "progression.line_first_game",
   firstWin: "progression.line_first_win",
   feats: "progression.line_feats",
