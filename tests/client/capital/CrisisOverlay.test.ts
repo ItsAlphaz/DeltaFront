@@ -335,6 +335,68 @@ describe("CrisisOverlay", () => {
     expect(css).toMatch(/:host\s*{[^}]*pointer-events:\s*none/);
   });
 
+  describe("the size of the title in reduced motion", () => {
+    const realRect = Element.prototype.getBoundingClientRect;
+    const realWidth = window.innerWidth;
+    const realHeight = window.innerHeight;
+    afterEach(() => {
+      Element.prototype.getBoundingClientRect = realRect;
+      Object.defineProperty(window, "innerWidth", {
+        value: realWidth,
+        configurable: true,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        value: realHeight,
+        configurable: true,
+      });
+    });
+
+    // The title is 150 px wide in its panel; the announcement scales it.
+    async function announcedWidth(width: number, height: number) {
+      window.matchMedia = ((query: string) => ({
+        matches: query.includes("reduce"),
+        media: query,
+      })) as never;
+      Object.defineProperty(window, "innerWidth", {
+        value: width,
+        configurable: true,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        value: height,
+        configurable: true,
+      });
+      Element.prototype.getBoundingClientRect = function (this: Element) {
+        return this.classList.contains("title")
+          ? ({
+              left: 1000,
+              top: 140,
+              width: 150,
+              height: 28,
+              right: 1150,
+              bottom: 168,
+              x: 1000,
+              y: 140,
+            } as DOMRect)
+          : realRect.call(this);
+      };
+      await step();
+      const title = q<HTMLElement>(".title")!;
+      const scale = Number(/scale\(([\d.]+)\)/.exec(title.style.transform)![1]);
+      return 150 * scale;
+    }
+
+    it("is a third of a wide screen", async () => {
+      expect(await announcedWidth(1920, 1080)).toBeCloseTo(1920 * 0.34, 0);
+    });
+
+    it("is never a smaller headline than the one in the panel, however narrow the screen", async () => {
+      // A phone's third would be 133 px: smaller than the 150 px title it flies to.
+      const w = await announcedWidth(390, 844);
+      expect(w).toBeGreaterThanOrEqual(219.5);
+      expect(w).toBeLessThanOrEqual(390 * 0.8);
+    });
+  });
+
   it("with reduced motion: the same words, but no scale, flash or flight", async () => {
     window.matchMedia = ((query: string) => ({
       matches: query.includes("reduce"),

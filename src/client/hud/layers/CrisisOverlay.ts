@@ -46,6 +46,10 @@ const ANNOUNCE_HOLD_MS = 3_000;
 const DOCK_MS = 1_100;
 /** How large the title is on the screen's centre, as a share of its width. */
 const ANNOUNCE_WIDTH_SHARE = 0.6;
+/** The same, in reduced motion: a third of the width, at least this many pixels, at most most of the screen. */
+const REDUCED_WIDTH_SHARE = 0.34;
+const REDUCED_MIN_WIDTH = 220;
+const REDUCED_MAX_SHARE = 0.8;
 const MAX_ANNOUNCE_SCALE = 14;
 const SHAKE_MS = 480;
 
@@ -487,8 +491,15 @@ export class CrisisOverlay extends LitElement implements Controller {
     const cy = window.innerHeight * 0.46;
     const dx = cx - (rect.left + rect.width / 2);
     const dy = cy - (rect.top + rect.height / 2);
+    // Calm mode is smaller (a third of the screen), but never smaller than a
+    // readable headline on a narrow screen: a phone's third would be a title
+    // smaller than the one in the panel it is about to fly to.
+    const calmWidth = Math.min(
+      window.innerWidth * REDUCED_MAX_SHARE,
+      Math.max(REDUCED_MIN_WIDTH, window.innerWidth * REDUCED_WIDTH_SHARE),
+    );
     const scale = this.reducedMotion()
-      ? Math.min(MAX_ANNOUNCE_SCALE, (window.innerWidth * 0.34) / rect.width)
+      ? Math.min(MAX_ANNOUNCE_SCALE, calmWidth / rect.width)
       : Math.min(
           MAX_ANNOUNCE_SCALE,
           (window.innerWidth * ANNOUNCE_WIDTH_SHARE) / rect.width,
