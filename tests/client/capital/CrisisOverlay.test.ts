@@ -301,6 +301,18 @@ describe("CrisisOverlay", () => {
     expect(root().querySelector("section")).toBeNull();
   });
 
+  it("backs the words under the title with a dark band, so they read on snow as on sea", () => {
+    const css = String(
+      (overlay.constructor as unknown as { styles: { cssText: string } }).styles
+        .cssText,
+    );
+    const sub = css.match(/\.sub\s*{([^}]*)}/)![1];
+    // A band that fades at both ends behind pale text, and an outline.
+    expect(sub).toMatch(/background:\s*linear-gradient/);
+    expect(sub).toMatch(/rgba\(10,\s*5,\s*0,\s*0\.7\d?\)/);
+    expect(sub).toMatch(/text-shadow:[^;]*rgba\(0,\s*0,\s*0,\s*0\.9/);
+  });
+
   it("takes no pointer events, so it never gets between the player and the front", () => {
     const css = String(
       (overlay.constructor as unknown as { styles: { cssText: string } }).styles
