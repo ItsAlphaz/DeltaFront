@@ -75,6 +75,7 @@ import type {
 } from "../snapshot/SnapshotContext";
 import { AllianceImpl } from "./AllianceImpl";
 import { AllianceRequestImpl } from "./AllianceRequestImpl";
+import { CapitalSystem, CapitalSystemStateSchema } from "./CapitalSystem";
 import {
   Alliance,
   AllianceRequest,
@@ -85,7 +86,10 @@ import {
   Player,
   Unit,
 } from "./Game";
-import { CapitalSystem, CapitalSystemStateSchema } from "./CapitalSystem";
+import {
+  InsurgencySystem,
+  InsurgencySystemStateSchema,
+} from "./InsurgencySystem";
 import { MatchEvents, MatchEventsStateSchema } from "./MatchEvents";
 import { PlayerImpl } from "./PlayerImpl";
 import { RailNetwork } from "./RailNetwork";
@@ -166,6 +170,8 @@ export class GameImpl implements Game {
   private readonly _matchEvents = new MatchEvents(this);
   /** Capitals and CRISIS; null unless the match setting is on. */
   private readonly _capitals: CapitalSystem | null;
+  /** The resistance a fallen capital may start; null unless the match setting is on. */
+  private readonly _insurgency: InsurgencySystem | null;
   private _waterManager: WaterManager;
   private _sharedWaterCache: SharedWaterCache;
   private _teamGameSpawnAreas: TeamGameSpawnAreas | undefined;
@@ -189,6 +195,9 @@ export class GameImpl implements Game {
     this._teamGameSpawnAreas = teamGameSpawnAreas;
     this._capitals = _config.capitalSystemEnabled()
       ? new CapitalSystem(this)
+      : null;
+    this._insurgency = _config.capitalSystemEnabled()
+      ? new InsurgencySystem(this)
       : null;
     this._terraNullius = new TerraNulliusImpl();
     this._width = _map.width();
@@ -577,6 +586,9 @@ export class GameImpl implements Game {
     // After every execution, so a capital is judged on where the tick left
     // its tile; before the match feed, so its events can be reported at once.
     this._capitals?.tick(this._ticks);
+    // After the capitals (a fall may have just started a resistance), before the
+    // feed (an elimination it finalizes is credited in the same tick).
+    this._insurgency?.tick(this._ticks);
     this._matchEvents.tick(this._ticks);
     for (const player of this._players.values()) {
       // Sampled before toUpdate so the reading is of the tick that just ran.
@@ -694,6 +706,7 @@ export class GameImpl implements Game {
     });
     // Only when the system is on, so every other game hashes exactly as before.
     if (this._capitals !== null) hash += this._capitals.hash();
+    if (this._insurgency !== null) hash += this._insurgency.hash();
     return hash;
   }
 
@@ -1428,6 +1441,28 @@ export class GameImpl implements Game {
   capitals(): CapitalSystem | null {
     return this._capitals;
   }
+
+  insurgency(): InsurgencySystem | null {
+    return this._insurgency;
+  }
+
+  retryEnclosure(player: Player): void {
+    (player as PlayerImpl)._lastTileChange = this._ticks;
+  }
+
+  finalizeElimination(conqueror: Player | null, conquered: Player): void {
+    if (conqueror !== null) {
+      this.stats().recordKill(conqueror, conquered, this.ticks());
+      this.stats().recordKilledBy(conquered, conqueror.clientID());
+    }
+    this.stats().recordDeathPosition(
+      conquered,
+      this.players().filter(
+        (p) => p !== conquered && p.type() !== PlayerType.Bot,
+      ).length + 1,
+    );
+    if (conqueror !== null) this._matchEvents.claimKill(conqueror, conquered);
+  }
   railNetwork(): RailNetwork {
     return this._railNetwork;
   }
@@ -1523,7 +1558,12 @@ export class GameImpl implements Game {
       stats: w.versioned(StatsSnapshot, (this._stats as StatsImpl).snapshot()),
       matchEvents: this._matchEvents.snapshot(),
       // Omitted (not undefined) when off, so such a snapshot is unchanged.
-      ...(this._capitals === null ? {} : { capitals: this._capitals.snapshot() }),
+      ...(this._capitals === null
+        ? {}
+        : { capitals: this._capitals.snapshot() }),
+      ...(this._insurgency === null
+        ? {}
+        : { insurgency: this._insurgency.snapshot() }),
     };
   }
 
@@ -1590,6 +1630,9 @@ export class GameImpl implements Game {
     if (this._capitals !== null && s.capitals !== undefined) {
       this._capitals.restoreSnapshot(s.capitals);
     }
+    if (this._insurgency !== null && s.insurgency !== undefined) {
+      this._insurgency.restoreSnapshot(s.insurgency);
+    }
   }
 
   conquerPlayer(conqueror: Player, conquered: Player) {
@@ -1606,6 +1649,12 @@ export class GameImpl implements Game {
         conqueror.captureUnit(ship);
       }
     }
+
+    // The land of a player with a resistance (or one about to have it) is being
+    // taken: they are not eliminated yet, so no kill, place or feed credit is
+    // given now. InsurgencySystem gives it, once, if and when they do die.
+    const deferred =
+      this._insurgency?.noteConquest(conquered, conqueror) ?? false;
 
     // Don't transfer gold when the conquered player didn't play (never attacked anyone)
     // This is especially important when starting gold is enabled
@@ -1651,7 +1700,7 @@ export class GameImpl implements Game {
     }
 
     // OFM: per-kill log for standings (humans-only filtered in recordKill).
-    this.stats().recordKill(conqueror, conquered, this.ticks());
+    if (!deferred) this.stats().recordKill(conqueror, conquered, this.ticks());
     // OFM live standings: attribute the elimination so the live snapshot can
     // credit the kill (null when the conqueror has no client, e.g. a bot/nation),
     // and stamp the finishing place NOW rather than deferring to PlayerExecution:
@@ -1659,13 +1708,15 @@ export class GameImpl implements Game {
     // execution may never run again. Exclude the conquered player from the alive
     // count. PlayerExecution keeps the same stamp as a fallback for non-conquest
     // deaths; recordDeathPosition is first-write-wins, so this value sticks.
-    this.stats().recordKilledBy(conquered, conqueror.clientID());
-    this.stats().recordDeathPosition(
-      conquered,
-      this.players().filter(
-        (p) => p !== conquered && p.type() !== PlayerType.Bot,
-      ).length + 1,
-    );
+    if (!deferred) {
+      this.stats().recordKilledBy(conquered, conqueror.clientID());
+      this.stats().recordDeathPosition(
+        conquered,
+        this.players().filter(
+          (p) => p !== conquered && p.type() !== PlayerType.Bot,
+        ).length + 1,
+      );
+    }
 
     this.addUpdate({
       type: GameUpdateType.ConquestEvent,
@@ -1675,7 +1726,7 @@ export class GameImpl implements Game {
     });
     // The one place that knows who took a player's last territory; the feed
     // names the killer only if the victim is then seen dead (MatchEvents).
-    this._matchEvents.claimKill(conqueror, conquered);
+    if (!deferred) this._matchEvents.claimKill(conqueror, conquered);
   }
 }
 
@@ -1719,6 +1770,7 @@ export const GameSnapshot = snapshotType({
     matchEvents: MatchEventsStateSchema.optional(),
     // Present only for a game with the Capital System on.
     capitals: CapitalSystemStateSchema.optional(),
+    insurgency: InsurgencySystemStateSchema.optional(),
   }),
 });
 export type GameState = z.infer<typeof GameSnapshot.schema>;

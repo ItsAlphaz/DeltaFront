@@ -170,7 +170,13 @@ describe.each(VARIANTS)("full game snapshots: %s", (_, overrides) => {
       // tests/AdminCommandExecution.test.ts covers it directly.
       // FoundCapital (a replacement-capital order) finishes inside init too;
       // tests/capital/CapitalSystem.test.ts covers it directly.
-      const neverStored = new Set(["Pause", "AdminCommand", "FoundCapital"]);
+      // InsurgencyOrder (a resistance's order) is the same; tests/insurgency covers it.
+      const neverStored = new Set([
+        "Pause",
+        "AdminCommand",
+        "FoundCapital",
+        "InsurgencyOrder",
+      ]);
       const missing = EXECUTION_SNAPSHOT_TYPES.map((t) => t.name).filter(
         (name) => !reference.execTypes.has(name) && !neverStored.has(name),
       );

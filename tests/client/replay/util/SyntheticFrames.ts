@@ -82,6 +82,11 @@ export function fullPlayer(
     spawnTile: 5,
     betrayals: 0,
     lastDeleteUnitTick: -1,
+    capitalTile: -1,
+    capitalIsReplacement: false,
+    crisisStartTick: -1,
+    crisisEndTick: -1,
+    insurgency: 0,
     isLobbyCreator: false,
     ...overrides,
   };

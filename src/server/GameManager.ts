@@ -100,6 +100,13 @@ export class GameManager {
           gameMode: GameMode.FFA,
           bots: 400,
           disabledUnits: [],
+          // A bare private lobby (create_game with no body, or its successor)
+          // starts with the Capital System on, as the Create Match screen
+          // shows it. A game created with a config of its own (public games,
+          // the admin bot) says what it wants: absent means off.
+          ...(gameConfig === undefined
+            ? { capitalSystem: { enabled: true } }
+            : {}),
           ...gameConfig,
         },
         creatorPersistentID,

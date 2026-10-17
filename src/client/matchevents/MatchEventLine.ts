@@ -46,6 +46,9 @@ function glyph(icon: MatchEventIcon) {
     case "capital": // a seat of government under a pennant
       return svg`<path d="M4 21h16M6 21V10l6-5 6 5v11"></path>
         <path d="M10 21v-5.5h4V21M12 5V2.5"></path>`;
+    case "resistance": // a torch
+      return svg`<path d="M12 3c1 3 4 4.5 4 8a4 4 0 1 1-8 0c0-1.7.8-2.7 1.6-3.7.4 1.2 1 1.8 1.8 2C11 7 11 5 12 3Z"></path>
+        <path d="M12 21v-4"></path>`;
     case "admin": // a bolt
       return svg`<path d="M13 2.5 5.5 13.5h5.5l-1 8 8-12h-5.5Z"></path>`;
   }

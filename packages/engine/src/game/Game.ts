@@ -48,6 +48,7 @@ import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
 import type { ExecRecord, SnapshotWriter } from "../snapshot/SnapshotContext";
 import type { CapitalSystem } from "./CapitalSystem";
+import type { InsurgencySystem } from "./InsurgencySystem";
 import type { MatchEvents } from "./MatchEvents";
 import { RailNetwork } from "./RailNetwork";
 import { Stats } from "./Stats";
@@ -168,6 +169,12 @@ export interface Attack {
   delete(): void;
   // The tile the attack originated from, mostly used for boat attacks.
   sourceTile(): TileRef | null;
+  /**
+   * An uprising of an insurgency's own troops (docs/Insurgency.md). It never
+   * merges with another attack and its survivors go back to the resistance,
+   * not to the player's army.
+   */
+  isResistance(): boolean;
   addBorderTile(tile: TileRef): void;
   removeBorderTile(tile: TileRef): void;
   clearBorder(): void;
@@ -514,6 +521,7 @@ export interface Player extends PlayerLike {
     troops: number,
     sourceTile: TileRef | null,
     border: Set<number>,
+    resistance?: boolean,
   ): Attack;
   outgoingAttacks(): Attack[];
   incomingAttacks(): Attack[];
@@ -666,6 +674,20 @@ export interface Game extends GameLike {
   matchEvents(): MatchEvents;
   /** The Capital System (capitals, CRISIS), or null when the match setting is off. */
   capitals(): CapitalSystem | null;
+  /** The insurgency system (docs/Insurgency.md), or null when the match setting is off. */
+  insurgency(): InsurgencySystem | null;
+  /**
+   * Records the elimination of `conquered` that conquerPlayer would have, for a
+   * player whose elimination an insurgency put off: the kill (when there is a
+   * killer), the finishing place, and the credit in the match feed.
+   */
+  finalizeElimination(conqueror: Player | null, conquered: Player): void;
+  /**
+   * Has the enclosure rule look at this player's land again. A resistance's
+   * land is exempt from it while the resistance lasts; when that is over the
+   * rule must not wait for a tile to change hands before it applies.
+   */
+  retryEnclosure(player: Player): void;
 
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;

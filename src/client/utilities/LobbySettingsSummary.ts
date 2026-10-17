@@ -104,6 +104,11 @@ export function notableLobbySettings(
         `doomsday_clock_speed.${c.doomsdayClock.speed ?? "normal"}`,
       ),
     });
+  if (c.capitalSystem?.enabled)
+    items.push({
+      label: translateText("game_settings.capital_system"),
+      value: enabled,
+    });
   if (c.overtime?.enabled)
     items.push({
       label: translateText("overtime.title"),

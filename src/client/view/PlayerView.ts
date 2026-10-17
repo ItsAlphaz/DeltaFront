@@ -631,6 +631,60 @@ export class PlayerView implements PlayerLike {
   betrayals(): number {
     return this.state.betrayals;
   }
+
+  // ---- Capital System (docs/Capital.md) ----
+  // Everything below is read from engine state: the client never decides a
+  // capital, a crisis or a timer, it only shows them. Ticks are the match's own
+  // clock, so a countdown is the same for everyone and survives a reconnect.
+
+  /** The capital's tile, or -1 for none (or when the match has no Capital System). */
+  capitalTile(): number {
+    return this.state.capitalTile;
+  }
+  hasCapital(): boolean {
+    return this.state.capitalTile >= 0;
+  }
+  capitalIsReplacement(): boolean {
+    return this.state.capitalIsReplacement;
+  }
+  /** The tick the player's latest CRISIS began and ends, or -1 for none. */
+  crisisStartTick(): number {
+    return this.state.crisisStartTick;
+  }
+  crisisEndTick(): number {
+    return this.state.crisisEndTick;
+  }
+  /** Whether the player has had a CRISIS (running or finished). */
+  hasCrisis(): boolean {
+    return this.state.crisisEndTick >= 0;
+  }
+  /** Ticks of CRISIS left (0 once it is over, or when there never was one). */
+  crisisRemainingTicks(): number {
+    if (!this.hasCrisis()) return 0;
+    return Math.max(0, this.state.crisisEndTick - this.game.ticks());
+  }
+  inCrisis(): boolean {
+    return this.hasCrisis() && this.game.ticks() < this.state.crisisEndTick;
+  }
+  /** 0 no resistance (or over), 1 resisting with land, 2 resisting with none (docs/Insurgency.md). */
+  insurgencyPhase(): number {
+    return this.state.insurgency;
+  }
+  /** The player has a resistance that is going, with or without land. */
+  isInsurgent(): boolean {
+    return this.state.insurgency > 0;
+  }
+  /** The player has no land but their resistance keeps them in the match. */
+  isInLimbo(): boolean {
+    return this.state.insurgency === 2;
+  }
+  /** The whole crisis in ticks (its configured length), or 0. */
+  crisisDurationTicks(): number {
+    return this.hasCrisis()
+      ? this.state.crisisEndTick - this.state.crisisStartTick
+      : 0;
+  }
+
   outgoingEmojis(): EmojiMessage[] {
     return this.state.outgoingEmojis;
   }

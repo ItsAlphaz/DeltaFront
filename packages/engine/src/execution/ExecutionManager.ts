@@ -22,6 +22,7 @@ import { EmbargoAllExecution } from "./EmbargoAllExecution";
 import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
 import { FoundCapitalExecution } from "./FoundCapitalExecution";
+import { InsurgencyOrderExecution } from "./InsurgencyOrderExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
 import { NationExecution } from "./NationExecution";
@@ -155,6 +156,33 @@ export class Executor {
         );
       case "found_capital":
         return new FoundCapitalExecution(player, intent.tile);
+      case "resistance_recruit":
+        return new InsurgencyOrderExecution(player, {
+          kind: "recruit",
+          troops: intent.troops,
+        });
+      case "resistance_base":
+        return new InsurgencyOrderExecution(player, {
+          kind: "base",
+          tile: intent.tile,
+        });
+      case "resistance_uprising":
+        return new InsurgencyOrderExecution(player, {
+          kind: "uprising",
+          region: intent.region,
+          troops: intent.troops,
+        });
+      case "resistance_intel":
+        return new InsurgencyOrderExecution(player, {
+          kind: "intel",
+          region: intent.region,
+        });
+      case "suppress_region":
+        return new InsurgencyOrderExecution(player, {
+          kind: "suppress",
+          target: intent.target,
+          region: intent.region,
+        });
       default:
         throw new Error(`intent type ${intent} not found`);
     }

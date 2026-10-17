@@ -388,6 +388,7 @@ export class PlayerImpl implements Player {
       | "capitalIsReplacement"
       | "crisisStartTick"
       | "crisisEndTick"
+      | "insurgency"
     > = {};
     const capitals = this.mg.capitals();
     if (capitals !== null) {
@@ -398,6 +399,7 @@ export class PlayerImpl implements Player {
         capitalIsReplacement: capital?.replacement ?? false,
         crisisStartTick: crisis?.startTick ?? -1,
         crisisEndTick: crisis?.endTick ?? -1,
+        insurgency: this.mg.insurgency()?.phaseOf(this) ?? 0,
       };
     }
 
@@ -1955,6 +1957,7 @@ export class PlayerImpl implements Player {
     troops: number,
     sourceTile: TileRef | null,
     border: Set<number>,
+    resistance: boolean = false,
   ): Attack {
     const attack = new AttackImpl(
       this._pseudo_random.nextID(),
@@ -1964,6 +1967,7 @@ export class PlayerImpl implements Player {
       sourceTile,
       border,
       this.mg,
+      resistance,
     );
     this._outgoingAttacks.push(attack);
     if (target.isPlayer()) {
@@ -1975,7 +1979,10 @@ export class PlayerImpl implements Player {
     return this._outgoingAttacks;
   }
   incomingAttacks(): Attack[] {
-    return this._incomingAttacks.filter((a) => a.attacker().isAlive());
+    // A resistance with no land left is still attacking: its uprising counts.
+    return this._incomingAttacks.filter(
+      (a) => a.attacker().isAlive() || a.isResistance(),
+    );
   }
 
   public isImmune(): boolean {

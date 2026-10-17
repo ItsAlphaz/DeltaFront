@@ -85,6 +85,8 @@ describe("nobody but the engine makes match events", () => {
       "packages/engine/src/game/CapitalSystem.ts",
       "packages/engine/src/game/Game.ts",
       "packages/engine/src/game/GameImpl.ts",
+      // Reports a resistance beginning, an uprising, a region won back, its end.
+      "packages/engine/src/game/InsurgencySystem.ts",
     ]);
     // And no client or server code calls into it.
     for (const f of [
@@ -93,7 +95,7 @@ describe("nobody but the engine makes match events", () => {
     ]) {
       const code = fs.readFileSync(f, "utf8");
       expect(code, rel(f)).not.toMatch(
-        /\.matchEvents\(\)\.(claimKill|playerDied|allianceFormed|allianceBroken|adminAction|gameEnding|gameStarted|capitalCaptured)/,
+        /\.matchEvents\(\)\.(claimKill|playerDied|allianceFormed|allianceBroken|adminAction|gameEnding|gameStarted|capitalCaptured|insurgencyStarted|uprisingLaunched|regionReclaimed|insurgencyEnded)/,
       );
     }
   });

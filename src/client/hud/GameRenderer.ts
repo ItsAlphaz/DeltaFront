@@ -29,9 +29,12 @@ import { AirstrikeTypeMenu } from "./layers/AirstrikeTypeMenu";
 import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
 import { BuildMenu } from "./layers/BuildMenu";
+import { CapitalMarkers } from "./layers/CapitalMarkers";
+import { CapitalVictory } from "./layers/CapitalVictory";
 import { ChatDisplay } from "./layers/ChatDisplay";
 import { ChatModal } from "./layers/ChatModal";
 import { ControlPanel } from "./layers/ControlPanel";
+import { CrisisOverlay } from "./layers/CrisisOverlay";
 import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
 import { GameAdminPanel } from "./layers/GameAdminPanel";
@@ -337,6 +340,33 @@ export function createRenderer(
   }
   alertFrame.game = game;
 
+  const capitalMarkers = document.querySelector(
+    "capital-markers",
+  ) as CapitalMarkers;
+  if (!(capitalMarkers instanceof CapitalMarkers)) {
+    console.error("capital markers not found");
+  }
+  capitalMarkers.game = game;
+  capitalMarkers.transformHandler = transformHandler;
+
+  const crisisOverlay = document.querySelector(
+    "crisis-overlay",
+  ) as CrisisOverlay;
+  if (!(crisisOverlay instanceof CrisisOverlay)) {
+    console.error("crisis overlay not found");
+  }
+  crisisOverlay.game = game;
+  crisisOverlay.eventBus = eventBus;
+
+  const capitalVictory = document.querySelector(
+    "capital-victory",
+  ) as CapitalVictory;
+  if (!(capitalVictory instanceof CapitalVictory)) {
+    console.error("capital victory not found");
+  }
+  capitalVictory.game = game;
+  capitalVictory.eventBus = eventBus;
+
   const spawnTimer = document.querySelector("spawn-timer") as SpawnTimer;
   if (!(spawnTimer instanceof SpawnTimer)) {
     console.error("spawn timer not found");
@@ -426,6 +456,9 @@ export function createRenderer(
     inGamePromo,
     tutorialPanel,
     alertFrame,
+    capitalMarkers,
+    crisisOverlay,
+    capitalVictory,
     performanceOverlay,
   ];
 

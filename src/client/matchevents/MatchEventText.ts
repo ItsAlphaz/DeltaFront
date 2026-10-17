@@ -86,6 +86,7 @@ export type MatchEventIcon =
   | "territory"
   | "flag"
   | "capital"
+  | "resistance"
   | "admin";
 
 export interface DescribedEvent {
@@ -228,6 +229,39 @@ export function describeEvent(
         key: "match_events.capital_captured",
         params: {},
         icon: "capital",
+      };
+    case "insurgency_started":
+      return {
+        ...base,
+        key: "match_events.insurgency_started",
+        params: {},
+        icon: "resistance",
+      };
+    case "uprising_launched":
+      return {
+        ...base,
+        key: "match_events.uprising_launched",
+        params: {},
+        icon: "resistance",
+      };
+    case "region_reclaimed":
+      return {
+        ...base,
+        key: "match_events.region_reclaimed",
+        params: {},
+        icon: "territory",
+      };
+    case "insurgency_ended":
+      return {
+        ...base,
+        key:
+          e.meta.reason === "exhausted" ||
+          e.meta.reason === "limbo_expired" ||
+          e.meta.reason === "survival_expired"
+            ? "match_events.insurgency_defeated"
+            : "match_events.insurgency_ended",
+        params: {},
+        icon: "resistance",
       };
     case "admin_action": {
       const command = e.meta.command;

@@ -31,10 +31,15 @@ export class AttackImpl implements Attack {
     private _sourceTile: TileRef | null,
     private _border: Set<number>,
     private _mg: GameImpl,
+    private _resistance: boolean = false,
   ) {}
 
   sourceTile(): TileRef | null {
     return this._sourceTile;
+  }
+
+  isResistance(): boolean {
+    return this._resistance;
   }
 
   target(): Player | TerraNullius {
@@ -213,6 +218,7 @@ export class AttackImpl implements Attack {
       isActive: this._isActive,
       retreating: this._retreating,
       retreated: this._retreated,
+      resistance: this._resistance,
     };
   }
 
@@ -229,6 +235,8 @@ export class AttackImpl implements Attack {
     this._isActive = s.isActive;
     this._retreating = s.retreating;
     this._retreated = s.retreated;
+    // Absent in a snapshot from before the insurgency existed.
+    this._resistance = s.resistance ?? false;
   }
 }
 
@@ -246,6 +254,7 @@ export const AttackSnapshot = snapshotType({
     isActive: z.boolean(),
     retreating: z.boolean(),
     retreated: z.boolean(),
+    resistance: z.boolean().optional(),
   }),
 });
 export type AttackState = z.infer<typeof AttackSnapshot.schema>;

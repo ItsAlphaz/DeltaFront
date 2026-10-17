@@ -80,6 +80,9 @@ export class PlayerExecution implements Execution {
     }
 
     if (!this.player.isAlive()) {
+      // A player with no land whose resistance goes on is not dead yet: nothing
+      // is stripped, nothing recorded, and this execution stays to see it through.
+      if (this.mg.insurgency()?.holdsLimbo(this.player) === true) return;
       this.removeOnDeath();
       this.active = false;
       // OFM live standings: finishing place = non-bot players still standing when
@@ -112,6 +115,12 @@ export class PlayerExecution implements Execution {
       );
     }
     this.player.addTroops(troopInc);
+    // A share of a resistance's owner's income goes to the resistance (moved,
+    // not made, and capped). Absent when there is none.
+    const insurgency = this.mg.insurgency();
+    if (insurgency !== null) {
+      goldFromWorkers = insurgency.divertIncome(this.player, goldFromWorkers);
+    }
     this.player.addGold(goldFromWorkers);
 
     // Record stats
@@ -484,6 +493,11 @@ export class PlayerExecution implements Execution {
   }
 
   private removeCluster(cluster: readonly TileRef[]) {
+    // Land walled in by one other player is normally handed to them. A running
+    // resistance's land is walled in by definition (an uprising wins a pocket
+    // inside the occupier's land), so while it lasts that rule does not apply:
+    // the pocket holds out, and is lost only the way any land is, in combat.
+    if (this.mg.insurgency()?.isActive(this.player)) return;
     for (const t of cluster) {
       if (this.mg?.ownerID(t) !== this.player?.smallID()) {
         // Other removeCluster operations could change tile owners,

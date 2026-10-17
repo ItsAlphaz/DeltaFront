@@ -17,6 +17,10 @@ import {
 } from "../capital/CapitalRules";
 import { pow } from "../DetMath";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
+import {
+  INSURGENCY_SPEC,
+  type InsurgencySpec,
+} from "../insurgency/InsurgencyRules";
 import { assertNever } from "../Util";
 
 export interface NukeMagnitude {
@@ -314,6 +318,10 @@ export class Config {
   /** The Capital System's developer-tuned numbers (CapitalRules.ts). */
   capitalSpec(): CapitalSpec {
     return CAPITAL_SPEC;
+  }
+  /** The insurgency's developer-tuned numbers (InsurgencyRules.ts). */
+  insurgencySpec(): InsurgencySpec {
+    return INSURGENCY_SPEC;
   }
   spawnImmunityDuration(): Tick {
     return (

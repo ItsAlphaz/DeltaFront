@@ -89,6 +89,8 @@ export const UPDATE_TYPE_ROUTING: Record<
   // Stored with the other misc updates; the viewer does not replay the CRISIS
   // presentation, but the data is kept so it can.
   CapitalEvent: "misc",
+  // The Resistance Command panel's state: stored with the other misc updates.
+  InsurgencyState: "misc",
 };
 
 /**

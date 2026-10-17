@@ -9,6 +9,10 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { renderTroops } from "@openfront/engine-lib/Format";
+import {
+  inBounds,
+  type RegionBounds,
+} from "@openfront/engine-lib/insurgency/InsurgencyRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   zInt,
@@ -32,6 +36,27 @@ import type {
 import { FlatBinaryHeap } from "./utils/FlatBinaryHeap"; // adjust path if needed
 
 const malusForRetreat = 25;
+
+/**
+ * What makes an attack an uprising (docs/Insurgency.md). It is an ordinary
+ * attack in every way that matters: the same per-tile troop losses and speed
+ * (attackLogic), the same defender troops, the same capture rules. It differs in
+ * three:
+ *  - it starts at `seed`, a tile of the target's that the attack must take in
+ *    combat like any other (the one tile that need not touch the attacker's own
+ *    land, because a resistance with none has no border to attack from);
+ *  - it never leaves `bounds`, its region: an uprising cannot roll across a map;
+ *  - its troops are the resistance's, not the player's army: it never takes
+ *    troops from the army, never merges with an ordinary attack, and its
+ *    survivors go back to the resistance.
+ */
+export interface ResistanceAttack {
+  /** The insurgency's number for this operation, to report the attack back. */
+  opId: number;
+  seed: TileRef;
+  bounds: RegionBounds;
+}
+
 export class AttackExecution implements Execution {
   private active: boolean = true;
   private toConquer = new FlatBinaryHeap();
@@ -59,6 +84,7 @@ export class AttackExecution implements Execution {
     private _targetID: PlayerID | null,
     private sourceTile: TileRef | null = null,
     private removeTroops: boolean = true,
+    private resistance: ResistanceAttack | null = null,
   ) {}
 
   public targetID(): PlayerID | null {
@@ -127,7 +153,8 @@ export class AttackExecution implements Execution {
     this.startTroops ??= this.mg
       .config()
       .attackAmount(this._owner, this.target);
-    if (this.removeTroops) {
+    // An uprising's troops were set aside by the insurgency when it was ordered.
+    if (this.removeTroops && this.resistance === null) {
       this.startTroops = Math.min(this._owner.troops(), this.startTroops);
       // Take the amount that was actually deducted, not the amount asked for.
       // removeTroops() floors, so a fractional request leaves the attack
@@ -140,12 +167,29 @@ export class AttackExecution implements Execution {
       this.startTroops,
       this.sourceTile,
       new Set<TileRef>(),
+      this.resistance !== null,
     );
 
     if (this.sourceTile !== null) {
       this.addNeighbors(this.sourceTile);
     } else {
       this.refreshToConquer();
+    }
+    if (this.resistance !== null) {
+      // The insurgency tracks the operation by this attack from here on. If it
+      // has ended meanwhile the troops have nowhere to go: the uprising never was.
+      const sys = this.mg.insurgency();
+      if (
+        sys === null ||
+        !sys.attachOperation(this.resistance.opId, this.attack)
+      ) {
+        this.attack.delete();
+        this.active = false;
+        return;
+      }
+      // Taken first, in combat: the seed is the first tile of the front.
+      this.attack.addBorderTile(this.resistance.seed);
+      this.toConquer.enqueue(this.resistance.seed, -1);
     }
 
     // Record stats
@@ -170,7 +214,11 @@ export class AttackExecution implements Execution {
         outgoing !== this.attack &&
         outgoing.target() === this.attack.target() &&
         // Boat attacks (sourceTile is not null) are not combined with other attacks
-        this.attack.sourceTile() === null
+        this.attack.sourceTile() === null &&
+        // Nor is an uprising, in either direction: its troops are the
+        // resistance's, and merging would turn them into army (and back).
+        this.resistance === null &&
+        !outgoing.isResistance()
       ) {
         this.attack.setTroops(this.attack.troops() + outgoing.troops());
         outgoing.delete();
@@ -243,7 +291,11 @@ export class AttackExecution implements Execution {
         { troops: renderTroops(deaths) },
       );
     }
-    if (this.removeTroops === false && this.sourceTile === null) {
+    if (
+      this.removeTroops === false &&
+      this.sourceTile === null &&
+      this.resistance === null
+    ) {
       // startTroops are always added to attack troops at init but not always removed from owner troops
       // subtract startTroops from attack troops so we don't give back startTroops to owner that were never removed
       // boat attacks (sourceTile !== null) are the exception: troops were removed at departure and must be returned after attack still
@@ -251,7 +303,12 @@ export class AttackExecution implements Execution {
     }
 
     const survivors = this.attack.troops() - deaths;
-    this._owner.addTroops(survivors);
+    if (this.resistance !== null) {
+      // Home to the resistance, not the army.
+      this.mg.insurgency()?.returnTroops(this._owner, survivors);
+    } else {
+      this._owner.addTroops(survivors);
+    }
     this.attack.delete();
     this.active = false;
 
@@ -323,7 +380,10 @@ export class AttackExecution implements Execution {
           break;
         }
       }
-      if (this.map.ownerID(tileToConquer) !== this.targetSmallID || !onBorder) {
+      if (
+        this.map.ownerID(tileToConquer) !== this.targetSmallID ||
+        (!onBorder && tileToConquer !== this.resistance?.seed)
+      ) {
         continue;
       }
       if (
@@ -419,6 +479,16 @@ export class AttackExecution implements Execution {
       ) {
         continue;
       }
+      if (
+        this.resistance !== null &&
+        !inBounds(
+          this.resistance.bounds,
+          this.map.x(neighbor),
+          this.map.y(neighbor),
+        )
+      ) {
+        continue;
+      }
       this.attack.addBorderTile(neighbor);
       let numOwnedByMe = 0;
       const numInner = this.map.neighbors4(neighbor, this.nbuf2);
@@ -509,6 +579,7 @@ export class AttackExecution implements Execution {
       targetID: this._targetID,
       sourceTile: this.sourceTile,
       removeTroops: this.removeTroops,
+      resistance: this.resistance,
     });
   }
 
@@ -535,6 +606,8 @@ export class AttackExecution implements Execution {
     this._targetID = s.targetID;
     this.sourceTile = s.sourceTile;
     this.removeTroops = s.removeTroops;
+    // Absent in a snapshot from before the insurgency existed.
+    this.resistance = s.resistance ?? null;
   }
 }
 
@@ -559,6 +632,14 @@ const AttackExecutionStateSchema = z.object({
   targetID: z.string().nullable(),
   sourceTile: zTile().nullable(),
   removeTroops: z.boolean(),
+  resistance: z
+    .object({
+      opId: zInt(),
+      seed: zTile(),
+      bounds: z.object({ x0: zInt(), y0: zInt(), x1: zInt(), y1: zInt() }),
+    })
+    .nullable()
+    .optional(),
 });
 type AttackExecutionState = z.infer<typeof AttackExecutionStateSchema>;
 

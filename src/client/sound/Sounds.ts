@@ -46,6 +46,12 @@ export type SoundEffect =
   | "sam-launch"
   | "sam-intercept"
   | "aircraft-down"
+  // The Capital System's defender cues, synthesized for DeltaFront by
+  // scripts/audio/synthesize-capital-audio.ts (see CREDITS.md). The player who
+  // captures a capital hears "conquered" and "ka-ching".
+  | "crisis-capital-lost"
+  | "crisis-warning"
+  | "crisis-over"
   | "spawn"
   | "game-start"
   | "victory"
@@ -98,6 +104,9 @@ export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
   ["sam-intercept", assetUrl("sounds/effects/sam-hit.mp3")],
   // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
   ["aircraft-down", assetUrl("sounds/effects/aircraft-down.mp3")],
+  ["crisis-capital-lost", assetUrl("sounds/effects/crisis-capital-lost.mp3")],
+  ["crisis-warning", assetUrl("sounds/effects/crisis-warning.mp3")],
+  ["crisis-over", assetUrl("sounds/effects/crisis-over.mp3")],
   ["spawn", assetUrl("sounds/effects/spawn.mp3")],
   ["game-start", assetUrl("sounds/effects/game-start.mp3")],
   ["victory", assetUrl("sounds/effects/victory.mp3")],
@@ -151,6 +160,11 @@ const CUE_CATEGORY: Record<SoundEffect, Exclude<CueCategory, "ambience">> = {
   "nuke-warning": "alerts",
   "airstrike-siren": "alerts",
   "airstrike-klaxon": "alerts",
+  // The capital's fall and the crisis timer are things the player must hear
+  // even with the window unfocused.
+  "crisis-capital-lost": "alerts",
+  "crisis-warning": "alerts",
+  "crisis-over": "alerts",
   "alliance-suggested": "alerts",
   "alliance-accepted": "alerts",
   "alliance-declined": "alerts",

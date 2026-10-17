@@ -49,7 +49,12 @@ export type Intent =
   | UpdateGameConfigIntent
   | ToggleGameStartTimer
   | AdminCommandIntent
-  | FoundCapitalIntent;
+  | FoundCapitalIntent
+  | ResistanceRecruitIntent
+  | ResistanceBaseIntent
+  | ResistanceUprisingIntent
+  | ResistanceIntelIntent
+  | SuppressRegionIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -66,6 +71,15 @@ export type DonateGoldIntent = z.infer<typeof DonateGoldIntentSchema>;
 export type DonateTroopsIntent = z.infer<typeof DonateTroopIntentSchema>;
 export type EmbargoIntent = z.infer<typeof EmbargoIntentSchema>;
 export type FoundCapitalIntent = z.infer<typeof FoundCapitalIntentSchema>;
+export type ResistanceRecruitIntent = z.infer<
+  typeof ResistanceRecruitIntentSchema
+>;
+export type ResistanceBaseIntent = z.infer<typeof ResistanceBaseIntentSchema>;
+export type ResistanceUprisingIntent = z.infer<
+  typeof ResistanceUprisingIntentSchema
+>;
+export type ResistanceIntelIntent = z.infer<typeof ResistanceIntelIntentSchema>;
+export type SuppressRegionIntent = z.infer<typeof SuppressRegionIntentSchema>;
 export type BuildUnitIntent = z.infer<typeof BuildUnitIntentSchema>;
 export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
@@ -588,6 +602,38 @@ export const FoundCapitalIntentSchema = z.object({
   tile: zb.uint(),
 });
 
+// The insurgency's orders (docs/Insurgency.md). The engine checks all of it:
+// that the sender has a resistance, that the costs, limits, cooldowns, regions
+// and troops are what the order claims. A refused order costs nothing. Troops
+// are in the engine's units (ten times what the player sees).
+export const ResistanceRecruitIntentSchema = z.object({
+  type: z.literal("resistance_recruit"),
+  troops: zb.uint(),
+});
+
+export const ResistanceBaseIntentSchema = z.object({
+  type: z.literal("resistance_base"),
+  tile: zb.uint(),
+});
+
+export const ResistanceUprisingIntentSchema = z.object({
+  type: z.literal("resistance_uprising"),
+  region: zb.uint(),
+  troops: zb.uint(),
+});
+
+export const ResistanceIntelIntentSchema = z.object({
+  type: z.literal("resistance_intel"),
+  region: zb.uint(),
+});
+
+// The occupier's answer: troops committed to calming a region of `target`'s resistance.
+export const SuppressRegionIntentSchema = z.object({
+  type: z.literal("suppress_region"),
+  target: MappedID,
+  region: zb.uint(),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -617,6 +663,11 @@ export const IntentSchema = z.discriminatedUnion("type", [
   // Appended: a union variant's position is its wire tag.
   AdminCommandIntentSchema,
   FoundCapitalIntentSchema,
+  ResistanceRecruitIntentSchema,
+  ResistanceBaseIntentSchema,
+  ResistanceUprisingIntentSchema,
+  ResistanceIntelIntentSchema,
+  SuppressRegionIntentSchema,
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

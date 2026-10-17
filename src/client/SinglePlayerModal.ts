@@ -120,6 +120,9 @@ const DEFAULT_OPTIONS = {
   waterNukes: false,
   doomsdayClock: false,
   doomsdayClockSpeed: "normal" as DoomsdayClockSpeed,
+  // On by default: the Capital System is part of how a match plays, and a
+  // player can opt out of it here (docs/Capital.md).
+  capitalSystem: true,
   overtime: false,
   overtimeStartMinutes: undefined as number | undefined,
 } as const;
@@ -210,6 +213,7 @@ export class SinglePlayerModal extends BaseModal {
   @state() private doomsdayClock: boolean = DEFAULT_OPTIONS.doomsdayClock;
   @state() private doomsdayClockSpeed: DoomsdayClockSpeed =
     DEFAULT_OPTIONS.doomsdayClockSpeed;
+  @state() private capitalSystem: boolean = DEFAULT_OPTIONS.capitalSystem;
   @state() private overtime: boolean = DEFAULT_OPTIONS.overtime;
   @state() private overtimeStartMinutes: number | undefined =
     DEFAULT_OPTIONS.overtimeStartMinutes;
@@ -557,6 +561,10 @@ export class SinglePlayerModal extends BaseModal {
                     checked: this.doomsdayClock,
                     doomsdayClockSpeed: this.doomsdayClockSpeed,
                   },
+                  {
+                    labelKey: "game_settings.capital_system",
+                    checked: this.capitalSystem,
+                  },
                 ],
                 inputCards,
               },
@@ -622,6 +630,7 @@ export class SinglePlayerModal extends BaseModal {
       this.customAllianceMinutes !== DEFAULT_OPTIONS.customAllianceMinutes ||
       this.waterNukes !== DEFAULT_OPTIONS.waterNukes ||
       this.doomsdayClock !== DEFAULT_OPTIONS.doomsdayClock ||
+      this.capitalSystem !== DEFAULT_OPTIONS.capitalSystem ||
       // Pace only matters when the mode is on (startGame drops it when off).
       (this.doomsdayClock &&
         this.doomsdayClockSpeed !== DEFAULT_OPTIONS.doomsdayClockSpeed) ||
@@ -699,6 +708,7 @@ export class SinglePlayerModal extends BaseModal {
     this.waterNukes = DEFAULT_OPTIONS.waterNukes;
     this.doomsdayClock = DEFAULT_OPTIONS.doomsdayClock;
     this.doomsdayClockSpeed = DEFAULT_OPTIONS.doomsdayClockSpeed;
+    this.capitalSystem = DEFAULT_OPTIONS.capitalSystem;
     this.overtime = DEFAULT_OPTIONS.overtime;
     this.overtimeStartMinutes = DEFAULT_OPTIONS.overtimeStartMinutes;
   }
@@ -797,6 +807,9 @@ export class SinglePlayerModal extends BaseModal {
         break;
       case "game_settings.doomsday_clock":
         this.doomsdayClock = checked;
+        break;
+      case "game_settings.capital_system":
+        this.capitalSystem = checked;
         break;
       default:
         break;
@@ -1187,6 +1200,9 @@ export class SinglePlayerModal extends BaseModal {
                         speed: this.doomsdayClockSpeed,
                       },
                     }
+                  : {}),
+                ...(this.capitalSystem
+                  ? { capitalSystem: { enabled: true } }
                   : {}),
                 ...(this.overtime
                   ? {

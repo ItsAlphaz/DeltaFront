@@ -481,6 +481,11 @@ export enum MessageType {
   CAPITAL_LOST,
   CAPITAL_FOUNDED,
   CRISIS_ENDED,
+  // The insurgency (docs/Insurgency.md): to the resistance, and to the occupier.
+  INSURGENCY_STARTED,
+  INSURGENCY_ORDER,
+  INSURGENCY_WARNING,
+  INSURGENCY_ENDED,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -523,6 +528,10 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.CAPITAL_LOST]: MessageCategory.ATTACK,
   [MessageType.CAPITAL_FOUNDED]: MessageCategory.ATTACK,
   [MessageType.CRISIS_ENDED]: MessageCategory.ATTACK,
+  [MessageType.INSURGENCY_STARTED]: MessageCategory.ATTACK,
+  [MessageType.INSURGENCY_ORDER]: MessageCategory.ATTACK,
+  [MessageType.INSURGENCY_WARNING]: MessageCategory.ATTACK,
+  [MessageType.INSURGENCY_ENDED]: MessageCategory.ATTACK,
 } as const;
 
 /**

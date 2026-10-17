@@ -195,6 +195,36 @@ export class MatchEvents {
     });
   }
 
+  /** `owner`'s resistance against `captor`, who took their capital, has begun. */
+  insurgencyStarted(captor: Player, owner: Player): void {
+    this.emit("insurgency_started", "major", captor.smallID(), owner.smallID());
+  }
+
+  /** `insurgent` launched an uprising against `occupier`. */
+  uprisingLaunched(insurgent: Player, occupier: Player): void {
+    this.emit(
+      "uprising_launched",
+      "normal",
+      insurgent.smallID(),
+      occupier.smallID(),
+    );
+  }
+
+  /** `insurgent` won a region back from `occupier` (null when it is no longer known). */
+  regionReclaimed(insurgent: Player, occupier: Player | null): void {
+    this.emit(
+      "region_reclaimed",
+      "major",
+      insurgent.smallID(),
+      occupier === null ? null : occupier.smallID(),
+    );
+  }
+
+  /** The resistance of `owner` is over, and why. */
+  insurgencyEnded(owner: Player, reason: string): void {
+    this.emit("insurgency_ended", "major", null, owner.smallID(), { reason });
+  }
+
   /** A staff command ran (the server authorized it before the intent was relayed). */
   adminAction(
     issuer: Player,

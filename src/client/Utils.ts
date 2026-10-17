@@ -629,6 +629,8 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.CAPTURED_ENEMY_UNIT:
     case MessageType.CONQUERED_PLAYER:
     case MessageType.ALLIANCE_ACCEPTED:
+    case MessageType.CAPITAL_CAPTURED:
+    case MessageType.CRISIS_ENDED:
       return severityColors["success"];
     case MessageType.ATTACK_FAILED:
     case MessageType.ALLIANCE_REJECTED:
@@ -636,11 +638,15 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.UNIT_DESTROYED:
     case MessageType.NUKE_DETONATED:
     case MessageType.AIRSTRIKE_HIT:
+    case MessageType.CAPITAL_LOST:
+    case MessageType.INSURGENCY_ENDED:
       return severityColors["fail"];
     case MessageType.ATTACK_CANCELLED:
     case MessageType.ATTACK_REQUEST:
     case MessageType.DONATION_SENT:
     case MessageType.DONATION_RECEIVED:
+    case MessageType.CAPITAL_FOUNDED:
+    case MessageType.INSURGENCY_STARTED:
       return severityColors["blue"];
     case MessageType.MIRV_INBOUND:
     case MessageType.NUKE_INBOUND:
@@ -650,9 +656,11 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.NAVAL_INVASION_INBOUND:
     case MessageType.RENEW_ALLIANCE:
     case MessageType.AIRSTRIKE_INBOUND:
+    case MessageType.INSURGENCY_WARNING:
       return severityColors["warn"];
     case MessageType.CHAT:
     case MessageType.ALLIANCE_REQUEST:
+    case MessageType.INSURGENCY_ORDER:
       return severityColors["info"];
     default:
       console.warn(`Message type ${type} has no explicit color`);

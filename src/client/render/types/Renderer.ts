@@ -87,6 +87,14 @@ export interface PlayerState {
   /** TileRef the player picked as their spawn (undefined if not yet spawned). */
   spawnTile?: number;
   lastDeleteUnitTick: number;
+  /** Capital System (docs/Capital.md): the capital's tile, -1 for none or when the system is off. */
+  capitalTile: number;
+  capitalIsReplacement: boolean;
+  /** The player's latest CRISIS window (start and end tick), -1 for none. */
+  crisisStartTick: number;
+  crisisEndTick: number;
+  /** Insurgency: 0 none (or over), 1 resisting with land, 2 resisting with none. */
+  insurgency: number;
   allies: number[];
   embargoes: number[];
   targets: number[];

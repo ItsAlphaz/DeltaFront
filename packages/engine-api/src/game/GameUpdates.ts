@@ -120,6 +120,7 @@ export enum GameUpdateType {
   MatchEvent,
   // Appended: the enum's order is the structured-clone key order of GameUpdates.
   CapitalEvent,
+  InsurgencyState,
 }
 
 export type GameUpdate =
@@ -148,7 +149,8 @@ export type GameUpdate =
   | DonateEventUpdate
   | AirstrikeImpactUpdate
   | MatchEventUpdate
-  | CapitalEventUpdate;
+  | CapitalEventUpdate
+  | InsurgencyStateUpdate;
 
 export interface BonusEventUpdate {
   type: GameUpdateType.BonusEvent;
@@ -225,6 +227,123 @@ export interface CapitalEventUpdate {
   /** captured: what the captor was paid. Zero when it had already been paid for this owner. */
   rewardGold: Gold;
   rewardTroops: number;
+}
+
+// ---- The insurgency (docs/Insurgency.md) ----
+//
+// The engine owns every number here. The update is what the Resistance Command
+// panel draws, so a client shows state and never works any of it out: costs,
+// limits, cooldowns and odds are all decided (and re-checked on every order) by
+// the simulation. It is sent when something changes, at most a few times a
+// second, and rebuilt in full on a reconnect (the client replays the match).
+
+/** Where a region of the owner's former land stands. */
+export enum InsurgencyRegionStatus {
+  /** The owner holds it again. */
+  Held = 0,
+  /** Hostile players hold it: the resistance's ground. */
+  Occupied = 1,
+  /** Neither side holds most of it (unclaimed, ruined). */
+  Contested = 2,
+}
+
+export interface InsurgencyRegionView {
+  id: number;
+  /** Tiles of it the owner held when its capital fell. */
+  former: number;
+  status: InsurgencyRegionStatus;
+  /** 0 stable, 1 unsettled, 2 unrestful, 3 volatile, 4 uprising. */
+  band: number;
+  /** smallID of the player holding most of it, or -1. */
+  occupier: number;
+  /** An uprising may not start here before this tick. */
+  cooldownUntil: number;
+  hasBase: boolean;
+  hasOperation: boolean;
+  suppressed: boolean;
+  /** Times it has changed hands. */
+  flips: number;
+}
+
+export interface InsurgencyBaseView {
+  id: number;
+  region: number;
+  tile: TileRef;
+  /** 0..100: a suppressed base loses it and is destroyed at 0. */
+  integrity: number;
+}
+
+export interface InsurgencyOperationView {
+  id: number;
+  region: number;
+  /** Troops sent. */
+  committed: number;
+  /** Troops it has left. */
+  troops: number;
+  startTick: Tick;
+}
+
+/** What a gathered report said, precise while it is fresh. */
+export interface InsurgencyIntelView {
+  region: number;
+  tick: Tick;
+  unrest: number;
+  /** The garrison estimated from the occupier's troop density. */
+  garrison: number;
+  occupier: number;
+}
+
+export interface InsurgencySuppressionView {
+  region: number;
+  occupier: number;
+  endTick: Tick;
+}
+
+export enum InsurgencyPhase {
+  /** The owner still has land. */
+  Field = 0,
+  /** The owner has no land: they fight on from the resistance alone, for a while. */
+  Limbo = 1,
+  Ended = 2,
+}
+
+export interface InsurgencyView {
+  /** smallID of the player the resistance belongs to. */
+  owner: number;
+  phase: InsurgencyPhase;
+  /** Why it ended ("" while it runs). */
+  endReason: string;
+  startTick: Tick;
+  /** It dissolves at this tick unless it earns more time. */
+  deadline: Tick;
+  /** With no land: the tick the owner is eliminated unless they win some back, else -1. */
+  limboDeadline: Tick;
+  startingTroops: number;
+  capacity: number;
+  /** In reserve, ready to commit. */
+  available: number;
+  /** In uprisings now. */
+  deployed: number;
+  pending: { troops: number; arrives: Tick }[];
+  funds: Gold;
+  fundsStart: Gold;
+  /** 0..100 */
+  strength: number;
+  bases: InsurgencyBaseView[];
+  operations: InsurgencyOperationView[];
+  regions: InsurgencyRegionView[];
+  intel: InsurgencyIntelView[];
+  /** The next report may be ordered from this tick. */
+  intelReadyTick: Tick;
+  suppressions: InsurgencySuppressionView[];
+  /** Regions it has won back. */
+  reclaimed: number;
+}
+
+export interface InsurgencyStateUpdate {
+  type: GameUpdateType.InsurgencyState;
+  tick: Tick;
+  view: InsurgencyView;
 }
 
 /**
@@ -374,6 +493,11 @@ export interface PlayerUpdate {
   /** CRISIS window of this player's latest capital fall, or -1 for none. */
   crisisStartTick?: number;
   crisisEndTick?: number;
+  /**
+   * Insurgency (absent when the Capital System is off): 0 none (or over), 1 a
+   * resistance with the player still holding land, 2 a resistance with none.
+   */
+  insurgency?: number;
 }
 
 export interface AllianceView {

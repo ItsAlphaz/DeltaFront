@@ -387,6 +387,15 @@ export const PLAYER_FIELDS: readonly FieldDef<PlayerFields>[] = [
   field(["outgoingAllianceRequests", list(STRING)]),
   field(["alliances", list(ALLIANCE)]),
   field(["outgoingEmojis", list(EMOJI)]),
+  // Appended: one change-mask bit for the Capital System's four fields, which
+  // change together (the mask is a u32 and this table was at 28 bits).
+  field(
+    ["capitalTile", I32],
+    ["capitalIsReplacement", BOOL],
+    ["crisisStartTick", I32],
+    ["crisisEndTick", I32],
+    ["insurgency", U8],
+  ),
 ];
 
 export const UNIT_FIELDS: readonly FieldDef<UnitFields>[] = [

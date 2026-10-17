@@ -26,6 +26,10 @@ export const MATCH_EVENT_TYPES = [
   "major_territory_loss",
   "admin_action",
   "capital_captured",
+  "insurgency_started",
+  "uprising_launched",
+  "region_reclaimed",
+  "insurgency_ended",
 ] as const;
 export type MatchEventType = (typeof MATCH_EVENT_TYPES)[number];
 
@@ -49,12 +53,16 @@ export function matchEventCategory(type: MatchEventType): MatchEventCategory {
   switch (type) {
     case "player_eliminated":
     case "capital_captured":
+    case "insurgency_started":
+    case "uprising_launched":
+    case "insurgency_ended":
       return "combat";
     case "alliance_formed":
     case "alliance_broken":
       return "diplomacy";
     case "largest_nation_changed":
     case "major_territory_loss":
+    case "region_reclaimed":
       return "territory";
     case "game_started":
     case "game_ending":
@@ -81,6 +89,8 @@ export interface MatchEventMeta {
   command?: AdminCommand;
   /** capital_captured: the capital was a replacement, not the founding one. */
   replacement?: boolean;
+  /** insurgency_ended: why ("exhausted", "survival_expired", "limbo_expired", "match_over"). */
+  reason?: string;
 }
 
 export interface MatchEvent {

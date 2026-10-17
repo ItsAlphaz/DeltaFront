@@ -67,6 +67,7 @@ export function diffPlayerUpdate(
     prev.capitalIsReplacement === next.capitalIsReplacement &&
     prev.crisisStartTick === next.crisisStartTick &&
     prev.crisisEndTick === next.crisisEndTick &&
+    prev.insurgency === next.insurgency &&
     numberArrayEqual(prev.allies, next.allies) &&
     numberArrayEqual(prev.targets, next.targets) &&
     stringArrayEqual(
@@ -144,6 +145,7 @@ export function diffPlayerUpdate(
     prev.crisisStartTick === next.crisisStartTick,
   );
   setIfDifferent("crisisEndTick", prev.crisisEndTick === next.crisisEndTick);
+  setIfDifferent("insurgency", prev.insurgency === next.insurgency);
   setIfDifferent("allies", numberArrayEqual(prev.allies, next.allies));
   setIfDifferent("targets", numberArrayEqual(prev.targets, next.targets));
   setIfDifferent(

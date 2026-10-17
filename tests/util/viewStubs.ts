@@ -151,6 +151,11 @@ export function makePlayerUpdate(
     hasSpawned: true,
     betrayals: 0,
     lastDeleteUnitTick: 0,
+    capitalTile: -1,
+    capitalIsReplacement: false,
+    crisisStartTick: -1,
+    crisisEndTick: -1,
+    insurgency: 0,
     isLobbyCreator: false,
     ...overrides,
   };

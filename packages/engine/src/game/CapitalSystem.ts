@@ -227,7 +227,10 @@ export class CapitalSystem {
     if (this.capitalOf(player) !== null) return "has_capital";
     const fell = this.fallen.get(player.smallID());
     const spec = this.mg.config().capitalSpec();
-    if (fell !== undefined && this.mg.ticks() - fell < spec.replacementDelayTicks) {
+    if (
+      fell !== undefined &&
+      this.mg.ticks() - fell < spec.replacementDelayTicks
+    ) {
       return "too_soon";
     }
     if (!this.mg.isValidRef(tile) || !this.mg.isLand(tile)) return "tile";
@@ -376,9 +379,15 @@ export class CapitalSystem {
     }
     this.captures.set(captor.smallID(), this.capturesBy(captor) + 1);
 
-    // A player with no land left has nothing to be in crisis over.
+    // The fall of a capital may start the owner's resistance (a human with an
+    // army to rise from and national land). That also keeps them in the game
+    // with no land, so they have a crisis to live through.
+    const resisting =
+      this.mg.insurgency()?.activate(owner, captor, capital.id, ticks) ?? false;
+
+    // A player with no land left and no resistance has nothing to be in crisis over.
     let crisisEnd = -1;
-    if (owner.isAlive()) {
+    if (owner.isAlive() || resisting) {
       crisisEnd = ticks + this.mg.config().crisisDurationTicks();
       this.crises = this.crises.filter((c) => c.owner !== capital.owner);
       const crisis: CrisisRecord = {
