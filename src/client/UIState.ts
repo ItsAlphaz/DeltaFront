@@ -17,4 +17,12 @@ export interface UIState {
   airstrikeTarget: TileRef | null;
   /** The strike type selected in the menu (also the last one used). */
   airstrikeType: AirstrikeUnitType;
+  /**
+   * While a tile is being chosen for an order (a resistance base, a replacement
+   * capital) the next map click belongs to that order, not to the attack a click
+   * normally sends. Owned by TilePicker; absent or null when not choosing.
+   */
+  pickMode?: PickMode | null;
 }
+
+export type PickMode = "resistance_base" | "found_capital";

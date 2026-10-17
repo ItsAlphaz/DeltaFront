@@ -203,6 +203,86 @@ Every order that changes anything is also written to a bounded audit log
   modified client, only hidden from the interface: intelligence is a gameplay
   cost, not a security boundary.
 
+## The client
+
+Everything on screen comes from the engine's `InsurgencyState` updates and the
+match's ticks; the client decides nothing, awards nothing and moves no tile. A
+refused order costs nothing and the sender is told why in the events panel.
+
+### Resistance Command (`ResistanceCommand`)
+
+A panel on the left, shown to a player whose resistance is running. It appears a
+few seconds after the capital falls, so it does not compete with the CRISIS
+announcement. It can be folded away, and remembers that.
+
+- **Status:** a phase (in the field, or no land), the clock being raced (the
+  survival time, or with no land the time to win a tile back, turning amber in
+  the last minute), strength, the reserve, troops in the field and on the way,
+  the capacity, and the funds.
+- **Regions:** every national region, the most restless first, with who holds it,
+  the unrest band (named, never colour alone), a mark for a base, an uprising or
+  a suppression, the region's cooldown, and the latest intelligence (precise
+  unrest and garrison while fresh, then marked out of date). "Go" centres the map.
+- **Orders:** recruit, establish a base, launch an uprising, gather
+  intelligence. Each button shows its price, and when it cannot be used says the
+  first thing in the way. Each opens a form that states the cost and what will
+  happen, and asks for confirmation. An uprising's form says it can fail.
+- **Under way:** recruits and when they arrive, bases and their integrity,
+  uprisings and the troops they have left.
+- **When it ends:** a card says how, for a while. A player left with no land and
+  no resistance then gets the usual "You died"; until then they do not.
+
+The previews (`ResistanceModel`) mirror the engine's checks so a button can say
+why it is unavailable. They decide nothing, and a test runs them against the real
+engine for every order so they cannot drift apart.
+
+### The map
+
+`RegionOverlay` draws the regions on the map: a square per region with its name,
+its band colour and word, and a marker for a base. It takes no pointer events.
+`TilePicker` is how a base is placed: the next map click chooses the tile (and is
+not also an attack), a tile that will not do says why and the pick stays open,
+Escape or Cancel ends it.
+
+### The occupier
+
+A player who holds land of a running resistance gets a small "Resistance
+activity" panel: each such region with its band, and a Suppress button that
+states its cost (troops committed, for how long, how many return). Suppression
+asks twice, the second click soon after the first.
+
+### Replacement capital (`CapitalAction`)
+
+When a player has land and no capital, a small button offers to found one, with
+its price. It starts a tile pick; the engine checks everything and explains a
+refusal.
+
+## Required scenarios, and where each is tested
+
+| #   | Scenario (spec section 16)                             | Tests                                                                                                       |
+| --- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| 1   | A capital falls early, before meaningful resistance    | `Activation`: not for an army too small to rise with                                                        |
+| 2   | A powerful late-game nation loses its capital          | `Activation`: the force is capped at 25,000 shown; `InsurgencyRules`                                        |
+| 3   | The defender keeps some normal land                    | `Limbo`: a resistance whose owner still has land                                                            |
+| 4   | The defender loses all land but has surviving forces   | `Limbo`: not eliminated, can found a base, recruit and rise again                                           |
+| 5   | The resistance reclaims a region                       | `Uprising`: wins its region back; pays once, extends the time once                                          |
+| 6   | The occupier suppresses unrest                         | `Suppression`; `Unrest`                                                                                     |
+| 7   | The budget reaches zero                                | `Scenarios`: nothing left to fight with; `Orders`: not without the gold                                     |
+| 8   | All resistance troops are eliminated                   | `Scenarios`: an uprising that loses every troop; `Limbo`: exhausted                                         |
+| 9   | A replacement capital is constructed                   | `Scenarios`: does not touch the resistance, pay the captor again or double up                               |
+| 10  | A player disconnects and reconnects during an uprising | `core/snapshot/InsurgencySystem` (every kind of state, limbo, an order in flight); `Scenarios`: determinism |
+| 11  | Several insurgencies at once                           | `Scenarios`: each has its own force, purse, regions and clocks                                              |
+| 12  | The match ends while an insurgency is active           | `Limbo`: ends with the match; `Scenarios`: orders once the match is decided                                 |
+| 13  | Exploiting repeated transfers and capital rewards      | `Unrest`: the ceiling falls, the reward is paid once; `tests/capital`                                       |
+| 14  | The Capital System is disabled                         | `Activation`: not when the match has no Capital System; the snapshot test                                   |
+
+Every order is also tested as an intent through the executor (`Intents`), the way
+the game receives it, because the system's methods alone do not exercise the
+tick loop: an uprising once charged its price and committed its troops for an
+attack that the game then dropped, because it was added from inside an `init()`.
+Orders are now applied on the execution's first tick, and an uprising that still
+fails to begin is voided with its price and troops returned and the player told.
+
 ## Where things are
 
 | What                       | File                                                                                           |
@@ -215,7 +295,12 @@ Every order that changes anything is also written to a bounded audit log
 
 ## Tests
 
-`tests/insurgency/`: the rules, activation, every order and its refusals, the
-unrest model and ceiling, suppression, uprisings through combat, limbo and
-elimination, and the enclosure exemption. `tests/core/snapshot/` covers the round
-trip.
+`tests/insurgency/` (the rules, activation, every order and its refusals, the
+unrest model and its ceiling, suppression, uprisings through combat, limbo and
+the match's end, the enclosure exemption, the multi-rule scenarios, and every
+order as an intent), `tests/core/snapshot/InsurgencySystem.test.ts` (reconnect and
+restore), `tests/client/resistance/` (the previews against the real engine, the
+panel, the tile picker, the capital button) and `tests/client/InsurgencyViewIngest.test.ts`.
+
+The look of the panel and the map squares, and the whole flow with real mouse
+clicks, were verified in a real browser; see the notes in the release.

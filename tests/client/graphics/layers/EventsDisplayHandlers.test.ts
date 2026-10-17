@@ -61,6 +61,7 @@ describe("EventsDisplay handlers", () => {
     smallID: () => 1,
     displayName: () => "Me",
     isAlive: () => true,
+    isInLimbo: () => false,
     isFriendly: (p: { smallID: () => number }) => p.smallID() === 2,
   };
   const friend = {
@@ -148,6 +149,27 @@ describe("EventsDisplay handlers", () => {
         ed as unknown as { render: () => { values: unknown[] } }
       ).render();
       expect(rendered.values).toHaveLength(0);
+    });
+  });
+
+  describe("a player with no land whose resistance goes on", () => {
+    it("keeps the panel, so the resistance's messages can be read", () => {
+      ed.tick();
+      game.myPlayer = () => ({
+        ...myPlayer,
+        isAlive: () => false,
+        isInLimbo: () => true,
+      });
+      ed.tick();
+      expect((ed as unknown as { _isVisible: boolean })._isVisible).toBe(true);
+      // Out of the match for good (the resistance is over too): it goes.
+      game.myPlayer = () => ({
+        ...myPlayer,
+        isAlive: () => false,
+        isInLimbo: () => false,
+      });
+      ed.tick();
+      expect((ed as unknown as { _isVisible: boolean })._isVisible).toBe(false);
     });
   });
 

@@ -180,6 +180,41 @@ export class SendEmbargoAllIntentEvent implements GameEvent {
   constructor(public readonly action: "start" | "stop") {}
 }
 
+// The Capital System and the resistance (docs/Capital.md, docs/Insurgency.md).
+// Each only asks: the simulation checks costs, limits, cooldowns and troops on
+// every client, and tells the sender why when it refuses.
+export class SendFoundCapitalIntentEvent implements GameEvent {
+  constructor(public readonly tile: TileRef) {}
+}
+
+/** `troops` is in the engine's units (ten times what the player sees). */
+export class SendResistanceRecruitIntentEvent implements GameEvent {
+  constructor(public readonly troops: number) {}
+}
+
+export class SendResistanceBaseIntentEvent implements GameEvent {
+  constructor(public readonly tile: TileRef) {}
+}
+
+export class SendResistanceUprisingIntentEvent implements GameEvent {
+  constructor(
+    public readonly region: number,
+    public readonly troops: number,
+  ) {}
+}
+
+export class SendResistanceIntelIntentEvent implements GameEvent {
+  constructor(public readonly region: number) {}
+}
+
+/** The occupier's answer to `target`'s resistance in `region`. */
+export class SendSuppressRegionIntentEvent implements GameEvent {
+  constructor(
+    public readonly target: PlayerView,
+    public readonly region: number,
+  ) {}
+}
+
 export class SendDeleteUnitIntentEvent implements GameEvent {
   constructor(public readonly unitId: number) {}
 }
@@ -334,6 +369,32 @@ export class Transport {
       this.onSendEmbargoAllIntent(e),
     );
     this.subscribe(BuildUnitIntentEvent, (e) => this.onBuildUnitIntent(e));
+    this.subscribe(SendFoundCapitalIntentEvent, (e) =>
+      this.sendIntent({ type: "found_capital", tile: e.tile }),
+    );
+    this.subscribe(SendResistanceRecruitIntentEvent, (e) =>
+      this.sendIntent({ type: "resistance_recruit", troops: e.troops }),
+    );
+    this.subscribe(SendResistanceBaseIntentEvent, (e) =>
+      this.sendIntent({ type: "resistance_base", tile: e.tile }),
+    );
+    this.subscribe(SendResistanceUprisingIntentEvent, (e) =>
+      this.sendIntent({
+        type: "resistance_uprising",
+        region: e.region,
+        troops: e.troops,
+      }),
+    );
+    this.subscribe(SendResistanceIntelIntentEvent, (e) =>
+      this.sendIntent({ type: "resistance_intel", region: e.region }),
+    );
+    this.subscribe(SendSuppressRegionIntentEvent, (e) =>
+      this.sendIntent({
+        type: "suppress_region",
+        target: e.target.id(),
+        region: e.region,
+      }),
+    );
 
     this.subscribe(PauseGameIntentEvent, (e) => this.onPauseGameIntent(e));
     this.subscribe(SendAdminCommandIntentEvent, (e) =>

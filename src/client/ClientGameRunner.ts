@@ -959,8 +959,12 @@ export class ClientGameRunner {
    * (when the player is not alive or doesn't exist)
    */
   public shouldPreventWindowClose(): boolean {
-    // Show confirmation dialog if player is alive in the game
-    return !!this.myPlayer?.isAlive();
+    // Show confirmation dialog if player is alive in the game (a resistance
+    // with no land still has them in it)
+    return (
+      (this.myPlayer?.isAlive() ?? false) ||
+      (this.myPlayer?.isInLimbo() ?? false)
+    );
   }
 
   public start() {
@@ -1217,7 +1221,12 @@ export class ClientGameRunner {
   }
 
   private inputEvent(event: MouseUpEvent) {
-    if (!this.isActive || this.renderer.uiState.ghostStructure !== null) {
+    if (
+      !this.isActive ||
+      this.renderer.uiState.ghostStructure !== null ||
+      // The click belongs to the order that is choosing a tile (TilePicker).
+      (this.renderer.uiState.pickMode ?? null) !== null
+    ) {
       return;
     }
     const cell = this.renderer.transformHandler.screenToWorldCoordinates(

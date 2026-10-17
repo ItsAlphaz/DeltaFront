@@ -147,6 +147,13 @@ export const DERIVED_FIELDS = new Set<string>([
   "myUnitCountMemo",
   "myUnitsOwnedMemo",
   "nearbyMemo",
+  // InsurgencySystem: the region grid is a pure function of the map, built on
+  // first use; `dirty` is delivery bookkeeping (who owes their clients an
+  // update), and a restore marks every resistance dirty so the clients that
+  // arrive by snapshot are sent the state at once.
+  "gridCache",
+  "dirty",
+  "lastEmit",
   // SharedWaterCache
   "playerWater",
   // Config / EngineConfig

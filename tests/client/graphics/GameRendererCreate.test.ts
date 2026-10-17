@@ -46,6 +46,8 @@ const HUD_TAGS = [
   "capital-markers",
   "crisis-overlay",
   "capital-victory",
+  "capital-action",
+  "resistance-command",
   "spawn-timer",
   "immunity-timer",
   "in-game-promo",

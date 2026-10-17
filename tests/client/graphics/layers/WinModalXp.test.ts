@@ -164,6 +164,8 @@ const notFound = () => new Response("", { status: 404 });
 function makeGame(opts: {
   ended: boolean;
   alive?: boolean;
+  /** No land, but a resistance holds the player in the match. */
+  limbo?: boolean;
   replay?: boolean;
   gameType?: GameType;
 }) {
@@ -173,6 +175,7 @@ function makeGame(opts: {
     gameID: () => GAME_ID,
     myPlayer: () => ({
       isAlive: () => opts.alive ?? true,
+      isInLimbo: () => opts.limbo ?? false,
       hasSpawned: () => true,
       team: () => "Red",
       clientID: () => "me",
@@ -1349,6 +1352,21 @@ describe("WinModal XP section", () => {
       season: null,
       ...over,
     });
+
+  it("does not announce a death to a player whose resistance holds them in the match", async () => {
+    stubXpEndpoint([notFound], [reducedPreview()]);
+    await mount(makeGame({ ended: false, alive: false, limbo: true }));
+    await settle(1_500);
+    expect(modal.isVisible).toBe(false);
+    expect(panel()).toBeNull();
+  });
+
+  it("announces it once the resistance is over too", async () => {
+    stubXpEndpoint([notFound], [reducedPreview()]);
+    await mount(makeGame({ ended: false, alive: false, limbo: false }));
+    await settle(1_500);
+    expect(modal.isVisible).toBe(true);
+  });
 
   it("shows the XP the server is finalizing, not a wait message, when the player dies mid-game", async () => {
     const fetchMock = stubXpEndpoint([notFound], [reducedPreview()]);

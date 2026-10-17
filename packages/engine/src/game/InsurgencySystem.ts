@@ -195,6 +195,8 @@ export interface Insurgency {
   /** smallID of whoever took the owner's last land, or -1. */
   conqueror: number;
   warned: boolean;
+  /** The landless player has been warned that their time to win land back is nearly up. */
+  limboWarned: boolean;
   nextId: number;
 }
 
@@ -293,6 +295,7 @@ export const InsurgencySystemStateSchema = z.object({
       limboDeadline: zInt(),
       conqueror: zInt(),
       warned: z.boolean(),
+      limboWarned: z.boolean(),
       nextId: zInt(),
     }),
   ),
@@ -313,7 +316,6 @@ export const InsurgencySystemStateSchema = z.object({
       b: zNum(),
     }),
   ),
-  lastEmit: z.array(z.tuple([zInt(), zInt()])),
   matchOverHandled: z.boolean(),
 });
 export type InsurgencySystemState = z.infer<typeof InsurgencySystemStateSchema>;
@@ -327,7 +329,7 @@ export class InsurgencySystem {
   private logEntries: LogEntry[] = [];
   /** Owners whose state changed since it was last sent to the clients. */
   private dirty = new Set<number>();
-  /** owner smallID -> tick the state was last sent. */
+  /** owner smallID -> tick the state was last sent (delivery bookkeeping, not snapshotted). */
   private lastEmit = new Map<number, number>();
   private matchOverHandled = false;
   private gridCache: RegionGrid | null = null;
@@ -615,6 +617,7 @@ export class InsurgencySystem {
       limboDeadline: -1,
       conqueror: pending?.conqueror ?? captor.smallID(),
       warned: false,
+      limboWarned: false,
       nextId: 1,
     };
     this.list.push(ins);
@@ -1050,11 +1053,19 @@ export class InsurgencySystem {
     for (const op of [...ins.ops]) {
       if (op.attackId === null) {
         // The attack never started (its order was refused as it began): the
-        // troops were never sent, so they stay.
+        // troops were never sent and nothing happened, so nothing is spent.
         if (ticks - op.startTick > 5) {
           ins.available += op.committed;
+          ins.funds += this.spec().uprisingCost;
           ins.ops = ins.ops.filter((o) => o.id !== op.id);
           this.logEvent(ins, "uprising_void", op.region, op.committed);
+          this.mg.displayMessage(
+            "events_display.insurgency_uprising_void",
+            MessageType.INSURGENCY_WARNING,
+            owner.id(),
+            undefined,
+            { region: this.label(op.region) },
+          );
         }
         continue;
       }
@@ -1312,6 +1323,7 @@ export class InsurgencySystem {
     if (!alive && ins.limboSince < 0) {
       ins.limboSince = ticks;
       ins.limboDeadline = ticks + spec.limboTicks;
+      ins.limboWarned = false;
       this.logEvent(ins, "limbo", ins.limboDeadline);
       this.mg.displayMessage(
         "events_display.insurgency_limbo",
@@ -1348,6 +1360,20 @@ export class InsurgencySystem {
     if (ticks >= ins.deadline) {
       this.end(ins, "survival_expired", ticks);
       return;
+    }
+    if (
+      !ins.limboWarned &&
+      ins.limboSince >= 0 &&
+      ins.limboDeadline - ticks <= spec.warnTicks
+    ) {
+      ins.limboWarned = true;
+      this.mg.displayMessage(
+        "events_display.insurgency_limbo_expiring",
+        MessageType.INSURGENCY_WARNING,
+        owner.id(),
+        undefined,
+        { seconds: Math.round((ins.limboDeadline - ticks) / 10) },
+      );
     }
     if (!ins.warned && ins.deadline - ticks <= spec.warnTicks) {
       ins.warned = true;
@@ -1545,7 +1571,6 @@ export class InsurgencySystem {
         profile: p.profile.map(([a, b]): [number, number] => [a, b]),
       })),
       log: this.logEntries.map((e) => ({ ...e })),
-      lastEmit: [...this.lastEmit],
       matchOverHandled: this.matchOverHandled,
     };
   }
@@ -1573,9 +1598,10 @@ export class InsurgencySystem {
       ]),
     );
     this.logEntries = s.log.map((e) => ({ ...e }));
-    this.lastEmit = new Map(s.lastEmit);
     this.matchOverHandled = s.matchOverHandled;
-    // Everything is sent again after a restore.
+    // Everything is sent again after a restore (and the throttle starts afresh:
+    // `lastEmit` is delivery bookkeeping, not part of the game).
+    this.lastEmit = new Map();
     this.dirty = new Set(this.list.map((i) => i.owner));
     this.gridCache = null;
   }

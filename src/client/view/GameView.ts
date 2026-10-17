@@ -15,6 +15,7 @@ import {
 import {
   GameUpdateType,
   GameUpdateViewData,
+  InsurgencyView,
   SpawnPhaseEndUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { GameLike, UnitPredicate } from "@openfront/engine-api/game/ReadViews";
@@ -67,6 +68,8 @@ export class GameView implements GameLike {
    * log both read this one log.
    */
   private readonly _matchEvents = new MatchEventLog();
+  /** owner smallID -> the latest state of their resistance. */
+  private readonly _insurgency = new Map<number, InsurgencyView>();
   private startTick: Tick | null = null;
   private smallIDToID = new Map<number, PlayerID>();
   private _players = new Map<PlayerID, PlayerView>();
@@ -290,6 +293,11 @@ export class GameView implements GameLike {
     const matchEvents = gu.updates[GameUpdateType.MatchEvent];
     if (matchEvents.length > 0) {
       this._matchEvents.ingest(matchEvents.map((u) => u.event));
+    }
+    // The engine sends a resistance's whole state each time it changes; the
+    // latest one per owner is all there is to remember (docs/Insurgency.md).
+    for (const u of gu.updates[GameUpdateType.InsurgencyState] ?? []) {
+      this._insurgency.set(u.view.owner, u.view);
     }
 
     const myDisplayName = formatPlayerDisplayName(
@@ -892,6 +900,14 @@ export class GameView implements GameLike {
   }
   config(): Config {
     return this._config;
+  }
+  /** The resistance of the player with this smallID (running or over), or null. */
+  insurgencyOf(smallID: number): InsurgencyView | null {
+    return this._insurgency.get(smallID) ?? null;
+  }
+  /** Every resistance seen so far, running or over. */
+  insurgencies(): IterableIterator<InsurgencyView> {
+    return this._insurgency.values();
   }
   isSpectator(): boolean {
     return !this.myPlayer()?.isAlive() || this._config.isReplay();

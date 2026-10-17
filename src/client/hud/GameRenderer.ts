@@ -19,6 +19,7 @@ import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
 // The homepage loads it on demand, but the in-game instance (#game-settings)
 // is set up below, so it has to be defined by the time a game renders.
+import { TilePicker } from "../resistance/TilePicker";
 import "../UserSettingModal";
 import type { UserSettingModal } from "../UserSettingModal";
 import { UserSettings } from "../UserSettings";
@@ -29,6 +30,7 @@ import { AirstrikeTypeMenu } from "./layers/AirstrikeTypeMenu";
 import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
 import { BuildMenu } from "./layers/BuildMenu";
+import { CapitalAction } from "./layers/CapitalAction";
 import { CapitalMarkers } from "./layers/CapitalMarkers";
 import { CapitalVictory } from "./layers/CapitalVictory";
 import { ChatDisplay } from "./layers/ChatDisplay";
@@ -53,6 +55,7 @@ import { PerformanceOverlay } from "./layers/PerformanceOverlay";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
 import { ReplayPanel } from "./layers/ReplayPanel";
+import { ResistanceCommand } from "./layers/ResistanceCommand";
 import { SettingsModal } from "./layers/SettingsModal";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { TutorialPanel } from "./layers/TutorialPanel";
@@ -367,6 +370,30 @@ export function createRenderer(
   capitalVictory.game = game;
   capitalVictory.eventBus = eventBus;
 
+  // Choosing a tile for an order (a resistance base, a replacement capital).
+  const tilePicker = new TilePicker(game, eventBus, uiState, transformHandler);
+
+  const capitalAction = document.querySelector(
+    "capital-action",
+  ) as CapitalAction;
+  if (!(capitalAction instanceof CapitalAction)) {
+    console.error("capital action not found");
+  }
+  capitalAction.game = game;
+  capitalAction.eventBus = eventBus;
+  capitalAction.picker = tilePicker;
+
+  const resistanceCommand = document.querySelector(
+    "resistance-command",
+  ) as ResistanceCommand;
+  if (!(resistanceCommand instanceof ResistanceCommand)) {
+    console.error("resistance command not found");
+  }
+  resistanceCommand.game = game;
+  resistanceCommand.eventBus = eventBus;
+  resistanceCommand.picker = tilePicker;
+  resistanceCommand.transformHandler = transformHandler;
+
   const spawnTimer = document.querySelector("spawn-timer") as SpawnTimer;
   if (!(spawnTimer instanceof SpawnTimer)) {
     console.error("spawn timer not found");
@@ -459,6 +486,9 @@ export function createRenderer(
     capitalMarkers,
     crisisOverlay,
     capitalVictory,
+    tilePicker,
+    capitalAction,
+    resistanceCommand,
     performanceOverlay,
   ];
 

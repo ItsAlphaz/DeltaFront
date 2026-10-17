@@ -1,9 +1,8 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import {
-  zPlayerRef,
-  zTile,
-} from "@openfront/engine-lib/snapshot/SnapshotType";
+import { MessageType } from "@openfront/engine-api/game/GameTypes";
+import { zPlayerRef, zTile } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
+import type { FoundBlock } from "../game/CapitalSystem";
 import { Execution, Game, Player } from "../game/Game";
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type {
@@ -11,6 +10,23 @@ import type {
   SnapshotReader,
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
+
+/**
+ * What a refused order tells its sender. Literal keys (not built from the
+ * reason) so the translation check can see that each one is used, and a new
+ * reason cannot be added without its message.
+ */
+const REFUSAL_MESSAGES: Record<FoundBlock, string> = {
+  not_a_holder: "events_display.capital_found_not_a_holder",
+  spawn_phase: "events_display.capital_found_spawn_phase",
+  dead: "events_display.capital_found_dead",
+  has_capital: "events_display.capital_found_has_capital",
+  too_soon: "events_display.capital_found_too_soon",
+  gold: "events_display.capital_found_gold",
+  tile: "events_display.capital_found_tile",
+  not_owned: "events_display.capital_found_not_owned",
+  border: "events_display.capital_found_border",
+};
 
 /**
  * A player's order to found a replacement capital at `tile`. The Capital System
@@ -27,9 +43,14 @@ export class FoundCapitalExecution implements Execution {
   init(mg: Game, _: number): void {
     const capitals = mg.capitals();
     if (capitals === null) return;
-    if (!capitals.found(this.player, this.tile)) {
-      console.warn(
-        `${this.player.displayName()} cannot found a capital at ${this.tile}: ${capitals.foundBlock(this.player, this.tile)}`,
+    // found() checks everything again and charges only if it succeeds. The
+    // reason is read first: a successful order changes the answer.
+    const block = capitals.foundBlock(this.player, this.tile);
+    if (!capitals.found(this.player, this.tile) && block !== null) {
+      mg.displayMessage(
+        REFUSAL_MESSAGES[block],
+        MessageType.CAPITAL_ORDER,
+        this.player.id(),
       );
     }
   }

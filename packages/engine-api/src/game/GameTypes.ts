@@ -486,6 +486,8 @@ export enum MessageType {
   INSURGENCY_ORDER,
   INSURGENCY_WARNING,
   INSURGENCY_ENDED,
+  // A refused order to found a replacement capital, told to its sender.
+  CAPITAL_ORDER,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -532,6 +534,7 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.INSURGENCY_ORDER]: MessageCategory.ATTACK,
   [MessageType.INSURGENCY_WARNING]: MessageCategory.ATTACK,
   [MessageType.INSURGENCY_ENDED]: MessageCategory.ATTACK,
+  [MessageType.CAPITAL_ORDER]: MessageCategory.ATTACK,
 } as const;
 
 /**

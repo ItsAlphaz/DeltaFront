@@ -40,18 +40,33 @@ export type InsurgencyOrder =
   | { kind: "suppress"; target: string; region: number };
 
 /**
- * One order, applied the moment it is read. InsurgencySystem checks everything
- * (that the sender has a resistance, the costs, limits and cooldowns, the
- * region and the troops) and charges nothing for an order it refuses. The
- * sender is told why: it may be a race with another order in the same turn.
+ * One order. InsurgencySystem checks everything (that the sender has a
+ * resistance, the costs, limits and cooldowns, the region and the troops) and
+ * charges nothing for an order it refuses. The sender is told why: it may be a
+ * race with another order in the same turn.
+ *
+ * It is applied on its first tick, not in `init()`. An uprising adds an
+ * AttackExecution, and the game drops any execution that is added while it is
+ * initialising the others: the troops would be committed and the money spent
+ * for an attack that never existed. A tick is where executions add executions.
  */
 export class InsurgencyOrderExecution implements Execution {
+  private mg: Game | null = null;
+  private applied = false;
+
   constructor(
     private player: Player,
     private order: InsurgencyOrder,
   ) {}
 
   init(mg: Game, _: number): void {
+    this.mg = mg;
+  }
+
+  tick(_: number): void {
+    const mg = this.mg;
+    if (this.applied || mg === null) return;
+    this.applied = true;
     const system = mg.insurgency();
     if (system === null) return;
     let rejected: Reject | null;
@@ -93,10 +108,8 @@ export class InsurgencyOrderExecution implements Execution {
     }
   }
 
-  tick(_: number): void {}
-
   isActive(): boolean {
-    return false;
+    return !this.applied;
   }
 
   activeDuringSpawnPhase(): boolean {
@@ -107,17 +120,24 @@ export class InsurgencyOrderExecution implements Execution {
     return InsurgencyOrderExecutionSnapshot.write({
       player: w.player(this.player),
       order: this.order,
+      initialized: this.mg !== null,
     });
   }
 
   restoreSnapshot(s: InsurgencyOrderState, r: SnapshotReader): void {
     this.player = r.player(s.player);
     this.order = s.order;
+    // Only an execution that has been initialised has the game, as in life; one
+    // that is still waiting to be gets it from init(). Nothing is applied twice:
+    // an applied order is no longer active, so it is never in a snapshot.
+    this.applied = false;
+    this.mg = s.initialized ? r.game : null;
   }
 }
 
 const InsurgencyOrderStateSchema = z.object({
   player: zPlayerRef(),
+  initialized: z.boolean(),
   order: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("recruit"), troops: zInt() }),
     z.object({ kind: z.literal("base"), tile: zInt() }),

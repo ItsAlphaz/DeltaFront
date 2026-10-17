@@ -85,7 +85,8 @@ export class LiveXpPanel extends LitElement implements Controller {
     const me = game.myPlayer();
     // A spectator has no XP of their own; before spawning there is nothing yet.
     if (!me || !me.hasSpawned()) return;
-    const alive = me.isAlive();
+    // Out of the match only when the resistance that held them in it is over too.
+    const alive = me.isAlive() || me.isInLimbo();
     if (alive !== this.alive) this.alive = alive;
     if (this.enabled === null) {
       void this.decide();

@@ -185,3 +185,56 @@ describe("a resistance whose owner still has land", () => {
     expect(warnings[0].playerID).toBe(w.carol.smallID());
   });
 });
+
+describe("a landless player's clock", () => {
+  const told = (updates: ReturnType<typeof run>, to: number) =>
+    updates
+      .flatMap((u) => u[GameUpdateType.DisplayEvent])
+      .filter((m) => m.playerID === to)
+      .map((m) => m.message);
+
+  test("warns a minute before the end, once", async () => {
+    const w = await annexable();
+    annex(w);
+    const ins = resistance(w.game, w.alice);
+    // Not yet: plenty of time left.
+    expect(ins.limboDeadline - w.game.ticks()).toBeGreaterThan(SPEC.warnTicks);
+    expect(
+      told(run(w.game, 5), w.alice.smallID()).filter((m) =>
+        m.endsWith("insurgency_limbo_expiring"),
+      ),
+    ).toHaveLength(0);
+    ins.limboDeadline = w.game.ticks() + SPEC.warnTicks - 1;
+    const all = [...run(w.game, 3), ...run(w.game, 30)];
+    expect(
+      told(all, w.alice.smallID()).filter((m) =>
+        m.endsWith("insurgency_limbo_expiring"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("warns again if she wins land back and loses it again", async () => {
+    const w = await annexable();
+    annex(w);
+    const ins = resistance(w.game, w.alice);
+    ins.limboDeadline = w.game.ticks() + SPEC.warnTicks - 1;
+    run(w.game, 3);
+    expect(ins.limboWarned).toBe(true);
+    // A tile back (inside bob's land): alive again, and the clock stops.
+    w.alice.conquer(w.game.ref(30, 10));
+    run(w.game, 3);
+    expect(ins.limboSince).toBe(-1);
+    // Lost again: a fresh clock, and a fresh warning when it runs low.
+    w.bob.conquer(w.game.ref(30, 10));
+    run(w.game, 3);
+    expect(ins.limboSince).toBeGreaterThanOrEqual(0);
+    expect(ins.limboWarned).toBe(false);
+    ins.limboDeadline = w.game.ticks() + SPEC.warnTicks - 1;
+    const updates = run(w.game, 3);
+    expect(
+      told(updates, w.alice.smallID()).filter((m) =>
+        m.endsWith("insurgency_limbo_expiring"),
+      ),
+    ).toHaveLength(1);
+  });
+});

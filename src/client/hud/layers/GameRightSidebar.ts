@@ -270,7 +270,9 @@ export class GameRightSidebar extends LitElement implements Controller {
   }
 
   private async onExitButtonClick() {
-    const isAlive = this.game.myPlayer()?.isAlive();
+    const me = this.game.myPlayer();
+    // A resistance with no land still has the player in the match.
+    const isAlive = (me?.isAlive() ?? false) || (me?.isInLimbo() ?? false);
     if (isAlive) {
       const isConfirmed = await showInGameConfirm(
         translateText("help_modal.exit_confirmation"),

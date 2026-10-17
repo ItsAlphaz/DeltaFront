@@ -207,7 +207,8 @@ export class EventsDisplay extends LitElement implements Controller {
     }
 
     const myPlayer = this.game.myPlayer();
-    if (!myPlayer || !myPlayer.isAlive()) {
+    // A player with no land whose resistance goes on still has things to read.
+    if (!myPlayer || !(myPlayer.isAlive() || myPlayer.isInLimbo())) {
       if (this._isVisible) {
         this._isVisible = false;
         this.requestUpdate();

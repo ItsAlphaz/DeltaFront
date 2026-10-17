@@ -95,11 +95,18 @@ function makeRunner(overrides: {
   playerByClientID?: () => unknown;
   actions?: Record<string, unknown>;
   boatDistSquared?: number;
+  /** A tile is being chosen for an order (TilePicker). */
+  pickMode?: string | null;
+  /** The player's life and limbo, for shouldPreventWindowClose. */
+  alive?: boolean;
+  limbo?: boolean;
 }) {
   const eventBus = new EventBus();
   const myPlayer = {
     actions: vi.fn(async () => overrides.actions ?? {}),
     troops: () => 100,
+    isAlive: () => overrides.alive ?? true,
+    isInLimbo: () => overrides.limbo ?? false,
   };
   const gameView = {
     config: () => ({ isRandomSpawn: () => false, isReplay: () => false }),
@@ -121,7 +128,11 @@ function makeRunner(overrides: {
     {
       initialize: vi.fn(),
       tick: vi.fn(),
-      uiState: { attackRatio: 0.5, ghostStructure: null },
+      uiState: {
+        attackRatio: 0.5,
+        ghostStructure: null,
+        pickMode: overrides.pickMode ?? null,
+      },
       transformHandler: {
         screenToWorldCoordinates: vi.fn(() => ({ x: 1, y: 2 })),
       },
@@ -150,6 +161,71 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("left click while a tile is being chosen for an order", () => {
+  it("is not an attack: the click belongs to the order that is choosing", async () => {
+    const { eventBus, myPlayer } = makeRunner({
+      hasOwner: true,
+      actions: { canAttack: true, buildableUnits: [] },
+      pickMode: "resistance_base",
+    });
+    const attacks: SendAttackIntentEvent[] = [];
+    eventBus.on(SendAttackIntentEvent, (e) => attacks.push(e));
+    eventBus.emit(new MouseUpEvent(CLICK.x, CLICK.y));
+    await flushPromises();
+    expect(attacks).toHaveLength(0);
+    // It did not even ask what the click could do.
+    expect(myPlayer.actions).not.toHaveBeenCalled();
+  });
+
+  it("is an attack again as soon as nothing is being chosen", async () => {
+    const { eventBus } = makeRunner({
+      hasOwner: true,
+      actions: { canAttack: true, buildableUnits: [] },
+      pickMode: null,
+    });
+    const attacks: SendAttackIntentEvent[] = [];
+    eventBus.on(SendAttackIntentEvent, (e) => attacks.push(e));
+    eventBus.emit(new MouseUpEvent(CLICK.x, CLICK.y));
+    await flushPromises();
+    expect(attacks).toHaveLength(1);
+  });
+});
+
+describe("leaving the page", () => {
+  it("asks nothing before the player is known", () => {
+    expect(makeRunner({ alive: true }).runner.shouldPreventWindowClose()).toBe(
+      false,
+    ); // no player resolved yet
+  });
+
+  it("asks first of a player whose resistance holds them in the match", async () => {
+    const land = makeRunner({ hasOwner: true, actions: { canAttack: true } });
+    land.eventBus.emit(new MouseUpEvent(CLICK.x, CLICK.y)); // resolves myPlayer
+    await flushPromises();
+    expect(land.runner.shouldPreventWindowClose()).toBe(true);
+
+    const limbo = makeRunner({
+      hasOwner: true,
+      actions: { canAttack: true },
+      alive: false,
+      limbo: true,
+    });
+    limbo.eventBus.emit(new MouseUpEvent(CLICK.x, CLICK.y));
+    await flushPromises();
+    expect(limbo.runner.shouldPreventWindowClose()).toBe(true);
+
+    const out = makeRunner({
+      hasOwner: true,
+      actions: { canAttack: true },
+      alive: false,
+      limbo: false,
+    });
+    out.eventBus.emit(new MouseUpEvent(CLICK.x, CLICK.y));
+    await flushPromises();
+    expect(out.runner.shouldPreventWindowClose()).toBe(false);
+  });
 });
 
 describe("left click", () => {

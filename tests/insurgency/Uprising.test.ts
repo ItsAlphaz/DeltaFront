@@ -1,4 +1,7 @@
-import { InsurgencyRegionStatus } from "@openfront/engine-api/game/GameUpdates";
+import {
+  GameUpdateType,
+  InsurgencyRegionStatus,
+} from "@openfront/engine-api/game/GameUpdates";
 import { EngineConfig } from "@openfront/engine/configuration/EngineConfig";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import type { Game, Player } from "@openfront/engine/game/Game";
@@ -6,6 +9,7 @@ import {
   SPEC,
   captureCapital,
   insurgentWorld,
+  makeRestless,
   occupyRegion0,
   rect,
   regionOf,
@@ -229,5 +233,41 @@ describe("an uprising", () => {
     expect(ins.available).toBeGreaterThan(100_000 - 30_000 + 15_000);
     expect(ins.available).toBeLessThan(100_000);
     expect(w.alice.troops()).toBe(900_000);
+  });
+});
+
+describe("an uprising that does not begin", () => {
+  test("gives back the troops and the price, and says so", async () => {
+    const w = await occupied();
+    const ins = resistance(w.game, w.alice);
+    const spec = SPEC;
+    makeRestless(w.game, w.alice, 80);
+    // An operation the game has no attack for (as when its attack was lost
+    // before it began): set up as the order leaves it.
+    const funds = ins.funds - spec.uprisingCost;
+    const available = ins.available - 10_000;
+    ins.funds = funds;
+    ins.available = available;
+    ins.ops.push({
+      id: 77,
+      region: 0,
+      seed: w.game.ref(5, 5),
+      committed: 10_000,
+      startTick: w.game.ticks(),
+      attackId: null,
+      startOwn: 0,
+    });
+    const updates = run(w.game, 8);
+    expect(ins.ops).toHaveLength(0);
+    expect(ins.available).toBe(available + 10_000);
+    // The price is refunded too (and only the income the purse was owed since).
+    expect(ins.funds).toBeGreaterThanOrEqual(funds + spec.uprisingCost);
+    const told = updates
+      .flatMap((u) => u[GameUpdateType.DisplayEvent])
+      .filter((m) => m.playerID === w.alice.smallID())
+      .map((m) => m.message);
+    expect(told).toContain("events_display.insurgency_uprising_void");
+    // No cooldown on the region: nothing was fought.
+    expect(regionOf(w.game, w.alice).cooldownUntil).toBe(0);
   });
 });

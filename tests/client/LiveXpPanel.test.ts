@@ -56,6 +56,8 @@ const live = (over: Partial<LiveXpResponse> = {}): LiveXpResponse =>
 
 interface Opts {
   alive?: boolean;
+  /** No land, but a resistance holds the player in the match. */
+  limbo?: boolean;
   spawned?: boolean;
   spectator?: boolean;
   replay?: boolean;
@@ -76,6 +78,7 @@ function makeGame(opts: Opts = {}) {
         ? null
         : {
             isAlive: () => state.alive ?? true,
+            isInLimbo: () => state.limbo ?? false,
             hasSpawned: () => state.spawned ?? true,
           },
     updatesSinceLastTick: () => ({
@@ -428,6 +431,7 @@ describe("it does not work anything out", () => {
     const game = await mount();
     (game as never as { myPlayer: () => unknown }).myPlayer = () => ({
       isAlive: () => true,
+      isInLimbo: () => false,
       hasSpawned: () => true,
       kills: () => 99,
       isWinner: () => true,
@@ -438,6 +442,15 @@ describe("it does not work anything out", () => {
     await figure();
     expect(q("live-xp-card")!.textContent).toContain('"xp":"75"');
     expect(panel.textContent).not.toContain("99");
+  });
+
+  it("a player with no land whose resistance goes on is still in the match: nothing is waited for", async () => {
+    await mount({ alive: false, limbo: true });
+    await tick();
+    await tick();
+    expect(
+      q("[data-live-xp-panel]")!.getAttribute("data-live-status"),
+    ).not.toBe("pending");
   });
 
   it("the only thing the client contributes is whether it is itself alive: the wording", async () => {

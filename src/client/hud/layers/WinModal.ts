@@ -795,6 +795,8 @@ export class WinModal extends LitElement implements Controller {
       !this.hasShownDeathModal &&
       myPlayer &&
       !myPlayer.isAlive() &&
+      // Not out yet: a resistance keeps them in the match without land.
+      !myPlayer.isInLimbo() &&
       !this.game.inSpawnPhase() &&
       myPlayer.hasSpawned()
     ) {
