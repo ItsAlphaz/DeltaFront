@@ -168,7 +168,9 @@ describe.each(VARIANTS)("full game snapshots: %s", (_, overrides) => {
       // alive at a tick boundary. BasicExecutions.test.ts covers it directly.
       // AdminCommand (the staff testing command) likewise finishes inside init;
       // tests/AdminCommandExecution.test.ts covers it directly.
-      const neverStored = new Set(["Pause", "AdminCommand"]);
+      // FoundCapital (a replacement-capital order) finishes inside init too;
+      // tests/capital/CapitalSystem.test.ts covers it directly.
+      const neverStored = new Set(["Pause", "AdminCommand", "FoundCapital"]);
       const missing = EXECUTION_SNAPSHOT_TYPES.map((t) => t.name).filter(
         (name) => !reference.execTypes.has(name) && !neverStored.has(name),
       );

@@ -118,6 +118,8 @@ export enum GameUpdateType {
   DonateEvent,
   AirstrikeImpact,
   MatchEvent,
+  // Appended: the enum's order is the structured-clone key order of GameUpdates.
+  CapitalEvent,
 }
 
 export type GameUpdate =
@@ -145,7 +147,8 @@ export type GameUpdate =
   | GamePausedUpdate
   | DonateEventUpdate
   | AirstrikeImpactUpdate
-  | MatchEventUpdate;
+  | MatchEventUpdate
+  | CapitalEventUpdate;
 
 export interface BonusEventUpdate {
   type: GameUpdateType.BonusEvent;
@@ -188,6 +191,40 @@ export interface DonateEventUpdate {
   senderId: PlayerID;
   recipientId: PlayerID;
   amount: bigint;
+}
+
+/** What happened to a capital (docs/Capital.md). */
+export type CapitalEventKind =
+  /** A capital was founded: the first one when the spawn phase ended, or a replacement. */
+  | "founded"
+  /** An enemy captured it. The owner is in CRISIS and the captor was paid (once per pair). */
+  | "captured"
+  /** It was lost without a captor (nuked, rotted away, taken by a friend, its owner died). */
+  | "destroyed";
+
+/**
+ * A capital changed hands or was founded or lost. One update per event, created
+ * exactly once by the engine for a given capital (a capital is removed in the
+ * same call that reports its fall), so a client may play a sequence per update
+ * without guarding against repeats.
+ */
+export interface CapitalEventUpdate {
+  type: GameUpdateType.CapitalEvent;
+  kind: CapitalEventKind;
+  tick: Tick;
+  /** Never reused, so it names one ownership cycle. */
+  capitalId: number;
+  tile: TileRef;
+  /** smallID of the player the capital belonged to. */
+  owner: number;
+  /** captured: smallID of the player that took it; otherwise null. */
+  captor: number | null;
+  replacement: boolean;
+  /** captured: the tick the owner's CRISIS ends; otherwise -1. */
+  crisisEndTick: number;
+  /** captured: what the captor was paid. Zero when it had already been paid for this owner. */
+  rewardGold: Gold;
+  rewardTroops: number;
 }
 
 /**
@@ -326,6 +363,17 @@ export interface PlayerUpdate {
   betrayals?: number;
   lastDeleteUnitTick?: Tick;
   isLobbyCreator?: boolean;
+  /**
+   * Capital System (absent when it is off): the tile of this player's capital,
+   * or -1 when it has none. `-1` rather than undefined because undefined means
+   * "unchanged" in a partial update.
+   */
+  capitalTile?: number;
+  /** A standing capital is a replacement (it starts weaker and ramps up). */
+  capitalIsReplacement?: boolean;
+  /** CRISIS window of this player's latest capital fall, or -1 for none. */
+  crisisStartTick?: number;
+  crisisEndTick?: number;
 }
 
 export interface AllianceView {

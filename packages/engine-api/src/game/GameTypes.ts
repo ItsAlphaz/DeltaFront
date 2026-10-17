@@ -475,6 +475,12 @@ export enum MessageType {
   AIRSTRIKE_INBOUND,
   AIRSTRIKE_HIT,
   AIRSTRIKE_RESULT,
+  // Capital System (docs/Capital.md): to the captor, to the owner, on founding
+  // a capital, and when CRISIS ends.
+  CAPITAL_CAPTURED,
+  CAPITAL_LOST,
+  CAPITAL_FOUNDED,
+  CRISIS_ENDED,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -513,6 +519,10 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.AIRSTRIKE_INBOUND]: MessageCategory.ATTACK,
   [MessageType.AIRSTRIKE_HIT]: MessageCategory.ATTACK,
   [MessageType.AIRSTRIKE_RESULT]: MessageCategory.ATTACK,
+  [MessageType.CAPITAL_CAPTURED]: MessageCategory.ATTACK,
+  [MessageType.CAPITAL_LOST]: MessageCategory.ATTACK,
+  [MessageType.CAPITAL_FOUNDED]: MessageCategory.ATTACK,
+  [MessageType.CRISIS_ENDED]: MessageCategory.ATTACK,
 } as const;
 
 /**

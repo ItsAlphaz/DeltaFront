@@ -185,6 +185,16 @@ export class MatchEvents {
     });
   }
 
+  /**
+   * `captor` captured the capital of `owner` (CapitalSystem reports it once per
+   * capital). Major news: the owner is in CRISIS and may organise a resistance.
+   */
+  capitalCaptured(captor: Player, owner: Player, replacement: boolean): void {
+    this.emit("capital_captured", "major", captor.smallID(), owner.smallID(), {
+      replacement,
+    });
+  }
+
   /** A staff command ran (the server authorized it before the intent was relayed). */
   adminAction(
     issuer: Player,

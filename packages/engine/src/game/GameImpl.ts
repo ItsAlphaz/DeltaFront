@@ -85,6 +85,7 @@ import {
   Player,
   Unit,
 } from "./Game";
+import { CapitalSystem, CapitalSystemStateSchema } from "./CapitalSystem";
 import { MatchEvents, MatchEventsStateSchema } from "./MatchEvents";
 import { PlayerImpl } from "./PlayerImpl";
 import { RailNetwork } from "./RailNetwork";
@@ -163,6 +164,8 @@ export class GameImpl implements Game {
   private _isPaused: boolean = false;
   private _winner: Player | Team | null = null;
   private readonly _matchEvents = new MatchEvents(this);
+  /** Capitals and CRISIS; null unless the match setting is on. */
+  private readonly _capitals: CapitalSystem | null;
   private _waterManager: WaterManager;
   private _sharedWaterCache: SharedWaterCache;
   private _teamGameSpawnAreas: TeamGameSpawnAreas | undefined;
@@ -184,6 +187,9 @@ export class GameImpl implements Game {
     const constructorStart = performance.now();
 
     this._teamGameSpawnAreas = teamGameSpawnAreas;
+    this._capitals = _config.capitalSystemEnabled()
+      ? new CapitalSystem(this)
+      : null;
     this._terraNullius = new TerraNulliusImpl();
     this._width = _map.width();
     this._height = _map.height();
@@ -568,6 +574,9 @@ export class GameImpl implements Game {
 
     this.execs.push(...inited);
     this.unInitExecs = unInited;
+    // After every execution, so a capital is judged on where the tick left
+    // its tile; before the match feed, so its events can be reported at once.
+    this._capitals?.tick(this._ticks);
     this._matchEvents.tick(this._ticks);
     for (const player of this._players.values()) {
       // Sampled before toUpdate so the reading is of the tick that just ran.
@@ -683,6 +692,8 @@ export class GameImpl implements Game {
     this._players.forEach((p) => {
       hash += p.hash();
     });
+    // Only when the system is on, so every other game hashes exactly as before.
+    if (this._capitals !== null) hash += this._capitals.hash();
     return hash;
   }
 
@@ -1413,6 +1424,10 @@ export class GameImpl implements Game {
   matchEvents(): MatchEvents {
     return this._matchEvents;
   }
+
+  capitals(): CapitalSystem | null {
+    return this._capitals;
+  }
   railNetwork(): RailNetwork {
     return this._railNetwork;
   }
@@ -1507,6 +1522,8 @@ export class GameImpl implements Game {
       ),
       stats: w.versioned(StatsSnapshot, (this._stats as StatsImpl).snapshot()),
       matchEvents: this._matchEvents.snapshot(),
+      // Omitted (not undefined) when off, so such a snapshot is unchanged.
+      ...(this._capitals === null ? {} : { capitals: this._capitals.snapshot() }),
     };
   }
 
@@ -1569,6 +1586,9 @@ export class GameImpl implements Game {
     );
     if (s.matchEvents !== undefined) {
       this._matchEvents.restoreSnapshot(s.matchEvents);
+    }
+    if (this._capitals !== null && s.capitals !== undefined) {
+      this._capitals.restoreSnapshot(s.capitals);
     }
   }
 
@@ -1697,6 +1717,8 @@ export const GameSnapshot = snapshotType({
     stats: VersionedSchema,
     // Absent in snapshots taken before the match feed existed.
     matchEvents: MatchEventsStateSchema.optional(),
+    // Present only for a game with the Capital System on.
+    capitals: CapitalSystemStateSchema.optional(),
   }),
 });
 export type GameState = z.infer<typeof GameSnapshot.schema>;

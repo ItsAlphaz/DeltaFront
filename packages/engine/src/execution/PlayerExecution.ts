@@ -5,6 +5,10 @@ import {
   Structures,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import {
+  scaleByPercent,
+  scaleGoldByPercent,
+} from "@openfront/engine-lib/capital/CapitalRules";
 import { zInt, zPlayerRef } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { getMode, simpleHash } from "@openfront/engine-lib/Util";
 import { z } from "zod";
@@ -95,9 +99,19 @@ export class PlayerExecution implements Execution {
       return;
     }
 
-    const troopInc = this.config.troopIncreaseRate(this.player);
+    let troopInc = this.config.troopIncreaseRate(this.player);
+    let goldFromWorkers = this.config.goldAdditionRate(this.player);
+    // The Capital System's bonus (a standing capital) and penalty (CRISIS).
+    // Absent when the match setting is off, so such a game is untouched.
+    const capitals = this.mg.capitals();
+    if (capitals !== null) {
+      troopInc = scaleByPercent(troopInc, capitals.regenPercent(this.player));
+      goldFromWorkers = scaleGoldByPercent(
+        goldFromWorkers,
+        capitals.incomePercent(this.player),
+      );
+    }
     this.player.addTroops(troopInc);
-    const goldFromWorkers = this.config.goldAdditionRate(this.player);
     this.player.addGold(goldFromWorkers);
 
     // Record stats

@@ -380,6 +380,27 @@ export class PlayerImpl implements Player {
     // PlayerUpdate every tick rather than only appearing in the game-end record.
     const deathStats = this.mg.stats().getPlayerStats(this);
 
+    // Capital System fields: present only when the match setting is on, so a
+    // game without it sends exactly the updates it always did.
+    let capitalFields: Pick<
+      PlayerUpdate,
+      | "capitalTile"
+      | "capitalIsReplacement"
+      | "crisisStartTick"
+      | "crisisEndTick"
+    > = {};
+    const capitals = this.mg.capitals();
+    if (capitals !== null) {
+      const capital = capitals.capitalOf(this);
+      const crisis = capitals.crisisOf(this);
+      capitalFields = {
+        capitalTile: capital?.tile ?? -1,
+        capitalIsReplacement: capital?.replacement ?? false,
+        crisisStartTick: crisis?.startTick ?? -1,
+        crisisEndTick: crisis?.endTick ?? -1,
+      };
+    }
+
     return {
       type: GameUpdateType.Player,
       clientID: this.clientID(),
@@ -420,6 +441,7 @@ export class PlayerImpl implements Player {
       betrayals: this._betrayalCount,
       lastDeleteUnitTick: this.lastDeleteUnitTick,
       isLobbyCreator: this.isLobbyCreator(),
+      ...capitalFields,
     };
   }
 

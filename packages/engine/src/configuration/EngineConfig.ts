@@ -401,6 +401,17 @@ export class EngineConfig extends Config {
     }
   }
 
+  /**
+   * Gold a replacement capital costs this player: the spec's price, or nothing
+   * for a human with infinite gold, like every other purchase.
+   */
+  capitalReplacementCost(player: PlayerLike): Gold {
+    if (player.type() === PlayerType.Human && this.hasInfiniteGoldFor(player)) {
+      return 0n;
+    }
+    return this.capitalSpec().replacementCost;
+  }
+
   private hasInfiniteTroopsForInfo(playerInfo: PlayerInfo): boolean {
     if (this.infiniteTroops()) return true;
     return (

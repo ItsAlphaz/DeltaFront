@@ -48,7 +48,8 @@ export type Intent =
   | TogglePauseIntent
   | UpdateGameConfigIntent
   | ToggleGameStartTimer
-  | AdminCommandIntent;
+  | AdminCommandIntent
+  | FoundCapitalIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -64,6 +65,7 @@ export type EmojiIntent = z.infer<typeof EmojiIntentSchema>;
 export type DonateGoldIntent = z.infer<typeof DonateGoldIntentSchema>;
 export type DonateTroopsIntent = z.infer<typeof DonateTroopIntentSchema>;
 export type EmbargoIntent = z.infer<typeof EmbargoIntentSchema>;
+export type FoundCapitalIntent = z.infer<typeof FoundCapitalIntentSchema>;
 export type BuildUnitIntent = z.infer<typeof BuildUnitIntentSchema>;
 export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
@@ -218,6 +220,19 @@ export const OvertimeConfigSchema = z.object({
   startMinutes: zb.uint({ min: 1, max: 120 }).optional(),
 });
 
+// Capital System. Every human and nation gets a capital when the spawn phase
+// ends; when an enemy captures it the owner enters CRISIS (a timed national
+// penalty), the captor is paid once, and a human owner may organise an
+// insurgency (docs/Insurgency.md). Off unless enabled here, so public games and
+// every older record play exactly as before. Only `enabled` and the crisis
+// length (3 or 5 minutes; anything else reads as 3) are wire-configurable: the
+// rewards, penalties and every insurgency number are developer tuning in
+// Config.ts (CAPITAL_SPEC, INSURGENCY_SPEC).
+export const CapitalSystemConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  crisisMinutes: zb.uint({ min: 3, max: 5 }).optional(),
+});
+
 // A lobby pool: several lobbies that arriving players are spread across, so
 // one advertised entry point can absorb more players than a single lobby
 // holds. Assignment is a hash of the joiner's identity (server/PoolRouting.ts),
@@ -327,6 +342,8 @@ export const GameConfigSchema = z.object({
   // Stripped from gameStartInfo and from the advertised lobby config: sibling
   // ids are private lobby ids, which are join secrets.
   pool: PoolConfigSchema.optional(),
+  // Appended last: zbin lays an object out in declaration order.
+  capitalSystem: CapitalSystemConfigSchema.optional(),
 });
 
 // What a host sends in update_game_config. maxPlayers is the private-lobby
@@ -564,6 +581,13 @@ export const AdminCommandIntentSchema = z.object({
   amount: zb.float({ min: 0, max: ADMIN_COMMAND_MAX_AMOUNT }).optional(),
 });
 
+// Founds a replacement capital (docs/Capital.md). The engine checks everything:
+// the match setting, that the sender has no capital, owns the tile, can pay.
+export const FoundCapitalIntentSchema = z.object({
+  type: z.literal("found_capital"),
+  tile: zb.uint(),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -592,6 +616,7 @@ export const IntentSchema = z.discriminatedUnion("type", [
   ToggleGameStartTimerIntentSchema,
   // Appended: a union variant's position is its wire tag.
   AdminCommandIntentSchema,
+  FoundCapitalIntentSchema,
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

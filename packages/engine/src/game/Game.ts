@@ -47,6 +47,7 @@ import type { EngineConfig } from "../configuration/EngineConfig";
 import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
 import type { ExecRecord, SnapshotWriter } from "../snapshot/SnapshotContext";
+import type { CapitalSystem } from "./CapitalSystem";
 import type { MatchEvents } from "./MatchEvents";
 import { RailNetwork } from "./RailNetwork";
 import { Stats } from "./Stats";
@@ -663,6 +664,8 @@ export interface Game extends GameLike {
   stats(): Stats;
   /** Derives the match feed events (elimination, alliances, largest nation...). */
   matchEvents(): MatchEvents;
+  /** The Capital System (capitals, CRISIS), or null when the match setting is off. */
+  capitals(): CapitalSystem | null;
 
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;

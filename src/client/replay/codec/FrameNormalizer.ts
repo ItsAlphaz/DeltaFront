@@ -86,6 +86,9 @@ export const UPDATE_TYPE_ROUTING: Record<
   // Collected into ReplayEvents (the whole list is needed to rebuild the log
   // when the viewer seeks), see EventCollector.
   MatchEvent: "events",
+  // Stored with the other misc updates; the viewer does not replay the CRISIS
+  // presentation, but the data is kept so it can.
+  CapitalEvent: "misc",
 };
 
 /**

@@ -81,6 +81,8 @@ describe("nobody but the engine makes match events", () => {
     expect(callers).toEqual([
       "packages/engine/src/execution/AdminCommandExecution.ts",
       "packages/engine/src/execution/PlayerExecution.ts",
+      // Reports a capital's capture, once, from the code that detects it.
+      "packages/engine/src/game/CapitalSystem.ts",
       "packages/engine/src/game/Game.ts",
       "packages/engine/src/game/GameImpl.ts",
     ]);
@@ -91,7 +93,7 @@ describe("nobody but the engine makes match events", () => {
     ]) {
       const code = fs.readFileSync(f, "utf8");
       expect(code, rel(f)).not.toMatch(
-        /\.matchEvents\(\)\.(claimKill|playerDied|allianceFormed|allianceBroken|adminAction|gameEnding|gameStarted)/,
+        /\.matchEvents\(\)\.(claimKill|playerDied|allianceFormed|allianceBroken|adminAction|gameEnding|gameStarted|capitalCaptured)/,
       );
     }
   });

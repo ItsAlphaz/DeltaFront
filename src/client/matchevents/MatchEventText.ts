@@ -85,6 +85,7 @@ export type MatchEventIcon =
   | "alliance_broken"
   | "territory"
   | "flag"
+  | "capital"
   | "admin";
 
 export interface DescribedEvent {
@@ -220,6 +221,13 @@ export function describeEvent(
         params: { percent: e.meta.percent ?? 0 },
         slots: { target },
         icon: "territory",
+      };
+    case "capital_captured":
+      return {
+        ...base,
+        key: "match_events.capital_captured",
+        params: {},
+        icon: "capital",
       };
     case "admin_action": {
       const command = e.meta.command;

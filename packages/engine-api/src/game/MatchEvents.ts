@@ -25,6 +25,7 @@ export const MATCH_EVENT_TYPES = [
   "alliance_broken",
   "major_territory_loss",
   "admin_action",
+  "capital_captured",
 ] as const;
 export type MatchEventType = (typeof MATCH_EVENT_TYPES)[number];
 
@@ -47,6 +48,7 @@ export const TERRITORY_LOSS_MILESTONES = [25, 50, 75] as const;
 export function matchEventCategory(type: MatchEventType): MatchEventCategory {
   switch (type) {
     case "player_eliminated":
+    case "capital_captured":
       return "combat";
     case "alliance_formed":
     case "alliance_broken":
@@ -77,6 +79,8 @@ export interface MatchEventMeta {
   team?: string;
   /** admin_action: which staff command ran. */
   command?: AdminCommand;
+  /** capital_captured: the capital was a replacement, not the founding one. */
+  replacement?: boolean;
 }
 
 export interface MatchEvent {

@@ -43,6 +43,9 @@ function glyph(icon: MatchEventIcon) {
         <path d="M15 16h6v-6"></path>`;
     case "flag":
       return svg`<path d="M5.5 21V4M5.5 4.5h12.5l-3 4.5 3 4.5H5.5"></path>`;
+    case "capital": // a seat of government under a pennant
+      return svg`<path d="M4 21h16M6 21V10l6-5 6 5v11"></path>
+        <path d="M10 21v-5.5h4V21M12 5V2.5"></path>`;
     case "admin": // a bolt
       return svg`<path d="M13 2.5 5.5 13.5h5.5l-1 8 8-12h-5.5Z"></path>`;
   }

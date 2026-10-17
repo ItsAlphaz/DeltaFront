@@ -21,6 +21,7 @@ import { DonateTroopsExecution } from "./DonateTroopExecution";
 import { EmbargoAllExecution } from "./EmbargoAllExecution";
 import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
+import { FoundCapitalExecution } from "./FoundCapitalExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
 import { NationExecution } from "./NationExecution";
@@ -152,6 +153,8 @@ export class Executor {
           intent.target,
           intent.amount,
         );
+      case "found_capital":
+        return new FoundCapitalExecution(player, intent.tile);
       default:
         throw new Error(`intent type ${intent} not found`);
     }

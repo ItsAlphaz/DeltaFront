@@ -9,6 +9,12 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
 import { GameConfig } from "@openfront/engine-api/Schemas";
+import {
+  CAPITAL_SPEC,
+  CapitalSpec,
+  crisisTicks,
+  normalizeCrisisMinutes,
+} from "../capital/CapitalRules";
 import { pow } from "../DetMath";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
 import { assertNever } from "../Util";
@@ -288,6 +294,26 @@ export class Config {
       // The drop rate is internal (not wire-configurable): always the default.
       dropPercentPerMinute: d.dropPercentPerMinute,
     };
+  }
+  // Capital System: switch and crisis length, resolved against the defaults.
+  // Absent from a config (public lobbies, older records) means off.
+  capitalSystemConfig(): { enabled: boolean; crisisMinutes: 3 | 5 } {
+    const c = this._gameConfig.capitalSystem;
+    return {
+      enabled: c?.enabled ?? false,
+      crisisMinutes: normalizeCrisisMinutes(c?.crisisMinutes),
+    };
+  }
+  capitalSystemEnabled(): boolean {
+    return this._gameConfig.capitalSystem?.enabled ?? false;
+  }
+  /** How long CRISIS lasts after a capital falls, in ticks. */
+  crisisDurationTicks(): number {
+    return crisisTicks(this._gameConfig.capitalSystem?.crisisMinutes);
+  }
+  /** The Capital System's developer-tuned numbers (CapitalRules.ts). */
+  capitalSpec(): CapitalSpec {
+    return CAPITAL_SPEC;
   }
   spawnImmunityDuration(): Tick {
     return (

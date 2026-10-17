@@ -63,6 +63,10 @@ export function diffPlayerUpdate(
     prev.betrayals === next.betrayals &&
     prev.lastDeleteUnitTick === next.lastDeleteUnitTick &&
     prev.isLobbyCreator === next.isLobbyCreator &&
+    prev.capitalTile === next.capitalTile &&
+    prev.capitalIsReplacement === next.capitalIsReplacement &&
+    prev.crisisStartTick === next.crisisStartTick &&
+    prev.crisisEndTick === next.crisisEndTick &&
     numberArrayEqual(prev.allies, next.allies) &&
     numberArrayEqual(prev.targets, next.targets) &&
     stringArrayEqual(
@@ -130,6 +134,16 @@ export function diffPlayerUpdate(
     prev.lastDeleteUnitTick === next.lastDeleteUnitTick,
   );
   setIfDifferent("isLobbyCreator", prev.isLobbyCreator === next.isLobbyCreator);
+  setIfDifferent("capitalTile", prev.capitalTile === next.capitalTile);
+  setIfDifferent(
+    "capitalIsReplacement",
+    prev.capitalIsReplacement === next.capitalIsReplacement,
+  );
+  setIfDifferent(
+    "crisisStartTick",
+    prev.crisisStartTick === next.crisisStartTick,
+  );
+  setIfDifferent("crisisEndTick", prev.crisisEndTick === next.crisisEndTick);
   setIfDifferent("allies", numberArrayEqual(prev.allies, next.allies));
   setIfDifferent("targets", numberArrayEqual(prev.targets, next.targets));
   setIfDifferent(
