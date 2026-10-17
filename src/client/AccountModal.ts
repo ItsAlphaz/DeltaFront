@@ -42,6 +42,7 @@ import "./components/ProfileCard";
 import { claimOpening } from "./components/ProfileHeaderBase";
 import "./components/ProgressionPanel";
 import type { ProgressionPanel } from "./components/ProgressionPanel";
+import "./components/ProgressionTab";
 import "./components/RewardsPanel";
 import type { RewardsChangedDetail } from "./components/RewardsPanel";
 import { googleLinkButton } from "./components/ui/GoogleLinkButton";
@@ -210,6 +211,15 @@ export class AccountModal extends BaseModal {
         { key: "account", label: translateText("account_modal.tab_account") },
         { key: "stats", label: translateText("account_modal.tab_stats") },
         { key: "games", label: translateText("account_modal.tab_games") },
+        // The reward track, prestige history and win milestones (own account).
+        ...(ACCOUNT_FEATURES.progression
+          ? [
+              {
+                key: "progression",
+                label: translateText("account_modal.tab_progression"),
+              },
+            ]
+          : []),
         // Friends need the friends backend (a later milestone).
         ...(ACCOUNT_FEATURES.friends
           ? [
@@ -249,7 +259,12 @@ export class AccountModal extends BaseModal {
 
   private renderTab(tab: string): TemplateResult {
     // Leaving the Account tab ends its entrance: coming back never replays it.
-    if (tab === "stats" || tab === "games" || tab === "friends") {
+    if (
+      tab === "stats" ||
+      tab === "games" ||
+      tab === "progression" ||
+      tab === "friends"
+    ) {
       this.introPlaying = false;
     }
     switch (tab) {
@@ -257,6 +272,8 @@ export class AccountModal extends BaseModal {
         return this.renderStatsTab();
       case "games":
         return this.renderGamesTab();
+      case "progression":
+        return this.renderProgressionTab();
       case "friends":
         return this.renderFriendsTab();
       default:
@@ -267,6 +284,15 @@ export class AccountModal extends BaseModal {
   // The email magic-link form (its own component: src/client/components/EmailSignIn.ts).
   private renderEmailField(): TemplateResult {
     return html`<email-sign-in></email-sign-in>`;
+  }
+
+  // The reward track, prestige history and win milestones. A claim there pays
+  // Credits, so the balance in the page's copy of /users/@me is read again.
+  private renderProgressionTab(): TemplateResult {
+    return html`<progression-tab
+      .openKey=${`account-progression-${this.openCount}`}
+      @progression-claimed=${() => void this.refreshUserMe()}
+    ></progression-tab>`;
   }
 
   private renderFriendsTab(): TemplateResult {

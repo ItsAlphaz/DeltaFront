@@ -10,6 +10,8 @@ import {
   ProgressionConfigSchema,
   type ProgressionMe,
   ProgressionMeSchema,
+  type ProgressionTrack,
+  ProgressionTrackSchema,
   type PublicProgress,
   PublicProgressSchema,
   type XpLeaderboardResponse,
@@ -344,6 +346,36 @@ export async function fetchProgressionMe(): Promise<ProgressionMe | false> {
     return parsed.data;
   } catch (err) {
     console.warn("fetchProgressionMe: request failed", err);
+    return false;
+  }
+}
+
+// GET /progression/track — the Progression tab: this run's level rewards with
+// their claim state, the prestiges taken and the lifetime wins. False when
+// progression is off, signed out or the request fails (the tab says so).
+export async function fetchProgressionTrack(): Promise<
+  ProgressionTrack | false
+> {
+  if (!ACCOUNT_FEATURES.progression) return false;
+  try {
+    const authorization = await getAuthHeader();
+    if (authorization === "") return false;
+    const res = await fetch(`${getApiBase()}/progression/track`, {
+      headers: { Accept: "application/json", Authorization: authorization },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return false;
+    const parsed = ProgressionTrackSchema.safeParse(await res.json());
+    if (!parsed.success) {
+      console.warn(
+        "fetchProgressionTrack: Zod validation failed",
+        parsed.error,
+      );
+      return false;
+    }
+    return parsed.data;
+  } catch (err) {
+    console.warn("fetchProgressionTrack: request failed", err);
     return false;
   }
 }

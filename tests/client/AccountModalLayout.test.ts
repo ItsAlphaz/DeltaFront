@@ -69,6 +69,7 @@ vi.mock("../../src/client/Cosmetics", () => ({
 
 vi.mock("../../src/client/ProgressionApi", () => ({
   fetchProgressionMe: vi.fn(async () => false),
+  fetchProgressionTrack: vi.fn(async () => false),
   putDisplayTitle: vi.fn(async () => true),
 }));
 
@@ -79,6 +80,7 @@ vi.stubGlobal("localStorage", {
   clear: vi.fn(),
 });
 
+import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { AccountModal } from "../../src/client/AccountModal";
 import { invalidateUserMe } from "../../src/client/Api";
 import { linkGoogle, linkSteam } from "../../src/client/Auth";
@@ -566,10 +568,10 @@ describe("AccountModal — the redesigned Account page", () => {
         .modalConfig()
         .tabs?.map((t) => t.key);
 
-    it("offers all three, and the Account tab is the page", async () => {
+    it("offers them, and the Account tab is the page", async () => {
       await show(userMe({ google: { email: "me@example.com" } }));
       expect(tabs()).toEqual(
-        expect.arrayContaining(["account", "stats", "games"]),
+        expect.arrayContaining(["account", "stats", "games", "progression"]),
       );
       expect(q("[data-account-header]")).not.toBeNull();
     });
@@ -585,6 +587,43 @@ describe("AccountModal — the redesigned Account page", () => {
       await modal.updateComplete;
       expect(q("[data-account-header]")).not.toBeNull();
       expect(q("profile-card")).toBeNull();
+    });
+
+    it("puts Progression between Games and Friends", async () => {
+      await show(userMe({ google: { email: "me@example.com" } }));
+      const order = tabs()!;
+      expect(order.indexOf("progression")).toBe(order.indexOf("games") + 1);
+      if (order.includes("friends")) {
+        expect(order.indexOf("friends")).toBeGreaterThan(
+          order.indexOf("progression"),
+        );
+      }
+    });
+
+    it("moves to Progression (the reward track) and back", async () => {
+      await show(userMe({ google: { email: "me@example.com" } }));
+      modal.setActiveTab("progression");
+      await modal.updateComplete;
+      expect(q("progression-tab")).not.toBeNull();
+      expect(q("[data-account-header]")).toBeNull();
+      expect(q("profile-card")).toBeNull();
+      modal.setActiveTab("account");
+      await modal.updateComplete;
+      expect(q("[data-account-header]")).not.toBeNull();
+      expect(q("progression-tab")).toBeNull();
+    });
+
+    it("is not offered while progression is off", async () => {
+      ACCOUNT_FEATURES.progression = false;
+      try {
+        await show(userMe({ google: { email: "me@example.com" } }));
+        expect(tabs()).not.toContain("progression");
+        expect(tabs()).toEqual(
+          expect.arrayContaining(["account", "stats", "games"]),
+        );
+      } finally {
+        ACCOUNT_FEATURES.progression = true;
+      }
     });
 
     it("moves to Games (the history list) and back", async () => {

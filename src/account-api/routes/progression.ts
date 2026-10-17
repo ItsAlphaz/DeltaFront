@@ -5,6 +5,7 @@ import type {
   GameXpResponse,
   ProgressionConfig,
   ProgressionMe,
+  ProgressionTrack,
   PublicProgress,
   XpLeaderboardResponse,
 } from "@openfront/shared/ApiSchemas";
@@ -40,10 +41,13 @@ import {
   allSeasons,
   challengeStatuses,
   chosenTitle,
+  countedWinsOf,
   currentSeason,
   earnedTitlesOf,
+  levelTrackFor,
   lifetimeBoard,
   nextMilestone,
+  prestigeHistoryOf,
   progressRowOf,
   progressWire,
   recentXp,
@@ -246,6 +250,27 @@ export function progressionRouter(deps: AppDeps): Router {
       selectedTitle: title,
       history,
       levelHidden,
+    };
+    res.json(body);
+  });
+
+  // The Progression tab: the level rewards of this run with their claim state,
+  // the prestiges taken and the lifetime wins. Own account only: claim state and
+  // reward ids are private, so there is no public twin of this route.
+  router.get("/progression/track", async (req, res) => {
+    const user = await account(req, res);
+    if (user === null) return;
+    const row = await progressRowOf(pool, user.id);
+    const [levels, prestigeHistory, wins] = await Promise.all([
+      levelTrackFor(pool, user.id, row),
+      prestigeHistoryOf(pool, user.id),
+      countedWinsOf(pool, user.id),
+    ]);
+    const body: ProgressionTrack = {
+      progress: progressWire(row, null),
+      levels,
+      prestigeHistory,
+      wins,
     };
     res.json(body);
   });

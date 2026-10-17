@@ -503,6 +503,32 @@ The header and the panel never fetch for each other: the panel announces what it
 (`progression-loaded`) and the modal hands the titles and the milestone to the header. Without
 the `progression` feature only the identity band and the Linked accounts card show.
 
+### The Progression tab
+
+A fourth tab, between Games and Friends, on your own account (`components/ProgressionTab.ts`, drawn
+from `GET /progression/track`, own account only; it needs the `progression` feature, so it is
+absent when that is off). Three cards, in this order:
+
+1. **Reward track**: a strip across levels 1 to 100 with a marker at your level, a diamond at each
+   level that pays, `n / next XP`, and under it a horizontal row of numbered level nodes with arrows
+   (a phone swipes; it opens centred on your level). Your level is the red node. The six milestone
+   levels (5, 10, 25, 50, 75, 100) carry their reward card (Credits, the cosmetic, the title) exactly
+   as `LEVEL_MILESTONES` lists it; **every other level is a plain node with no reward**. A reward is
+   _claimed_, _ready_ (with a Claim button) or _locked_, read from this run's `progression_rewards`
+   rows (`level:p<prestige>:<level>`), so after a prestige the track starts locked again. The button
+   is the same `POST /rewards/:id/claim` the rewards panel and the season track use: the server pays
+   once, a repeat is a 404 the tab treats as "already claimed", and the Credits balance is read again.
+   A level reached with no reward row (for example XP set by staff) shows _Reached_, never a button.
+2. **Prestige history**: one row per `prestige_events` row (rank, date, the run's XP, and the 1,000
+   Credits and whether they were claimed), newest first; "Hasn't prestiged yet" before the first.
+3. **Milestones**: lifetime wins at 10, 25, 50, 75 and 100, achieved or not yet with `n / target`. The
+   count is the one "Conqueror" uses (counted public wins), and the milestones pay nothing; 100 is the
+   Conqueror title.
+
+There is no read-only version for another player: claim state and reward ids are private, prestige
+history is not public, and a player can hide their level. Their public level and title stay on their
+profile card. No per-level Credits exist: a level pays only if it is in `LEVEL_MILESTONES`.
+
 ### One profile system
 
 Another player's Stats page (`components/ProfileCard.ts`, the `full` variant, also heading your
@@ -528,21 +554,22 @@ hidden page and inside another site's frame (`flourishAllowed`).
 
 ## API
 
-| Endpoint                                                 | Purpose                                                     |
-| -------------------------------------------------------- | ----------------------------------------------------------- |
-| `GET /users/@me`                                         | adds `progress`, `levelHidden`, unclaimed `rewards`         |
-| `GET /users/@me/xp/:gameId`                              | the XP of the caller's game, or a death's award (404 else)  |
-| `GET /users/@me/xp/live/:gameId`                         | the XP a running game stands at (404 if none)               |
-| `POST /game/:id/progress`                                | a game server's report of a running game; pays a death      |
-| `POST /archive_singleplayer_game`                        | a browser's solo match: queued, replayed, then paid         |
-| `GET /users/@me/solo/:gameId`                            | where a solo match stands: queued, verifying, paid, refused |
-| `POST /users/@me/prestige`                               | prestige (needs `Idempotency-Key`)                          |
-| `GET /progression/me`                                    | account page: challenges, season, track, titles, recent XP  |
-| `PUT /users/@me/title`                                   | choose a title                                              |
-| `GET /public/player/:publicId/progress`                  | another player's level (404 if hidden or a guest)           |
-| `GET /public/progression/config`                         | curve, ranks, milestones, running season                    |
-| `GET /leaderboard/xp`, `GET /leaderboard/season?season=` | XP boards                                                   |
-| `POST /rewards/:id/claim`, `POST /rewards/claim-all`     | Credits rewards                                             |
+| Endpoint                                                 | Purpose                                                                |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /users/@me`                                         | adds `progress`, `levelHidden`, unclaimed `rewards`                    |
+| `GET /users/@me/xp/:gameId`                              | the XP of the caller's game, or a death's award (404 else)             |
+| `GET /users/@me/xp/live/:gameId`                         | the XP a running game stands at (404 if none)                          |
+| `POST /game/:id/progress`                                | a game server's report of a running game; pays a death                 |
+| `POST /archive_singleplayer_game`                        | a browser's solo match: queued, replayed, then paid                    |
+| `GET /users/@me/solo/:gameId`                            | where a solo match stands: queued, verifying, paid, refused            |
+| `POST /users/@me/prestige`                               | prestige (needs `Idempotency-Key`)                                     |
+| `GET /progression/me`                                    | account page: challenges, season, track, titles, recent XP             |
+| `GET /progression/track`                                 | Progression tab: level rewards and claim state, prestige history, wins |
+| `PUT /users/@me/title`                                   | choose a title                                                         |
+| `GET /public/player/:publicId/progress`                  | another player's level (404 if hidden or a guest)                      |
+| `GET /public/progression/config`                         | curve, ranks, milestones, running season                               |
+| `GET /leaderboard/xp`, `GET /leaderboard/season?season=` | XP boards                                                              |
+| `POST /rewards/:id/claim`, `POST /rewards/claim-all`     | Credits rewards                                                        |
 
 All answer 404 while the feature is off. Admin endpoints and permissions are in
 [StaffAdmin.md](StaffAdmin.md).

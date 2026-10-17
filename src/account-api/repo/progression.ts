@@ -69,6 +69,83 @@ export async function progressRowOf(
   };
 }
 
+/** Counted public wins: what "Conqueror" and the win milestones read. */
+export async function countedWinsOf(db: Db, userId: string): Promise<number> {
+  const { rows } = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n
+       FROM game_players p JOIN games g ON g.id = p.game_id
+      WHERE p.user_id = $1 AND p.result = 'victory'
+        AND g.counts_for_stats AND g.type = 'Public'`,
+    [userId],
+  );
+  return rows[0].n;
+}
+
+/**
+ * The level rewards of the current prestige run, with their claim state: the
+ * milestone levels only, since they are the only levels that pay. The same
+ * shape as `seasonTrackFor`.
+ */
+export async function levelTrackFor(db: Db, userId: string, row: ProgressRow) {
+  const { rows } = await db.query<{
+    key: string;
+    id: string;
+    claimed: boolean;
+  }>(
+    `SELECT key, id::text AS id, (claimed_at IS NOT NULL) AS claimed
+       FROM progression_rewards
+      WHERE user_id = $1 AND kind = 'level_milestone' AND key LIKE $2`,
+    [userId, `level:p${row.prestige}:%`],
+  );
+  const byKey = new Map(rows.map((r) => [r.key, r]));
+  const level = progressState(row).level;
+  return LEVEL_MILESTONES.map((m) => {
+    const reward = byKey.get(`level:p${row.prestige}:${m.level}`);
+    return {
+      level: m.level,
+      credits: m.credits,
+      title: m.title,
+      flare: m.flare,
+      unlocked: level >= m.level,
+      claimed: reward?.claimed ?? false,
+      rewardId: reward !== undefined && !reward.claimed ? reward.id : null,
+    };
+  });
+}
+
+/** Every prestige the account took, newest first, with what it paid. */
+export async function prestigeHistoryOf(db: Db, userId: string) {
+  const { rows } = await db.query<{
+    from: number;
+    to: number;
+    run: string;
+    lifetime: string;
+    at: Date;
+    credits: string | null;
+    claimed: boolean | null;
+  }>(
+    `SELECT e.from_prestige AS "from", e.to_prestige AS "to",
+            e.run_xp_before::text AS run, e.lifetime_xp::text AS lifetime,
+            e.created_at AS at, r.credits::text AS credits,
+            (r.claimed_at IS NOT NULL) AS claimed
+       FROM prestige_events e
+       LEFT JOIN progression_rewards r
+              ON r.user_id = e.user_id AND r.key = 'prestige:' || e.to_prestige
+      WHERE e.user_id = $1
+      ORDER BY e.to_prestige DESC`,
+    [userId],
+  );
+  return rows.map((r) => ({
+    prestige: r.to,
+    fromPrestige: r.from,
+    runXpBefore: Number(r.run),
+    lifetimeXp: Number(r.lifetime),
+    at: r.at.toISOString(),
+    credits: r.credits === null ? null : Number(r.credits),
+    claimed: r.claimed,
+  }));
+}
+
 /** The titles the account holds right now. */
 export async function earnedTitlesOf(
   db: Db,
@@ -77,13 +154,7 @@ export async function earnedTitlesOf(
 ): Promise<string[]> {
   const state = progressState(row);
   const [wins, seasons] = await Promise.all([
-    db.query<{ n: number }>(
-      `SELECT count(*)::int AS n
-         FROM game_players p JOIN games g ON g.id = p.game_id
-        WHERE p.user_id = $1 AND p.result = 'victory'
-          AND g.counts_for_stats AND g.type = 'Public'`,
-      [userId],
-    ),
+    countedWinsOf(db, userId),
     db.query<{ number: number; xp: string }>(
       `SELECT s.number, p.xp::text AS xp
          FROM user_season_progress p JOIN seasons s ON s.id = p.season_id
@@ -94,7 +165,7 @@ export async function earnedTitlesOf(
   return earnedTitles({
     prestige: row.prestige,
     level: state.level,
-    countedWins: wins.rows[0].n,
+    countedWins: wins,
     seasons: seasons.rows.map((r) => ({ number: r.number, xp: Number(r.xp) })),
   });
 }

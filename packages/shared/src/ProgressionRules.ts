@@ -272,6 +272,19 @@ export const SIMPLE_TITLES = [
 /** Counted public wins that earn "Conqueror". */
 export const CONQUEROR_WINS = 100;
 
+/**
+ * Lifetime-win milestones the Progression tab shows: counted public wins (the
+ * same count "Conqueror" uses). Display only, they pay nothing; the last one is
+ * the Conqueror title.
+ */
+export const WIN_MILESTONES: readonly number[] = [
+  10,
+  25,
+  50,
+  75,
+  CONQUEROR_WINS,
+];
+
 const TITLE_PATTERN =
   /^(?:veteran|elite|supreme_commander|conqueror|legend|prestige:(?:[1-9]|10)|season_(?:veteran|elite):[1-9]\d{0,5})$/;
 

@@ -558,6 +558,45 @@ export const ProgressionMeSchema = z.object({
 });
 export type ProgressionMe = z.infer<typeof ProgressionMeSchema>;
 
+// GET /progression/track — the Progression tab: the level rewards of the
+// current prestige run with their claim state, every prestige taken, and the
+// lifetime wins behind the win milestones. Own account only.
+export const LevelTrackEntrySchema = z.object({
+  level: z.number(),
+  credits: z.number(),
+  title: z.string().nullable(),
+  flare: z.string().nullable(),
+  // The level has been reached in this run.
+  unlocked: z.boolean(),
+  claimed: z.boolean(),
+  // The reward row to claim (POST /rewards/:id/claim), once unlocked and unclaimed.
+  rewardId: z.string().nullable(),
+});
+export type LevelTrackEntry = z.infer<typeof LevelTrackEntrySchema>;
+
+export const PrestigeHistoryEntrySchema = z.object({
+  // The rank entered (1..10) and the one left.
+  prestige: z.number(),
+  fromPrestige: z.number(),
+  // XP of the run that was reset, and lifetime XP at that moment.
+  runXpBefore: z.number(),
+  lifetimeXp: z.number(),
+  at: z.string(),
+  // The Credits the prestige paid, and whether they were claimed (null: no reward row).
+  credits: z.number().nullable(),
+  claimed: z.boolean().nullable(),
+});
+export type PrestigeHistoryEntry = z.infer<typeof PrestigeHistoryEntrySchema>;
+
+export const ProgressionTrackSchema = z.object({
+  // Where the account stands now (prestige, level, XP into the level).
+  progress: ProgressSchema,
+  levels: LevelTrackEntrySchema.array(),
+  prestigeHistory: PrestigeHistoryEntrySchema.array(),
+  wins: z.number(),
+});
+export type ProgressionTrack = z.infer<typeof ProgressionTrackSchema>;
+
 export const PutTitleResponseSchema = z.object({
   title: z.string().nullable(),
 });

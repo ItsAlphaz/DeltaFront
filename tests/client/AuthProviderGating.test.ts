@@ -235,7 +235,7 @@ describe("the account modal's friends tab follows the friends feature", () => {
 
   it("has no friends tab while the feature is off", () => {
     ACCOUNT_FEATURES.friends = false;
-    expect(tabs()).toEqual(["account", "stats", "games"]);
+    expect(tabs()).toEqual(["account", "stats", "games", "progression"]);
   });
 
   it("has it when the feature is on", () => {
