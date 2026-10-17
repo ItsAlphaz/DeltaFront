@@ -221,6 +221,15 @@ export interface AirstrikeImpactUpdate {
   radius: number;
   /** smallIDs of the players that lost troops or structure levels. */
   affected: number[];
+  /**
+   * Troops this application killed (garrisons and attacks), exactly as the
+   * simulation removed them. Presentation only (casualty numbers).
+   */
+  killed: number;
+  /** Highest level of a victim city whose garrison took the city bonus (0: none). */
+  cityLevel: number;
+  /** Structure levels this application removed. */
+  levels: number;
 }
 
 export interface UnitUpdate {

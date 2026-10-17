@@ -1064,7 +1064,9 @@ export class GPURenderer {
   }
 
   applyAirstrikeImpacts(events: AirstrikeImpactFx[]): void {
-    if (events.length > 0) this.fxPass.applyAirstrikeImpacts(events);
+    if (events.length === 0) return;
+    this.fxPass.applyAirstrikeImpacts(events);
+    this.worldTextPass.applyAirstrikeCasualties(events);
   }
 
   applyBonusEvents(events: BonusEvent[]): void {

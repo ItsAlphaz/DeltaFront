@@ -184,7 +184,7 @@ describe("SAM vs airstrike aircraft", () => {
     const before = attacker.gold();
     startStrike(game, attacker, UnitType.RocketStrike, 100, 100);
     const afterLaunch = attacker.gold();
-    expect(before - afterLaunch).toBe(350_000n);
+    expect(before - afterLaunch).toBe(225_000n);
     const launchTick = airport.missileTimerQueue()[0];
     run(game, 70);
     expect(planeOf(attacker, UnitType.RocketStrike)).toBeUndefined();

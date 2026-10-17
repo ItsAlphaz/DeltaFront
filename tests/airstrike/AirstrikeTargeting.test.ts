@@ -188,8 +188,8 @@ describe("airstrike targeting", () => {
     buildAirport(game, attacker, 20, 20);
     const before = attacker.gold();
     orderStrike(game, attacker, UnitType.RocketStrike, 100, 20);
-    expect(before - attacker.gold()).toBeGreaterThanOrEqual(350_000n);
-    expect(before - attacker.gold()).toBeLessThan(400_000n);
+    expect(before - attacker.gold()).toBeGreaterThanOrEqual(225_000n);
+    expect(before - attacker.gold()).toBeLessThan(275_000n);
   });
 
   test("a strike you cannot afford is not launched", async () => {

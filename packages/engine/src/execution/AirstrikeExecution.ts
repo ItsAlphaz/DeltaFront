@@ -270,7 +270,7 @@ export class AirstrikeExecution implements Execution {
           this.releaseTile,
           this.dst,
           this.spec().radius,
-          [],
+          { affected: [], killed: 0, cityLevel: 0, levels: 0 },
         );
         this.landPlane();
         this.impactTick = this.mg.ticks() + this.spec().rocketFlightTicks;
@@ -298,7 +298,7 @@ export class AirstrikeExecution implements Execution {
   /** A bomb blast or rocket impact centred on the target. */
   private impact(phase: AirstrikeImpactPhase, from: TileRef): void {
     const spec = this.spec();
-    const affected = applyTroopDamage(
+    const troops = applyTroopDamage(
       this.mg,
       this.player,
       discTiles(this.mg, this.dst, spec.radius),
@@ -312,21 +312,26 @@ export class AirstrikeExecution implements Execution {
       this.totals,
     );
     this.destroyed += structures.destroyed;
-    this.emitImpact(phase, from, this.dst, spec.radius, [
-      ...new Set([...affected, ...structures.affected]),
-    ]);
+    this.emitImpact(phase, from, this.dst, spec.radius, {
+      affected: [...new Set([...troops.affected, ...structures.affected])],
+      killed: troops.killed,
+      cityLevel: troops.cityLevel,
+      levels: structures.levels,
+    });
   }
 
   private strafeBurst(burst: number): void {
     const corridor = this.corridor!;
     const spec = this.spec();
-    const affected = applyTroopDamage(
+    const troops = applyTroopDamage(
       this.mg,
       this.player,
       corridorBurstTiles(this.mg, corridor, burst),
       spec,
       this.totals,
     );
+    const affected = [...troops.affected];
+    let levels = 0;
     // At most one structure over the whole run.
     if (!this.hitStructure()) {
       const target = strafeStructureCandidate(
@@ -344,6 +349,7 @@ export class AirstrikeExecution implements Execution {
           this.totals,
         );
         this.destroyed += dmg.destroyed;
+        levels = dmg.levels;
         affected.push(...dmg.affected);
       }
     }
@@ -363,7 +369,12 @@ export class AirstrikeExecution implements Execution {
       segTile(corridorEdge(corridor, burst)),
       segTile(corridorEdge(corridor, burst + 1)),
       spec.radius,
-      [...new Set(affected)],
+      {
+        affected: [...new Set(affected)],
+        killed: troops.killed,
+        cityLevel: troops.cityLevel,
+        levels,
+      },
     );
   }
 
@@ -377,7 +388,12 @@ export class AirstrikeExecution implements Execution {
     from: TileRef,
     to: TileRef,
     radius: number,
-    affected: number[],
+    result: {
+      affected: number[];
+      killed: number;
+      cityLevel: number;
+      levels: number;
+    },
   ): void {
     this.mg.addUpdate({
       type: GameUpdateType.AirstrikeImpact,
@@ -387,7 +403,7 @@ export class AirstrikeExecution implements Execution {
       from,
       to,
       radius,
-      affected,
+      ...result,
     });
   }
 

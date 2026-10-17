@@ -1,6 +1,7 @@
 import { UnitType } from "@openfront/engine-api/game/GameTypes";
 import { EventBus } from "@openfront/shared/EventBus";
 import { Controller } from "../Controller";
+import { AirstrikeAudioController } from "../controllers/AirstrikeAudioController";
 import { AmbienceController } from "../controllers/AmbienceController";
 import { AttackingTroopsController } from "../controllers/AttackingTroopsController";
 import { BuildPreviewController } from "../controllers/BuildPreviewController";
@@ -386,6 +387,7 @@ export function createRenderer(
     new ViewModeController(eventBus, view),
     new AttackingTroopsController(game, eventBus, userSettings, view),
     new SoundEffectController(game, eventBus),
+    new AirstrikeAudioController(game, eventBus, transformHandler),
     new AmbienceController(game, eventBus, transformHandler),
     ...(mapLayerController ? [mapLayerController] : []),
     eventsDisplay,

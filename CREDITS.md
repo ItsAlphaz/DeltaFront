@@ -157,9 +157,11 @@ The Credits coin (`resources/images/CreditsIcon.svg`) is DeltaFront artwork as w
 
 ## Airstrike audio
 
-The airstrike sound effects `airstrike-launch`, `airstrike-flyby`, `airstrike-bomb`,
-`airstrike-strafe` and `aircraft-down` (`resources/sounds/effects/`) are **placeholders**:
-original noise-based audio synthesized for DeltaFront with ffmpeg, free to replace with
-final assets under the same file names. The rocket and SAM cues reuse the existing
-`sam-shoot.mp3` and `sam-hit.mp3` from OpenFront, licensed CC BY-SA 4.0 (see
-`LICENSE-ASSETS`).
+The airstrike sound effects (`resources/sounds/effects/airstrike-*.mp3`: siren, klaxon,
+launch, flyby, bomb-fall, bomb, rocket-launch, rocket-impact, strafe, fire) are **original
+DeltaFront audio**, synthesized from oscillators, seeded noise and filters by
+`scripts/audio/synthesize-airstrike-audio.ts`. No samples or third-party recordings are
+used, so they carry no outside licence; like the rest of `/resources` they are shared under
+CC BY-SA 4.0. Re-run the script to regenerate them byte for byte. `aircraft-down.mp3` is the
+earlier ffmpeg-synthesized placeholder. The SAM cues reuse `sam-shoot.mp3` and `sam-hit.mp3`
+from OpenFront, licensed CC BY-SA 4.0 (see `LICENSE-ASSETS`).

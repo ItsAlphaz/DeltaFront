@@ -5,10 +5,12 @@
  *  - Conquest popups: "+ 500" gold text at conquered player locations (fade only)
  *  - Bonus popups:    "+ 45K" income text at port tiles (rises upward + fades)
  *  - Ghost cost label: persistent build-cost number under the ghost cursor
+ *  - Airstrike casualties: "-4,250 troops" rising over the strike area, and a
+ *    city / structure line under it
  */
 
 import type { Config } from "@openfront/engine-lib/configuration/Config";
-import type { BonusEvent, ConquestFx } from "../../types";
+import type { AirstrikeImpactFx, BonusEvent, ConquestFx } from "../../types";
 import type { RenderSettings } from "../RenderSettings";
 import { renderDpr } from "../utils/Dpr";
 import { createProgram } from "../utils/GlUtils";
@@ -48,6 +50,32 @@ const GHOST_COST_OUTLINE_WIDTH = 1.4;
 const ATTACK_LABEL_SCREEN_SCALE = 17.0;
 const ATTACK_LABEL_OUTLINE_WIDTH = 1.2;
 
+/** Airstrike casualty popups: how long they rise, and how they group. */
+export const CASUALTY_LIFETIME_MS = 2800;
+/** World units per second the number rises (scaled with the text). */
+const CASUALTY_RISE = 3;
+/** World-space size of a 1,000-troop number; it never drops below the screen minimum. */
+const CASUALTY_SCALE = 5;
+/** Smallest on-screen size (CSS px em) so a number stays readable zoomed out. */
+const CASUALTY_MIN_SCREEN_SCALE = 15;
+const CASUALTY_OUTLINE_WIDTH = 1.6;
+/** Tiles above the strike centre the number starts at. */
+const CASUALTY_Y_OFFSET = 2;
+/** The detail line sits this far under the number, in units of its size. */
+const DETAIL_LINE_OFFSET = 1.25;
+/** Hits of one strike (a strafing run's bursts) within this time and range add up. */
+const CASUALTY_MERGE_MS = 1500;
+const CASUALTY_MERGE_TILES = 40;
+/** Casualty popups alive at once; past it the oldest go first. */
+export const MAX_CASUALTY_POPUPS = 24;
+
+/** Size factor of a casualty number: bigger for heavier losses, bounded. */
+export function casualtyScaleFactor(killed: number, cityHit: boolean): number {
+  const k = Math.max(1, killed);
+  const f = Math.min(1.7, Math.max(0.85, 1 + 0.25 * Math.log10(k / 1000)));
+  return cityHit ? Math.min(1.9, f * 1.15) : f;
+}
+
 // ---------------------------------------------------------------------------
 // Active popup tracking
 // ---------------------------------------------------------------------------
@@ -64,6 +92,12 @@ interface ActivePopup {
   colorB: number;
   scale: number;
   outlineWidth: number;
+  /** Never drawn smaller than this on screen (CSS px em); rise and offset scale with it. */
+  minScreenScale?: number;
+  /** Shift down by this many text sizes (a second line). */
+  lineOffset?: number;
+  /** Airstrike casualties: what this popup counts, to merge a strike's hits. */
+  casualty?: { key: string; killed: number; detail: boolean };
 }
 
 /**
@@ -296,6 +330,105 @@ export class WorldTextPass {
     }
   }
 
+  /**
+   * Casualty numbers for airstrike impacts, from the troops the simulation
+   * really killed. A strike's hits close together (a strafing run's bursts)
+   * add up into one number instead of stacking; the text is already translated.
+   */
+  applyAirstrikeCasualties(events: AirstrikeImpactFx[]): void {
+    const now = this.now();
+    for (const evt of events) {
+      const startMs = now - (evt.tickAge ?? 0) * this.config.msPerTick();
+      if (now - startMs >= CASUALTY_LIFETIME_MS) continue;
+      const killed = evt.killed ?? 0;
+      const cityHit = (evt.cityLevel ?? 0) > 0;
+      if (!evt.casualtyText && !evt.detailText) continue;
+      const key = `${evt.attackerID ?? -1}:${evt.strikeType}`;
+      const merged = this.active.find(
+        (p) =>
+          p.casualty?.key === key &&
+          !p.casualty.detail &&
+          now - p.startMs < CASUALTY_MERGE_MS &&
+          Math.abs(p.x - evt.toX) <= CASUALTY_MERGE_TILES &&
+          Math.abs(p.y + CASUALTY_Y_OFFSET - evt.toY) <= CASUALTY_MERGE_TILES,
+      );
+      if (merged !== undefined && evt.casualtyText && killed > 0) {
+        merged.casualty!.killed += killed;
+        merged.text = evt.casualtyText.replace(
+          Math.round(killed).toLocaleString("en-US"),
+          Math.round(merged.casualty!.killed).toLocaleString("en-US"),
+        );
+        merged.startMs = startMs;
+        merged.scale =
+          CASUALTY_SCALE *
+          casualtyScaleFactor(merged.casualty!.killed, cityHit);
+        // Its detail line rises with it.
+        for (const p of this.active) {
+          if (p.casualty?.key === key && p.casualty.detail) p.startMs = startMs;
+        }
+        continue;
+      }
+      const factor = casualtyScaleFactor(killed, cityHit);
+      const y = evt.toY - CASUALTY_Y_OFFSET;
+      if (evt.casualtyText) {
+        this.pushCasualty({
+          x: evt.toX,
+          y,
+          text: evt.casualtyText,
+          startMs,
+          lifetimeMs: CASUALTY_LIFETIME_MS,
+          riseSpeed: CASUALTY_RISE,
+          // City garrisons in a hotter orange, other troops in red.
+          colorR: 1,
+          colorG: cityHit ? 0.55 : 0.28,
+          colorB: cityHit ? 0.15 : 0.25,
+          scale: CASUALTY_SCALE * factor,
+          outlineWidth: CASUALTY_OUTLINE_WIDTH,
+          minScreenScale: CASUALTY_MIN_SCREEN_SCALE * factor,
+          casualty: { key, killed, detail: false },
+        });
+      }
+      const detailShown = this.active.find(
+        (p) =>
+          p.casualty?.key === key &&
+          p.casualty.detail &&
+          p.text === evt.detailText &&
+          now - p.startMs < CASUALTY_MERGE_MS,
+      );
+      if (detailShown !== undefined) {
+        detailShown.startMs = startMs;
+      } else if (evt.detailText) {
+        this.pushCasualty({
+          x: evt.toX,
+          y,
+          text: evt.detailText,
+          startMs,
+          lifetimeMs: CASUALTY_LIFETIME_MS,
+          riseSpeed: CASUALTY_RISE,
+          colorR: 1,
+          colorG: 0.85,
+          colorB: 0.35,
+          scale: CASUALTY_SCALE * 0.7,
+          outlineWidth: CASUALTY_OUTLINE_WIDTH,
+          minScreenScale: CASUALTY_MIN_SCREEN_SCALE * 0.7,
+          lineOffset: evt.casualtyText ? DETAIL_LINE_OFFSET / 0.7 : 0,
+          casualty: { key, killed: 0, detail: true },
+        });
+      }
+    }
+  }
+
+  /** Adds a casualty popup, dropping the oldest past MAX_CASUALTY_POPUPS. */
+  private pushCasualty(popup: ActivePopup): void {
+    const casualties = this.active.filter((p) => p.casualty !== undefined);
+    if (casualties.length >= MAX_CASUALTY_POPUPS) {
+      let oldest = casualties[0];
+      for (const p of casualties) if (p.startMs < oldest.startMs) oldest = p;
+      this.active.splice(this.active.indexOf(oldest), 1);
+    }
+    this.active.push(popup);
+  }
+
   applyBonusEvents(events: BonusEvent[]): void {
     if (this.mapW === 0) return;
     const now = this.now();
@@ -412,11 +545,22 @@ export class WorldTextPass {
       const alpha = Math.max(0, 1 - elapsed / popup.lifetimeMs);
       if (alpha <= 0) continue;
 
+      // A popup with a screen minimum grows when zoomed out, and its rise and
+      // line offset grow with it, so it reads the same at any zoom.
+      const scale =
+        popup.minScreenScale !== undefined
+          ? Math.max(
+              popup.scale,
+              (popup.minScreenScale * dpr) / Math.max(zoom, 0.0001),
+            )
+          : popup.scale;
+      const grow = scale / popup.scale;
       // Rise animation: move upward over time
       const riseY =
-        popup.riseSpeed > 0
-          ? popup.y - (elapsed / 1000) * popup.riseSpeed
-          : popup.y;
+        (popup.riseSpeed > 0
+          ? popup.y - (elapsed / 1000) * popup.riseSpeed * grow
+          : popup.y) +
+        (popup.lineOffset ?? 0) * scale;
 
       layoutString(
         popup.text,
@@ -442,7 +586,7 @@ export class WorldTextPass {
         this.instanceData[off + 5] = popup.colorR;
         this.instanceData[off + 6] = popup.colorG;
         this.instanceData[off + 7] = popup.colorB;
-        this.instanceData[off + 8] = popup.scale;
+        this.instanceData[off + 8] = scale;
         this.instanceData[off + 9] = popup.outlineWidth;
         count++;
       }

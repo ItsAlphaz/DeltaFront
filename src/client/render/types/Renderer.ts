@@ -161,6 +161,18 @@ export interface AirstrikeImpactFx {
   toY: number;
   /** Blast radius, or corridor half-width (tiles). */
   radius: number;
+  /** smallID of the attacker (groups a strafing run's bursts into one number). */
+  attackerID?: number;
+  /** Troops this application really killed (0 when it hit nothing). */
+  killed?: number;
+  /** Highest level of a victim city whose garrison took the city bonus (0: none). */
+  cityLevel?: number;
+  /** Structure levels removed. */
+  levels?: number;
+  /** "-4,250 troops", already translated; null when nothing was killed. */
+  casualtyText?: string | null;
+  /** The city / structure line under it, already translated; null if none. */
+  detailText?: string | null;
   /** Ticks since the event occurred (0 = this frame, >0 = seeked past it). */
   tickAge?: number;
 }

@@ -30,15 +30,19 @@ export type SoundEffect =
   | "build-train-station"
   | "transport-ship"
   | "nuke-warning"
-  // Airstrikes. The "airstrike-launch/flyby/bomb/strafe" and "aircraft-down"
-  // files are synthesized placeholders; replace them with final assets under
-  // the same names. The rocket and SAM cues reuse existing missile sounds.
+  // Airstrikes: original audio synthesized for DeltaFront by
+  // scripts/audio/synthesize-airstrike-audio.ts (see CREDITS.md). The SAM cues
+  // reuse the existing missile sounds; "aircraft-down" is the earlier placeholder.
+  | "airstrike-siren"
+  | "airstrike-klaxon"
   | "airstrike-launch"
   | "airstrike-flyby"
+  | "airstrike-bomb-fall"
   | "airstrike-bomb"
   | "airstrike-rocket"
   | "airstrike-rocket-hit"
   | "airstrike-strafe"
+  | "airstrike-fire"
   | "sam-launch"
   | "sam-intercept"
   | "aircraft-down"
@@ -77,17 +81,19 @@ export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
   ["build-train-station", assetUrl("sounds/effects/build-train-station.mp3")],
   ["transport-ship", assetUrl("sounds/effects/transport-ship.mp3")],
   ["nuke-warning", assetUrl("sounds/effects/nuke-warning.mp3")],
-  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["airstrike-siren", assetUrl("sounds/effects/airstrike-siren.mp3")],
+  ["airstrike-klaxon", assetUrl("sounds/effects/airstrike-klaxon.mp3")],
   ["airstrike-launch", assetUrl("sounds/effects/airstrike-launch.mp3")],
-  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
   ["airstrike-flyby", assetUrl("sounds/effects/airstrike-flyby.mp3")],
-  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["airstrike-bomb-fall", assetUrl("sounds/effects/airstrike-bomb-fall.mp3")],
   ["airstrike-bomb", assetUrl("sounds/effects/airstrike-bomb.mp3")],
-  // Missile launch / explosion: existing sounds, reused for rockets and SAMs.
-  ["airstrike-rocket", assetUrl("sounds/effects/sam-shoot.mp3")],
-  ["airstrike-rocket-hit", assetUrl("sounds/effects/sam-hit.mp3")],
-  // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
+  ["airstrike-rocket", assetUrl("sounds/effects/airstrike-rocket-launch.mp3")],
+  [
+    "airstrike-rocket-hit",
+    assetUrl("sounds/effects/airstrike-rocket-impact.mp3"),
+  ],
   ["airstrike-strafe", assetUrl("sounds/effects/airstrike-strafe.mp3")],
+  ["airstrike-fire", assetUrl("sounds/effects/airstrike-fire.mp3")],
   ["sam-launch", assetUrl("sounds/effects/sam-shoot.mp3")],
   ["sam-intercept", assetUrl("sounds/effects/sam-hit.mp3")],
   // PLACEHOLDER: synthesized with ffmpeg; replace with a final asset (same file name).
@@ -107,8 +113,22 @@ export const ambienceUrls: ReadonlyMap<AmbienceTrack, string> = new Map([
   ["sam-silo", assetUrl("sounds/ambience/sam-silo.mp3")],
 ]);
 
+/**
+ * How one playback of a cue is shaped, under its channel volume: `gain` (0-1)
+ * scales it, `pan` (-1 left to 1 right) places it, `rate` (1 = as recorded)
+ * pitches it. All optional; a cue played without them sounds as before.
+ */
+export interface CueOptions {
+  gain?: number;
+  pan?: number;
+  rate?: number;
+}
+
 export class PlaySoundEffectEvent implements GameEvent {
-  constructor(public readonly effect: SoundEffect) {}
+  constructor(
+    public readonly effect: SoundEffect,
+    public readonly options?: CueOptions,
+  ) {}
 }
 
 /**
@@ -129,7 +149,8 @@ const CUE_CATEGORY: Record<SoundEffect, Exclude<CueCategory, "ambience">> = {
   // Alerts — things the player needs to know, which is why they stay audible
   // when the window is unfocused unless that is turned off.
   "nuke-warning": "alerts",
-  "airstrike-flyby": "alerts",
+  "airstrike-siren": "alerts",
+  "airstrike-klaxon": "alerts",
   "alliance-suggested": "alerts",
   "alliance-accepted": "alerts",
   "alliance-declined": "alerts",
@@ -143,7 +164,10 @@ const CUE_CATEGORY: Record<SoundEffect, Exclude<CueCategory, "ambience">> = {
   "hydrogen-hit": "effects",
   "mirv-launch": "effects",
   "airstrike-launch": "effects",
+  "airstrike-flyby": "effects",
+  "airstrike-bomb-fall": "effects",
   "airstrike-bomb": "effects",
+  "airstrike-fire": "effects",
   "airstrike-rocket": "effects",
   "airstrike-rocket-hit": "effects",
   "airstrike-strafe": "effects",

@@ -37,7 +37,7 @@ export class SoundManager {
   ) {
     this.buildBackgroundMusic();
 
-    this.onPlaySoundEffect = (e) => this.mixer.play(e.effect);
+    this.onPlaySoundEffect = (e) => this.mixer.play(e.effect, e.options);
     this.onSetAmbience = (e) => this.setAmbience(e.track, e.gain);
     eventBus.on(PlaySoundEffectEvent, this.onPlaySoundEffect);
     eventBus.on(SetAmbienceEvent, this.onSetAmbience);

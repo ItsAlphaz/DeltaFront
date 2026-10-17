@@ -328,6 +328,12 @@ export interface RenderSettings {
     airstrikeTrailLifetimeMs: number;
     airstrikeShockwaveDurationMs: number;
     airstrikeShockwaveRadiusFactor: number;
+    /** How long a strike's fires and smoke burn on (~40-50 s), by strike. */
+    airstrikeBombFireLifetimeMs: number;
+    airstrikeRocketFireLifetimeMs: number;
+    airstrikeStrafeFireLifetimeMs: number;
+    /** Fire and smoke patches from airstrikes alive at once; past it the oldest go. */
+    airstrikeMaxLingering: number;
     debrisLifetimeMs: number;
     debrisFadeIn: number; // 0–1 fraction of lifetime
     debrisFadeOut: number; // 0–1 fraction of lifetime (start of fade)

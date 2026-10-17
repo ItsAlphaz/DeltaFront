@@ -39,7 +39,7 @@ import type { FrameData, NameEntry } from "../render/types";
 import { STRUCTURE_TYPES } from "../render/types";
 import { TRAIL_TYPES } from "../render/types/UnitType";
 import { UserSettings } from "../UserSettings";
-import { resolveTeamClanTag } from "../Utils";
+import { resolveTeamClanTag, translateText } from "../Utils";
 import { WorkerClient } from "../WorkerClient";
 import type { CosmeticVisibility } from "./CosmeticVisibility";
 import {
@@ -639,6 +639,11 @@ export class GameView implements GameLike {
         toX: this._map.x(a.to),
         toY: this._map.y(a.to),
         radius: a.radius,
+        attackerID: a.attackerID,
+        killed: a.killed,
+        cityLevel: a.cityLevel,
+        levels: a.levels,
+        ...airstrikeImpactTexts(a.killed, a.cityLevel, a.levels),
       });
     }
     for (const b of gu.updates[GameUpdateType.BonusEvent] ?? []) {
@@ -1135,4 +1140,31 @@ export class GameView implements GameLike {
   ownSpawnRing(): boolean {
     return this._ownSpawnRing;
   }
+}
+
+/**
+ * The casualty number and the line under it for one airstrike impact, in the
+ * player's language: "-4,250 troops", then "City garrison hit" or
+ * "-1 building level". Both come from the simulation's own counts.
+ */
+export function airstrikeImpactTexts(
+  killed: number,
+  cityLevel: number,
+  levels: number,
+): { casualtyText: string | null; detailText: string | null } {
+  const casualtyText =
+    killed > 0
+      ? translateText("events_display.airstrike_casualties", {
+          troops: Math.round(killed).toLocaleString("en-US"),
+        })
+      : null;
+  const detailText =
+    cityLevel > 0 && killed > 0
+      ? translateText("events_display.airstrike_city_garrison")
+      : levels > 0
+        ? translateText("events_display.airstrike_structure_levels", {
+            count: levels,
+          })
+        : null;
+  return { casualtyText, detailText };
 }

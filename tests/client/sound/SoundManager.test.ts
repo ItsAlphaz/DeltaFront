@@ -304,7 +304,14 @@ describe("cue playback", () => {
   it("hands cues to the mixer, which routes them by channel", () => {
     const play = vi.spyOn(mixer, "play");
     eventBus.emit(new PlaySoundEffectEvent("build-city"));
-    expect(play).toHaveBeenCalledWith("build-city");
+    expect(play).toHaveBeenCalledWith("build-city", undefined);
+    eventBus.emit(
+      new PlaySoundEffectEvent("airstrike-bomb", { gain: 0.5, pan: -0.4 }),
+    );
+    expect(play).toHaveBeenLastCalledWith("airstrike-bomb", {
+      gain: 0.5,
+      pan: -0.4,
+    });
   });
 });
 

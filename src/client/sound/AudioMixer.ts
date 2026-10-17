@@ -10,6 +10,7 @@ import {
   AmbienceTrack,
   categoryOf,
   CueCategory,
+  CueOptions,
   SoundEffect,
   soundEffectUrls,
 } from "./Sounds";
@@ -119,6 +120,8 @@ interface ActiveSound {
   howl: Howl;
   id: number;
   category: CueCategory;
+  /** This playback's own gain under its channel (CueOptions.gain), 1 if none. */
+  gain: number;
   /**
    * What finishing means for this playback. Held here as well as in the
    * Howler listeners so that a cue which can never finish on its own -- a
@@ -300,7 +303,9 @@ export class AudioMixer {
         if (registeredCategory === category) howl.volume(volume);
       });
       for (const sound of this.active) {
-        if (sound.category === category) sound.howl.volume(volume, sound.id);
+        if (sound.category === category) {
+          sound.howl.volume(volume * sound.gain, sound.id);
+        }
       }
     });
     this.changeListeners.forEach((listener) =>
@@ -378,8 +383,10 @@ export class AudioMixer {
   // -------------------------------------------------------------- one-shots
 
   /** Plays a cue on its own channel, within that channel's budget. */
-  play(name: SoundEffect): void {
+  play(name: SoundEffect, options: CueOptions = {}): void {
     const category = categoryOf(name);
+    const gain = Math.max(0, Math.min(1, options.gain ?? 1));
+    if (gain === 0) return;
     this.safely(`play sound ${name}`, () => {
       const inCategory = this.active.filter((s) => s.category === category);
       if (inCategory.length >= BUDGET[category]) {
@@ -409,9 +416,13 @@ export class AudioMixer {
       const howl = this.load(name);
       if (howl === null) return;
       const id = howl.play();
-      howl.volume(this.volumeFor(category), id);
+      howl.volume(this.volumeFor(category) * gain, id);
+      if (options.pan !== undefined) {
+        howl.stereo(Math.max(-1, Math.min(1, options.pan)), id);
+      }
+      if (options.rate !== undefined) howl.rate(options.rate, id);
       const done = () => this.forget(id);
-      this.active.push({ howl, id, category, done });
+      this.active.push({ howl, id, category, gain, done });
       this.releaseOnce(howl, id, done);
     });
   }
@@ -441,7 +452,7 @@ export class AudioMixer {
         this.forget(id);
         resolve();
       };
-      this.active.push({ howl, id, category, done });
+      this.active.push({ howl, id, category, gain: 1, done });
       this.releaseOnce(howl, id, done);
     });
   }

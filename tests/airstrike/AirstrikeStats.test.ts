@@ -122,7 +122,9 @@ describe("airstrike stats: counters", () => {
     expect(air?.[AIR_INDEX_LAUNCH]).toBe(1n);
     expect(air?.[AIR_INDEX_COMPLETE]).toBe(1n);
     expect(air?.[AIR_INDEX_SHOT_DOWN] ?? 0n).toBe(0n);
-    expect(air?.[AIR_INDEX_TROOPS_KILLED]).toBe(25_000n);
+    // The level-1 city in the blast gives the garrison the city bonus: the
+    // full-coverage loss is the 45% city cap, not the 30% plain cap.
+    expect(air?.[AIR_INDEX_TROOPS_KILLED]).toBe(45_000n);
     // City destroyed (1 level), factory L2 -> L1 (1 level).
     expect(air?.[AIR_INDEX_LEVELS_DESTROYED]).toBe(2n);
     expect(air?.[AIR_INDEX_STRUCTURES_DESTROYED]).toBe(1n);

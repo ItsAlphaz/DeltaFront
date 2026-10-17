@@ -31,16 +31,46 @@ export const AIRPORT_REARM_TICKS = 200;
 export const AIRSTRIKE_PLANE_SPEED = 2;
 
 /**
+ * How close (tiles) to a strike's area a city must be for its garrison to take
+ * the city bonus. Cities are a single tile; this is the built-up area around it.
+ */
+export const AIRSTRIKE_CITY_AREA_RADIUS = 6;
+/** City levels above this add no further city bonus. */
+export const AIRSTRIKE_CITY_MAX_LEVEL = 5;
+
+/**
  * Per-strike-type tuning of an airstrike. Pure data: the rules that use it live
  * in `airstrike/` (engine-lib) and `AirstrikeExecution` (engine).
+ *
+ * Troops are a player-wide pool spread over their land, as nukes assume, so a
+ * strike kills a share of a victim's GARRISON proportional to the share of
+ * their land it hits (`troopFactorBps`, capped). A nuke kills about 5x the
+ * share of land it destroys; a bombing run is a little above that per tile but
+ * covers ~314 tiles to an atom bomb's ~1,640 and destroys no land, so it stays
+ * well below a nuke. Troops already committed to an ATTACK are the one place
+ * troops are concentrated: the victim's attacks whose front runs through the
+ * strike area lose `armyFactorBps` per 1.0 share of that front hit (capped), so
+ * an army massed on a short front loses far more than one spread wide. A
+ * garrison next to one of the victim's cities takes the city bonus: one
+ * multiplier per victim (their highest city level in reach), never one per city.
  */
 export interface AirstrikeSpec {
   /** Bomb/rocket troop-damage radius; strafing corridor half-width (tiles). */
   radius: number;
-  /** Troop loss, in basis points, per 1.0 share of a player's land hit. */
+  /** Garrison loss, in basis points, per 1.0 share of a player's land hit. */
   troopFactorBps: number;
-  /** Cap on one player's troop loss per application (per burst for strafing). */
+  /** Cap on one player's garrison loss per application (per burst for strafing). */
   troopCapBps: number;
+  /** Garrison-loss multiplier next to a level-1 city (10_000 = x1). */
+  cityBonusBps: number;
+  /** Added to the city multiplier per city level above 1 (up to AIRSTRIKE_CITY_MAX_LEVEL). */
+  cityBonusPerLevelBps: number;
+  /** Cap on the garrison loss of a player hit next to one of their cities. */
+  cityCapBps: number;
+  /** Attack-troop loss, in basis points, per 1.0 share of an attack's front hit. */
+  armyFactorBps: number;
+  /** Cap on one attack's troop loss per application (per burst for strafing). */
+  armyCapBps: number;
   /** Bomb: blast radius. Rocket: lock radius. Strafing: centreline tolerance. */
   structureRadius: number;
   /** Levels removed from each affected structure. */
@@ -67,10 +97,17 @@ const AIRSTRIKE_SPECS: Record<
   (typeof AirstrikeTypes.types)[number],
   AirstrikeSpec
 > = {
+  // Area saturation: the widest garrison damage, and a level off every
+  // structure in the blast. Good against a packed heartland.
   [UnitType.BombingRun]: {
     radius: 10,
-    troopFactorBps: 30_000,
-    troopCapBps: 2_500,
+    troopFactorBps: 60_000,
+    troopCapBps: 3_000,
+    cityBonusBps: 15_000,
+    cityBonusPerLevelBps: 1_250,
+    cityCapBps: 4_500,
+    armyFactorBps: 40_000,
+    armyCapBps: 3_500,
     structureRadius: 10,
     structureLevels: 1,
     maxStructures: Number.MAX_SAFE_INTEGER,
@@ -82,10 +119,17 @@ const AIRSTRIKE_SPECS: Record<
     exitTail: 0,
     telegraphRadius: 10,
   },
+  // Precision city-buster: a small area, the strongest city bonus, two levels
+  // off one structure, released from 10 tiles out.
   [UnitType.RocketStrike]: {
     radius: 4,
-    troopFactorBps: 40_000,
-    troopCapBps: 1_000,
+    troopFactorBps: 100_000,
+    troopCapBps: 1_500,
+    cityBonusBps: 20_000,
+    cityBonusPerLevelBps: 2_500,
+    cityCapBps: 4_000,
+    armyFactorBps: 50_000,
+    armyCapBps: 3_000,
     structureRadius: 6,
     structureLevels: 2,
     maxStructures: 1,
@@ -97,10 +141,17 @@ const AIRSTRIKE_SPECS: Record<
     exitTail: 0,
     telegraphRadius: 4,
   },
+  // Anti-army: a long, narrow corridor in four bursts. Weak against a
+  // garrison or a city, deadly to an attack whose front it runs along.
   [UnitType.StrafingRun]: {
     radius: 2,
-    troopFactorBps: 30_000,
-    troopCapBps: 500,
+    troopFactorBps: 40_000,
+    troopCapBps: 600,
+    cityBonusBps: 12_500,
+    cityBonusPerLevelBps: 625,
+    cityCapBps: 900,
+    armyFactorBps: 80_000,
+    armyCapBps: 2_000,
     structureRadius: 1.5,
     structureLevels: 1,
     maxStructures: 1,

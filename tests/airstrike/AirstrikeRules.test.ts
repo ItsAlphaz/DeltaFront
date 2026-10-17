@@ -134,22 +134,22 @@ describe("airstrikeTroopLoss", () => {
   });
 
   test("loss is proportional to the share of land hit", () => {
-    // 5 of 1000 tiles: 3.0 x 0.5% = 1.5% of 10,000.
+    // 5 of 1000 tiles: 6.0 x 0.5% = 3% of 10,000.
     expect(airstrikeTroopLoss(cfg(UnitType.BombingRun), 10_000, 5, 1000)).toBe(
-      150,
+      300,
     );
   });
 
   test("each strike type caps its loss", () => {
     expect(airstrikeTroopLoss(cfg(UnitType.BombingRun), 10_000, 400, 400)).toBe(
-      2500,
+      3000,
     );
     expect(
       airstrikeTroopLoss(cfg(UnitType.RocketStrike), 10_000, 400, 400),
-    ).toBe(1000);
+    ).toBe(1500);
     expect(
       airstrikeTroopLoss(cfg(UnitType.StrafingRun), 10_000, 400, 400),
-    ).toBe(500);
+    ).toBe(600);
   });
 
   test("results are integers", () => {

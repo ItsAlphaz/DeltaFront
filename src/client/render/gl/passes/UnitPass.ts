@@ -36,13 +36,23 @@
  *   Shells emit 2 instances (pos + lastPos) to match live game's 2-pixel trail.
  */
 
+import type { UnitType } from "@openfront/engine-api/game/GameTypes";
+import type { FlightGrid } from "@openfront/engine-lib/airstrike/AirstrikeGeometry";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
 import { assetUrl } from "@openfront/shared/AssetUrls";
+import {
+  flightGrid,
+  flightPoint,
+  flightStep,
+  type PlaneFlight,
+  resolvePlaneFlight,
+} from "../../frame/derive/PlaneFlight";
 import type { RendererConfig, UnitState } from "../../types";
 import {
   AIRCRAFT_TYPES,
   SMOOTHED_NUKE_TYPES,
   TrainType,
+  UT_AIRPORT,
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,
   UT_MIRV,
@@ -81,6 +91,7 @@ const UNIT_ORDER = [
   UT_TRANSPORT,
   UT_TRADE_SHIP,
   UT_WARSHIP,
+  UT_AIRPORT,
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,
   UT_MIRV,
@@ -140,6 +151,7 @@ const TRAIN_CARRIAGE_LOADED_COL = UNIT_ORDER.indexOf("TrainCarriageLoaded");
 
 /** Nuke + warhead types — rendered with flickering hot colors */
 const FLICKER_TYPES: ReadonlySet<string> = new Set([
+  UT_AIRPORT,
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,
   UT_MIRV,
@@ -151,6 +163,7 @@ const FLICKER_TYPES: ReadonlySet<string> = new Set([
 /** Missile/projectile types — rendered on top of structures in the layer order.
  *  Ground/sea units (boats, trains) render below structures. */
 const MISSILE_TYPES: ReadonlySet<string> = new Set([
+  UT_AIRPORT,
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,
   UT_MIRV,
@@ -282,6 +295,16 @@ export class UnitPass {
   private friendlyOwners = new Set<number>();
   private structures: Map<number, UnitState> = new Map();
 
+  // Airstrike planes are drawn on their exact flight line (PlaneFlight.ts).
+  private readonly config: Config;
+  private readonly grid: FlightGrid;
+  /** Per plane: its flight once known, and the tile it was first seen on. */
+  private readonly planeFlights = new Map<
+    number,
+    { flight: PlaneFlight | null; firstSeen: number; triedAt: number }
+  >();
+  private readonly seenPlanes = new Set<number>();
+
   constructor(
     gl: WebGL2RenderingContext,
     header: RendererConfig,
@@ -296,6 +319,8 @@ export class UnitPass {
     this.paletteTex = paletteTex;
     this.effectTex = effectTex;
     this.tickIntervalMs = config.msPerTick();
+    this.config = config;
+    this.grid = flightGrid(header.mapWidth, header.mapHeight);
 
     // Build unitType string → atlas column mapping
     for (let i = 0; i < header.unitTypes.length; i++) {
@@ -481,6 +506,7 @@ export class UnitPass {
     this.groundCount = 0;
     this.missileCount = 0;
     this.smoothSegs.length = 0;
+    this.seenPlanes.clear();
 
     for (const unit of units.values()) {
       if (!unit.isActive || unit.waitTicks > 0) continue;
@@ -553,6 +579,7 @@ export class UnitPass {
 
       if (isMissile) {
         const isPlane = AIRCRAFT_TYPES.has(unit.unitType);
+        if (isPlane && this.emitPlane(unit, atlasIdx, flags)) continue;
         if (
           (SMOOTHED_NUKE_TYPES.has(unit.unitType) || isPlane) &&
           unit.lastPos !== unit.pos
@@ -573,6 +600,10 @@ export class UnitPass {
       } else {
         this.emitGround(x, y, unit.ownerID, atlasIdx, flags);
       }
+    }
+
+    for (const id of this.planeFlights.keys()) {
+      if (!this.seenPlanes.has(id)) this.planeFlights.delete(id);
     }
 
     const gl = this.gl;
@@ -596,6 +627,86 @@ export class UnitPass {
         this.missileCount * FLOATS_PER_INSTANCE,
       );
     }
+  }
+
+  /**
+   * Draws a plane on its exact flight line, easing from the previous step to
+   * this one, nose along the line. False when its flight can't be rebuilt
+   * (no target, or its airport is gone and it was never seen leaving): the
+   * caller then draws it the plain way.
+   */
+  private emitPlane(unit: UnitState, atlasIdx: number, flags: number): boolean {
+    this.seenPlanes.add(unit.id);
+    const flight = this.planeFlight(unit);
+    if (flight === null) return false;
+    const step = flightStep(flight, unit.pos)!;
+    const prev =
+      unit.lastPos === unit.pos
+        ? step
+        : (flightStep(flight, unit.lastPos) ?? step);
+    const at = flightPoint(flight, step);
+    if (prev !== step) {
+      const from = flightPoint(flight, prev);
+      this.smoothSegs.push(this.missileCount, from.x, from.y, at.x, at.y);
+    }
+    const heading =
+      flight.steps > 0
+        ? planeHeadingByte(flight.ex - flight.ox, flight.ey - flight.oy)
+        : this.planeHeading(
+            unit,
+            unit.pos % this.mapW,
+            Math.floor(unit.pos / this.mapW),
+          );
+    this.emitMissile(at.x, at.y, unit.ownerID, atlasIdx, flags, heading);
+    return true;
+  }
+
+  /** The plane's flight, rebuilt from the airports it may have left (cached). */
+  private planeFlight(unit: UnitState): PlaneFlight | null {
+    if (unit.targetTile === null) return null;
+    let entry = this.planeFlights.get(unit.id);
+    if (entry === undefined) {
+      entry = { flight: null, firstSeen: unit.lastPos, triedAt: -1 };
+      this.planeFlights.set(unit.id, entry);
+    }
+    const known = entry.flight;
+    if (
+      known !== null &&
+      flightStep(known, unit.pos) !== null &&
+      flightStep(known, unit.lastPos) !== null
+    ) {
+      return known;
+    }
+    // Rebuild at most once per tile the plane is seen on.
+    if (entry.triedAt === unit.pos) return null;
+    entry.triedAt = unit.pos;
+    const origins: number[] = [];
+    for (const s of this.structures.values()) {
+      if (s.unitType === UT_AIRPORT && s.ownerID === unit.ownerID) {
+        origins.push(s.pos);
+      }
+    }
+    for (const s of this.structures.values()) {
+      if (s.unitType === UT_AIRPORT && s.ownerID !== unit.ownerID) {
+        origins.push(s.pos);
+      }
+    }
+    origins.push(entry.firstSeen);
+    try {
+      entry.flight = resolvePlaneFlight(
+        this.grid,
+        unit.unitType as UnitType,
+        unit.targetTile,
+        unit.pos,
+        unit.lastPos,
+        origins,
+        this.config.airstrikeSpec(unit.unitType as UnitType),
+        this.config.airstrikePlaneSpeed(),
+      );
+    } catch {
+      entry.flight = null;
+    }
+    return entry.flight;
   }
 
   /** Heading byte for a plane sprite drawn nose-up: along its last step,

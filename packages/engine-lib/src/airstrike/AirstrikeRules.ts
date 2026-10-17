@@ -1,5 +1,8 @@
 import { GameMap, TileRef } from "@openfront/engine-api/game/GameMap";
-import type { AirstrikeSpec } from "../configuration/Config";
+import {
+  AIRSTRIKE_CITY_MAX_LEVEL,
+  type AirstrikeSpec,
+} from "../configuration/Config";
 
 /**
  * Why an airstrike cannot be launched at a target. Shared by the engine (which
@@ -68,20 +71,61 @@ export function pickAirstrikeAirport(
 }
 
 /**
- * Troops (engine units) an airstrike application kills from a player that owns
- * `owned` tiles of which `hit` lie in the area: a share-proportional loss, capped.
- * Integer basis-point arithmetic keeps it deterministic.
+ * The garrison-loss multiplier (basis points, 10_000 = x1) next to a city of
+ * `cityLevel`; x1 with no city (level 0). Levels past the cap add nothing.
+ */
+export function airstrikeCityMultiplierBps(
+  spec: AirstrikeSpec,
+  cityLevel: number,
+): number {
+  if (cityLevel <= 0) return 10_000;
+  const level = Math.min(AIRSTRIKE_CITY_MAX_LEVEL, Math.floor(cityLevel));
+  return spec.cityBonusBps + (level - 1) * spec.cityBonusPerLevelBps;
+}
+
+/**
+ * Garrison troops an airstrike application kills from a player that owns
+ * `owned` tiles of which `hit` lie in the area: a share-proportional loss,
+ * capped. Next to one of their cities (`cityLevel` > 0) the loss is multiplied
+ * by the city bonus and capped at `cityCapBps` instead. Integer basis-point
+ * arithmetic keeps it deterministic.
  */
 export function airstrikeTroopLoss(
   spec: AirstrikeSpec,
   troops: number,
   hit: number,
   owned: number,
+  cityLevel = 0,
 ): number {
   if (troops <= 0 || hit <= 0) return 0;
+  const base = Math.floor((spec.troopFactorBps * hit) / Math.max(1, owned));
+  const bps =
+    cityLevel > 0
+      ? Math.min(
+          spec.cityCapBps,
+          Math.floor(
+            (base * airstrikeCityMultiplierBps(spec, cityLevel)) / 10_000,
+          ),
+        )
+      : Math.min(spec.troopCapBps, base);
+  return Math.floor((troops * bps) / 10_000);
+}
+
+/**
+ * Troops an attack loses when `hitFront` of the `frontSize` tiles it is
+ * fighting over lie in the strike area: concentrated troops on a short front
+ * lose much more than the same troops spread along a long one. Capped.
+ */
+export function airstrikeArmyLoss(
+  spec: AirstrikeSpec,
+  troops: number,
+  hitFront: number,
+  frontSize: number,
+): number {
+  if (troops <= 0 || hitFront <= 0) return 0;
   const bps = Math.min(
-    spec.troopCapBps,
-    Math.floor((spec.troopFactorBps * hit) / Math.max(1, owned)),
+    spec.armyCapBps,
+    Math.floor((spec.armyFactorBps * hitFront) / Math.max(1, frontSize)),
   );
   return Math.floor((troops * bps) / 10_000);
 }

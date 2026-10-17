@@ -42,8 +42,13 @@ describe("airstrike configuration", () => {
     const c = game.config();
     expect(c.airstrikeSpec(UnitType.BombingRun)).toMatchObject({
       radius: 10,
-      troopFactorBps: 30_000,
-      troopCapBps: 2_500,
+      troopFactorBps: 60_000,
+      troopCapBps: 3_000,
+      cityBonusBps: 15_000,
+      cityBonusPerLevelBps: 1_250,
+      cityCapBps: 4_500,
+      armyFactorBps: 40_000,
+      armyCapBps: 3_500,
       structureRadius: 10,
       structureLevels: 1,
       samHitPercent: 65,
@@ -51,8 +56,13 @@ describe("airstrike configuration", () => {
     });
     expect(c.airstrikeSpec(UnitType.RocketStrike)).toMatchObject({
       radius: 4,
-      troopFactorBps: 40_000,
-      troopCapBps: 1_000,
+      troopFactorBps: 100_000,
+      troopCapBps: 1_500,
+      cityBonusBps: 20_000,
+      cityBonusPerLevelBps: 2_500,
+      cityCapBps: 4_000,
+      armyFactorBps: 50_000,
+      armyCapBps: 3_000,
       structureRadius: 6,
       structureLevels: 2,
       maxStructures: 1,
@@ -63,8 +73,13 @@ describe("airstrike configuration", () => {
     });
     expect(c.airstrikeSpec(UnitType.StrafingRun)).toMatchObject({
       radius: 2,
-      troopFactorBps: 30_000,
-      troopCapBps: 500,
+      troopFactorBps: 40_000,
+      troopCapBps: 600,
+      cityBonusBps: 12_500,
+      cityBonusPerLevelBps: 625,
+      cityCapBps: 900,
+      armyFactorBps: 80_000,
+      armyCapBps: 2_000,
       structureRadius: 1.5,
       structureLevels: 1,
       maxStructures: 1,
@@ -117,9 +132,9 @@ describe("airstrike costs", () => {
     });
     const cost = (t: UnitType) =>
       game.config().unitInfo(t).cost(game, attacker);
-    expect(cost(UnitType.BombingRun)).toBe(400_000n);
-    expect(cost(UnitType.RocketStrike)).toBe(350_000n);
-    expect(cost(UnitType.StrafingRun)).toBe(250_000n);
+    expect(cost(UnitType.BombingRun)).toBe(300_000n);
+    expect(cost(UnitType.RocketStrike)).toBe(225_000n);
+    expect(cost(UnitType.StrafingRun)).toBe(150_000n);
   });
 
   test("airport price: 1M, +500k each, capped at 2M", async () => {
@@ -142,7 +157,7 @@ describe("airstrike costs", () => {
     });
     const selector = () =>
       game.config().unitInfo(UnitType.Airstrike).cost(game, attacker);
-    expect(selector()).toBe(250_000n);
+    expect(selector()).toBe(150_000n);
 
     const noStrafe = await makeWorld({
       config: { infiniteGold: false, disabledUnits: [UnitType.StrafingRun] },
@@ -152,7 +167,7 @@ describe("airstrike costs", () => {
         .config()
         .unitInfo(UnitType.Airstrike)
         .cost(noStrafe.game, noStrafe.attacker),
-    ).toBe(350_000n);
+    ).toBe(225_000n);
   });
 
   test("an infinite-gold human pays nothing", async () => {
@@ -179,6 +194,6 @@ describe("airstrike costs", () => {
         .config()
         .unitInfo(UnitType.RocketStrike)
         .cost(game, game.player("nation_id")),
-    ).toBe(350_000n);
+    ).toBe(225_000n);
   });
 });

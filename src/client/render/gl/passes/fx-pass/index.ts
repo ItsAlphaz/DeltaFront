@@ -90,7 +90,7 @@ export class FxPass {
     this.spritePass.spawnFxForUnit(unit, now);
   }
 
-  /** Airstrike effects: sprites, plus a ring over bomb and rocket blasts. */
+  /** Airstrike effects: sprites, plus a ring over bomb and rocket blasts (two over a city). */
   applyAirstrikeImpacts(events: AirstrikeImpactFx[]): void {
     const now = this.timeFn();
     for (const fx of events) {
@@ -101,6 +101,14 @@ export class FxPass {
         fx.phase === AirstrikeImpactPhase.RocketImpact
       ) {
         this.shockwavePass.pushAirstrikeShockwave(fx.toX, fx.toY, fx.radius);
+        // A city garrison hit throws a second, wider ring.
+        if ((fx.cityLevel ?? 0) > 0) {
+          this.shockwavePass.pushAirstrikeShockwave(
+            fx.toX,
+            fx.toY,
+            fx.radius * 1.6,
+          );
+        }
       }
     }
   }

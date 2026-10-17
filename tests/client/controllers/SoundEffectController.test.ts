@@ -360,82 +360,25 @@ describe("SoundEffectController: airstrikes and SAMs", () => {
     controller = new SoundEffectController(game, eventBus);
   });
 
-  it("plays the launch cue for my own strike, not an enemy's", () => {
-    step({}, unit(1, UnitType.BombingRun, me));
-    expect(played).toEqual(["airstrike-launch"]);
-    played.length = 0;
-    tick += 20;
-    step({}, unit(2, UnitType.RocketStrike, other));
-    expect(played).toEqual([]);
-  });
-
-  it("collapses simultaneous launches into one cue", () => {
+  // The airstrike cues themselves are AirstrikeAudioController's
+  // (tests/client/controllers/AirstrikeAudioController.test.ts).
+  it("leaves airstrike launches, warnings and impacts to the airstrike controller", () => {
     step(
-      {},
+      {
+        [GameUpdateType.UnitIncoming]: [
+          { playerID: 7, messageType: MessageType.AIRSTRIKE_INBOUND },
+        ],
+        [GameUpdateType.AirstrikeImpact]: [
+          {
+            phase: AirstrikeImpactPhase.BombImpact,
+            attackerID: 7,
+            affected: [9],
+          },
+        ],
+      },
       unit(1, UnitType.BombingRun, me),
-      unit(2, UnitType.StrafingRun, me),
     );
-    expect(played).toEqual(["airstrike-launch"]);
-  });
-
-  it("warns with the flyby cue when an airstrike is inbound on me, once per interval", () => {
-    const inbound = (playerID: number) => ({
-      playerID,
-      messageType: MessageType.AIRSTRIKE_INBOUND,
-    });
-    step({ [GameUpdateType.UnitIncoming]: [inbound(7), inbound(7)] });
-    expect(played).toEqual(["airstrike-flyby"]);
-    played.length = 0;
-    step({ [GameUpdateType.UnitIncoming]: [inbound(9)] }); // someone else's warning
     expect(played).toEqual([]);
-  });
-
-  const impact = (
-    phase: AirstrikeImpactPhase,
-    attackerID: number,
-    affected: number[],
-  ) => ({
-    phase,
-    attackerID,
-    affected,
-  });
-
-  it.each([
-    [AirstrikeImpactPhase.BombImpact, "airstrike-bomb"],
-    [AirstrikeImpactPhase.RocketRelease, "airstrike-rocket"],
-    [AirstrikeImpactPhase.RocketImpact, "airstrike-rocket-hit"],
-    [AirstrikeImpactPhase.StrafeBurst, "airstrike-strafe"],
-  ] as const)("phase %i plays %s when I am hit", (phase, cue) => {
-    step({ [GameUpdateType.AirstrikeImpact]: [impact(phase, 9, [7])] });
-    expect(played).toEqual([cue]);
-  });
-
-  it("plays impact sounds for my own strikes too", () => {
-    step({
-      [GameUpdateType.AirstrikeImpact]: [
-        impact(AirstrikeImpactPhase.BombImpact, 7, [9]),
-      ],
-    });
-    expect(played).toEqual(["airstrike-bomb"]);
-  });
-
-  it("stays silent for impacts that do not involve me", () => {
-    step({
-      [GameUpdateType.AirstrikeImpact]: [
-        impact(AirstrikeImpactPhase.BombImpact, 9, [11]),
-      ],
-    });
-    expect(played).toEqual([]);
-  });
-
-  it("two bursts of a strafing run in one tick make one sound", () => {
-    step({
-      [GameUpdateType.AirstrikeImpact]: [
-        impact(AirstrikeImpactPhase.StrafeBurst, 9, [7]),
-        impact(AirstrikeImpactPhase.StrafeBurst, 9, [7]),
-      ],
-    });
-    expect(played).toEqual(["airstrike-strafe"]);
   });
 
   it("plays the SAM cues: launch (mine, or at mine), intercept and aircraft down", () => {

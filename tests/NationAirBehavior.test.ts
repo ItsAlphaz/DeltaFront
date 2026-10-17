@@ -198,8 +198,8 @@ describe("Nation airstrikes: when not to launch", () => {
   it("not without the gold: Hard needs 3x the price in hand", async () => {
     const d = await worthwhile();
     d.nation.removeGold(d.nation.gold());
-    // Hard wants 3x the price: even the cheapest strike (250k) needs 750k.
-    d.nation.addGold(700_000n);
+    // Hard wants 3x the price: even the cheapest strike (150k) needs 450k.
+    d.nation.addGold(400_000n);
     expect(strike(d)).toBeNull();
     d.nation.addGold(1_000_000n);
     expect(strike(d)).not.toBeNull();

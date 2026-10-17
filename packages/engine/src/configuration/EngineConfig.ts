@@ -344,12 +344,15 @@ export class EngineConfig extends Config {
             Math.min(2_000_000, 1_000_000 + numUnits * 500_000),
           UnitType.Airport,
         );
+      // Airstrikes are the affordable tactical option: 40 %, 30 % and 20 % of an
+      // atom bomb (750k), which itself needs a 1M silo as an airstrike needs a
+      // 1M+ airport. The 20 s airport rearm, not the price, limits how often.
       case UnitType.BombingRun:
-        return this.costWrapper(() => 400_000, UnitType.BombingRun);
+        return this.costWrapper(() => 300_000, UnitType.BombingRun);
       case UnitType.RocketStrike:
-        return this.costWrapper(() => 350_000, UnitType.RocketStrike);
+        return this.costWrapper(() => 225_000, UnitType.RocketStrike);
       case UnitType.StrafingRun:
-        return this.costWrapper(() => 250_000, UnitType.StrafingRun);
+        return this.costWrapper(() => 150_000, UnitType.StrafingRun);
       case UnitType.Airstrike:
         // The selector is never bought itself: it reports the cheapest
         // strike the game allows, which is what the UI shows and gates on.

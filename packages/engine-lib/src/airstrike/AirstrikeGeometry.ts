@@ -11,6 +11,13 @@ import type { AirstrikeSpec } from "../configuration/Config";
 
 const DEFAULT_DIRECTION = { ux: 0, uy: -1 };
 
+/**
+ * The part of a map the flight path needs. The client's renderer, which has
+ * no GameMap, rebuilds a plane's path from the same functions with a plain
+ * grid of these.
+ */
+export type FlightGrid = Pick<GameMap, "x" | "y" | "ref" | "width" | "height">;
+
 interface Line {
   sx: number;
   sy: number;
@@ -19,7 +26,7 @@ interface Line {
   dist: number;
 }
 
-function lineBetween(map: GameMap, src: TileRef, dst: TileRef): Line {
+function lineBetween(map: FlightGrid, src: TileRef, dst: TileRef): Line {
   const sx = map.x(src);
   const sy = map.y(src);
   const dx = map.x(dst) - sx;
@@ -31,7 +38,7 @@ function lineBetween(map: GameMap, src: TileRef, dst: TileRef): Line {
   return { sx, sy, ux: dx / dist, uy: dy / dist, dist };
 }
 
-function clampedRef(map: GameMap, x: number, y: number): TileRef {
+function clampedRef(map: FlightGrid, x: number, y: number): TileRef {
   const cx = Math.min(map.width() - 1, Math.max(0, Math.round(x)));
   const cy = Math.min(map.height() - 1, Math.max(0, Math.round(y)));
   return map.ref(cx, cy);
@@ -42,7 +49,7 @@ function clampedRef(map: GameMap, x: number, y: number): TileRef {
  * one per tick, ending exactly on dst. `src` itself is not included.
  */
 export function straightPath(
-  map: GameMap,
+  map: FlightGrid,
   src: TileRef,
   dst: TileRef,
   speed: number,
@@ -76,7 +83,7 @@ export function straightPath(
  *    it, clipped to the map edge.
  */
 export function airstrikeEndPoint(
-  map: GameMap,
+  map: FlightGrid,
   src: TileRef,
   dst: TileRef,
   type: UnitType,
@@ -103,7 +110,7 @@ export function airstrikeEndPoint(
 
 /** The tiles the aircraft flies through (src excluded; empty if it starts at its end point). */
 export function airstrikeFlightPath(
-  map: GameMap,
+  map: FlightGrid,
   src: TileRef,
   dst: TileRef,
   type: UnitType,

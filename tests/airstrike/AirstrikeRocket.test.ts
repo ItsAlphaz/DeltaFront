@@ -80,7 +80,7 @@ describe("Rocket Strike", () => {
     expect(w.defender.troops()).toBeLessThan(100_000);
   });
 
-  test("only land within 4 tiles of the target is hit, capped at 10%", async () => {
+  test("only land within 4 tiles of the target is hit, capped at 15%", async () => {
     const { game, attacker, defender } = await makeWorld({
       extra: ["bystander_id"],
     });
@@ -91,19 +91,19 @@ describe("Rocket Strike", () => {
     placeDefender(game, bystander, 108, 100, 1, 100_000);
     startStrike(game, attacker, T, 100, 100);
     run(game, 45);
-    expect(defender.troops()).toBe(90_000);
+    expect(defender.troops()).toBe(85_000);
     expect(bystander.troops()).toBe(100_000);
   });
 
-  test("a small share of a big territory is hit proportionally (factor 4.0)", async () => {
+  test("a small share of a big territory is hit proportionally (factor 10.0)", async () => {
     const { game, attacker, defender } = await arena();
     placeDefender(game, defender, 100, 100, 60, 1_000_000);
     startStrike(game, attacker, T, 100, 100);
     run(game, 45);
     const hit = 49; // the r = 4 disc
     const bps = Math.min(
-      1000,
-      Math.floor((40_000 * hit) / defender.numTilesOwned()),
+      1500,
+      Math.floor((100_000 * hit) / defender.numTilesOwned()),
     );
     expect(defender.troops()).toBe(
       1_000_000 - Math.floor((1_000_000 * bps) / 10_000),
@@ -242,6 +242,6 @@ describe("Rocket Strike", () => {
     expect(
       tickOfPhase(updates, AirstrikeImpactPhase.RocketRelease),
     ).not.toBeNull();
-    expect(defender.troops()).toBe(90_000);
+    expect(defender.troops()).toBe(85_000);
   });
 });

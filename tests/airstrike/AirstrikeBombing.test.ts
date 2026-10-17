@@ -31,12 +31,12 @@ async function arena(
 }
 
 describe("Bombing Run", () => {
-  test("a full-coverage small player loses exactly the 25% cap", async () => {
+  test("a full-coverage small player loses exactly the 30% cap", async () => {
     const { game, attacker, defender } = await arena();
     placeDefender(game, defender, 100, 100, 5, 100_000);
     startStrike(game, attacker, T, 100, 100);
     run(game, 45);
-    expect(defender.troops()).toBe(75_000);
+    expect(defender.troops()).toBe(70_000);
     expect(planeOf(attacker, T)).toBeUndefined();
   });
 
@@ -45,8 +45,8 @@ describe("Bombing Run", () => {
     placeDefender(game, defender, 100, 100, 60, 1_000_000);
     const hit = discTiles(game, game.ref(100, 100), 10).length;
     const owned = defender.numTilesOwned();
-    const bps = Math.min(2500, Math.floor((30_000 * hit) / owned));
-    expect(bps).toBeLessThan(2500);
+    const bps = Math.min(3000, Math.floor((60_000 * hit) / owned));
+    expect(bps).toBeLessThan(3000);
     startStrike(game, attacker, T, 100, 100);
     run(game, 45);
     expect(defender.troops()).toBe(
@@ -69,7 +69,7 @@ describe("Bombing Run", () => {
     run(game, 1);
     expect(plane.isActive()).toBe(false);
     expect(plane.reachedTarget()).toBe(true);
-    expect(defender.troops()).toBe(75_000);
+    expect(defender.troops()).toBe(70_000);
   });
 
   test("a hostile structure in the blast loses a level; a level-1 one is destroyed", async () => {

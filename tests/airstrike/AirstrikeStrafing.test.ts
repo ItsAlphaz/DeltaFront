@@ -48,10 +48,10 @@ function troopsPerTick(w: World, ticks: number): number[] {
   return out;
 }
 
-/** The 5% a burst takes, applied n times. */
+/** The 6% a burst takes, applied n times. */
 function afterBursts(n: number): number {
   let t = START;
-  for (let i = 0; i < n; i++) t = afterLoss(t, 500);
+  for (let i = 0; i < n; i++) t = afterLoss(t, 600);
   return t;
 }
 
@@ -75,7 +75,7 @@ describe("Strafing Run", () => {
     expect(w.game.x(plane.tile())).toBe(128);
   });
 
-  test("damage lands in four timed bursts, 5% of troops each", async () => {
+  test("damage lands in four timed bursts, 6% of troops each", async () => {
     const w = await arena();
     strip(w);
     startStrike(w.game, w.attacker, T, 100, 100);

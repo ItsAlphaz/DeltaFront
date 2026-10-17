@@ -169,7 +169,19 @@ interface ActiveFx {
   lifetimeMs: number;
   fadeIn: number; // fraction 0–1 (start of full alpha)
   fadeOut: number; // fraction 0–1 (start of fade out)
+  /** An airstrike's lingering fire or smoke patch (capped, refreshed in place). */
+  linger?: boolean;
 }
+
+/** How bad an airstrike hit was, 0..1, from what it really did. */
+export function airstrikeSeverity(killed: number, levels: number): number {
+  const score = Math.max(0, killed) + Math.max(0, levels) * 20_000;
+  if (score <= 0) return 0;
+  return Math.min(1, Math.max(0, Math.log10(score) - 2) / 3);
+}
+
+/** A repeat strike within this many tiles of a burning patch refreshes it. */
+const LINGER_REFRESH_TILES = 2;
 
 // ---------------------------------------------------------------------------
 // Instance data layout
@@ -408,120 +420,237 @@ export class FxSpritePass {
 
   /**
    * The sprites of an airstrike effect, centred where the simulation dealt the
-   * damage. Scatter positions come from a stable hash of the event, so the
-   * same event looks the same wherever and whenever it is replayed. The
-   * smoke, fire and dust linger well past the simulation event.
+   * damage: a blast sized to the strike, and fires and smoke that burn on for
+   * ~40-50 s where it did damage (more of them the worse it was, more again
+   * over a city garrison). Scatter positions come from a stable hash of the
+   * event, so the same event looks the same wherever it is drawn. Presentation
+   * only; the burning patches never hurt anything.
    */
   spawnAirstrikeImpact(fx: AirstrikeImpactFx, now: number): void {
     const s = this.settings.fx;
     const seed = (n: number) =>
       (fx.toX * 73856093) ^ (fx.toY * 19349663) ^ (n * 83492791);
+    const rand = (n: number) => seededRandom(seed(n));
     const scatter = (n: number, r: number): [number, number] => {
-      const angle = seededRandom(seed(n)) * Math.PI * 2;
+      const angle = rand(n) * Math.PI * 2;
       const dist = Math.sqrt(seededRandom(seed(n) + 0x10000)) * r;
       return [
         Math.round(fx.toX + Math.cos(angle) * dist),
         Math.round(fx.toY + Math.sin(angle) * dist),
       ];
     };
+    const severity = airstrikeSeverity(fx.killed ?? 0, fx.levels ?? 0);
+    const city = (fx.cityLevel ?? 0) > 0;
+    const damaged = (fx.killed ?? 0) > 0 || (fx.levels ?? 0) > 0;
+    /** Fire/smoke patches: `base` plus up to `extra` more with severity, more over a city. */
+    const patches = (base: number, extra: number) =>
+      damaged ? base + Math.round(extra * severity) + (city ? 2 : 0) : 0;
+    const burn = (
+      n: number,
+      x: number,
+      y: number,
+      type: number,
+      lifetimeMs: number,
+    ) => {
+      // Fires catch over the first second and a half and burn out at
+      // slightly different times, so the area fades gradually.
+      const start = now + rand(n + 500) * 1500;
+      const life = lifetimeMs * (0.85 + 0.3 * rand(n + 600));
+      this.pushAirstrikeLinger(x, y, type, start, life);
+    };
+
     switch (fx.phase) {
-      case AirstrikeImpactPhase.BombImpact:
-        this.pushFx(fx.toX, fx.toY, FX_BUILDING_EXPLOSION, now);
-        for (let i = 0; i < 3; i++) {
-          const [x, y] = scatter(i, fx.radius * 0.4);
-          this.pushFx(x, y, FX_UNIT_EXPLOSION, now);
+      case AirstrikeImpactPhase.BombImpact: {
+        const r = fx.radius;
+        // Sprites sized to the real blast (a 20-tile disc): the 48-tile SAM
+        // fireball would read as a nuke and hide the map.
+        this.pushFx(fx.toX, fx.toY, FX_UNIT_EXPLOSION, now);
+        this.pushFx(fx.toX, fx.toY, FX_BUILDING_EXPLOSION, now + 60);
+        if (city) {
+          for (let i = 0; i < 2; i++) {
+            const [x, y] = scatter(1 + i, r * 0.35);
+            this.pushFx(x, y, FX_UNIT_EXPLOSION, now + 140 + i * 120);
+          }
         }
-        for (let i = 0; i < 8; i++) {
-          const [x, y] = scatter(10 + i, fx.radius * 0.8);
-          this.pushFx(x, y, FX_MINI_EXPLOSION, now);
+        for (let i = 0; i < 6; i++) {
+          const [x, y] = scatter(10 + i, r * 0.55);
+          this.pushFx(x, y, FX_BUILDING_EXPLOSION, now + rand(40 + i) * 300);
         }
-        for (let i = 0; i < 3; i++) {
-          const [x, y] = scatter(20 + i, fx.radius * 0.6);
-          this.pushLingering(
-            x,
-            y,
-            FX_MINI_BIG_SMOKE,
-            now,
-            s.airstrikeSmokeLifetimeMs,
+        for (let i = 0; i < 5; i++) {
+          const [x, y] = scatter(20 + i, r * 0.75);
+          this.pushFx(x, y, FX_UNIT_EXPLOSION, now + rand(50 + i) * 400);
+        }
+        for (let i = 0; i < 12; i++) {
+          const [x, y] = scatter(30 + i, r * 0.95);
+          this.pushFx(x, y, FX_MINI_EXPLOSION, now + rand(60 + i) * 550);
+        }
+        // A ring of dust thrown out at the edge of the blast.
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2 + rand(70 + i) * 0.4;
+          this.pushFx(
+            Math.round(fx.toX + Math.cos(a) * r),
+            Math.round(fx.toY + Math.sin(a) * r),
+            FX_DUST,
+            now + 120,
           );
         }
-        for (let i = 0; i < 2; i++) {
-          const [x, y] = scatter(30 + i, fx.radius * 0.6);
-          this.pushLingering(
+        const fires = patches(4, 5);
+        for (let i = 0; i < fires; i++) {
+          const [x, y] = scatter(100 + i, r * 0.8);
+          burn(
+            100 + i,
             x,
             y,
-            FX_MINI_SMOKE_FIRE,
-            now,
-            s.airstrikeSmokeLifetimeMs,
+            i % 3 === 0 ? FX_MINI_SMOKE_FIRE : FX_MINI_FIRE,
+            s.airstrikeBombFireLifetimeMs,
           );
+        }
+        const smokes = damaged ? 2 + Math.round(2 * severity) : 1;
+        for (let i = 0; i < smokes; i++) {
+          const [x, y] = scatter(200 + i, r * 0.6);
+          burn(200 + i, x, y, FX_MINI_BIG_SMOKE, s.airstrikeBombFireLifetimeMs);
         }
         return;
+      }
       case AirstrikeImpactPhase.RocketRelease: {
         this.pushFx(fx.fromX, fx.fromY, FX_DUST, now);
-        // A short smoke trail along the rockets' flight to the target.
-        for (let i = 1; i <= 5; i++) {
-          const t = i / 6;
+        // A smoke trail along the rockets' flight to the target.
+        for (let i = 1; i <= 6; i++) {
+          const t = i / 7;
           this.pushLingering(
             Math.round(fx.fromX + (fx.toX - fx.fromX) * t),
             Math.round(fx.fromY + (fx.toY - fx.fromY) * t),
             FX_MINI_SMOKE,
-            now,
+            now + t * 250,
             s.airstrikeTrailLifetimeMs,
           );
         }
         return;
       }
-      case AirstrikeImpactPhase.RocketImpact:
-        this.pushFx(fx.toX, fx.toY, FX_BUILDING_EXPLOSION, now);
-        for (let i = 0; i < 4; i++) {
-          const [x, y] = scatter(i, 3);
-          this.pushFx(x, y, FX_MINI_EXPLOSION, now);
-        }
-        for (let i = 0; i < 2; i++) {
-          const [x, y] = scatter(10 + i, 2);
-          this.pushLingering(
+      case AirstrikeImpactPhase.RocketImpact: {
+        // Three detonations in quick succession, as the rockets land.
+        const offsets = [0, 110, 260];
+        offsets.forEach((delay, k) => {
+          const [x, y] = k === 0 ? [fx.toX, fx.toY] : scatter(k, 2.5);
+          this.pushFx(x, y, FX_BUILDING_EXPLOSION, now + delay);
+          for (let i = 0; i < 3; i++) {
+            const [mx, my] = scatter(10 + k * 5 + i, 3);
+            this.pushFx(mx, my, FX_MINI_EXPLOSION, now + delay + i * 40);
+          }
+        });
+        if (city) this.pushFx(fx.toX, fx.toY, FX_UNIT_EXPLOSION, now + 60);
+        // Intense, localized: smoke-and-fire columns in a tight cluster.
+        const fires = patches(3, 3);
+        for (let i = 0; i < fires; i++) {
+          const [x, y] = scatter(100 + i, fx.radius * 0.9);
+          burn(
+            100 + i,
             x,
             y,
-            FX_MINI_FIRE,
-            now,
-            s.airstrikeFireLifetimeMs,
+            i % 2 === 0 ? FX_MINI_SMOKE_FIRE : FX_MINI_FIRE,
+            s.airstrikeRocketFireLifetimeMs,
           );
         }
+        if (damaged) {
+          for (let i = 0; i < 2; i++) {
+            const [x, y] = scatter(200 + i, fx.radius * 0.5);
+            burn(
+              200 + i,
+              x,
+              y,
+              FX_MINI_BIG_SMOKE,
+              s.airstrikeRocketFireLifetimeMs,
+            );
+          }
+        }
         return;
+      }
       case AirstrikeImpactPhase.StrafeBurst: {
-        // Spread along the burst's segment, a little to either side of the line.
-        const along = (n: number): [number, number] => {
-          const t = seededRandom(seed(n));
+        // Spread along the burst's segment, a little to either side of the
+        // line, sweeping in the direction of flight over the burst.
+        const dx = fx.toX - fx.fromX;
+        const dy = fx.toY - fx.fromY;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const along = (n: number): [number, number, number] => {
+          const t = rand(n);
           const side = (seededRandom(seed(n) + 0x20000) - 0.5) * 2 * fx.radius;
-          const dx = fx.toX - fx.fromX;
-          const dy = fx.toY - fx.fromY;
-          const len = Math.sqrt(dx * dx + dy * dy) || 1;
           return [
             Math.round(fx.fromX + dx * t - (dy / len) * side),
             Math.round(fx.fromY + dy * t + (dx / len) * side),
+            t,
           ];
         };
-        for (let i = 0; i < 6; i++) {
-          const [x, y] = along(i);
-          this.pushFx(x, y, FX_DUST, now);
+        for (let i = 0; i < 14; i++) {
+          const [x, y, t] = along(i);
+          this.pushFx(x, y, FX_DUST, now + t * 450);
         }
-        for (let i = 0; i < 3; i++) {
-          const [x, y] = along(10 + i);
-          this.pushFx(x, y, FX_MINI_EXPLOSION, now);
+        for (let i = 0; i < 5; i++) {
+          const [x, y, t] = along(20 + i);
+          this.pushFx(x, y, FX_MINI_EXPLOSION, now + t * 450);
         }
-        for (let i = 0; i < 2; i++) {
-          const [x, y] = along(20 + i);
-          this.pushLingering(
-            x,
-            y,
-            FX_MINI_SMOKE,
-            now,
-            s.airstrikeDustLifetimeMs,
-          );
+        // Light, scattered fires down the line.
+        const fires = damaged ? 1 + Math.round(severity) + (city ? 1 : 0) : 0;
+        for (let i = 0; i < fires; i++) {
+          const [x, y] = along(100 + i);
+          burn(100 + i, x, y, FX_MINI_FIRE, s.airstrikeStrafeFireLifetimeMs);
+        }
+        if (damaged) {
+          const [x, y] = along(200);
+          burn(200, x, y, FX_MINI_SMOKE, s.airstrikeStrafeFireLifetimeMs);
         }
         return;
       }
     }
+  }
+
+  /**
+   * A lingering airstrike fire or smoke patch. A patch of the same kind already
+   * burning within LINGER_REFRESH_TILES is refreshed instead of a new one being
+   * added, and past airstrikeMaxLingering the oldest patch goes, so repeated
+   * strikes can never pile up effects without bound.
+   */
+  private pushAirstrikeLinger(
+    x: number,
+    y: number,
+    fxType: number,
+    startMs: number,
+    lifetimeMs: number,
+  ): void {
+    let oldest = -1;
+    let lingering = 0;
+    for (let i = 0; i < this.activeFx.length; i++) {
+      const f = this.activeFx[i];
+      if (!f.linger) continue;
+      lingering++;
+      if (
+        f.fxType === fxType &&
+        Math.abs(f.x - x) <= LINGER_REFRESH_TILES &&
+        Math.abs(f.y - y) <= LINGER_REFRESH_TILES
+      ) {
+        // Burning again: from now, for the longer of the two lifetimes left.
+        const left = f.startMs + f.lifetimeMs - startMs;
+        f.startMs = Math.min(f.startMs, startMs);
+        f.lifetimeMs = startMs - f.startMs + Math.max(left, lifetimeMs);
+        return;
+      }
+      if (oldest === -1 || f.startMs < this.activeFx[oldest].startMs) {
+        oldest = i;
+      }
+    }
+    if (lingering >= this.settings.fx.airstrikeMaxLingering && oldest !== -1) {
+      this.activeFx[oldest] = this.activeFx[this.activeFx.length - 1];
+      this.activeFx.pop();
+    }
+    this.activeFx.push({
+      x,
+      y,
+      fxType,
+      startMs,
+      lifetimeMs,
+      fadeIn: 0.04,
+      fadeOut: 0.55,
+      linger: true,
+    });
   }
 
   private spawnNukeSprites(
@@ -620,6 +749,16 @@ export class FxSpritePass {
       const fx = this.activeFx[i];
       const cfg = FX_CONFIG[fx.fxType];
       const elapsed = now - fx.startMs;
+      if (elapsed < 0) {
+        // Scheduled a moment later (a staggered blast, a fire catching).
+        const off = i * SPRITE_FLOATS;
+        this.instanceBuf.float32[off + 0] = fx.x;
+        this.instanceBuf.float32[off + 1] = fx.y;
+        this.instanceBuf.float32[off + 2] = fx.fxType;
+        this.instanceBuf.uint8[i * SPRITE_BYTES + 12] = 0;
+        this.instanceBuf.uint8[i * SPRITE_BYTES + 13] = 0;
+        continue;
+      }
 
       let frameIdx: number;
       if (cfg.looping) {

@@ -130,7 +130,14 @@ describe("GameView airstrike impact events", () => {
       }
     ).buildFrameEvents;
 
-    const update = (phase: AirstrikeImpactPhase, from: number, to: number) => ({
+    const update = (
+      phase: AirstrikeImpactPhase,
+      from: number,
+      to: number,
+      killed = 0,
+      cityLevel = 0,
+      levels = 0,
+    ) => ({
       type: GameUpdateType.AirstrikeImpact,
       strikeType: UnitType.RocketStrike,
       attackerID: 1,
@@ -139,12 +146,15 @@ describe("GameView airstrike impact events", () => {
       to,
       radius: 4,
       affected: [2],
+      killed,
+      cityLevel,
+      levels,
     });
     const gu = {
       updates: {
         [GameUpdateType.AirstrikeImpact]: [
           update(AirstrikeImpactPhase.RocketRelease, 1203, 1213),
-          update(AirstrikeImpactPhase.RocketImpact, 1213, 1213),
+          update(AirstrikeImpactPhase.RocketImpact, 1213, 1213, 4250, 2, 1),
         ],
       },
     };
@@ -159,6 +169,13 @@ describe("GameView airstrike impact events", () => {
         toX: 13,
         toY: 12,
         radius: 4,
+        attackerID: 1,
+        killed: 0,
+        cityLevel: 0,
+        levels: 0,
+        // Nothing killed, nothing damaged: no number.
+        casualtyText: null,
+        detailText: null,
       },
       {
         phase: AirstrikeImpactPhase.RocketImpact,
@@ -168,6 +185,12 @@ describe("GameView airstrike impact events", () => {
         toX: 13,
         toY: 12,
         radius: 4,
+        attackerID: 1,
+        killed: 4250,
+        cityLevel: 2,
+        levels: 1,
+        casualtyText: expect.any(String),
+        detailText: expect.any(String),
       },
     ]);
 

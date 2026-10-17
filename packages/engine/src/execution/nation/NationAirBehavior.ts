@@ -13,7 +13,6 @@ import {
   discTiles,
   strafingCorridor,
 } from "@openfront/engine-lib/airstrike/AirstrikeGeometry";
-import { airstrikeTroopLoss } from "@openfront/engine-lib/airstrike/AirstrikeRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   readVersioned,
@@ -29,7 +28,8 @@ import type {
   SnapshotWriter,
 } from "../../snapshot/SnapshotContext";
 import {
-  isAirstrikeVictim,
+  plannedKills,
+  planTroopDamage,
   strafeStructureCandidate,
   structureCandidates,
 } from "../airstrike/AirstrikeDamage";
@@ -301,21 +301,11 @@ export class NationAirBehavior {
   ): number {
     const game = this.game;
     const spec = game.config().airstrikeSpec(type);
-    const troopValue = (tiles: readonly TileRef[]): number => {
-      const hit = new Map<Player, number>();
-      for (const t of tiles) {
-        const owner = game.owner(t);
-        if (!isAirstrikeVictim(this.player, owner)) continue;
-        hit.set(owner, (hit.get(owner) ?? 0) + 1);
-      }
-      let sum = 0;
-      for (const [owner, n] of hit) {
-        sum +=
-          airstrikeTroopLoss(spec, owner.troops(), n, owner.numTilesOwned()) *
-          AIR_TROOP_GOLD_VALUE;
-      }
-      return sum;
-    };
+    // The same planner the strike uses: garrisons, the city bonus and the
+    // attacks whose front runs through the area, all as they will land.
+    const troopValue = (tiles: readonly TileRef[]): number =>
+      plannedKills(planTroopDamage(game, this.player, tiles, spec)) *
+      AIR_TROOP_GOLD_VALUE;
     const levelValue = (
       unit: { type(): UnitType; level(): number },
       levels: number,
