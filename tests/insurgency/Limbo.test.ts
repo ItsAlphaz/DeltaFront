@@ -1,5 +1,5 @@
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
-import type { Game, Player } from "@openfront/engine/game/Game";
+import type { Execution, Game, Player } from "@openfront/engine/game/Game";
 import { matchEvents } from "../capital/helpers";
 import { SPEC, annex, annexable, resistance, run } from "./helpers";
 
@@ -236,5 +236,125 @@ describe("a landless player's clock", () => {
         m.endsWith("insurgency_limbo_expiring"),
       ),
     ).toHaveLength(1);
+  });
+});
+
+// Conquering a player is paid for with their gold, and announced (the cue, the
+// gold gain, the effect on the map). For a player a resistance holds in the
+// game that is not yet a conquest: they keep their gold and nobody is paid or
+// told until they are eliminated, or the same moment would have said "conquered"
+// of a player who then wins land back (and who could not afford a replacement
+// capital for it).
+describe("the gold and the announcement of a conquest, for a player in limbo", () => {
+  const conquests = (all: ReturnType<typeof run>) =>
+    all.flatMap((u) => u[GameUpdateType.ConquestEvent]);
+  const feedLines = (all: ReturnType<typeof run>) =>
+    all.flatMap((u) => u[GameUpdateType.DisplayEvent]).map((m) => m.message);
+
+  async function playedAndFallen() {
+    const w = await annexable();
+    // Someone who has played: the transfer is skipped for a player who never attacked.
+    w.game.stats().attack(w.alice, w.game.terraNullius(), 100);
+    return w;
+  }
+
+  test("she keeps her gold, and bob is neither paid nor told of a conquest, while the resistance holds her", async () => {
+    const w = await playedAndFallen();
+    const gold = w.alice.gold();
+    expect(gold).toBeGreaterThan(0n);
+    const updates = annex(w);
+    expect(w.alice.numTilesOwned()).toBe(0);
+    expect(w.game.insurgency()!.holdsLimbo(w.alice)).toBe(true);
+    expect(w.alice.gold()).toBeGreaterThanOrEqual(gold);
+    expect(conquests(updates)).toHaveLength(0);
+    expect(feedLines(updates)).not.toContain(
+      "events_display.received_gold_from_conquest",
+    );
+  });
+
+  test("when her time is up she is conquered once: bob is paid her gold and the conquest is announced then", async () => {
+    const w = await playedAndFallen();
+    const early = annex(w);
+    const bobBefore = w.bob.gold();
+    const aliceBefore = w.alice.gold();
+    const later = run(w.game, SPEC.limboTicks + 5);
+    expect(resistance(w.game, w.alice).endReason).toBe("limbo_expired");
+    const events = conquests([...early, ...later]);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      conquerorId: w.bob.id(),
+      conqueredId: w.alice.id(),
+    });
+    // Half of what a human had (the rule for every conquest of a human).
+    expect(events[0].gold).toBeGreaterThanOrEqual(aliceBefore / 2n);
+    expect(events[0].gold).toBeLessThanOrEqual(w.alice.gold() + aliceBefore);
+    expect(
+      feedLines([...early, ...later]).filter(
+        (m) => m === "events_display.received_gold_from_conquest",
+      ),
+    ).toHaveLength(1);
+    run(w.game, 5);
+    expect(w.alice.gold()).toBe(0n);
+    expect(w.bob.gold()).toBeGreaterThan(bobBefore);
+  });
+
+  test("when nothing is left to fight with she is conquered at once, and paid for once", async () => {
+    const w = await playedAndFallen();
+    const early = annex(w);
+    const ins = resistance(w.game, w.alice);
+    ins.available = 0;
+    ins.funds = 0n;
+    const later = run(w.game, 3);
+    expect(ins.endReason).toBe("exhausted");
+    expect(conquests([...early, ...later])).toHaveLength(1);
+    expect(w.alice.gold()).toBe(0n);
+  });
+
+  test("a player who wins land back is alive, still has her gold, and nobody was ever paid", async () => {
+    const w = await playedAndFallen();
+    const early = annex(w);
+    const ins = resistance(w.game, w.alice);
+    const sys = w.game.insurgency()!;
+    ins.funds = 1_000_000n;
+    resistance(w.game, w.alice).regions[0].unrest = 80;
+    expect(sys.foundBase(w.alice, w.game.ref(3, 3))).toBeNull();
+    expect(sys.uprising(w.alice, 0, ins.available)).toBeNull();
+    const later = run(w.game, 60);
+    expect(w.alice.numTilesOwned()).toBeGreaterThan(0);
+    expect(w.alice.gold()).toBeGreaterThan(0n);
+    expect(conquests([...early, ...later])).toHaveLength(0);
+  });
+
+  test("an ordinary conquest, with no resistance, is paid and announced at once as ever", async () => {
+    const w = await annexable();
+    w.game.stats().attack(w.carol, w.game.terraNullius(), 100);
+    // carol has no capital (it is destroyed), so nothing can hold her in the game.
+    const capital = w.game.capitals()!.capitalOf(w.carol)!.tile;
+    w.carol.relinquish(capital);
+    run(w.game, 2);
+    const before = w.bob.gold();
+    // Conquered inside a tick, as an attack does it.
+    let active = true;
+    w.game.addExecution({
+      isActive: () => active,
+      activeDuringSpawnPhase: () => false,
+      init: () => {},
+      tick: () => {
+        w.game.conquerPlayer(w.bob, w.carol);
+        active = false;
+      },
+      snapshot: () => {
+        throw new Error("not snapshotted");
+      },
+    } as unknown as Execution);
+    const updates = [w.game.executeNextTick(), w.game.executeNextTick()];
+    const events = conquests(updates);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      conquerorId: w.bob.id(),
+      conqueredId: w.carol.id(),
+    });
+    expect(events[0].gold).toBeGreaterThan(0n);
+    expect(w.bob.gold()).toBeGreaterThan(before);
   });
 });

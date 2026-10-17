@@ -6,6 +6,7 @@ import {
   EmojiMessage,
   GameMode,
   GameUpdates,
+  Gold,
   HumansVsNations,
   MessageType,
   Nation,
@@ -1452,6 +1453,12 @@ export class GameImpl implements Game {
 
   finalizeElimination(conqueror: Player | null, conquered: Player): void {
     if (conqueror !== null) {
+      // The conquest the elimination was put off for: paid and announced now.
+      this.announceConquest(
+        conqueror,
+        conquered,
+        this.payConquest(conqueror, conquered),
+      );
       this.stats().recordKill(conqueror, conquered, this.ticks());
       this.stats().recordKilledBy(conquered, conqueror.clientID());
     }
@@ -1656,6 +1663,42 @@ export class GameImpl implements Game {
     const deferred =
       this._insurgency?.noteConquest(conquered, conqueror) ?? false;
 
+    // A player a resistance holds in the game keeps their gold and are not
+    // announced as conquered: both happen with the elimination itself, if and
+    // when it comes (finalizeElimination).
+    const goldCaptured = deferred ? 0n : this.payConquest(conqueror, conquered);
+
+    // OFM: per-kill log for standings (humans-only filtered in recordKill).
+    if (!deferred) this.stats().recordKill(conqueror, conquered, this.ticks());
+    // OFM live standings: attribute the elimination so the live snapshot can
+    // credit the kill (null when the conqueror has no client, e.g. a bot/nation),
+    // and stamp the finishing place NOW rather than deferring to PlayerExecution:
+    // if the game ends this tick (winner declared) the conquered player's
+    // execution may never run again. Exclude the conquered player from the alive
+    // count. PlayerExecution keeps the same stamp as a fallback for non-conquest
+    // deaths; recordDeathPosition is first-write-wins, so this value sticks.
+    if (!deferred) {
+      this.stats().recordKilledBy(conquered, conqueror.clientID());
+      this.stats().recordDeathPosition(
+        conquered,
+        this.players().filter(
+          (p) => p !== conquered && p.type() !== PlayerType.Bot,
+        ).length + 1,
+      );
+    }
+
+    if (!deferred) this.announceConquest(conqueror, conquered, goldCaptured);
+    // The one place that knows who took a player's last territory; the feed
+    // names the killer only if the victim is then seen dead (MatchEvents).
+    if (!deferred) this._matchEvents.claimKill(conqueror, conquered);
+  }
+
+  /**
+   * What taking a player's last land pays the conqueror: the conquered's gold
+   * (nothing if they never played, which matters when starting gold is on), the
+   * line in the conqueror's feed and the war-gold stat. Returns the gold paid.
+   */
+  private payConquest(conqueror: Player, conquered: Player): Gold {
     // Don't transfer gold when the conquered player didn't play (never attacked anyone)
     // This is especially important when starting gold is enabled
     const stats = this._stats.getPlayerStats(conquered);
@@ -1699,34 +1742,21 @@ export class GameImpl implements Game {
       this.stats().goldWar(conqueror, conquered, goldCaptured);
     }
 
-    // OFM: per-kill log for standings (humans-only filtered in recordKill).
-    if (!deferred) this.stats().recordKill(conqueror, conquered, this.ticks());
-    // OFM live standings: attribute the elimination so the live snapshot can
-    // credit the kill (null when the conqueror has no client, e.g. a bot/nation),
-    // and stamp the finishing place NOW rather than deferring to PlayerExecution:
-    // if the game ends this tick (winner declared) the conquered player's
-    // execution may never run again. Exclude the conquered player from the alive
-    // count. PlayerExecution keeps the same stamp as a fallback for non-conquest
-    // deaths; recordDeathPosition is first-write-wins, so this value sticks.
-    if (!deferred) {
-      this.stats().recordKilledBy(conquered, conqueror.clientID());
-      this.stats().recordDeathPosition(
-        conquered,
-        this.players().filter(
-          (p) => p !== conquered && p.type() !== PlayerType.Bot,
-        ).length + 1,
-      );
-    }
+    return goldCaptured;
+  }
 
+  /** The conquest as the clients see it: the cue, the gold gain, the effect on the map. */
+  private announceConquest(
+    conqueror: Player,
+    conquered: Player,
+    gold: Gold,
+  ): void {
     this.addUpdate({
       type: GameUpdateType.ConquestEvent,
       conquerorId: conqueror.id(),
       conqueredId: conquered.id(),
-      gold: goldCaptured,
+      gold,
     });
-    // The one place that knows who took a player's last territory; the feed
-    // names the killer only if the victim is then seen dead (MatchEvents).
-    if (!deferred) this._matchEvents.claimKill(conqueror, conquered);
   }
 }
 

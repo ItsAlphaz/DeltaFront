@@ -152,7 +152,12 @@ the other answers, with the same rules as any war.
 `isAlive()` still means "owns a tile", and everything that reads it keeps
 working. What changes is that a resistance holds its owner **in limbo** instead
 of eliminating them: no gold is stripped, no units are deleted, no kill is
-credited, no finishing place is stamped, no `player_eliminated` line is posted.
+credited, no finishing place is stamped, no `player_eliminated` line is posted,
+and the conqueror is neither paid the player's gold nor told of a conquest (the
+"conquered" cue, the gold gain, the effect on the map) yet. A player who wins a
+tile back has lost nothing, and can still afford a replacement capital; one who
+is finally eliminated is conquered then, once, and the conqueror is paid and told
+(`GameImpl.payConquest` and `announceConquest`, from `finalizeElimination`).
 
 - If they win any tile back they are simply alive again.
 - If the resistance ends with them still landless, the elimination happens
