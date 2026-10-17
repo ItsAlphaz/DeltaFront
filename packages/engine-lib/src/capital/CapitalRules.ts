@@ -84,7 +84,8 @@ export function capitalBonusPercent(
   if (!replacement || ageTicks >= spec.replacementRampTicks) return bonus;
   const start = spec.replacementBonusStartPercent;
   const age = Math.max(0, ageTicks);
-  const share = start + Math.floor(((100 - start) * age) / spec.replacementRampTicks);
+  const share =
+    start + Math.floor(((100 - start) * age) / spec.replacementRampTicks);
   return Math.floor((bonus * share) / 100);
 }
 

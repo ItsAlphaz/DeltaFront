@@ -33,7 +33,9 @@ describe("Capital System snapshots", () => {
     const b = restored.player("bob");
     expect(c.hasBeenPaid(a, b)).toBe(true);
     expect(c.capitalOf(a)).toMatchObject({ replacement: true });
-    expect(c.crisisOf(a)!.endTick).toBe(game.capitals()!.crisisOf(alice)!.endTick);
+    expect(c.crisisOf(a)!.endTick).toBe(
+      game.capitals()!.crisisOf(alice)!.endTick,
+    );
     expect(c.capturesBy(b)).toBe(1);
   });
 
@@ -41,12 +43,10 @@ describe("Capital System snapshots", () => {
     const { setup } = await import("../../util/Setup");
     const { human } = await import("../../capital/helpers");
     const game = await setup("big_plains", {}, [human("a"), human("b")]);
-    const { snapshotGame } = await import(
-      "@openfront/engine/snapshot/GameSnapshot"
-    );
-    const { readSnapshotHeader } = await import(
-      "@openfront/engine/snapshot/GameSnapshot"
-    );
+    const { snapshotGame } =
+      await import("@openfront/engine/snapshot/GameSnapshot");
+    const { readSnapshotHeader } =
+      await import("@openfront/engine/snapshot/GameSnapshot");
     const bytes = snapshotGame(game, { gameID: "g" });
     expect(readSnapshotHeader(bytes).gameConfig.capitalSystem).toBeUndefined();
     // No capitals record is written for it.

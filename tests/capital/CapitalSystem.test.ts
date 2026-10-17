@@ -45,7 +45,9 @@ describe("CapitalSystem: the match setting", () => {
   });
 
   test("reads the crisis length: 3 minutes, or 5 when asked", async () => {
-    const three = await setup("big_plains", { capitalSystem: { enabled: true } });
+    const three = await setup("big_plains", {
+      capitalSystem: { enabled: true },
+    });
     expect(three.config().crisisDurationTicks()).toBe(1_800);
     const five = await setup("big_plains", {
       capitalSystem: { enabled: true, crisisMinutes: 5 },
@@ -89,10 +91,11 @@ describe("CapitalSystem: the founding capital", () => {
   });
 
   test("a tribe has none, and a player who never spawned has none", async () => {
-    const game = await setup("big_plains", { capitalSystem: { enabled: true } }, [
-      human("a"),
-      human("idle"),
-    ]);
+    const game = await setup(
+      "big_plains",
+      { capitalSystem: { enabled: true } },
+      [human("a"), human("idle")],
+    );
     const a = game.player("a");
     land(game, a, 20, 20, 3);
     a.setSpawnTile(game.ref(20, 20));
@@ -225,16 +228,13 @@ describe("CapitalSystem: a capital is captured", () => {
   test("by a real attack, not only by assignment", async () => {
     const { game, alice, bob } = await capitalWorld();
     // bob borders alice and attacks with everything it has.
-    const { AttackExecution } = await import(
-      "@openfront/engine/execution/AttackExecution"
-    );
-    game.addExecution(
-      new AttackExecution(bob.troops(), bob, alice.id(), null),
-    );
+    const { AttackExecution } =
+      await import("@openfront/engine/execution/AttackExecution");
+    game.addExecution(new AttackExecution(bob.troops(), bob, alice.id(), null));
     const all = run(game, 200);
-    expect(capitalEvents(all).filter((e) => e.kind === "captured")).toHaveLength(
-      1,
-    );
+    expect(
+      capitalEvents(all).filter((e) => e.kind === "captured"),
+    ).toHaveLength(1);
     expect(game.capitals()!.capitalOf(alice)).toBeNull();
     expect(game.capitals()!.capturesBy(bob)).toBe(1);
   });
@@ -388,9 +388,8 @@ describe("CapitalSystem: CRISIS and the economy", () => {
     const { game, alice, bob } = await capitalWorld({
       config: { infiniteGold: false },
     });
-    const { PlayerExecution } = await import(
-      "@openfront/engine/execution/PlayerExecution"
-    );
+    const { PlayerExecution } =
+      await import("@openfront/engine/execution/PlayerExecution");
     game.addExecution(new PlayerExecution(alice), new PlayerExecution(bob));
     // One tick to start both, one to measure.
     run(game, 1);
@@ -485,9 +484,8 @@ describe("CapitalSystem: founding a replacement", () => {
   test("an order through the intent path does the same, and a bad one nothing", async () => {
     const { game, alice } = await fallen();
     run(game, CAPITAL_SPEC.replacementDelayTicks);
-    const { FoundCapitalExecution } = await import(
-      "@openfront/engine/execution/FoundCapitalExecution"
-    );
+    const { FoundCapitalExecution } =
+      await import("@openfront/engine/execution/FoundCapitalExecution");
     const gold = alice.gold();
     game.addExecution(new FoundCapitalExecution(alice, game.ref(100, 100)));
     run(game, 1);
@@ -519,7 +517,9 @@ describe("CapitalSystem: founding a replacement", () => {
 describe("CapitalSystem: determinism", () => {
   test("two identical games agree on everything, tick by tick", async () => {
     async function play() {
-      const { game, alice, bob } = await capitalWorld({ configClass: TestConfig });
+      const { game, alice, bob } = await capitalWorld({
+        configClass: TestConfig,
+      });
       const trace: number[] = [];
       bob.conquer(capitalTile(game, alice));
       for (let i = 0; i < 40; i++) {
@@ -537,7 +537,9 @@ describe("CapitalSystem: determinism", () => {
 
   test("a capital's fall changes the game hash", async () => {
     const withCapital = await capitalWorld();
-    const without = await capitalWorld({ config: { capitalSystem: undefined } });
+    const without = await capitalWorld({
+      config: { capitalSystem: undefined },
+    });
     // Same land, same tick: the system adds a term, so the hashes differ.
     withCapital.game.executeNextTick();
     without.game.executeNextTick();
@@ -553,7 +555,9 @@ describe("CapitalSystem: determinism", () => {
   });
 
   test("a single-player game uses the same rules", async () => {
-    const w = await capitalWorld({ config: { gameType: GameType.Singleplayer } });
+    const w = await capitalWorld({
+      config: { gameType: GameType.Singleplayer },
+    });
     expect(w.game.capitals()).not.toBeNull();
   });
 });
