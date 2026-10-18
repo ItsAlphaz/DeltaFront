@@ -53,6 +53,23 @@ captured: no resistance. Turning the Capital System off removes everything here.
 | Starting funds  | 5 % of all the gold the owner earned this match, between 100,000 and 1,000,000        |
 | Income share    | while the owner holds land, 10 % of their gold income moves to the purse, 500,000 max |
 
+## Why the resistance, and not just an attack
+
+An uprising is an ordinary attack, so on its own it would add nothing the owner cannot
+do with their army. Two rules make it the way back (they are the numbers in
+`INSURGENCY_SPEC`: `occupationDefenseByBand`, `reclaimCrisisReductionTicks`):
+
+- **Freshly occupied land is hard to retake by plain attack.** The occupier has extra
+  defence against the _owner's ordinary attacks_ on the land it holds in an occupied
+  region, by the area's unrest band: Calm +200 %, Uneasy +140 %, Restless +80 %,
+  Boiling +30 %, Revolt 0. (At equal armies a calm area costs the attacker about twice
+  the troops of a revolting one.) It does not apply to anyone else's attacks, to the
+  occupier's own, to land the owner still holds, or to the uprising itself. The only
+  way to lower it is to raise the area's unrest: spying, hideouts, uprisings, or the
+  occupier's army being thin. The panel shows it on each area's row.
+- **Each area won back for the first time takes 30 s off the owner's CRISIS** (never
+  past now). The same area lost and won again pays nothing more.
+
 ## Regions
 
 The map is cut into 32 x 32 tile squares, named like chess squares (`C7`). The

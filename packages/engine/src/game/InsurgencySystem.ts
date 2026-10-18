@@ -12,6 +12,7 @@ import {
   inBounds,
   isValidRegion,
   nextUnrest,
+  occupationDefensePercent,
   recruitCost,
   regionBounds,
   regionGrid,
@@ -389,6 +390,25 @@ export class InsurgencySystem {
 
   of(player: Player): Insurgency | null {
     return this.byOwner.get(player.smallID()) ?? null;
+  }
+
+  /**
+   * The extra defence percent the occupier has against `attacker`'s ordinary
+   * attack on `tile`: 0 unless `attacker` has a running resistance and the tile
+   * is held by the occupier of one of its occupied regions (docs/Insurgency.md).
+   */
+  occupationDefensePercent(attacker: Player, tile: TileRef): number {
+    const ins = this.of(attacker);
+    if (ins === null || ins.status !== "active") return 0;
+    const region = this.region(
+      ins,
+      regionOf(this.grid(), this.mg.x(tile), this.mg.y(tile)),
+    );
+    if (region === null || region.status !== InsurgencyRegionStatus.Occupied) {
+      return 0;
+    }
+    if (this.mg.map().ownerID(tile) !== region.occupier) return 0;
+    return occupationDefensePercent(this.spec(), region.unrest);
   }
 
   /** The player has a resistance that is still going. */
@@ -1297,6 +1317,26 @@ export class InsurgencySystem {
       ins.funds += spec.reclaimFunds;
       reward = spec.reclaimFunds;
       ins.deadline = survivalDeadline(spec, ins.startTick, ins.reclaimed);
+      // Winning land back also shortens the CRISIS: the owner is recovering.
+      const crisisOwner = this.player(ins.owner);
+      if (
+        crisisOwner !== null &&
+        this.mg
+          .capitals()
+          ?.shortenCrisis(crisisOwner, spec.reclaimCrisisReductionTicks) ===
+          true
+      ) {
+        this.mg.displayMessage(
+          "events_display.insurgency_crisis_shortened",
+          MessageType.INSURGENCY_ORDER,
+          crisisOwner.id(),
+          undefined,
+          {
+            region: this.label(region.id),
+            seconds: Math.round(spec.reclaimCrisisReductionTicks / 10),
+          },
+        );
+      }
     }
     this.logEvent(ins, "reclaimed", region.id, Number(reward));
     const owner = this.player(ins.owner);
@@ -1524,6 +1564,10 @@ export class InsurgencySystem {
         hasOperation: ins.ops.some((o) => o.region === r.id),
         suppressed: this.isSuppressed(ins, r.id),
         flips: r.flips,
+        defense:
+          r.status === InsurgencyRegionStatus.Occupied
+            ? occupationDefensePercent(spec, r.unrest)
+            : 0,
       })),
       // Precise only while fresh: a stale report is dropped from the view.
       intel: ins.intel

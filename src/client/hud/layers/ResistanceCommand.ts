@@ -88,8 +88,8 @@ const ENDED_VISIBLE_MS = 15_000;
 const CONFIRM_MS = 4_000;
 const RECRUIT_STEP = 50;
 const STORAGE_KEY = "resistancePanel.collapsed";
-/** Set once the "how it works" card has been read, so it opens by itself only the first time. */
-const HELP_SEEN_KEY = "resistancePanel.helpSeen";
+/** Set by "Don't show this again": the "how it works" card then stays closed until asked for. */
+const HELP_HIDDEN_KEY = "resistancePanel.helpHidden";
 const STYLE_ID = "resistance-command-style";
 
 type Form =
@@ -262,7 +262,7 @@ export class ResistanceCommand extends LitElement implements Controller {
       this.collapsed = window.innerWidth < 768;
     }
     try {
-      this.helpOpen = localStorage.getItem(HELP_SEEN_KEY) !== "1";
+      this.helpOpen = localStorage.getItem(HELP_HIDDEN_KEY) !== "1";
     } catch {
       this.helpOpen = true;
     }
@@ -753,18 +753,22 @@ export class ResistanceCommand extends LitElement implements Controller {
               this.helpMore ? "resistance.guide_less" : "resistance.guide_more",
             )}
           </button>
-          <button data-rc="help-close" @click=${() => this.closeHelp()}>
+          <button data-rc="help-close" @click=${() => (this.helpOpen = false)}>
             ${translateText("resistance.guide_help_close")}
+          </button>
+          <button data-rc="help-never" @click=${() => this.hideHelpForever()}>
+            ${translateText("resistance.guide_never")}
           </button>
         </div>
       </div>
     `;
   }
 
-  private closeHelp(): void {
+  /** "Don't show this again": it is still one click away under "How does this work?". */
+  private hideHelpForever(): void {
     this.helpOpen = false;
     try {
-      localStorage.setItem(HELP_SEEN_KEY, "1");
+      localStorage.setItem(HELP_HIDDEN_KEY, "1");
     } catch {
       // the card just opens again next time
     }
@@ -857,6 +861,9 @@ export class ResistanceCommand extends LitElement implements Controller {
       r.hasBase ? translateText("resistance.mark_base") : "",
       r.hasOperation ? translateText("resistance.mark_uprising") : "",
       r.suppressed ? translateText("resistance.mark_suppressed") : "",
+      occupied && r.defense > 0
+        ? translateText("resistance.defense", { percent: r.defense })
+        : "",
       occupied && this.now < r.cooldownUntil
         ? translateText("resistance.cooldown_in", {
             time: this.time(secondsUntil(r.cooldownUntil, this.now)),

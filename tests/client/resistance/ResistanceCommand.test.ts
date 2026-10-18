@@ -47,6 +47,7 @@ function region(
     hasOperation: false,
     suppressed: false,
     flips: 0,
+    defense: 0,
     ...over,
   };
 }
@@ -227,22 +228,34 @@ describe("ResistanceCommand", () => {
       expect(text('[data-rc="goal"]')).toBe("resistance.guide_goal_limbo");
     });
 
-    it("the how-it-works card closes, stays closed on the next visit, and comes back from the help link", async () => {
+    it("the card can be closed for now, or for good with 'Don't show this again'", async () => {
+      const fresh = async () => {
+        panel.remove();
+        panel = document.createElement(
+          "resistance-command",
+        ) as ResistanceCommand;
+        panel.game = env.game;
+        panel.eventBus = bus;
+        panel.picker = { mode: null, begin() {}, cancel() {} } as never;
+        panel.transformHandler = {} as never;
+        document.body.appendChild(panel);
+        panel.init();
+        await step();
+      };
       await step();
+      // "Close" closes it now and writes nothing: it opens again next time.
       await click('[data-rc="help-close"]');
       expect(q('[data-rc="help-card"]')).toBeNull();
-      expect(localStorage.getItem("resistancePanel.helpSeen")).toBe("1");
-      // A new panel (the next match, a reload): it does not open by itself.
-      panel.remove();
-      panel = document.createElement("resistance-command") as ResistanceCommand;
-      panel.game = env.game;
-      panel.eventBus = bus;
-      panel.picker = { mode: null, begin() {}, cancel() {} } as never;
-      panel.transformHandler = {} as never;
-      document.body.appendChild(panel);
-      panel.init();
-      await step();
+      expect(localStorage.getItem("resistancePanel.helpHidden")).toBeNull();
+      await fresh();
+      expect(q('[data-rc="help-card"]')).not.toBeNull();
+      // "Don't show this again" keeps it closed from then on...
+      await click('[data-rc="help-never"]');
       expect(q('[data-rc="help-card"]')).toBeNull();
+      expect(localStorage.getItem("resistancePanel.helpHidden")).toBe("1");
+      await fresh();
+      expect(q('[data-rc="help-card"]')).toBeNull();
+      // ...and the help link still brings it back.
       await click('[data-rc="help"]');
       expect(q('[data-rc="help-card"]')).not.toBeNull();
     });

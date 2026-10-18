@@ -254,6 +254,20 @@ export class CapitalSystem {
     );
   }
 
+  /**
+   * Takes `ticks` off the player's CRISIS (never past now, so it ends at the
+   * next tick at the latest). False when they have none running.
+   */
+  shortenCrisis(player: Player, ticks: number): boolean {
+    const crisis = this.crisisOf(player);
+    if (crisis === null || this.mg.ticks() >= crisis.endTick) return false;
+    const endTick = Math.max(this.mg.ticks(), crisis.endTick - ticks);
+    const shorter: CrisisRecord = { ...crisis, endTick };
+    this.crises = this.crises.map((c) => (c === crisis ? shorter : c));
+    this.crisisByOwner.set(shorter.owner, shorter);
+    return true;
+  }
+
   /** Whether the player has lost a capital this match (captured or destroyed). */
   hasLostCapital(player: Player): boolean {
     return this.fallen.has(player.smallID());

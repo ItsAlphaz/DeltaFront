@@ -47,6 +47,11 @@ export interface AttackLogicInput {
   } | null;
   /** A defense post owned by the defender is in range of the tile. */
   defenderHasDefensePost: boolean;
+  /**
+   * The extra defence percent the defender has here against its former owner's
+   * ordinary attack (an occupied area of a resistance): 0 or absent for none.
+   */
+  occupationDefensePercent?: number;
   /** Fraction of land tiles with fallout, or null if the tile has no fallout. */
   falloutRatio: number | null;
   /** Tiles on the attack front this tick (plus jitter); fixed for the tick. */
@@ -581,6 +586,11 @@ export class EngineConfig extends Config {
     if (defender !== null && input.defenderHasDefensePost) {
       mag *= this.defensePostDefenseBonus();
       tileCost *= this.defensePostSpeedBonus();
+    }
+    if (defender !== null && (input.occupationDefensePercent ?? 0) > 0) {
+      const held = 1 + (input.occupationDefensePercent ?? 0) / 100;
+      mag *= held;
+      tileCost *= held;
     }
     if (input.falloutRatio !== null) {
       const fallout = this.falloutDefenseModifier(input.falloutRatio);

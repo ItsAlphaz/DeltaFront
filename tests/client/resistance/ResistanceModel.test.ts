@@ -68,6 +68,7 @@ function view(over: Partial<InsurgencyView> = {}): InsurgencyView {
         hasOperation: false,
         suppressed: false,
         flips: 0,
+        defense: 0,
       },
     ],
     intel: [],

@@ -129,6 +129,16 @@ export interface InsurgencySpec {
   limboTicks: number;
   /** Funds paid once for each region reclaimed. */
   reclaimFunds: Gold;
+  /**
+   * Extra defence, in percent, an occupier has against the ordinary attacks of the
+   * player whose land it holds, by the area's unrest band (stable, unsettled,
+   * unrestful, volatile, uprising): freshly occupied land is hard to retake by
+   * simply attacking, and eases as the people turn against the occupier. An
+   * uprising is not an ordinary attack and does not meet it.
+   */
+  occupationDefenseByBand: readonly number[];
+  /** Ticks taken off the owner's CRISIS for each region won back for the first time. */
+  reclaimCrisisReductionTicks: number;
   /** The player is warned this long before the end. */
   warnTicks: number;
 }
@@ -199,6 +209,8 @@ export const INSURGENCY_SPEC: InsurgencySpec = {
   survivalMaxTicks: 18_000,
   limboTicks: 3_000,
   reclaimFunds: 20_000n,
+  occupationDefenseByBand: [200, 140, 80, 30, 0],
+  reclaimCrisisReductionTicks: 300,
   warnTicks: 600,
 };
 
@@ -209,6 +221,24 @@ export type UnrestBand =
   | "unrestful"
   | "volatile"
   | "uprising";
+
+/** The extra defence percent an occupier has in an area at this unrest (see `occupationDefenseByBand`). */
+export function occupationDefensePercent(
+  spec: InsurgencySpec,
+  unrest: number,
+): number {
+  const band =
+    unrest >= 100
+      ? 4
+      : unrest >= 75
+        ? 3
+        : unrest >= 50
+          ? 2
+          : unrest >= 25
+            ? 1
+            : 0;
+  return spec.occupationDefenseByBand[band] ?? 0;
+}
 
 export function unrestBand(unrest: number): UnrestBand {
   if (unrest >= 100) return "uprising";

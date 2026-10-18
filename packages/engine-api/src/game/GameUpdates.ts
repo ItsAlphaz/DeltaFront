@@ -269,6 +269,8 @@ export interface InsurgencyRegionView {
   suppressed: boolean;
   /** Times it has changed hands. */
   flips: number;
+  /** Occupied: the extra defence percent the occupier has against ordinary attacks here (by unrest band). */
+  defense: number;
 }
 
 export interface InsurgencyBaseView {

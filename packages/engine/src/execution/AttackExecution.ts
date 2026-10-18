@@ -447,6 +447,14 @@ export class AttackExecution implements Execution {
                 defender.isDisconnected() && this._owner.isOnSameTeam(defender),
             },
       defenderHasDefensePost,
+      // Land a resistance's owner is retaking by ordinary attack is held harder
+      // than any other; the uprising itself is not an ordinary attack.
+      occupationDefensePercent:
+        defender !== null && this.resistance === null
+          ? (this.mg
+              .insurgency()
+              ?.occupationDefensePercent(this._owner, tile) ?? 0)
+          : 0,
       falloutRatio: this.mg.hasFallout(tile)
         ? this.mg.numTilesWithFallout() / this.mg.numLandTiles()
         : null,
