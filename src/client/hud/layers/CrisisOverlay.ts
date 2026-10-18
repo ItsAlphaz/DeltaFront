@@ -392,9 +392,40 @@ export class CrisisOverlay extends LitElement implements Controller {
 
   init() {}
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("resize", this.onResize);
+  }
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener("resize", this.onResize);
     this.clearTimers();
+  }
+
+  /**
+   * The title's place at the centre is a pixel offset measured once, so a window
+   * that changes size during the announcement (maximizing, a browser bar, another
+   * monitor) leaves it off centre. Measure it again, and never leave a stale
+   * offset on the title once it has docked.
+   */
+  private onResize = (): void => {
+    if (this.phase === "announce") {
+      this.placeTitleAtCentre();
+    }
+  };
+
+  /** The title at rest has no offset: whatever left one behind, take it off. */
+  private clearStrayTransform(): void {
+    if (this.phase !== "active" && this.phase !== "over") return;
+    const title = this.titleEl();
+    if (title === null || title.style.transform === "") return;
+    title.getAnimations?.().forEach((a) => a.cancel());
+    title.style.transform = "";
+  }
+
+  updated(): void {
+    this.clearStrayTransform();
   }
 
   // ---- The match's state, once per tick ----
@@ -426,6 +457,7 @@ export class CrisisOverlay extends LitElement implements Controller {
       this.noticeCrisis(start, end, now);
     }
     if (this.phase === "idle") return;
+    this.clearStrayTransform();
 
     const seconds = secondsLeft(end, now);
     const over = now >= end;
@@ -486,6 +518,8 @@ export class CrisisOverlay extends LitElement implements Controller {
     const sub = this.renderRoot.querySelector<HTMLElement>(".sub");
     if (title === null) return;
     title.getAnimations?.().forEach((a) => a.cancel());
+    // Measured where it sits in the panel, not where it was last put.
+    title.style.transform = "";
     const rect = title.getBoundingClientRect();
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight * 0.46;
@@ -590,6 +624,9 @@ export class CrisisOverlay extends LitElement implements Controller {
       finish();
       return;
     }
+    // The window may have changed since the title was placed: where the flight
+    // starts is worked out again from the layout as it is now.
+    this.placeTitleAtCentre();
     title.style.transform = "";
     const flight = title.animate(
       [{ transform: this.centreTransform }, { transform: "none" }],

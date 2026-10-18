@@ -385,6 +385,34 @@ describe("CrisisOverlay", () => {
       return 150 * scale;
     }
 
+    it("follows the window: resized during the announcement, the title is placed again", async () => {
+      await announcedWidth(1000, 800);
+      const title = q<HTMLElement>(".title")!;
+      const dx = () =>
+        Number(/translate\(([-\d.]+)px/.exec(title.style.transform)![1]);
+      const before = dx();
+      Object.defineProperty(window, "innerWidth", {
+        value: 1400,
+        configurable: true,
+      });
+      window.dispatchEvent(new Event("resize"));
+      // The title sits at x = 1000..1150 in its panel; the middle of the screen moved by 200.
+      expect(dx() - before).toBeCloseTo(200, 0);
+    });
+
+    it("leaves no offset behind once it has docked, whatever happened on the way", async () => {
+      await announcedWidth(1000, 800);
+      const title = q<HTMLElement>(".title")!;
+      await vi.advanceTimersByTimeAsync(5_000);
+      await overlay.updateComplete;
+      expect(phase()).toBe("active");
+      // Something (a stale layout, a second placement) puts one back...
+      title.style.transform = "translate(-300px, 40px) scale(6)";
+      await step(1);
+      // ...and the next tick takes it off.
+      expect(title.style.transform).toBe("");
+    });
+
     it("is a third of a wide screen", async () => {
       expect(await announcedWidth(1920, 1080)).toBeCloseTo(1920 * 0.34, 0);
     });
