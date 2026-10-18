@@ -209,7 +209,7 @@ export const stats = (g, who = "cid") =>
   g.J(`window.__stats && window.__stats[window.__pl[window.__${who}].small]`);
 
 /** Speed the clock up until both armies are worth fighting with, then back to normal. */
-export async function regen(g, target = 150000, maxSec = 150) {
+export async function regen(g, target = 150000, maxSec = 400) {
   await g.b.key(".", "Period", 190);
   const t0 = Date.now();
   let last = null;

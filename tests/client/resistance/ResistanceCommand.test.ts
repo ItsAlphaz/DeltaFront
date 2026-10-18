@@ -197,6 +197,90 @@ describe("ResistanceCommand", () => {
     vi.useRealTimers();
   });
 
+  describe("for someone who has never seen it", () => {
+    it("opens with the goal in plain words, one thing to do next, and the how-it-works card the first time", async () => {
+      await step();
+      expect(text('[data-rc="goal"]')).toBe("resistance.guide_goal");
+      expect(q('[data-rc="help-card"]')).not.toBeNull();
+      expect(text('[data-rc="help-card"]')).toContain(
+        "resistance.guide_help_title",
+      );
+      // Three short steps first; the whole story is one click away.
+      expect(qa('[data-rc="help-short"] li')).toHaveLength(3);
+      expect(q('[data-rc="help-long"]')).toBeNull();
+      await click('[data-rc="help-more"]');
+      expect(qa('[data-rc="help-long"] li')).toHaveLength(6);
+      await click('[data-rc="help-more"]');
+      expect(q('[data-rc="help-long"]')).toBeNull();
+      expect(q('[data-rc="next"]')!.getAttribute("data-step")).toBe("uprising");
+      expect(text('[data-rc="next"]')).toContain(
+        "resistance.guide_step_uprising",
+      );
+    });
+
+    it("says the goal differently for a player with no land", async () => {
+      env.s.views.set(
+        ME,
+        view({ phase: InsurgencyPhase.Limbo, limboDeadline: 100 + 900 }),
+      );
+      await step();
+      expect(text('[data-rc="goal"]')).toBe("resistance.guide_goal_limbo");
+    });
+
+    it("the how-it-works card closes, stays closed on the next visit, and comes back from the help link", async () => {
+      await step();
+      await click('[data-rc="help-close"]');
+      expect(q('[data-rc="help-card"]')).toBeNull();
+      expect(localStorage.getItem("resistancePanel.helpSeen")).toBe("1");
+      // A new panel (the next match, a reload): it does not open by itself.
+      panel.remove();
+      panel = document.createElement("resistance-command") as ResistanceCommand;
+      panel.game = env.game;
+      panel.eventBus = bus;
+      panel.picker = { mode: null, begin() {}, cancel() {} } as never;
+      panel.transformHandler = {} as never;
+      document.body.appendChild(panel);
+      panel.init();
+      await step();
+      expect(q('[data-rc="help-card"]')).toBeNull();
+      await click('[data-rc="help"]');
+      expect(q('[data-rc="help-card"]')).not.toBeNull();
+    });
+
+    it("the 'show me' button opens the order that is suggested, aimed at the area it names", async () => {
+      await click('[data-rc="help-close"]').catch(() => undefined);
+      env.s.views.set(
+        ME,
+        view({
+          regions: [region({ id: 2, band: 3 }), region({ id: 5, band: 2 })],
+        }),
+      );
+      await step();
+      expect(q('[data-rc="next"]')!.getAttribute("data-step")).toBe("uprising");
+      await click('[data-rc="do-next"]');
+      // The uprising form is open, on the most restless area.
+      expect(q(".rc-form")).not.toBeNull();
+      expect(q('.rc-region[data-region="2"]')!.classList.contains("sel")).toBe(
+        true,
+      );
+    });
+
+    it("with nothing to press (only waiting to do), there is no button, only the advice", async () => {
+      env.s.views.set(
+        ME,
+        view({
+          funds: 0n,
+          available: 0,
+          intelReadyTick: 1_000_000,
+          regions: [region({ band: 0 })],
+        }),
+      );
+      await step();
+      expect(q('[data-rc="next"]')!.getAttribute("data-step")).toBe("funds");
+      expect(q('[data-rc="do-next"]')).toBeNull();
+    });
+  });
+
   it("draws nothing without a resistance", async () => {
     env.s.views.clear();
     await step();

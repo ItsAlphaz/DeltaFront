@@ -258,6 +258,20 @@ activity" panel: each such region with its band, and a Suppress button that
 states its cost (troops committed, for how long, how many return). Suppression
 asks twice, the second click soon after the first.
 
+### For someone who has never seen it (`ResistanceGuide`)
+
+The panel opens with the goal in one plain sentence, then **"Do this next"**: the
+one thing to do now, with a "Show me" button that opens that order on the area it
+names, then three short steps ("recruit, wait for an area to turn Restless, start an
+uprising there") that open by themselves the first time and are one click away
+after. "More details" has the whole story. The suggestion is worked out from the
+state the engine reports (`nextStep`: an uprising if an area is restless enough and
+fighters are ready, recruit if too few are ready, a hideout in a restless area,
+spying when all is calm, waiting when nothing can be done) and only suggests: the
+engine checks every order. The words are plain (Calm, Uneasy, Restless, Boiling,
+Revolt; "Recruit fighters", "Set up a hideout", "Start an uprising", "Spy on the
+enemy").
+
 ### Replacement capital (`CapitalAction`)
 
 When a player has land and no capital, a small button offers to found one, with

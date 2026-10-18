@@ -13,6 +13,8 @@
 //   --nukes           the raider also buys its own capital, builds a silo and launches
 //                     an atom bomb at you every 40 s; you build a SAM launcher to stop
 //                     them (needs --gold 3500000: this sets it unless you give one)
+//   --raider-troops <x>  the raider waits until it has x times your troops before it
+//                     strikes (default 3), and buys its own capital to get there
 //   --no-raid         no raid: only the purchase, the bar, the strain and the bonuses
 //   --selftest        a scripted player checks the session itself and exits
 //
@@ -47,6 +49,9 @@ const NUKES = has("--nukes");
 const NO_RAID = has("--no-raid");
 const GOLD = Number(flag("--gold", NUKES ? 3_500_000 : 1_000_000));
 const RAID_AFTER = Number(flag("--raid-after", SELFTEST ? 4 : 90));
+// The raider is built up before it strikes: it buys a capital of its own (a bigger army)
+// and waits until it has this many times your troops (never in the self-test).
+const RAIDER_TROOPS = Number(flag("--raider-troops", SELFTEST ? 0 : 3));
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const TIMELINE = join(OUT, `purchase-${stamp}.jsonl`);
 writeFileSync(TIMELINE, "");
@@ -190,6 +195,19 @@ try {
     await inject("window.__cid", { type: "found_capital", tile: 612071 });
   }
 
+  if (RAIDER_TROOPS > 0 && !NUKES) {
+    // The raider's capital: a bigger army to strike with.
+    void (async () => {
+      for (let k = 0; k < 8 && alive(); k++) {
+        await inject("window.__p2", {
+          type: "found_capital",
+          tile: 612080 + [0, 1, -1, 2, -2, 3, -3, 4][k],
+        });
+        await sleep(2500);
+        if ((await g.J(`window.__pl[window.__p2].capitalTile`)) >= 0) break;
+      }
+    })();
+  }
   if (SELFTEST) await b.key(".", "Period", 190); // the 30 s build, faster
   const bought = await waitUntil(
     async () => (await mine())?.capitalTile >= 0,
@@ -299,6 +317,20 @@ try {
   if (!NO_RAID) {
     await sleep(RAID_AFTER * 1000);
     if (!alive()) throw new Error("the window was closed");
+    if (RAIDER_TROOPS > 0) {
+      say(
+        `The raider is massing troops (until it has ${RAIDER_TROOPS}x yours).`,
+      );
+      await b.key(".", "Period", 190);
+      const t0 = Date.now();
+      while (alive() && Date.now() - t0 < 120_000) {
+        const mineT = (await stats(g, "cid"))?.troops ?? 1;
+        const foeT = (await stats(g, "p2"))?.troops ?? 0;
+        if (foeT >= RAIDER_TROOPS * mineT) break;
+        await sleep(1000);
+      }
+      await b.key(",", "Comma", 188);
+    }
     say("The raider attacks your capital.");
     let cap = null;
     for (let round = 1; round <= 3 && !cap && alive(); round++) {

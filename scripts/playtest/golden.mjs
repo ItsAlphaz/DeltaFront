@@ -169,9 +169,9 @@ try {
   );
   const hold = holdFrames[Math.floor(holdFrames.length / 2)];
   check(
-    "3b at its hold the title is large (>= 50% of the width) and centred",
+    "3b at its hold the title is large (>= 22% of the width: the size the owner chose) and centred",
     hold &&
-      hold.title.w >= 0.5 * vw &&
+      hold.title.w >= 0.22 * vw &&
       Math.abs(hold.title.x + hold.title.w / 2 - vw / 2) <= 0.05 * vw,
     hold && JSON.stringify(hold.title) + " vw " + vw,
   );
@@ -348,7 +348,7 @@ try {
     await sleep(700);
     check(
       "6b the form names the region and the cost",
-      /Gather intelligence/.test((await text('[data-form="intel"]')) || "") &&
+      /Spy on the enemy/.test((await text('[data-form="intel"]')) || "") &&
         /10\.0K/.test((await text('[data-form="intel"]')) || ""),
       await text('[data-form="intel"]'),
     );
@@ -404,7 +404,7 @@ try {
     await sleep(1000);
     check(
       "8b clicking an enemy tile in a restless region opens the base form with its cost",
-      /Found a base at/.test((await text('[data-form="base"]')) || "") &&
+      /Set up a hideout at/.test((await text('[data-form="base"]')) || "") &&
         /50\.0K/.test((await text('[data-form="base"]')) || ""),
       await text('[data-form="base"]'),
     );
@@ -788,7 +788,10 @@ try {
     "",
   );
   await b.clickAt(site.screen.x, site.screen.y);
-  await sleep(2500);
+  // The order reaches the engine on a turn: wait for the capital, not for a fixed time.
+  for (let i = 0; i < 30 && (await me(g)).capitalTile < 0; i++)
+    await sleep(500);
+  await sleep(500);
   const m2 = await me(g),
     a3 = await stats(g);
   check(

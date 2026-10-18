@@ -24,6 +24,7 @@ import {
   type OverlayModel,
   type OverlayRegion,
 } from "../../resistance/RegionOverlay";
+import { nextStep, type Step } from "../../resistance/ResistanceGuide";
 import {
   availableOrders,
   bandKey,
@@ -87,6 +88,8 @@ const ENDED_VISIBLE_MS = 15_000;
 const CONFIRM_MS = 4_000;
 const RECRUIT_STEP = 50;
 const STORAGE_KEY = "resistancePanel.collapsed";
+/** Set once the "how it works" card has been read, so it opens by itself only the first time. */
+const HELP_SEEN_KEY = "resistancePanel.helpSeen";
 const STYLE_ID = "resistance-command-style";
 
 type Form =
@@ -126,6 +129,24 @@ resistance-command { display: block; }
 .rc-body { padding: 8px 10px 10px; display: grid; gap: 8px; }
 .rc h3 { margin: 4px 0 0; font: 700 10.5px Inter, sans-serif; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--color-df-text-secondary, #a7a7a7); }
+.rc-guide { display: grid; gap: 6px; }
+.rc-goal { margin: 0; font: 600 12px/1.4 Inter, sans-serif; color: var(--color-df-text, #f5f5f5); }
+.rc-next { display: grid; gap: 4px; padding: 7px 9px; background: rgba(255,176,32,0.12);
+  border-left: 3px solid #ffb020; }
+.rc-next b { font: 700 10px Inter, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #ffd27a; }
+.rc-next p { margin: 0; font: 600 12.5px/1.4 Inter, sans-serif; color: #fff4d6; }
+.rc-next button { justify-self: start; cursor: pointer; padding: 4px 12px; font: 700 12px Inter, sans-serif;
+  color: #1a1100; background: #ffb020; border: 0; }
+.rc-next button:hover { background: #ffc34d; }
+.rc-help-btn { justify-self: start; cursor: pointer; background: none; border: 0; padding: 0;
+  font: 600 11px Inter, sans-serif; color: var(--color-df-text-secondary, #a7a7a7); text-decoration: underline; }
+.rc-help { display: grid; gap: 4px; padding: 8px 10px; background: rgba(255,255,255,0.06);
+  border-left: 3px solid var(--color-df-red, #e31b23); }
+.rc-help-actions { display: flex; gap: 6px; }
+.rc-help h4 { margin: 0; font: 700 11px Inter, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
+.rc-help ol { margin: 0; padding-left: 18px; display: grid; gap: 3px; font: 500 11.5px/1.4 Inter, sans-serif; }
+.rc-help button { justify-self: start; cursor: pointer; padding: 3px 12px; font: 700 11.5px Inter, sans-serif;
+  color: var(--color-df-text, #f5f5f5); background: var(--color-df-panel, #1a1a1a); border: 1px solid var(--color-df-border, #2b2b2b); }
 .rc-meter { position: relative; height: 16px; background: rgba(255,255,255,0.08); }
 .rc-meter > div { height: 100%; background: var(--color-df-red, #e31b23); }
 .rc-meter > span { position: absolute; inset: 0; display: grid; place-items: center;
@@ -215,6 +236,10 @@ export class ResistanceCommand extends LitElement implements Controller {
   @state() private selected: number | null = null;
   @state() private form: Form | null = null;
   @state() private endedOpen = false;
+  /** The "how it works" card (open by itself the first time). */
+  @state() private helpOpen = false;
+  /** The long version of it. */
+  @state() private helpMore = false;
   /** The suppression waiting for its second click, as "owner:region". */
   @state() private sure: string | null = null;
 
@@ -235,6 +260,11 @@ export class ResistanceCommand extends LitElement implements Controller {
         localStorage.getItem(STORAGE_KEY) === "1" || window.innerWidth < 768;
     } catch {
       this.collapsed = window.innerWidth < 768;
+    }
+    try {
+      this.helpOpen = localStorage.getItem(HELP_SEEN_KEY) !== "1";
+    } catch {
+      this.helpOpen = true;
     }
     this.overlay = new RegionOverlay(this.game, this.transformHandler, () =>
       this.overlayModel(),
@@ -650,13 +680,114 @@ export class ResistanceCommand extends LitElement implements Controller {
         ${this.collapsed
           ? nothing
           : html`<div class="rc-body">
-              ${this.renderStats(view)} ${this.renderRegions(view)}
+              ${this.renderGuide(view, limbo)} ${this.renderStats(view)}
+              ${this.renderRegions(view)}
               <h3>${translateText("resistance.orders")}</h3>
               ${this.renderOrders(view, orders)} ${this.renderForm(view)}
               ${this.renderUnderWay(view)}
             </div>`}
       </aside>
     `;
+  }
+
+  /** The way in for someone who has never seen this: the goal, what to do next, how it works. */
+  private renderGuide(view: InsurgencyView, limbo: boolean): TemplateResult {
+    const step = nextStep(this.spec(), view, this.now, this.hasLand());
+    return html`
+      <div class="rc-guide" data-rc="guide">
+        <p class="rc-goal" data-rc="goal">
+          ${translateText(
+            limbo ? "resistance.guide_goal_limbo" : "resistance.guide_goal",
+          )}
+        </p>
+        <div class="rc-next" data-rc="next" data-step=${step.id}>
+          <b>${translateText("resistance.guide_next")}</b>
+          <p>${this.stepText(step)}</p>
+          ${step.order === undefined
+            ? nothing
+            : html`<button
+                data-rc="do-next"
+                @click=${() => this.followStep(step)}
+              >
+                ${translateText("resistance.guide_do")}
+              </button>`}
+        </div>
+        ${this.helpOpen
+          ? this.renderHelp()
+          : html`<button
+              class="rc-help-btn"
+              data-rc="help"
+              @click=${() => (this.helpOpen = true)}
+            >
+              ${translateText("resistance.guide_help")}
+            </button>`}
+      </div>
+    `;
+  }
+
+  /** Three short steps first; the whole story one click away. */
+  private renderHelp(): TemplateResult {
+    return html`
+      <div class="rc-help" data-rc="help-card">
+        <h4>${translateText("resistance.guide_help_title")}</h4>
+        <ol data-rc="help-short">
+          ${[1, 2, 3].map(
+            (n) =>
+              html`<li>${translateText(`resistance.guide_short_${n}`)}</li>`,
+          )}
+        </ol>
+        ${this.helpMore
+          ? html`<ol data-rc="help-long">
+              ${[1, 2, 3, 4, 5, 6].map(
+                (n) =>
+                  html`<li>${translateText(`resistance.guide_help_${n}`)}</li>`,
+              )}
+            </ol>`
+          : nothing}
+        <div class="rc-help-actions">
+          <button
+            data-rc="help-more"
+            @click=${() => (this.helpMore = !this.helpMore)}
+          >
+            ${translateText(
+              this.helpMore ? "resistance.guide_less" : "resistance.guide_more",
+            )}
+          </button>
+          <button data-rc="help-close" @click=${() => this.closeHelp()}>
+            ${translateText("resistance.guide_help_close")}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  private closeHelp(): void {
+    this.helpOpen = false;
+    try {
+      localStorage.setItem(HELP_SEEN_KEY, "1");
+    } catch {
+      // the card just opens again next time
+    }
+  }
+
+  private stepText(step: Step): string {
+    const region = step.regionId === undefined ? "" : this.label(step.regionId);
+    return translateText(`resistance.guide_step_${step.id}`, {
+      region,
+      min: renderTroops(this.spec().uprisingMinTroops),
+    });
+  }
+
+  /** "Show me": the order the suggestion is about, on the area it is about. */
+  private followStep(step: Step): void {
+    if (step.order === undefined) return;
+    if (step.regionId !== undefined) {
+      this.selected = step.regionId;
+      this.goToRegion(step.regionId);
+    }
+    // A form already open for this order would be closed by a second click: leave it.
+    if (this.form?.kind === step.order) return;
+    this.openOrder(step.order);
   }
 
   private renderStats(view: InsurgencyView): TemplateResult {
