@@ -101,8 +101,12 @@ type Form =
 const STYLE = `
 resistance-command { display: block; }
 .rc {
-  position: fixed; left: 12px; top: max(200px, calc(var(--df-capital-panel-bottom, 0px) + var(--df-capital-extra, 0px) + var(--df-capital-extra2, 0px))); z-index: 1100; width: 316px;
-  max-height: calc(100vh - 250px); overflow-y: auto; box-sizing: border-box;
+  --rc-top: max(200px, calc(var(--df-capital-panel-bottom, 0px) + var(--df-capital-extra, 0px) + var(--df-capital-extra2, 0px)));
+  position: fixed; left: 12px; top: var(--rc-top); z-index: 1100; width: 316px;
+  /* From its top down to just above the bottom bar, never past the screen: the panel
+     scrolls inside itself. (A fixed 100vh - 250px let its bottom run off the screen
+     whenever the cards above it pushed its top down.) */
+  max-height: max(160px, calc(100vh - var(--rc-top) - 140px)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
   background: rgba(14, 14, 14, 0.93); color: var(--color-df-text, #f5f5f5);
   border: 1px solid var(--color-df-border, #2b2b2b);
   border-left: 3px solid var(--color-df-red, #e31b23);

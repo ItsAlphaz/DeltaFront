@@ -18,6 +18,8 @@ import type { GameView } from "../../view";
  * element at all. Nothing here can change the game.
  */
 
+/** A capital counts as "just founded" (rings go off) for this many ticks (3 s). */
+const FOUNDED_BURST_TICKS = 30;
 const SIZE_MIN = 14;
 const SIZE_MAX = 30;
 const SIZE_PER_ZOOM = 5;
@@ -90,9 +92,15 @@ export class CapitalMarkers extends LitElement implements Controller {
         this.appendChild(el);
         this.markers.set(p.smallID(), el);
       }
-      if (isNew && !game.isCatchingUp()) {
-        // A capital that has just been founded: a burst of rings where it stands.
+      // A capital that has just been founded (not one that merely scrolled back into
+      // view: markers are dropped off screen and made again): a burst of rings where
+      // it stands. Mine gets the full burst; another player's gets one quiet ring.
+      const foundedAt = p.capitalFoundedTick();
+      const justFounded =
+        foundedAt >= 0 && game.ticks() - foundedAt <= FOUNDED_BURST_TICKS;
+      if (isNew && justFounded && !game.isCatchingUp()) {
         el.classList.add("burst");
+        el.classList.toggle("other", p.smallID() !== mySmallID);
         el.addEventListener("animationend", (e) => {
           if ((e as AnimationEvent).animationName === "df-capital-burst") {
             el?.classList.remove("burst");
@@ -213,13 +221,13 @@ export class CapitalMarkers extends LitElement implements Controller {
       .df-capital-marker svg { width: 70%; height: 70%; display: block; }
       .df-capital-marker.replacement { border-style: dashed; }
       .df-capital-marker.mine::after {
-        content: ""; position: absolute; inset: -7px; border-radius: 50%;
-        border: 2px solid var(--capital-color, #fff);
-        animation: df-capital-ring 2.2s ease-out infinite;
+        content: ""; position: absolute; inset: -5px; border-radius: 50%;
+        border: 1.5px solid var(--capital-color, #fff);
+        animation: df-capital-ring 3.6s ease-out infinite;
       }
       @keyframes df-capital-ring {
-        0% { transform: scale(.7); opacity: .9; }
-        100% { transform: scale(1.5); opacity: 0; }
+        0% { transform: scale(.85); opacity: .55; }
+        100% { transform: scale(1.3); opacity: 0; }
       }
       .df-capital-marker.building {
         opacity: 0.8;
@@ -237,13 +245,22 @@ export class CapitalMarkers extends LitElement implements Controller {
         transition: width .25s linear;
       }
       .df-capital-marker.burst::before {
-        content: ""; position: absolute; inset: -10px; border-radius: 50%;
-        border: 3px solid #ffd45c; box-shadow: 0 0 24px 6px rgba(255, 190, 40, .8);
-        animation: df-capital-burst 1.6s ease-out 3 forwards;
+        content: ""; position: absolute; inset: -8px; border-radius: 50%;
+        border: 2px solid #ffd45c; box-shadow: 0 0 10px 2px rgba(255, 190, 40, .5);
+        animation: df-capital-burst 1.6s ease-out 2 forwards;
       }
       @keyframes df-capital-burst {
-        0% { transform: scale(.6); opacity: 1; }
-        100% { transform: scale(5); opacity: 0; }
+        0% { transform: scale(.6); opacity: .9; }
+        100% { transform: scale(3.2); opacity: 0; }
+      }
+      /* another player's capital: a single, thin, quiet ring, no glow */
+      .df-capital-marker.burst.other::before {
+        border: 1.5px solid rgba(255, 212, 92, .8); box-shadow: none;
+        animation: df-capital-burst-quiet 1.4s ease-out 1 forwards;
+      }
+      @keyframes df-capital-burst-quiet {
+        0% { transform: scale(.7); opacity: .7; }
+        100% { transform: scale(2); opacity: 0; }
       }
       .df-capital-ghost {
         position: absolute; left: 0; top: 0; box-sizing: border-box;

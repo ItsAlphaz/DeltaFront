@@ -8,6 +8,7 @@ function world() {
     scale: 1.8,
     catchingUp: false,
     onScreen: true,
+    tick: 1000,
     players: [
       {
         small: 1,
@@ -18,6 +19,7 @@ function world() {
         building: false,
         buildTile: -1,
         buildPercent: 0,
+        founded: 998,
         color: "#3366ff",
       },
       {
@@ -29,12 +31,14 @@ function world() {
         building: false,
         buildTile: -1,
         buildPercent: 0,
+        founded: 999,
         color: "#ff6633",
       },
     ],
   };
   const game = {
     isCatchingUp: () => state.catchingUp,
+    ticks: () => state.tick,
     isValidCoord: () => true,
     myPlayer: () => ({
       smallID: () => 1,
@@ -46,6 +50,7 @@ function world() {
         hasCapital: () => p.has,
         isAlive: () => p.alive,
         capitalTile: () => p.tile,
+        capitalFoundedTick: () => p.founded,
         capitalIsReplacement: () => p.replacement,
         isBuildingCapital: () => p.building,
         capitalBuildTile: () => p.buildTile,
@@ -242,6 +247,39 @@ describe("CapitalMarkers: a capital as it is placed, and as it is founded", () =
     expect(rule).toMatch(/color-mix\(/);
     expect(rule).not.toMatch(/(^|\s)opacity\s*:/);
     expect(rule).not.toMatch(/(padding|margin)[a-z-]*\s*:[^;]*\d%/);
+  });
+
+  it("only a capital founded just now bursts: one that scrolls back into view stays quiet", () => {
+    const all = () => [
+      ...markers.querySelectorAll<HTMLElement>(".df-capital-marker"),
+    ];
+    place();
+    // Both were founded a moment ago: mine gets the full burst, the other a quiet ring.
+    const [mine, theirs] = all();
+    expect(mine.classList.contains("burst")).toBe(true);
+    expect(mine.classList.contains("other")).toBe(false);
+    expect(theirs.classList.contains("burst")).toBe(true);
+    expect(theirs.classList.contains("other")).toBe(true);
+    // A minute on, the other capital leaves the screen and comes back (its marker is made again).
+    w.state.tick = 1600;
+    w.state.onScreen = false;
+    place();
+    expect(all()).toHaveLength(0);
+    w.state.onScreen = true;
+    place();
+    expect(all()).toHaveLength(2);
+    expect(markers.querySelectorAll(".burst")).toHaveLength(0);
+  });
+
+  it("the rings are small and quiet: no big glow, a thin single ring for other players", () => {
+    (markers as unknown as { ensureStyle(): void }).ensureStyle();
+    const css = document.getElementById(
+      "df-capital-marker-style",
+    )!.textContent!;
+    expect(css).toMatch(/scale\(3\.2\)/);
+    expect(css).not.toMatch(/scale\(5\)/);
+    expect(css).toMatch(/\.burst\.other::before[^}]*box-shadow: none/);
+    expect(css).toMatch(/df-capital-ring 3\.6s/);
   });
 
   it("a capital that appears while playing bursts with rings, once; not while catching up", () => {
