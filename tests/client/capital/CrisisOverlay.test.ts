@@ -327,6 +327,30 @@ describe("CrisisOverlay", () => {
     expect(title).toMatch(/paint-order:\s*stroke fill/);
   });
 
+  it("makes the title's box as wide as its letters, so centring the box centres the letters", () => {
+    // Measured in Chrome: the box was as wide as the panel with the letters at its
+    // left edge, so the announcement put the box at the centre and the word far
+    // to the left of it (jsdom has no layout: this is the CSS that prevents it).
+    const css = String(
+      (overlay.constructor as unknown as { styles: { cssText: string } }).styles
+        .cssText,
+    );
+    const title = css.match(/\.title\s*{([^}]*)}/)![1];
+    expect(title).toMatch(/width:\s*fit-content/);
+  });
+
+  it("makes the title's box as wide as its letters, so centring the box centres the letters", () => {
+    // Measured in Chrome: the box was as wide as the panel with the letters at its
+    // left edge, so the announcement put the box at the centre and the word far
+    // to the left of it (jsdom has no layout: this is the CSS that prevents it).
+    const css = String(
+      (overlay.constructor as unknown as { styles: { cssText: string } }).styles
+        .cssText,
+    );
+    const title = css.match(/\.title\s*{([^}]*)}/)![1];
+    expect(title).toMatch(/width:\s*fit-content/);
+  });
+
   it("takes no pointer events, so it never gets between the player and the front", () => {
     const css = String(
       (overlay.constructor as unknown as { styles: { cssText: string } }).styles

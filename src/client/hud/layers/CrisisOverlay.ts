@@ -45,7 +45,7 @@ const ANNOUNCE_HOLD_MS = 3_000;
 /** The title's flight from the middle of the screen to the panel. */
 const DOCK_MS = 1_100;
 /** How large the title is on the screen's centre, as a share of its width. */
-const ANNOUNCE_WIDTH_SHARE = 0.6;
+const ANNOUNCE_WIDTH_SHARE = 0.27;
 /** The same, in reduced motion: a third of the width, at least this many pixels, at most most of the screen. */
 const REDUCED_WIDTH_SHARE = 0.34;
 const REDUCED_MIN_WIDTH = 220;
@@ -149,11 +149,11 @@ export class CrisisOverlay extends LitElement implements Controller {
       right: 0;
       text-align: center;
       font-weight: 700;
-      font-size: clamp(14px, 2.6vw, 34px);
+      font-size: clamp(12px, 1.6vw, 22px);
       letter-spacing: 0.32em;
       color: #fff1cf;
       /* A dark band that fades at both ends: legible on snow as on sea. */
-      padding: 10px 0;
+      padding: 6px 0;
       background: linear-gradient(
         90deg,
         transparent,
@@ -247,6 +247,11 @@ export class CrisisOverlay extends LitElement implements Controller {
         0 0 36px rgba(227, 27, 35, 0.75),
         0 2px 0 rgba(0, 0, 0, 0.75);
       white-space: nowrap;
+      /* The box is the letters: the announcement centres the box, and a box as
+         wide as the panel (letters at its left edge) put them far off centre.
+         The padding balances the space letter-spacing leaves after the last one. */
+      width: fit-content;
+      padding-left: 0.08em;
       transform-origin: 50% 50%;
       will-change: transform;
     }
