@@ -102,8 +102,12 @@ export class CapitalMarkers extends LitElement implements Controller {
         el.classList.add("burst");
         el.classList.toggle("other", p.smallID() !== mySmallID);
         el.addEventListener("animationend", (e) => {
-          if ((e as AnimationEvent).animationName === "df-capital-burst") {
-            el?.classList.remove("burst");
+          const name = (e as AnimationEvent).animationName;
+          if (
+            name === "df-capital-burst" ||
+            name === "df-capital-burst-quiet"
+          ) {
+            el?.classList.remove("burst", "other");
           }
         });
       }

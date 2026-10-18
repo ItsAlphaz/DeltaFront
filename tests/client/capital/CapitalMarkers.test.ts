@@ -271,6 +271,24 @@ describe("CapitalMarkers: a capital as it is placed, and as it is founded", () =
     expect(markers.querySelectorAll(".burst")).toHaveLength(0);
   });
 
+  it("the burst class is removed when either burst animation ends (the full one and the quiet one)", () => {
+    place();
+    const els = [
+      ...markers.querySelectorAll<HTMLElement>(".df-capital-marker.burst"),
+    ];
+    expect(els).toHaveLength(2);
+    for (const [el, name] of [
+      [els[0], "df-capital-burst"],
+      [els[1], "df-capital-burst-quiet"],
+    ] as const) {
+      const e = new Event("animationend");
+      Object.defineProperty(e, "animationName", { value: name });
+      el.dispatchEvent(e);
+      expect(el.classList.contains("burst")).toBe(false);
+      expect(el.classList.contains("other")).toBe(false);
+    }
+  });
+
   it("the rings are small and quiet: no big glow, a thin single ring for other players", () => {
     (markers as unknown as { ensureStyle(): void }).ensureStyle();
     const css = document.getElementById(
