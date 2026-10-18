@@ -1,7 +1,7 @@
 import type { TileRef } from "@openfront/engine-api/game/GameMap";
 import { EventBus } from "@openfront/shared/EventBus";
 import { Controller } from "../Controller";
-import { MouseUpEvent } from "../InputHandler";
+import { MouseMoveEvent, MouseUpEvent } from "../InputHandler";
 import type { TransformHandler } from "../TransformHandler";
 import type { PickMode, UIState } from "../UIState";
 import { translateText } from "../Utils";
@@ -26,6 +26,11 @@ export interface PickRequest {
   /** Why this tile will not do (a sentence for the player), or null when it will. */
   validate: (tile: TileRef) => string | null;
   onPick: (tile: TileRef) => void;
+  /**
+   * Show a translucent preview of the thing at the tile under the pointer, as
+   * for a building (the capital markers draw it from `hover()`).
+   */
+  ghost?: boolean;
 }
 
 const STYLE_ID = "tile-picker-style";
@@ -54,6 +59,7 @@ const STYLE = `
 
 export class TilePicker implements Controller {
   private request: PickRequest | null = null;
+  private pointer: { x: number; y: number } | null = null;
   private hintEl: HTMLElement | null = null;
   private messageEl: HTMLElement | null = null;
   private readonly onKey = (e: KeyboardEvent) => {
@@ -70,6 +76,29 @@ export class TilePicker implements Controller {
     // while it calls them, so a listener that removed itself in the middle of a
     // click could make it skip a neighbour.
     this.eventBus.on(MouseUpEvent, (e) => this.onClick(e));
+    this.eventBus.on(MouseMoveEvent, (e) => {
+      this.pointer = { x: e.x, y: e.y };
+    });
+  }
+
+  /** Whether the pick under way wants a preview at the pointer. */
+  get ghost(): boolean {
+    return this.request?.ghost === true;
+  }
+
+  /**
+   * The tile under the pointer and why it will not do (null: it will), while a
+   * pick is under way and the pointer is on the map. What a preview is drawn from.
+   */
+  hover(): { tile: TileRef; why: string | null } | null {
+    if (this.request === null || this.pointer === null) return null;
+    const cell = this.transformHandler.screenToWorldCoordinates(
+      this.pointer.x,
+      this.pointer.y,
+    );
+    if (!this.game.isValidCoord(cell.x, cell.y)) return null;
+    const tile = this.game.ref(cell.x, cell.y);
+    return { tile, why: this.request.validate(tile) };
   }
 
   /** What is being chosen, or null. */
@@ -81,6 +110,9 @@ export class TilePicker implements Controller {
   begin(request: PickRequest): void {
     this.end();
     this.request = request;
+    // No preview until the pointer moves on the map: where it was last seen
+    // may be far from where it is (it was on the button that began the pick).
+    this.pointer = null;
     this.uiState.pickMode = request.mode;
     this.showHint(request.hint);
     window.addEventListener("keydown", this.onKey, true);

@@ -10,9 +10,11 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { TeamCountConfig } from "@openfront/engine-api/Schemas";
 import {
+  CAPITAL_SPEC,
   CRISIS_MINUTES_DEFAULT,
   CRISIS_MINUTES_LONG,
 } from "@openfront/engine-lib/capital/CapitalRules";
+import { renderNumber } from "@openfront/engine-lib/Format";
 import {
   DOOMSDAY_CLOCK_SPEEDS,
   DoomsdayClockSpeed,
@@ -418,6 +420,10 @@ export class GameConfigSettings extends LitElement {
           toggle.checked,
           "p-4 flex flex-col items-center justify-center gap-2 text-center",
         )}"
+        title=${translateText("game_settings.capital_system_hint", {
+          cost: renderNumber(CAPITAL_SPEC.cost),
+          grant: renderNumber(CAPITAL_SPEC.startingGold),
+        })}
         @click=${() => this.handleOptionToggle(toggle)}
       >
         <span class="${CARD_LABEL_CLASS} ${stateTextClass(toggle.checked)}">

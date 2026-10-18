@@ -17,6 +17,13 @@ import {
   run,
 } from "./helpers";
 
+/** A config whose capitals reach full strength in two ticks. */
+class QuickRampConfig extends TestConfig {
+  capitalSpec() {
+    return { ...CAPITAL_SPEC, rampTicks: 2 };
+  }
+}
+
 /** The tile a player's capital stands on. */
 function capitalTile(game: Game, p: Player) {
   return game.capitals()!.capitalOf(p)!.tile;
@@ -60,8 +67,8 @@ describe("CapitalSystem: the match setting", () => {
   });
 });
 
-describe("CapitalSystem: the founding capital", () => {
-  test("is founded where each human spawned, once the spawn phase is over", async () => {
+describe("CapitalSystem: the first capital", () => {
+  test("is bought where the player chooses, and is not a replacement", async () => {
     const { game, alice, bob } = await capitalWorld();
     const caps = game.capitals()!;
     expect(caps.capitalOf(alice)!.tile).toBe(game.ref(20, 20));
@@ -70,7 +77,7 @@ describe("CapitalSystem: the founding capital", () => {
     expect(caps.crisisOf(alice)).toBeNull();
   });
 
-  test("waits for the spawn phase to end", async () => {
+  test("nobody has one at the start, and none can be bought in the spawn phase", async () => {
     const game = await setup(
       "big_plains",
       { capitalSystem: { enabled: true } },
@@ -82,15 +89,23 @@ describe("CapitalSystem: the founding capital", () => {
     const a = game.player("a");
     land(game, a, 20, 20, 3);
     a.setSpawnTile(game.ref(20, 20));
+    a.addGold(CAPITAL_SPEC.cost);
     expect(game.inSpawnPhase()).toBe(true);
     run(game, 3);
     expect(game.capitals()!.capitalOf(a)).toBeNull();
+    expect(game.capitals()!.foundBlock(a, game.ref(20, 20))).toBe(
+      "spawn_phase",
+    );
+    expect(game.capitals()!.found(a, game.ref(20, 20))).toBe(false);
     game.endSpawnPhase();
     run(game, 1);
+    // Nothing is given when it ends: a capital is bought.
+    expect(game.capitals()!.capitalOf(a)).toBeNull();
+    expect(game.capitals()!.found(a, game.ref(20, 20))).toBe(true);
     expect(game.capitals()!.capitalOf(a)).not.toBeNull();
   });
 
-  test("a tribe has none, and a player who never spawned has none", async () => {
+  test("a tribe cannot buy one, and a player who never spawned cannot either", async () => {
     const game = await setup(
       "big_plains",
       { capitalSystem: { enabled: true } },
@@ -106,31 +121,65 @@ describe("CapitalSystem: the founding capital", () => {
     } as never);
     land(game, tribe, 60, 20, 3);
     tribe.setSpawnTile(game.ref(60, 20));
+    for (const p of [a, tribe, game.player("idle")]) p.addGold(1_000_000n);
     run(game, 2);
     const caps = game.capitals()!;
-    expect(caps.capitalOf(a)).not.toBeNull();
-    expect(caps.capitalOf(tribe)).toBeNull();
-    expect(caps.capitalOf(game.player("idle"))).toBeNull();
+    expect(caps.capitalOf(a)).toBeNull(); // not given: it has to be bought
+    expect(caps.foundBlock(a, game.ref(20, 20))).toBeNull();
+    expect(caps.foundBlock(tribe, game.ref(60, 20))).toBe("not_a_holder");
+    expect(caps.foundBlock(game.player("idle"), game.ref(20, 20))).toBe("dead");
   });
 
-  test("is not founded twice", async () => {
+  test("needs the gold, and the first one has no wait", async () => {
+    const { game, alice } = await capitalWorld({ skipFirstTick: true });
+    const caps = game.capitals()!;
+    const spawn = game.ref(20, 20);
+    run(game, 1);
+    // The starting grant is not enough on its own.
+    expect(alice.gold()).toBe(CAPITAL_SPEC.startingGold);
+    expect(caps.foundBlock(alice, spawn)).toBe("gold");
+    alice.addGold(CAPITAL_SPEC.cost - CAPITAL_SPEC.startingGold);
+    // No fall on record: no `too_soon`.
+    expect(caps.foundBlock(alice, spawn)).toBeNull();
+    expect(caps.found(alice, spawn)).toBe(true);
+    expect(alice.gold()).toBe(0n);
+  });
+
+  test("is not bought twice", async () => {
     const { game, alice } = await capitalWorld();
     const first = game.capitals()!.capitalOf(alice)!;
     run(game, 20);
     expect(game.capitals()!.capitalOf(alice)).toBe(first);
+    alice.addGold(CAPITAL_SPEC.cost);
+    expect(game.capitals()!.foundBlock(alice, game.ref(21, 21))).toBe(
+      "has_capital",
+    );
   });
 
   test("shows in the player's update, and -1 for none", async () => {
     const { game, alice, bob } = await capitalWorld({ skipFirstTick: true });
-    // The first update of a player carries every field.
+    // The first update of a player carries every field: no capital yet.
     const updates = game.executeNextTick()[GameUpdateType.Player];
     const u = updates.find((p) => p.id === alice.id())!;
-    expect(u.capitalTile).toBe(game.ref(20, 20));
-    expect(u.capitalIsReplacement).toBe(false);
+    expect(u.capitalTile).toBe(-1);
+    expect(u.capitalFoundedTick).toBe(-1);
+    expect(u.strainStartTick).toBeGreaterThan(0);
     expect(u.crisisStartTick).toBe(-1);
     expect(u.crisisEndTick).toBe(-1);
 
+    // Buying one is sent as a diff.
+    alice.addGold(CAPITAL_SPEC.cost);
+    expect(game.capitals()!.found(alice, game.ref(20, 20))).toBe(true);
+    const bought = run(game, 1)[0][GameUpdateType.Player].find(
+      (p) => p.id === alice.id(),
+    )!;
+    expect(bought.capitalTile).toBe(game.ref(20, 20));
+    expect(bought.capitalFoundedTick).toBe(game.ticks() - 1);
+    expect(bought.strainStartTick).toBe(-1);
+
     // A later change is sent as a diff: the capital is gone, CRISIS begins.
+    bob.addGold(CAPITAL_SPEC.cost);
+    game.capitals()!.found(bob, game.ref(33, 20));
     bob.conquer(capitalTile(game, alice));
     const after = run(game, 1)[0][GameUpdateType.Player].find(
       (p) => p.id === alice.id(),
@@ -350,8 +399,12 @@ describe("CapitalSystem: CRISIS and the economy", () => {
   test("a standing capital adds its bonus, CRISIS halves income and regeneration", async () => {
     const { game, alice, bob } = await capitalWorld();
     const caps = game.capitals()!;
+    // A new capital gives half its bonuses; they ramp in to all of it.
+    expect(caps.incomePercent(alice)).toBe(105);
+    expect(caps.regenPercent(alice)).toBe(112);
+    run(game, CAPITAL_SPEC.rampTicks);
     expect(caps.incomePercent(alice)).toBe(110);
-    expect(caps.regenPercent(alice)).toBe(110);
+    expect(caps.regenPercent(alice)).toBe(125);
     // bob has no capital to its name once it falls:
     const bobCapital = capitalTile(game, bob);
     alice.conquer(bobCapital);
@@ -359,7 +412,7 @@ describe("CapitalSystem: CRISIS and the economy", () => {
     expect(caps.inCrisis(bob)).toBe(true);
     expect(caps.incomePercent(bob)).toBe(50);
     expect(caps.regenPercent(bob)).toBe(50);
-    // A player never in crisis and without a capital earns the normal amount.
+    // A player never in crisis keeps the full bonus.
     expect(caps.incomePercent(game.player("alice"))).toBe(110);
   });
 
@@ -385,14 +438,17 @@ describe("CapitalSystem: CRISIS and the economy", () => {
   });
 
   test("the economy hook scales gold and troop regeneration", async () => {
+    // The bonus ramps in over two ticks here, so the measurement can follow the
+    // purchase at once (the ramp itself is tested above).
     const { game, alice, bob } = await capitalWorld({
       config: { infiniteGold: false },
+      configClass: QuickRampConfig,
     });
     const { PlayerExecution } =
       await import("@openfront/engine/execution/PlayerExecution");
     game.addExecution(new PlayerExecution(alice), new PlayerExecution(bob));
-    // One tick to start both, one to measure.
-    run(game, 1);
+    // One tick to start both; the bonus ramps in before the measurement.
+    run(game, 4);
     const income = game.config().goldAdditionRate(alice);
     const a0 = alice.gold();
     run(game, 1);
@@ -460,7 +516,7 @@ describe("CapitalSystem: founding a replacement", () => {
     const before = alice.gold();
     const tile = game.ref(21, 20);
     expect(game.capitals()!.found(alice, tile)).toBe(true);
-    expect(alice.gold()).toBe(before - CAPITAL_SPEC.replacementCost);
+    expect(alice.gold()).toBe(before - CAPITAL_SPEC.cost);
     const capital = game.capitals()!.capitalOf(alice)!;
     expect(capital).toMatchObject({ tile, replacement: true });
     const updates = run(game, 1);
@@ -475,7 +531,7 @@ describe("CapitalSystem: founding a replacement", () => {
     const caps = game.capitals()!;
     // CRISIS is still running: 50% of (100 + 5) now.
     expect(caps.incomePercent(alice)).toBe(52);
-    run(game, CAPITAL_SPEC.replacementRampTicks);
+    run(game, CAPITAL_SPEC.rampTicks);
     // Full bonus 110, still halved while CRISIS lasts (3 minutes < ramp).
     expect(caps.inCrisis(alice)).toBe(false);
     expect(caps.incomePercent(alice)).toBe(110);

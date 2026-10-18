@@ -47,6 +47,21 @@ export function applyStateUpdate(target: PlayerState, pu: PlayerUpdate): void {
   }
   if (pu.crisisEndTick !== undefined) target.crisisEndTick = pu.crisisEndTick;
   if (pu.insurgency !== undefined) target.insurgency = pu.insurgency;
+  if (pu.capitalFoundedTick !== undefined) {
+    target.capitalFoundedTick = pu.capitalFoundedTick;
+  }
+  if (pu.strainStartTick !== undefined) {
+    target.strainStartTick = pu.strainStartTick;
+  }
+  if (pu.capitalBuildTile !== undefined) {
+    target.capitalBuildTile = pu.capitalBuildTile;
+  }
+  if (pu.capitalBuildStartTick !== undefined) {
+    target.capitalBuildStartTick = pu.capitalBuildStartTick;
+  }
+  if (pu.capitalBuildEndTick !== undefined) {
+    target.capitalBuildEndTick = pu.capitalBuildEndTick;
+  }
   // Slice() to detach from the wire object — accumulated state mustn't share
   // mutable arrays with per-tick update payloads.
   if (pu.allies !== undefined) target.allies = pu.allies.slice();

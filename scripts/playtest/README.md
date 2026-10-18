@@ -34,7 +34,23 @@ into the repository. Each script prints `PASS`/`FAIL` lines and exits non-zero o
 | `presentation.mjs sizes\|backgrounds\|motion` | 4.2, 4.3, 4.6        | The CRISIS announcement at many sizes and densities, over several backgrounds, with reduced motion: geometry from the page, contrast measured on real screenshots                                           | 2 min per case |
 | `multiclient.mjs`                             | 6.4 to 6.6           | Two real clients through the real game server: lobby, spawn, a fight, orders, reloads, state hashes compared, the server's log scanned                                                                      | 8 min          |
 
+| `paid.mjs` | v0.8.0 | The paid capital in the real UI: nobody starts with one, the panel, the price, the purchase | 1 min |
+| `cards.mjs` | v0.8.0 | The capital's side cards and building bar on a phone, a small window and with reduced motion: on screen, at the left, still when motion is reduced | 4 min |
+
+v0.8.0: nobody starts with a capital, so `startMatch` buys both players' capitals (the same
+order the picker sends) unless you pass `buyCapitals: false`; `multiclient.mjs` buys with
+real clicks.
+
 ## The human sessions
+
+```
+node scripts/playtest/purchase.mjs            # v0.8.0: buy your capital, strain, bonuses, a raid, a replacement
+node scripts/playtest/purchase.mjs --nukes    # the raider launches atom bombs; build a SAM
+node scripts/playtest/purchase.mjs --gold 0   # save for it: watch the bar and the strain countdown
+```
+
+`purchase.mjs --selftest` plays the session with a script and checks it (no human). The sessions
+below are the v0.7.0 ones; they now start with both capitals already bought.
 
 ```
 node scripts/playtest/rig.mjs defender --raider strong

@@ -39,7 +39,9 @@ asks `InsurgencySystem.activate`) and all of these hold:
 | The army that fell is big enough to rise from     | 10 % of it is at least 1,000 shown |
 | They held national land                           | at least one region with 12+ tiles |
 
-A capital that is destroyed (nuked, rotted away, taken by a friend) is not
+A player who has never bought a capital has none to lose, so no resistance begins
+when they are beaten: losing every tile is an ordinary elimination. A capital that
+is destroyed (nuked, rotted away, taken by a friend) is not
 captured: no resistance. Turning the Capital System off removes everything here.
 
 ## The force and the purse

@@ -184,9 +184,10 @@ try {
     !!id,
     `${id} ${url}`,
   );
-  // a small, quick match: Antarctica (compact), no tribes, no nations, instant build
+  // a small, quick match: Antarctica (compact), no tribes, no nations, instant build, 400K starting
+  // gold on top of the grant (v0.8.0: a capital is bought, for 500K)
   await A.b.ev(
-    `(()=>{ const m=document.querySelector('host-lobby-modal'); m.selectedMap='Antarctica'; m.compactMap=true; m.bots=0; m.nations=0; m.instantBuild=true; m.putGameConfig(); return 1 })()`,
+    `(()=>{ const m=document.querySelector('host-lobby-modal'); m.selectedMap='Antarctica'; m.compactMap=true; m.bots=0; m.nations=0; m.instantBuild=true; m.startingGold=true; m.startingGoldValue=0.4; m.putGameConfig(); return 1 })()`,
   );
   await sleep(2500);
   await B.load(url);
@@ -220,6 +221,33 @@ try {
       await sleep(1500);
     }
   }
+  // v0.8.0: nobody starts with a capital. Each client buys one with real clicks: the
+  // panel's button, then a tile of its own land (its spawn), as a player would.
+  const buyCapital = async (c) => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const has = await c.b.ev(
+        `(()=>{ const p=document.querySelector('capital-markers').game.myPlayer(); return !!p && p.hasCapital() })()`,
+      );
+      if (has === true) return true;
+      const r = await c.J(
+        `(()=>{ const b=document.querySelector('capital-action [data-capital-action]'); if(!b||b.disabled) return null; const r=b.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2} })()`,
+      );
+      if (r) {
+        await c.b.clickAt(r.x, r.y);
+        await sleep(700);
+        const s = await c.tile(SPAWN[c.name].x, SPAWN[c.name].y);
+        await c.b.clickAt(s.x, s.y);
+      }
+      await sleep(2500);
+    }
+    return false;
+  };
+  const bought = await Promise.all([buyCapital(A), buyCapital(B)]);
+  check(
+    "4a both buy a capital with real clicks: the panel's button, then their own land",
+    bought.every(Boolean),
+    JSON.stringify(bought),
+  );
   const capitals = await waitUntil(
     async () => {
       const a = await A.J(
@@ -233,7 +261,7 @@ try {
     2000,
   );
   check(
-    "4 both pick a spawn with a real click and both capitals are founded",
+    "4 both pick a spawn with a real click and both capitals stand, the same on both clients",
     !!capitals,
     JSON.stringify(capitals),
   );

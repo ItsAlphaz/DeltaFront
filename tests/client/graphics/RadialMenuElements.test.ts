@@ -115,6 +115,7 @@ describe("RadialMenuElements", () => {
 
     mockBuildMenu = {
       canBuildOrUpgrade: vi.fn(() => true),
+      needsCapital: vi.fn(() => false),
       cost: vi.fn(() => 100),
       count: vi.fn(() => 5),
     };
@@ -690,6 +691,20 @@ describe("RadialMenuElements", () => {
       expect(tooltipTexts).toContain("unit_type.city_desc");
       expect(tooltipTexts.some((text) => text.includes("100"))).toBe(true);
       expect(tooltipTexts.some((text) => text.includes("5x"))).toBe(true);
+    });
+
+    it("says why a silo or airport is out of reach when the player has no capital", () => {
+      const subMenu = buildMenuElement.subMenu!(mockParams);
+      const city = subMenu.find((item) => item.id === "build_City")!;
+      expect(city.tooltipItems!.map((i) => i.text)).not.toContain(
+        "build_menu.needs_capital_hint",
+      );
+      mockBuildMenu.needsCapital = vi.fn(() => true);
+      const again = buildMenuElement.subMenu!(mockParams);
+      const why = again
+        .find((item) => item.id === "build_City")!
+        .tooltipItems!.map((i) => i.text);
+      expect(why).toContain("build_menu.needs_capital_hint");
     });
 
     it("should generate correct tooltip items for attack elements", () => {

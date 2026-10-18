@@ -433,6 +433,7 @@ export class AttackExecution implements Execution {
       attacker: {
         type: this._owner.type(),
         numTiles: this._owner.numTilesOwned(),
+        capitalStrength: this._owner.capitalStrengthPercent(),
       },
       defender:
         defender === null

@@ -56,7 +56,7 @@ describe("an order to found a capital that is refused", () => {
     expect(gold).toBeGreaterThan(0n);
 
     // 4. With the means, the same order works, says nothing, and pays.
-    alice.addGold(CAPITAL_SPEC.replacementCost + 1n);
+    alice.addGold(CAPITAL_SPEC.cost + 1n);
     game.addExecution(new FoundCapitalExecution(alice, game.ref(20, 20)));
     const updates = run(game, 1);
     expect(capitalEvents(updates).map((e) => e.kind)).toEqual(["founded"]);

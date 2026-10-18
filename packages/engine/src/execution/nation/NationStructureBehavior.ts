@@ -26,6 +26,7 @@ import { ConstructionExecution } from "../ConstructionExecution";
 import { UpgradeStructureExecution } from "../UpgradeStructureExecution";
 import { nearestTileDist, nearestTileDistCapped } from "../Util";
 import { STRUCTURE_LEVEL_GOLD_VALUE } from "./NationAirBehavior";
+import { isSavingForCapital } from "./NationCapitalBehavior";
 import { randTerritoryTileArray } from "./NationUtils";
 
 /**
@@ -507,6 +508,8 @@ export class NationStructureBehavior {
   }
 
   private doHandleStructures(): boolean {
+    // Saving for a capital (Capital System): no more structures until it is bought.
+    if (isSavingForCapital(this.game, this.player)) return false;
     this.reachableStationsCache = null;
     const config = this.game.config();
     const citiesDisabled = config.isUnitDisabled(UnitType.City);

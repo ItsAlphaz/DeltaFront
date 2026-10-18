@@ -14,6 +14,7 @@ import {
   CapitalSpec,
   crisisTicks,
   normalizeCrisisMinutes,
+  scaleBonus,
 } from "../capital/CapitalRules";
 import { pow } from "../DetMath";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
@@ -315,6 +316,14 @@ export class Config {
   crisisDurationTicks(): number {
     return crisisTicks(this._gameConfig.capitalSystem?.crisisMinutes);
   }
+  /**
+   * Ticks a capital takes to build after it is bought: as long as a SAM
+   * launcher (none with instant build). Until then it gives nothing and can be
+   * lost with the land it stands on.
+   */
+  capitalBuildTicks(): number {
+    return this.unitInfo(UnitType.SAMLauncher).constructionDuration ?? 0;
+  }
   /** The Capital System's developer-tuned numbers (CapitalRules.ts). */
   capitalSpec(): CapitalSpec {
     return CAPITAL_SPEC;
@@ -527,7 +536,18 @@ export class Config {
     return 200;
   }
 
+  /**
+   * The most troops a player can hold: what its land and cities allow, plus
+   * the flat amount a standing capital adds (scaled by how far it has ramped).
+   */
   maxTroops(player: PlayerLike): number {
+    const base = this.maxTroopsWithoutCapital(player);
+    const strength = player.capitalStrengthPercent?.() ?? 0;
+    if (strength === 0 || !this.capitalSystemEnabled()) return base;
+    return base + scaleBonus(this.capitalSpec().bonusMaxTroops, strength);
+  }
+
+  private maxTroopsWithoutCapital(player: PlayerLike): number {
     const maxTroops =
       player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)
         ? 1_000_000_000
@@ -563,6 +583,18 @@ export class Config {
 
   troopIncreaseRate(player: PlayerLike): number {
     const max = this.maxTroops(player);
+
+    // Capital System: an army above its maximum (its capital fell, and the
+    // flat troop bonus with it) drains away over seconds instead of being cut
+    // in one tick, so there is time to use it. Matches without the system
+    // keep the old cut.
+    const over = player.troops() - max;
+    if (over > 0 && this.capitalSystemEnabled()) {
+      return -Math.max(
+        1,
+        Math.floor((over * this.capitalSpec().excessTroopsDrainPercent) / 100),
+      );
+    }
 
     let toAdd = 10 + pow(player.troops(), 0.73) / 4;
 

@@ -113,7 +113,7 @@ describe("a replacement capital (scenario 9)", () => {
     run(w.game, CAPITAL_SPEC.replacementDelayTicks);
     for (let y = 8; y < 24; y++)
       for (let x = 8; x < 24; x++) w.alice.conquer(w.game.ref(x, y));
-    w.alice.addGold(CAPITAL_SPEC.replacementCost);
+    w.alice.addGold(CAPITAL_SPEC.cost);
     const caps = w.game.capitals()!;
     expect(caps.found(w.alice, w.game.ref(16, 16))).toBe(true);
 
@@ -125,7 +125,7 @@ describe("a replacement capital (scenario 9)", () => {
     expect(ins.funds).toBeLessThanOrEqual(before.funds + SPEC.incomeShareMax);
     // One capital, and a second order is refused.
     expect(caps.capitalOf(w.alice)!.replacement).toBe(true);
-    w.alice.addGold(CAPITAL_SPEC.replacementCost);
+    w.alice.addGold(CAPITAL_SPEC.cost);
     expect(caps.found(w.alice, w.game.ref(17, 16))).toBe(false);
     // Taking it too pays the captor nothing more, and starts no second resistance.
     w.bob.conquer(caps.capitalOf(w.alice)!.tile);

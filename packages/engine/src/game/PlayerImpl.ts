@@ -37,6 +37,7 @@ import {
   AirstrikeBlockReason,
   pickAirstrikeAirport,
 } from "@openfront/engine-lib/airstrike/AirstrikeRules";
+import { CAPITAL_REQUIRED_STRUCTURES } from "@openfront/engine-lib/capital/CapitalRules";
 import { andFN, manhattanDistFN } from "@openfront/engine-lib/game/GameMapImpl";
 import { TileSet } from "@openfront/engine-lib/game/TileSet";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
@@ -389,6 +390,11 @@ export class PlayerImpl implements Player {
       | "crisisStartTick"
       | "crisisEndTick"
       | "insurgency"
+      | "capitalFoundedTick"
+      | "strainStartTick"
+      | "capitalBuildTile"
+      | "capitalBuildStartTick"
+      | "capitalBuildEndTick"
     > = {};
     const capitals = this.mg.capitals();
     if (capitals !== null) {
@@ -400,6 +406,11 @@ export class PlayerImpl implements Player {
         crisisStartTick: crisis?.startTick ?? -1,
         crisisEndTick: crisis?.endTick ?? -1,
         insurgency: this.mg.insurgency()?.phaseOf(this) ?? 0,
+        capitalFoundedTick: capital?.foundedTick ?? -1,
+        strainStartTick: this.isAlive() ? capitals.strainStartOf(this) : -1,
+        capitalBuildTile: capitals.buildingOf(this)?.tile ?? -1,
+        capitalBuildStartTick: capitals.buildingOf(this)?.startTick ?? -1,
+        capitalBuildEndTick: capitals.buildingOf(this)?.endTick ?? -1,
       };
     }
 
@@ -764,6 +775,15 @@ export class PlayerImpl implements Player {
 
   isAlive(): boolean {
     return this._tiles.size > 0;
+  }
+
+  /**
+   * How much of its bonuses the player's capital gives (0 with none, else 50 to
+   * 100). Part of PlayerLike, so the rules that read it (troop cap, attack
+   * losses, structure costs) run the same here and on the client.
+   */
+  capitalStrengthPercent(): number {
+    return this.mg.capitals()?.strengthOf(this) ?? 0;
   }
 
   hasSpawned(): boolean {
@@ -1483,6 +1503,9 @@ export class PlayerImpl implements Player {
     if (this.mg.config().isUnitDisabled(unitType)) {
       return false;
     }
+    if (this.needsCapitalFor(unitType)) {
+      return false;
+    }
     const cost = knownCost ?? this.mg.unitInfo(unitType).cost(this.mg, this);
     if (this._gold < cost) {
       return false;
@@ -1491,6 +1514,16 @@ export class PlayerImpl implements Player {
       return false;
     }
     return true;
+  }
+
+  /** The Capital System asks for a standing capital to build this, and there is none. */
+  needsCapitalFor(unitType: UnitType): boolean {
+    const capitals = this.mg.capitals();
+    return (
+      capitals !== null &&
+      CAPITAL_REQUIRED_STRUCTURES.includes(unitType) &&
+      capitals.capitalOf(this) === null
+    );
   }
 
   private canUpgradeUnitType(unitType: UnitType): boolean {

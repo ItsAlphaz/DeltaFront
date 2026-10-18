@@ -1,14 +1,20 @@
 # Capital System
 
-A capital is a player's seat of government. While it stands it gives a small
-bonus to gold and troop regeneration. When an enemy captures it, its owner falls
-into **CRISIS** (a timed penalty to both), the captor is paid once, and the
-owner may found a replacement for gold. The Insurgency System
-([Insurgency.md](Insurgency.md)) starts from the same event.
+Nobody starts with a capital: it is bought, for 500,000 gold, and the money
+competes with everything else a nation can spend on. While it stands a capital
+gives bonuses and unlocks silos and airports. Without one, a nation comes under
+**strain** (a slow loss of income and troop regeneration) once the opening grace
+is over. When an enemy captures a capital its owner falls into **CRISIS** (a
+timed penalty to both), the captor is paid once, and the owner may buy another.
+The Insurgency System ([Insurgency.md](Insurgency.md)) starts from the same
+event.
 
-Everything here is a proposal for playtesting. The numbers live in one file,
-`packages/engine-lib/src/capital/CapitalRules.ts` (`CAPITAL_SPEC`), so a
-rebalance is a one-line change.
+Everything here is balanced by simulation and meant to be re-tuned by playtest.
+The numbers live in one file, `packages/engine-lib/src/capital/CapitalRules.ts`
+(`CAPITAL_SPEC`), so a rebalance is a one-line change, and
+[CapitalBalance.md](CapitalBalance.md) records what the numbers were tested
+against. (v0.7.0 gave everyone a free capital where they spawned; v0.8.0 sells
+it.)
 
 ## The match setting
 
@@ -35,40 +41,84 @@ to 3 minutes. Public lobbies have no choice: they keep the system off.
 
 ## Rules
 
-| Rule                              | Value                                                                                                         |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Who holds a capital               | humans and nations (not bots)                                                                                 |
-| Founded                           | when the spawn phase ends, where the player spawned                                                           |
-| Bonus while a capital stands      | +10 % gold income, +10 % troop regeneration                                                                   |
-| CRISIS                            | 50 % gold income and 50 % troop regeneration, 3 or 5 minutes                                                  |
-| CRISIS and a standing replacement | the penalty applies to the rate including any capital bonus                                                   |
-| Replacement                       | 500,000 gold, after a 30 s wait, on an owned land tile that is not on the border                              |
-| Replacement's bonus               | starts at 50 % of the full bonus, reaches 100 % over 5 minutes                                                |
-| Captor's reward                   | 250,000 gold (125,000 for a replacement) and troops equal to 10 % of its maximum army, never past the maximum |
-| Reward                            | **once per defender/captor pair, ever**                                                                       |
+| Rule                       | Value                                                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Who holds a capital        | humans and nations (not bots)                                                                                                                |
+| Starting gold              | 200,000 for every human and nation (a host's own starting gold is added on top)                                                              |
+| Price                      | 500,000 gold, the first capital and every replacement                                                                                        |
+| Where                      | an owned land tile that is not on the border; not during the spawn phase                                                                     |
+| Wait                       | none for the first; 30 s after a fall for a replacement                                                                                      |
+| Bonuses (at full strength) | +400,000 maximum troops, 25 % cheaper City/Port/Factory/Defense Post, +10 % gold, +25 % troop regeneration, 10 % fewer troops lost attacking |
+| Ramp                       | every capital starts at 50 % of its bonuses and reaches 100 % after 3 minutes                                                                |
+| Requires a capital         | building a Missile Silo or an Airport (SAM launchers do not: everyone may defend); existing ones keep working                                |
+| Strain (no capital)        | none for 10 minutes after the match starts, then −3 % income and troop regeneration for each minute begun, at most −30 %                     |
+| CRISIS                     | 50 % gold income and 50 % troop regeneration, 3 or 5 minutes                                                                                 |
+| CRISIS and strain          | never together: a player in CRISIS is not strained, and strain begins 10 minutes after a CRISIS ends                                         |
+| Captor's reward            | 250,000 gold (125,000 for a rebuilt capital) and troops equal to 10 % of its maximum army, never past the maximum                            |
+| Reward                     | **once per defender/captor pair, ever**                                                                                                      |
+| An army above its maximum  | drains 1.5 % of the excess a tick (a fallen capital's army melts over about 20 s)                                                            |
 
 A crisis **never eliminates** its owner: it is a penalty, not a death sentence.
 A player who loses their capital and then their last tile is not out either;
-see "A defender with no land" in [Insurgency.md](Insurgency.md).
+see "A defender with no land" in [Insurgency.md](Insurgency.md). A player who
+never bought a capital has no resistance to fall back on: losing every tile is
+an ordinary elimination.
 
 ### Lifecycle
 
 1. `CapitalSystem.tick` runs after every execution each tick (so a capital is
-   judged where the tick left its tile) and before the match feed.
-2. **Founded**: `designate()` gives each holder a capital at its spawn tile (or
-   the first tile it still holds). Nations found theirs the same way and found a
-   replacement through `NationCapitalBehavior` when they can afford one.
+   judged where the tick left its tile) and before the match feed. The first
+   tick outside the spawn phase is the match's start: the strain's grace counts
+   from it.
+2. **Bought**: the owner sends `found_capital`; `FoundCapitalExecution` asks
+   `CapitalSystem.found`, which re-checks everything (`foundBlock`) and charges
+   the gold only if it succeeds. A refused order costs nothing. A capital bought
+   by a player who has lost one before is a **replacement** (it pays its captor
+   less); otherwise it is a first capital.
+   **Built**: it is not a capital yet. For `Config.capitalBuildTicks()` (a SAM
+   launcher's construction time) it is a _build_ (`CapitalBuildRecord`): a
+   `building` event, no bonuses, no gate opened, nothing to capture, no second
+   order (`building`). If the owner loses the tile or dies first, the build ends
+   with a `cancelled` event (no refund, no CRISIS, no reward). When it ends the
+   capital stands (`founded`, same id) and its bonuses start from half.
 3. **Captured**: its tile belongs to an enemy (not a friend, not nobody). The
    system pays the captor once for the pair, starts the owner's CRISIS (only if
    they are alive or about to be kept alive by a resistance), asks the insurgency
    system whether a resistance begins, and emits exactly one `CapitalEvent`.
 4. **Destroyed**: its tile belongs to nobody or to a friend (a nuke, the land
-   rotted away, the owner died). No reward, no CRISIS.
-5. **Replaced**: the owner sends `found_capital`; `FoundCapitalExecution` asks
-   `CapitalSystem.found`, which re-checks everything (`foundBlock`) and charges
-   the gold only if it succeeds. A refused order costs nothing.
-6. **CRISIS ends** at its authoritative tick: the penalty lifts and, for a
+   rotted away, the owner died). No reward, no CRISIS. The owner's strain clock
+   restarts: they have a fresh 10 minutes to buy another.
+5. **CRISIS ends** at its authoritative tick: the penalty lifts and, for a
    living owner, a `crisis_ended` message is shown. Nothing else changes.
+
+### Strain
+
+Having no capital is free for the first 10 minutes, so that a nation can
+build first (cities are the strongest early purchase) and still afford a
+capital without being forced to buy it at once. After that, each minute without
+one takes 3 % more of income and troop regeneration, up to 30 %. It is a
+separate penalty from CRISIS and is shown differently (amber, in the capital
+panel, never the CRISIS banner); it stops the moment a capital is bought, and
+does not run while a CRISIS does. The simulations found a soft buying window of
+about minutes 7 to 12, not a single deadline ([CapitalBalance.md](CapitalBalance.md)).
+
+### What the rules read
+
+`CapitalSystem.strengthOf(player)` is 0 with no capital and 50 to 100 as it
+ramps. The rules that use it run on both sides, so they take it from
+`PlayerLike.capitalStrengthPercent()` (`engine-api/game/ReadViews.ts`): the troop
+cap (`Config.maxTroops`), structure prices (`EngineConfig.unitInfo`) and an
+attacker's losses (`EngineConfig.attackLogic`). The client's `PlayerView` derives
+the same number from `capitalFoundedTick` and the match's tick.
+
+### Nations
+
+A nation builds first and saves second (`NationCapitalBehavior`): a number of
+cities by difficulty (Easy two, Medium, Hard and Impossible one), or the match's
+age (minutes 9, 8, 7 and 6) if it has built fewer, after which it builds no more
+structures until it can pay, unless a real attack (35 % of its army incoming)
+makes it spend. A nation that lost its capital rebuys at once. When it buys is
+decided by its economy, not by a timetable.
 
 ### Why a capture can never pay twice
 
@@ -135,6 +185,21 @@ order, so a rejoin with 30 s left is never told that 60 s just passed
 With `prefers-reduced-motion`: no scaling, flash or shake; the same words fade
 in and settle into the panel.
 
+### The owner: buying, building, and the moment it stands
+
+- **Placing** (`CapitalAction`, `TilePicker`, `CapitalMarkers`): after the button, a
+  translucent capital follows the cursor like a building being placed, green where
+  it will do, red with the reason where it will not.
+- **Building**: a chip under the leaderboard shows the progress and what can go
+  wrong, and an under-construction marker with a filling ring stands on the map.
+  The build sound every building makes plays when it is placed.
+- **When it stands** (`CapitalFounded`): a card slides in at the left edge, under the
+  chip, with a glowing border, a sweep of light, sparkles and the bonuses popping in
+  one by one; the left edge of the screen pulses; rings burst out where it stands;
+  a chime plays. It is off to the side so the game stays in view, and it leaves by
+  itself after 9 s. The chip then keeps showing what the capital does and how far
+  its bonuses have grown.
+
 ### The captor: `CapitalVictory`
 
 A gold banner ("CAPITAL CAPTURED"), the gold and troops the engine paid
@@ -144,7 +209,7 @@ capture paid nothing ("already paid").
 
 ### Everyone: `CapitalMarkers`
 
-A badge over each capital in its owner's territory colour (solid for a founding
+A badge over each capital in its owner's territory colour (solid for a first
 capital, dashed for a replacement, with a pulsing ring on your own), positioned
 from the camera each frame. Capitals are public, like any structure.
 
@@ -156,16 +221,16 @@ script on `scripts/audio/dsp.ts`; run it to regenerate), shipped as
 
 ## Where things are
 
-| What                   | File                                                                     |
-| ---------------------- | ------------------------------------------------------------------------ |
-| Numbers and pure rules | `packages/engine-lib/src/capital/CapitalRules.ts`                        |
-| State machine          | `packages/engine/src/game/CapitalSystem.ts`                              |
-| Replacement order      | `packages/engine/src/execution/FoundCapitalExecution.ts`                 |
-| Nation AI              | `packages/engine/src/execution/nation/NationCapitalBehavior.ts`          |
-| Economy scaling        | `packages/engine/src/execution/PlayerExecution.ts`                       |
-| Match setting          | `packages/engine-api/src/Schemas.ts`, `src/server/ConfigPatch.ts`        |
-| Countdown arithmetic   | `src/client/capital/CrisisClock.ts`                                      |
-| Presentation           | `src/client/hud/layers/{CrisisOverlay,CapitalVictory,CapitalMarkers}.ts` |
+| What                   | File                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| Numbers and pure rules | `packages/engine-lib/src/capital/CapitalRules.ts`                                      |
+| State machine          | `packages/engine/src/game/CapitalSystem.ts`                                            |
+| Purchase order         | `packages/engine/src/execution/FoundCapitalExecution.ts`                               |
+| Nation AI              | `packages/engine/src/execution/nation/NationCapitalBehavior.ts`                        |
+| Economy scaling        | `packages/engine/src/execution/PlayerExecution.ts`                                     |
+| Match setting          | `packages/engine-api/src/Schemas.ts`, `src/server/ConfigPatch.ts`                      |
+| Countdown arithmetic   | `src/client/capital/CrisisClock.ts`                                                    |
+| Presentation           | `src/client/hud/layers/{CrisisOverlay,CapitalVictory,CapitalMarkers,CapitalAction}.ts` |
 
 ## Tests
 

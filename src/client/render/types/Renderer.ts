@@ -95,6 +95,14 @@ export interface PlayerState {
   crisisEndTick: number;
   /** Insurgency: 0 none (or over), 1 resisting with land, 2 resisting with none. */
   insurgency: number;
+  /** The tick the standing capital was bought, -1 for none. */
+  capitalFoundedTick: number;
+  /** The tick strain begins for a player with no capital, -1 for none. */
+  strainStartTick: number;
+  /** A capital being built: its tile and when its construction began and ends, -1 for none. */
+  capitalBuildTile: number;
+  capitalBuildStartTick: number;
+  capitalBuildEndTick: number;
   allies: number[];
   embargoes: number[];
   targets: number[];

@@ -1,7 +1,7 @@
 import { PlayerInfo, PlayerType } from "@openfront/engine-api/game/GameTypes";
 import { CAPITAL_SPEC } from "@openfront/engine-lib/capital/CapitalRules";
 import type { Game, Player } from "@openfront/engine/game/Game";
-import { capitalWorld, land, run } from "./helpers";
+import { buyCapital, capitalWorld, land, run } from "./helpers";
 
 /** The captures a player is credited with for XP, as the game record will carry them. */
 function captures(game: Game, p: Player) {
@@ -61,6 +61,7 @@ describe("capital captures in the stats (what the capture XP reads)", () => {
     land(game, nation, 60, 20, 4);
     nation.setSpawnTile(game.ref(60, 20));
     run(game, 1);
+    buyCapital(game, nation);
     expect(game.capitals()!.capitalOf(nation)).not.toBeNull();
     alice.conquer(capitalTile(game, nation));
     run(game, 1);

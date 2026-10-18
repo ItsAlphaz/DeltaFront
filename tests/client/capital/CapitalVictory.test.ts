@@ -109,7 +109,7 @@ describe("CapitalVictory", () => {
 
   it("shows a capital once, however often the event is delivered", async () => {
     await step(capture());
-    await vi.advanceTimersByTimeAsync(6_000);
+    await vi.advanceTimersByTimeAsync(7_100);
     await banner.updateComplete;
     expect(root().querySelector(".banner")).toBeNull();
     await step(capture());
@@ -143,10 +143,10 @@ describe("CapitalVictory", () => {
   it("queues a second capture behind the first, and leaves after a few seconds", async () => {
     await step(capture(), capture({ capitalId: 2, owner: 11 }));
     expect(root().querySelector('[data-capital-victory="1"]')).not.toBeNull();
-    await vi.advanceTimersByTimeAsync(5_300);
+    await vi.advanceTimersByTimeAsync(7_100);
     await banner.updateComplete;
     expect(root().querySelector('[data-capital-victory="2"]')).not.toBeNull();
-    await vi.advanceTimersByTimeAsync(5_300);
+    await vi.advanceTimersByTimeAsync(7_100);
     await banner.updateComplete;
     expect(root().querySelector(".banner")).toBeNull();
   });
@@ -157,5 +157,54 @@ describe("CapitalVictory", () => {
         .cssText,
     );
     expect(css).toMatch(/:host\s*{[^}]*pointer-events:\s*none/);
+  });
+});
+
+describe("CapitalVictory: off to the side, with the effects", () => {
+  it("is a narrow card at the left edge, never over the middle of the screen, with a glow, a sweep of light, sparkles and an edge pulse", async () => {
+    vi.useFakeTimers();
+    window.matchMedia = ((q: string) => ({
+      matches: false,
+      media: q,
+    })) as never;
+    const el = document.createElement("capital-victory") as CapitalVictory;
+    el.eventBus = new EventBus();
+    el.game = {
+      updatesSinceLastTick: () => ({
+        [GameUpdateType.CapitalEvent]: [capture()],
+      }),
+      myPlayer: () => ({ smallID: () => ME }),
+      isCatchingUp: () => false,
+      playerBySmallID: () => ({ isPlayer: () => true, name: () => "Alphaz" }),
+    } as unknown as GameView;
+    document.body.appendChild(el);
+    el.tick();
+    await el.updateComplete;
+    const root = el.shadowRoot!;
+    expect(root.querySelector(".shine")).not.toBeNull();
+    expect(root.querySelectorAll(".spark").length).toBeGreaterThanOrEqual(4);
+    expect(root.querySelector(".edge")).not.toBeNull();
+    const css = String(
+      (el.constructor as unknown as { styles: { cssText: string } }).styles
+        .cssText,
+    );
+    const rule = css.slice(
+      css.indexOf(".banner {"),
+      css.indexOf("}", css.indexOf(".banner {")),
+    );
+    expect(rule).toMatch(/left:\s*8px/);
+    expect(rule).toMatch(/width:\s*232px/);
+    expect(rule).not.toMatch(/left:\s*50%|margin:\s*clamp/);
+    expect(css).toMatch(/@keyframes glow/);
+    expect(css).toMatch(/@keyframes shine/);
+    // It makes room for the panel under it while it is up, and gives it back.
+    expect(
+      document.documentElement.style.getPropertyValue("--df-capital-extra2"),
+    ).toMatch(/px$/);
+    el.remove();
+    expect(
+      document.documentElement.style.getPropertyValue("--df-capital-extra2"),
+    ).toBe("");
+    vi.useRealTimers();
   });
 });

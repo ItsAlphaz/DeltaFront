@@ -14,6 +14,20 @@ straight away. **These are measurements, not a verdict.** Whether the resistance
 is _fair_ is a question for people (plan rows 2.4 and 3.6 in
 [PreReleasePlaytest.md](PreReleasePlaytest.md)); the sweep only says what happens.
 
+## v0.8.0: capitals are bought, and carry a flat troop bonus
+
+The tables below were measured in v0.7.0, when every capital was free and gave +10 %
+income and regeneration. In v0.8.0 a capital is bought and adds a flat +400,000
+maximum troops ([Capital.md](Capital.md)), which raises the occupier's maximum and so
+lowers the share of it that an army of the same size fills. The sweep was re-run with
+capitals bought at full strength (the same scenarios, the same rules otherwise): of
+the same rows, more end with the resistance alive at 12 minutes (12 against 9) or
+exhausted (14 against 9), fewer end with the survival time expired (24 against 29)
+and fewer reclaim a region (5 against 8). The resistance is a little stronger
+against a big occupier and no easier to win; no row changed character. The tables
+below are v0.7.0's and are not regenerated here; re-run the command above to see the
+v0.8.0 ones.
+
 ## How to read the tables
 
 - One map (flat plains), one geometry: the defender holds a square, the occupier

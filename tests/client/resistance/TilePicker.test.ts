@@ -1,6 +1,6 @@
 import { EventBus } from "@openfront/shared/EventBus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MouseUpEvent } from "../../../src/client/InputHandler";
+import { MouseMoveEvent, MouseUpEvent } from "../../../src/client/InputHandler";
 import {
   TilePicker,
   type PickRequest,
@@ -159,5 +159,40 @@ describe("TilePicker", () => {
     picker.tick();
     expect(picker.mode).toBeNull();
     expect(ui.pickMode).toBeNull();
+  });
+
+  describe("the preview under the pointer", () => {
+    it("reports the tile under the pointer and why it will not do, only while a pick is under way", () => {
+      bus.emit(new MouseMoveEvent(7, 3));
+      expect(picker.hover()).toBeNull(); // nothing being chosen
+      picker.begin({ ...request, ghost: true });
+      expect(picker.ghost).toBe(true);
+      bus.emit(new MouseMoveEvent(7, 3));
+      expect(picker.hover()).toEqual({ tile: 7 + 3 * 100, why: null });
+      reasons[7 + 3 * 100] = "border";
+      expect(picker.hover()).toEqual({ tile: 7 + 3 * 100, why: "border" });
+      bus.emit(new MouseMoveEvent(8, 3));
+      expect(picker.hover()!.tile).toBe(8 + 300);
+      picker.cancel();
+      expect(picker.hover()).toBeNull();
+      expect(picker.ghost).toBe(false);
+    });
+
+    it("has none until the pointer moves after the pick began (it was last seen somewhere else)", () => {
+      bus.emit(new MouseMoveEvent(7, 3));
+      picker.begin({ ...request, ghost: true });
+      expect(picker.hover()).toBeNull();
+      bus.emit(new MouseMoveEvent(9, 4));
+      expect(picker.hover()!.tile).toBe(9 + 400);
+    });
+
+    it("has none off the map, before the pointer has moved, or when the pick did not ask for one", () => {
+      picker.begin({ ...request, ghost: true });
+      expect(picker.hover()).toBeNull(); // the pointer has not moved yet
+      bus.emit(new MouseMoveEvent(500, 3));
+      expect(picker.hover()).toBeNull(); // off the map
+      picker.begin(request);
+      expect(picker.ghost).toBe(false);
+    });
   });
 });

@@ -1,5 +1,8 @@
 import { Tick, UnitType } from "@openfront/engine-api/game/GameTypes";
-import { NukeMagnitude } from "@openfront/engine-lib/configuration/Config";
+import {
+  Config,
+  NukeMagnitude,
+} from "@openfront/engine-lib/configuration/Config";
 import {
   AttackLogicInput,
   AttackLogicResult,
@@ -74,10 +77,22 @@ export class TestConfig extends EngineConfig {
     return this._nationSpawnImmunityDuration;
   }
 
+  /** Instant, so that a test that buys a capital has it at once (CapitalBuild.test.ts times the real one). */
+  capitalBuildTicks(): number {
+    return 0;
+  }
+
   attackLogic(_input: AttackLogicInput): AttackLogicResult {
     return { attackerTroopLoss: 1, defenderTroopLoss: 1, tickFraction: 1 };
   }
 }
+/** A TestConfig whose capitals take as long to build as in the game. */
+export class RealCapitalBuildConfig extends TestConfig {
+  capitalBuildTicks(): number {
+    return Config.prototype.capitalBuildTicks.call(this);
+  }
+}
+
 export class UseRealAttackLogic extends TestConfig {
   attackLogic(input: AttackLogicInput): AttackLogicResult {
     return EngineConfig.prototype.attackLogic.call(this, input);

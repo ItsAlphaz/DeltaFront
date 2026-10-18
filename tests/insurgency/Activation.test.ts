@@ -8,7 +8,7 @@ import {
   InsurgencyPhase,
   InsurgencyRegionStatus,
 } from "@openfront/engine-api/game/GameUpdates";
-import { human, land, matchEvents } from "../capital/helpers";
+import { buyCapital, human, land, matchEvents } from "../capital/helpers";
 import { setup } from "../util/Setup";
 import {
   SPEC,
@@ -98,6 +98,7 @@ describe("a capital's fall starts the owner's resistance", () => {
     bob.setSpawnTile(game.ref(48, 16));
     nation.setTroops(1_000_000);
     game.executeNextTick();
+    buyCapital(game, nation);
     bob.conquer(game.capitals()!.capitalOf(nation)!.tile);
     game.executeNextTick();
     expect(game.insurgency()!.of(nation)).toBeNull();

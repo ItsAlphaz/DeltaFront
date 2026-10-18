@@ -589,6 +589,13 @@ function createMenuElements(
           item.countable
             ? { text: `${params.buildMenu.count(item)}x`, className: "count" }
             : null,
+          // Why a silo or airport is out of reach (Capital System).
+          params.buildMenu.needsCapital(item.unitType)
+            ? {
+                text: translateText("build_menu.needs_capital_hint"),
+                className: "description",
+              }
+            : null,
         ].filter(
           (tooltipItem): tooltipItem is TooltipItem => tooltipItem !== null,
         ),

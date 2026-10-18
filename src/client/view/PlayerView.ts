@@ -22,6 +22,10 @@ import {
   PlayerUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
+import {
+  capitalStrengthPercent,
+  strainPercent,
+} from "@openfront/engine-lib/capital/CapitalRules";
 import { PatternDecoder } from "@openfront/shared/PatternDecoder";
 import { createRandomName } from "@openfront/shared/SharedUtil";
 import type { StaffRoleWire } from "@openfront/shared/WireSchemas";
@@ -646,6 +650,56 @@ export class PlayerView implements PlayerLike {
   }
   capitalIsReplacement(): boolean {
     return this.state.capitalIsReplacement;
+  }
+  /** The tick the standing capital was bought, or -1 for none. */
+  capitalFoundedTick(): number {
+    return this.state.capitalFoundedTick;
+  }
+  /**
+   * How much of its bonuses the standing capital gives: 0 with none, else 50 to
+   * 100 as it ramps in. The same rule the engine runs (PlayerLike), so the
+   * troop bar and costs shown here agree with the simulation.
+   */
+  capitalStrengthPercent(): number {
+    if (this.state.capitalFoundedTick < 0 || !this.hasCapital()) return 0;
+    return capitalStrengthPercent(
+      this.game.config().capitalSpec(),
+      this.game.ticks() - this.state.capitalFoundedTick,
+    );
+  }
+  /** Where a capital is being built, or -1: it gives nothing until it is done. */
+  capitalBuildTile(): number {
+    return this.state.capitalBuildTile;
+  }
+  isBuildingCapital(): boolean {
+    return this.state.capitalBuildTile >= 0;
+  }
+  /** How far along the capital under construction is, 0 to 100 (0 when none). */
+  capitalBuildPercent(): number {
+    const { capitalBuildStartTick: a, capitalBuildEndTick: b } = this.state;
+    if (this.state.capitalBuildTile < 0 || b <= a) return 0;
+    const done = ((this.game.ticks() - a) * 100) / (b - a);
+    return Math.max(0, Math.min(100, Math.floor(done)));
+  }
+  /** Ticks until the capital under construction stands (0 when none). */
+  capitalBuildRemainingTicks(): number {
+    if (this.state.capitalBuildTile < 0) return 0;
+    return Math.max(0, this.state.capitalBuildEndTick - this.game.ticks());
+  }
+  /** The tick strain begins for a player with no capital, or -1 (has one, or cannot). */
+  strainStartTick(): number {
+    return this.state.strainStartTick;
+  }
+  /** The strain on the player's income and troop regeneration now, in percent. */
+  strainPercentNow(): number {
+    const start = this.state.strainStartTick;
+    if (start < 0 || this.inCrisis()) return 0;
+    const spec = this.game.config().capitalSpec();
+    return strainPercent(
+      spec,
+      start - spec.strainGraceTicks,
+      this.game.ticks(),
+    );
   }
   /** The tick the player's latest CRISIS began and ends, or -1 for none. */
   crisisStartTick(): number {

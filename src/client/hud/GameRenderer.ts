@@ -31,6 +31,7 @@ import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
 import { BuildMenu } from "./layers/BuildMenu";
 import { CapitalAction } from "./layers/CapitalAction";
+import { CapitalFounded } from "./layers/CapitalFounded";
 import { CapitalMarkers } from "./layers/CapitalMarkers";
 import { CapitalVictory } from "./layers/CapitalVictory";
 import { ChatDisplay } from "./layers/ChatDisplay";
@@ -370,6 +371,15 @@ export function createRenderer(
   capitalVictory.game = game;
   capitalVictory.eventBus = eventBus;
 
+  const capitalFounded = document.querySelector(
+    "capital-founded",
+  ) as CapitalFounded;
+  if (!(capitalFounded instanceof CapitalFounded)) {
+    console.error("capital founded not found");
+  }
+  capitalFounded.game = game;
+  capitalFounded.eventBus = eventBus;
+
   // Choosing a tile for an order (a resistance base, a replacement capital).
   const tilePicker = new TilePicker(game, eventBus, uiState, transformHandler);
 
@@ -382,6 +392,8 @@ export function createRenderer(
   capitalAction.game = game;
   capitalAction.eventBus = eventBus;
   capitalAction.picker = tilePicker;
+  // The translucent capital that follows the cursor while it is being placed.
+  capitalMarkers.picker = tilePicker;
 
   const resistanceCommand = document.querySelector(
     "resistance-command",
@@ -486,6 +498,7 @@ export function createRenderer(
     capitalMarkers,
     crisisOverlay,
     capitalVictory,
+    capitalFounded,
     tilePicker,
     capitalAction,
     resistanceCommand,

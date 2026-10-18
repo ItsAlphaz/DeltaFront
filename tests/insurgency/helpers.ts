@@ -9,7 +9,13 @@ import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { PlayerExecution } from "@openfront/engine/execution/PlayerExecution";
 import type { Game, Player } from "@openfront/engine/game/Game";
 import type { Insurgency } from "@openfront/engine/game/InsurgencySystem";
-import { capitalWorld, human, run } from "../capital/helpers";
+import {
+  FullStrengthConfig,
+  buyCapital,
+  capitalWorld,
+  human,
+  run,
+} from "../capital/helpers";
 import { setup } from "../util/Setup";
 
 export { capitalWorld, human, run };
@@ -41,7 +47,7 @@ export function rect(
 /**
  * alice holds region 0 (the top-left 32 x 32), bob region 1 beside it, carol
  * region 8 below; each has an army of a million (100,000 shown) and the
- * Capital System is on. The founding capitals are in place.
+ * Capital System is on. Everyone has bought a capital.
  */
 export async function insurgentWorld(
   config: Parameters<typeof setup>[1] = {},
@@ -52,7 +58,7 @@ export async function insurgentWorld(
     { capitalSystem: { enabled: true }, ...config },
     [human("alice"), human("bob"), human("carol")],
     undefined,
-    configClass,
+    configClass ?? FullStrengthConfig,
   );
   const alice = game.player("alice");
   const bob = game.player("bob");
@@ -64,7 +70,8 @@ export async function insurgentWorld(
   rect(game, carol, 0, 32, 31, 63);
   carol.setSpawnTile(game.ref(16, 48));
   for (const p of [alice, bob, carol]) p.setTroops(1_000_000);
-  game.executeNextTick(); // the capitals are founded
+  game.executeNextTick();
+  for (const p of [alice, bob, carol]) buyCapital(game, p); // the capitals are bought
   return { game, alice, bob, carol };
 }
 
@@ -137,11 +144,13 @@ export function startEconomy(game: Game, ...players: Player[]): void {
  * big land. Everyone has an army of a million, and the economy runs.
  */
 export async function annexable() {
-  const game = await setup("big_plains", { capitalSystem: { enabled: true } }, [
-    human("alice"),
-    human("bob"),
-    human("carol"),
-  ]);
+  const game = await setup(
+    "big_plains",
+    { capitalSystem: { enabled: true } },
+    [human("alice"), human("bob"), human("carol")],
+    undefined,
+    FullStrengthConfig,
+  );
   const alice = game.player("alice");
   const bob = game.player("bob");
   const carol = game.player("carol");
@@ -155,6 +164,7 @@ export async function annexable() {
   alice.addGold(1_000_000n);
   startEconomy(game, alice, bob, carol);
   game.executeNextTick();
+  for (const p of [alice, bob, carol]) buyCapital(game, p);
   return { game, alice, bob, carol };
 }
 

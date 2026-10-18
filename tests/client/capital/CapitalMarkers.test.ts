@@ -6,6 +6,7 @@ import type { CapitalMarkers } from "../../../src/client/hud/layers/CapitalMarke
 function world() {
   const state = {
     scale: 1.8,
+    catchingUp: false,
     onScreen: true,
     players: [
       {
@@ -14,6 +15,9 @@ function world() {
         alive: true,
         has: true,
         replacement: false,
+        building: false,
+        buildTile: -1,
+        buildPercent: 0,
         color: "#3366ff",
       },
       {
@@ -22,12 +26,20 @@ function world() {
         alive: true,
         has: true,
         replacement: true,
+        building: false,
+        buildTile: -1,
+        buildPercent: 0,
         color: "#ff6633",
       },
     ],
   };
   const game = {
-    myPlayer: () => ({ smallID: () => 1 }),
+    isCatchingUp: () => state.catchingUp,
+    isValidCoord: () => true,
+    myPlayer: () => ({
+      smallID: () => 1,
+      territoryColor: () => ({ toHex: () => "#3366ff" }),
+    }),
     players: () =>
       state.players.map((p) => ({
         smallID: () => p.small,
@@ -35,6 +47,9 @@ function world() {
         isAlive: () => p.alive,
         capitalTile: () => p.tile,
         capitalIsReplacement: () => p.replacement,
+        isBuildingCapital: () => p.building,
+        capitalBuildTile: () => p.buildTile,
+        capitalBuildPercent: () => p.buildPercent,
         territoryColor: () => ({ toHex: () => p.color }),
       })),
     x: (t: number) => t % 50,
@@ -143,5 +158,140 @@ describe("CapitalMarkers", () => {
   it("takes no pointer events and sits under the HUD", () => {
     expect(markers.style.pointerEvents).toBe("none");
     expect(markers.style.position).toBe("fixed");
+  });
+});
+
+describe("CapitalMarkers: a capital as it is placed, and as it is founded", () => {
+  let markers: CapitalMarkers;
+  let w: ReturnType<typeof world>;
+  const place = () => (markers as unknown as { place(): void }).place();
+  const ghost = () =>
+    markers.querySelector<HTMLElement>("[data-capital-ghost]");
+  let hover: { tile: number; why: string | null } | null;
+  let wanted: boolean;
+
+  beforeEach(() => {
+    w = world();
+    hover = null;
+    wanted = true;
+    markers = document.createElement("capital-markers") as CapitalMarkers;
+    markers.game = w.game as never;
+    markers.transformHandler = w.transformHandler as never;
+    markers.picker = {
+      get ghost() {
+        return wanted;
+      },
+      hover: () => hover,
+    } as never;
+    document.body.append(markers);
+  });
+  afterEach(() => {
+    markers.remove();
+    document.getElementById("df-capital-marker-style")?.remove();
+  });
+
+  it("draws a translucent capital at the tile under the pointer, in my colour", () => {
+    hover = { tile: 153, why: null }; // (3, 3)
+    place();
+    const el = ghost()!;
+    expect(el).not.toBeNull();
+    expect(el.classList.contains("ok")).toBe(true);
+    expect(el.style.getPropertyValue("--capital-color")).toBe("#3366ff");
+    // Larger than a badge (at least 44 px), centred on the tile (the camera puts (3, 3) at (30, 30)).
+    const size = parseFloat(el.style.width);
+    expect(size).toBe(44);
+    expect(el.style.transform).toBe(
+      `translate(${30 - size / 2}px, ${30 - size / 2}px)`,
+    );
+    expect(el.textContent).toBe("capital_action.ghost_ok");
+  });
+
+  it("goes red and says why when the tile will not do", () => {
+    hover = { tile: 153, why: "capital_action.tile_border" };
+    place();
+    expect(ghost()!.classList.contains("bad")).toBe(true);
+    expect(ghost()!.textContent).toBe("capital_action.tile_border");
+  });
+
+  it("follows the pointer, and is gone when nothing is being placed", () => {
+    hover = { tile: 153, why: null };
+    place();
+    const first = ghost()!.style.transform;
+    hover = { tile: 204, why: null }; // (4, 4)
+    place();
+    expect(ghost()!.style.transform).not.toBe(first);
+    expect(markers.querySelectorAll("[data-capital-ghost]")).toHaveLength(1);
+    wanted = false;
+    place();
+    expect(ghost()).toBeNull();
+    wanted = true;
+    hover = null;
+    place();
+    expect(ghost()).toBeNull();
+  });
+
+  it("is translucent in its body but not its label, and has no percentage padding", () => {
+    (markers as unknown as { ensureStyle(): void }).ensureStyle();
+    const css = document.getElementById(
+      "df-capital-marker-style",
+    )!.textContent!;
+    const rule = css.slice(
+      css.indexOf(".df-capital-ghost {"),
+      css.indexOf("}", css.indexOf(".df-capital-ghost {")),
+    );
+    expect(rule).toMatch(/color-mix\(/);
+    expect(rule).not.toMatch(/(^|\s)opacity\s*:/);
+    expect(rule).not.toMatch(/(padding|margin)[a-z-]*\s*:[^;]*\d%/);
+  });
+
+  it("a capital that appears while playing bursts with rings, once; not while catching up", () => {
+    place();
+    // Both capitals were there at the first frame: they appeared now.
+    expect(markers.querySelectorAll(".df-capital-marker.burst")).toHaveLength(
+      2,
+    );
+    // A frame later nothing new appears: nothing bursts again.
+    for (const el of markers.querySelectorAll(".df-capital-marker")) {
+      el.classList.remove("burst");
+    }
+    place();
+    expect(markers.querySelectorAll(".burst")).toHaveLength(0);
+    // A joiner replaying history sees no fanfare.
+    markers.remove();
+    markers = document.createElement("capital-markers") as CapitalMarkers;
+    w.state.catchingUp = true;
+    markers.game = w.game as never;
+    markers.transformHandler = w.transformHandler as never;
+    document.body.append(markers);
+    place();
+    expect(markers.querySelectorAll(".burst")).toHaveLength(0);
+  });
+
+  it("marks a capital being built where it will stand, with how far along it is, and takes it away when it stands", () => {
+    w.state.players[0].has = false;
+    w.state.players[0].building = true;
+    w.state.players[0].buildTile = 153; // (3, 3)
+    w.state.players[0].buildPercent = 40;
+    place();
+    const el = markers.querySelector<HTMLElement>("[data-capital-building]")!;
+    expect(el).not.toBeNull();
+    expect(el.dataset.capitalBuilding).toBe("1");
+    expect(el.classList.contains("mine")).toBe(true);
+    expect(el.style.getPropertyValue("--progress")).toBe("40%");
+    // The bar every building has, under the capital itself, filled to how far along it is.
+    const fill = el.querySelector<HTMLElement>(".df-capital-bar i")!;
+    expect(fill).not.toBeNull();
+    expect(fill.style.width).toBe("40%");
+    expect(el.style.getPropertyValue("--capital-color")).toBe("#3366ff");
+    w.state.players[0].buildPercent = 80;
+    place();
+    expect(el.style.getPropertyValue("--progress")).toBe("80%");
+    expect(fill.style.width).toBe("80%");
+    // It stands: the building marker goes and the capital's own appears.
+    w.state.players[0].building = false;
+    w.state.players[0].has = true;
+    place();
+    expect(markers.querySelector("[data-capital-building]")).toBeNull();
+    expect(markers.querySelector('[data-capital-of="1"]')).not.toBeNull();
   });
 });

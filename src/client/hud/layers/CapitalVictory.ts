@@ -27,7 +27,10 @@ import type { GameView } from "../../view";
  * the front. Reduced motion: no flight, sparkles or count-up, just the words.
  */
 
-const SHOW_MS = 5_200;
+const SHOW_MS = 7_000;
+/** The room this card takes (for the panel under it), and the founded card's. */
+const EXTRA_VAR = "--df-capital-extra2";
+const FOUNDED_EXTRA_VAR = "--df-capital-extra";
 const COUNT_UP_MS = 1_100;
 const MAX_QUEUED = 3;
 
@@ -48,6 +51,8 @@ export class CapitalVictory extends LitElement implements Controller {
   @state() private shownGold = 0;
   @state() private shownTroops = 0;
   @state() private leaving = false;
+  /** Where the card's top is: under the capital panel (and the founded card, if both are up). */
+  @state() private top = 200;
 
   private queue: Capture[] = [];
   private seen = new Set<number>();
@@ -57,41 +62,70 @@ export class CapitalVictory extends LitElement implements Controller {
   static styles = css`
     :host {
       position: fixed;
-      left: 0;
-      right: 0;
-      top: 0;
+      inset: 0;
       z-index: 1450;
       pointer-events: none;
       font-family: var(--font-display, "Pixelify Sans", Inter, sans-serif);
     }
+    .edge {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 46px;
+      background: linear-gradient(
+        90deg,
+        rgba(255, 196, 66, 0.6),
+        rgba(255, 176, 32, 0.14) 55%,
+        transparent
+      );
+      animation: edge 3.4s ease-out forwards;
+    }
+    @keyframes edge {
+      0% {
+        opacity: 0;
+      }
+      12% {
+        opacity: 1;
+      }
+      34% {
+        opacity: 0.35;
+      }
+      52% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+    /* Off to the side, under the capital panel: the game stays in view. */
     .banner {
-      position: relative;
-      /* Below the leaderboard, clear of the match feed's first line. */
-      margin: clamp(160px, 20vh, 240px) auto 0;
-      width: min(560px, 92vw);
+      position: fixed;
+      left: 8px;
+      width: 232px;
       box-sizing: border-box;
-      padding: 14px 22px 16px;
+      padding: 10px 12px 12px;
       text-align: center;
+      overflow: hidden;
       color: #fff7e0;
       background: linear-gradient(
         180deg,
-        rgba(36, 26, 6, 0.9),
-        rgba(14, 10, 2, 0.92)
+        rgba(40, 28, 6, 0.95),
+        rgba(16, 11, 2, 0.96)
       );
-      border: 1px solid rgba(255, 196, 66, 0.7);
-      box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.6),
-        0 0 38px rgba(255, 176, 32, 0.45),
-        inset 0 0 28px rgba(255, 176, 32, 0.18);
-      animation: rise 0.75s cubic-bezier(0.2, 1.3, 0.3, 1) both;
+      border: 2px solid #ffc442;
+      border-left-width: 4px;
+      animation:
+        slide 0.7s cubic-bezier(0.2, 1.35, 0.3, 1) both,
+        glow 1.4s ease-in-out 0.7s 6;
     }
     .banner.leaving {
       animation: leave 0.6s ease-in forwards;
     }
-    @keyframes rise {
+    @keyframes slide {
       from {
         opacity: 0;
-        transform: translateY(-30px) scale(0.82);
+        transform: translateX(-120%);
       }
       to {
         opacity: 1;
@@ -101,11 +135,48 @@ export class CapitalVictory extends LitElement implements Controller {
     @keyframes leave {
       to {
         opacity: 0;
-        transform: translateY(-16px) scale(0.96);
+        transform: translateX(-110%);
+      }
+    }
+    @keyframes glow {
+      0%,
+      100% {
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.6),
+          0 0 14px 2px rgba(255, 176, 32, 0.45);
+      }
+      50% {
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.6),
+          0 0 34px 8px rgba(255, 190, 50, 0.9);
+      }
+    }
+    .shine {
+      position: absolute;
+      top: -30%;
+      bottom: -30%;
+      width: 46px;
+      left: -60px;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.5),
+        transparent
+      );
+      transform: skewX(-20deg);
+      animation: shine 2.2s ease-in-out 0.9s infinite;
+    }
+    @keyframes shine {
+      0% {
+        left: -60px;
+      }
+      55%,
+      100% {
+        left: 280px;
       }
     }
     .title {
-      font-size: clamp(26px, 5.2vw, 46px);
+      font-size: 17px;
       font-weight: 800;
       letter-spacing: 0.1em;
       line-height: 1.05;
@@ -113,108 +184,94 @@ export class CapitalVictory extends LitElement implements Controller {
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.7))
-        drop-shadow(0 0 14px rgba(255, 170, 30, 0.7));
+      filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.8))
+        drop-shadow(0 0 8px rgba(255, 170, 30, 0.8));
     }
     .sub {
-      margin-top: 6px;
-      font-size: clamp(13px, 2.2vw, 18px);
-      letter-spacing: 0.16em;
+      margin-top: 3px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
       color: #ffd9a0;
     }
     .rewards {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 12px;
-      flex-wrap: wrap;
+      display: grid;
+      gap: 4px;
+      margin-top: 8px;
     }
     .chip {
-      min-width: 120px;
-      padding: 6px 12px;
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      background: rgba(255, 176, 32, 0.14);
-      border: 1px solid rgba(255, 196, 66, 0.5);
+      padding: 4px 10px;
+      font-family: Inter, system-ui, sans-serif;
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      background: rgba(255, 176, 32, 0.16);
+      border-left: 3px solid #ffc442;
       color: #ffe9a6;
       font-variant-numeric: tabular-nums;
+      animation: pop 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) 0.5s both;
+    }
+    .chip + .chip {
+      animation-delay: 0.85s;
     }
     .chip small {
       display: block;
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.2em;
       color: #d8b574;
     }
-    .none {
-      margin-top: 10px;
-      font-size: 12px;
-      letter-spacing: 0.14em;
-      color: #b59a62;
-    }
-
-    .spark {
-      position: absolute;
-      top: 50%;
-      width: 6px;
-      height: 6px;
-      background: #ffd36b;
-      box-shadow: 0 0 8px 2px rgba(255, 190, 60, 0.9);
-      opacity: 0;
-      animation: spark 1.6s ease-out infinite;
-    }
-    @keyframes spark {
+    @keyframes pop {
       0% {
         opacity: 0;
-        transform: translate(0, 0) scale(0.4);
+        transform: translateX(-16px) scale(0.9);
+        background: rgba(255, 220, 120, 0.7);
       }
-      15% {
+      100% {
+        opacity: 1;
+        transform: none;
+      }
+    }
+    .none {
+      margin-top: 8px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: #b59a62;
+    }
+    .spark {
+      position: absolute;
+      bottom: 4px;
+      left: var(--x);
+      color: #ffe38a;
+      font-size: var(--s);
+      font-style: normal;
+      text-shadow: 0 0 6px #ffb020;
+      opacity: 0;
+      animation: rise 2.6s ease-out var(--d) infinite;
+    }
+    @keyframes rise {
+      0% {
+        opacity: 0;
+        transform: translateY(0) scale(0.5);
+      }
+      20% {
         opacity: 1;
       }
       100% {
         opacity: 0;
-        transform: translate(var(--dx), var(--dy)) scale(1.1);
+        transform: translateY(-110px) scale(1.1) rotate(40deg);
       }
     }
-    .glow {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background: radial-gradient(
-        ellipse at 50% 18%,
-        rgba(255, 196, 66, 0.28),
-        transparent 55%
-      );
-      animation: glow 1.6s ease-out forwards;
-    }
-    @keyframes glow {
-      from {
-        opacity: 1;
-      }
-      to {
-        opacity: 0;
-      }
-    }
-
     @media (prefers-reduced-motion: reduce) {
-      .banner {
-        animation: fade 0.4s ease-out both;
+      .banner,
+      .chip {
+        animation: none;
       }
       .banner.leaving {
-        animation: fade-out 0.4s ease-in forwards;
+        opacity: 0;
+        transition: opacity 0.4s;
       }
-      @keyframes fade {
-        from {
-          opacity: 0;
-        }
-      }
-      @keyframes fade-out {
-        to {
-          opacity: 0;
-        }
-      }
-      .spark,
-      .glow {
+      .edge,
+      .shine,
+      .spark {
         display: none;
       }
     }
@@ -226,11 +283,13 @@ export class CapitalVictory extends LitElement implements Controller {
     super.disconnectedCallback();
     this.clearTimers();
     cancelAnimationFrame(this.raf);
+    document.documentElement.style.removeProperty(EXTRA_VAR);
   }
 
   tick(): void {
     const game = this.game;
     if (game === undefined) return;
+    if (this.current !== null) this.follow();
     const events = game.updatesSinceLastTick()?.[GameUpdateType.CapitalEvent];
     if (events === undefined || events.length === 0) return;
     const me = game.myPlayer();
@@ -249,6 +308,34 @@ export class CapitalVictory extends LitElement implements Controller {
         troops: e.rewardTroops,
       });
     }
+  }
+
+  /** Under the capital panel in the left column (and under the founded card, if that is up too). */
+  private follow(): void {
+    const panel = document.querySelector(
+      "[data-capital-action], [data-capital-owned], [data-capital-building]",
+    );
+    const side = document.querySelector("game-left-sidebar aside");
+    const bottom =
+      panel?.getBoundingClientRect().bottom ??
+      (side === null ? 120 : side.getBoundingClientRect().bottom + 14);
+    const extra = parseFloat(
+      document.documentElement.style.getPropertyValue(FOUNDED_EXTRA_VAR) || "0",
+    );
+    this.top = Math.ceil(bottom) + 8 + (Number.isNaN(extra) ? 0 : extra);
+  }
+
+  protected updated(): void {
+    const root = document.documentElement.style;
+    const card = this.shadowRoot?.querySelector(".banner");
+    if (card === null || card === undefined) {
+      root.removeProperty(EXTRA_VAR);
+      return;
+    }
+    root.setProperty(
+      EXTRA_VAR,
+      `${Math.ceil(card.getBoundingClientRect().height) + 8}px`,
+    );
   }
 
   private isMine(e: CapitalEventUpdate, mySmallID: number): boolean {
@@ -322,21 +409,16 @@ export class CapitalVictory extends LitElement implements Controller {
   private sparks() {
     // Fixed positions and delays: presentation, not game state.
     const sparks = [
-      [-220, -34, 0],
-      [-150, -52, 0.3],
-      [-60, -60, 0.15],
-      [40, -58, 0.45],
-      [130, -50, 0.1],
-      [215, -30, 0.35],
-      [-190, 40, 0.5],
-      [180, 44, 0.2],
+      ["12%", "0s", "13px"],
+      ["30%", "0.7s", "9px"],
+      ["52%", "1.3s", "15px"],
+      ["70%", "0.4s", "10px"],
+      ["86%", "1.9s", "12px"],
+      ["44%", "2.2s", "8px"],
     ];
     return sparks.map(
-      ([dx, dy, delay]) =>
-        html`<i
-          class="spark"
-          style="left:50%; --dx:${dx}px; --dy:${dy}px; animation-delay:${delay}s"
-        ></i>`,
+      ([x, d, size]) =>
+        html`<i class="spark" style="--x:${x};--d:${d};--s:${size}">✦</i>`,
     );
   }
 
@@ -345,12 +427,14 @@ export class CapitalVictory extends LitElement implements Controller {
     if (capture === null) return nothing;
     const paid = capture.gold > 0n || capture.troops > 0;
     return html`
-      <div class="glow"></div>
+      <div class="edge"></div>
       <div
         class="banner ${this.leaving ? "leaving" : ""}"
         data-capital-victory=${capture.capitalId}
         role="status"
+        style="top: ${this.top}px"
       >
+        <div class="shine"></div>
         ${this.sparks()}
         <div class="title">${translateText("capital_victory.title")}</div>
         <div class="sub">

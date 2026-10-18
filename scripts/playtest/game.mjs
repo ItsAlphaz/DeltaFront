@@ -130,6 +130,9 @@ export async function openGame(o = {}) {
  * a scripted raider, spawned 9 tiles apart. Returns inject(who, intent): queue an
  * intent for either player (solo only).
  *   startingGold, capitalSystem, extra (more GameConfig fields)
+ *   buyCapitals (default true): v0.8.0 sells the capital, so both players buy
+ *     theirs (the same order the tile picker sends) once the spawn phase is over;
+ *     false leaves them without one, for a check of the purchase itself.
  */
 export async function startMatch(g, o = {}) {
   const cap = o.capitalSystem ?? { enabled: true };
@@ -142,7 +145,8 @@ export async function startMatch(g, o = {}) {
     await sleep(1500);
     const s = await g.J(`({tick:window.__tick, pl:window.__pl})`);
     const a = s && s.pl && Object.values(s.pl);
-    if (a && a.length >= 2 && a.every((x) => x.capitalTile >= 0)) break;
+    // v0.8.0: nobody starts with a capital, so wait for both to spawn.
+    if (a && a.length >= 2 && a.every((x) => x.small !== undefined)) break;
   }
   await g.ev(`window.__mySmall = window.__pl[window.__cid].small; 1`);
   const inject = (who, intent) =>
@@ -164,7 +168,36 @@ export async function startMatch(g, o = {}) {
     await sleep(1800);
   }
   await sleep(1500);
+  if (o.buyCapitals !== false && cap.enabled) {
+    await buyCapitals(g, inject);
+  }
   return { inject };
+}
+
+/**
+ * Both players buy a capital at their spawn tile (or a tile beside it, if a
+ * neighbour's land made that one a border). The order is refused, and nothing
+ * charged, until the spawn phase is over: try again until both have one.
+ */
+export async function buyCapitals(g, inject) {
+  const spawn = { "window.__cid": 612071, "window.__p2": 612080 };
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const pl = await g.J(`window.__pl`);
+    const both = Object.values(pl || {});
+    if (both.length >= 2 && both.every((x) => x.capitalTile >= 0)) return true;
+    const offsets = [0, 1, -1, 2, -2, 3, -3];
+    for (const [who, tile] of Object.entries(spawn)) {
+      const id = await g.ev(who);
+      const mine = Object.values(pl || {}).find((x) => x.clientID === id);
+      if (mine && mine.capitalTile >= 0) continue;
+      await inject(who, {
+        type: "found_capital",
+        tile: tile + offsets[attempt % offsets.length],
+      });
+    }
+    await sleep(1500);
+  }
+  return false;
 }
 
 export const me = (g) => g.J(`window.__pl[window.__cid]`);

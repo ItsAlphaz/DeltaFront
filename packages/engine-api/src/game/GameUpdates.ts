@@ -197,8 +197,12 @@ export interface DonateEventUpdate {
 
 /** What happened to a capital (docs/Capital.md). */
 export type CapitalEventKind =
-  /** A capital was founded: the first one when the spawn phase ended, or a replacement. */
+  /** A capital was bought and its construction began (it stands at `completeTick`). */
+  | "building"
+  /** Its construction finished: the capital stands and gives its bonuses. */
   | "founded"
+  /** Its construction was lost with the land it was on (nothing is refunded). */
+  | "cancelled"
   /** An enemy captured it. The owner is in CRISIS and the captor was paid (once per pair). */
   | "captured"
   /** It was lost without a captor (nuked, rotted away, taken by a friend, its owner died). */
@@ -227,6 +231,8 @@ export interface CapitalEventUpdate {
   /** captured: what the captor was paid. Zero when it had already been paid for this owner. */
   rewardGold: Gold;
   rewardTroops: number;
+  /** building: the tick the capital will stand. */
+  completeTick?: Tick;
 }
 
 // ---- The insurgency (docs/Insurgency.md) ----
@@ -498,6 +504,26 @@ export interface PlayerUpdate {
    * resistance with the player still holding land, 2 a resistance with none.
    */
   insurgency?: number;
+  /**
+   * Capital System (absent when it is off): the tick the player's standing
+   * capital was bought, or -1 when it has none. The client works out how far
+   * the capital's bonuses have ramped in from it.
+   */
+  capitalFoundedTick?: number;
+  /**
+   * Capital System (absent when it is off): the tick strain begins for a
+   * player with no capital (its cost is in docs/Capital.md), or -1 while it
+   * has one, is in CRISIS, or cannot hold one. Never the CRISIS window.
+   */
+  strainStartTick?: number;
+  /**
+   * Capital System (absent when it is off): where a capital is being built and
+   * when its construction began and will end, or -1 for none. The capital
+   * gives nothing (and `capitalTile` stays -1) until it ends.
+   */
+  capitalBuildTile?: number;
+  capitalBuildStartTick?: number;
+  capitalBuildEndTick?: number;
 }
 
 export interface AllianceView {

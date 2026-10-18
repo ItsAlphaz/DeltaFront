@@ -68,6 +68,11 @@ export function diffPlayerUpdate(
     prev.crisisStartTick === next.crisisStartTick &&
     prev.crisisEndTick === next.crisisEndTick &&
     prev.insurgency === next.insurgency &&
+    prev.capitalFoundedTick === next.capitalFoundedTick &&
+    prev.strainStartTick === next.strainStartTick &&
+    prev.capitalBuildTile === next.capitalBuildTile &&
+    prev.capitalBuildStartTick === next.capitalBuildStartTick &&
+    prev.capitalBuildEndTick === next.capitalBuildEndTick &&
     numberArrayEqual(prev.allies, next.allies) &&
     numberArrayEqual(prev.targets, next.targets) &&
     stringArrayEqual(
@@ -146,6 +151,26 @@ export function diffPlayerUpdate(
   );
   setIfDifferent("crisisEndTick", prev.crisisEndTick === next.crisisEndTick);
   setIfDifferent("insurgency", prev.insurgency === next.insurgency);
+  setIfDifferent(
+    "capitalFoundedTick",
+    prev.capitalFoundedTick === next.capitalFoundedTick,
+  );
+  setIfDifferent(
+    "strainStartTick",
+    prev.strainStartTick === next.strainStartTick,
+  );
+  setIfDifferent(
+    "capitalBuildTile",
+    prev.capitalBuildTile === next.capitalBuildTile,
+  );
+  setIfDifferent(
+    "capitalBuildStartTick",
+    prev.capitalBuildStartTick === next.capitalBuildStartTick,
+  );
+  setIfDifferent(
+    "capitalBuildEndTick",
+    prev.capitalBuildEndTick === next.capitalBuildEndTick,
+  );
   setIfDifferent("allies", numberArrayEqual(prev.allies, next.allies));
   setIfDifferent("targets", numberArrayEqual(prev.targets, next.targets));
   setIfDifferent(

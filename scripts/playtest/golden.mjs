@@ -1,6 +1,7 @@
 // The golden path, in a real browser, with an assertion at every step (plan rows 1.1, 4.4-4.7, 6.1, 6.2 partly).
 // Capital System on -> capital lost -> CRISIS -> resistance -> intel, recruit, base -> uprising -> reclaim
 // -> refused orders -> pause and a menu during the CRISIS -> the warnings and sounds -> a replacement capital.
+// (v0.8.0: both capitals are bought first, startMatch does it.)
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -99,7 +100,7 @@ try {
   const m0 = await me(g),
     f0 = await foe(g);
   check(
-    "1 both players have a capital once the spawn phase ends",
+    "1 both players have bought a capital (nobody starts with one)",
     m0.capitalTile >= 0 && f0.capitalTile >= 0,
     `${m0.capitalTile} / ${f0.capitalTile}`,
   );
@@ -313,7 +314,8 @@ try {
       dc = await dockTime();
     check(
       "5c opening the settings menu in Solo pauses the match, and the CRISIS time holds with it",
-      tb - ta <= 2 && da === db,
+      // one tick may pass before the pause lands, which can cross a shown second
+      tb - ta <= 2 && Math.abs(secs(da) - secs(db)) <= 1,
       `ticks +${tb - ta}, shown ${da} -> ${db}`,
     );
     check(
@@ -745,7 +747,7 @@ try {
 
   // ------------------------------------------------------------------ the replacement capital
   check(
-    "15 the 'Found a new capital' button is offered (500K)",
+    "15 the 'Buy your capital' button is offered (500K)",
     /500K/.test((await text("[data-capital-action]")) || ""),
     await text("[data-capital-action]"),
   );

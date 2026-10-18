@@ -27,6 +27,8 @@ export interface PlayerLike {
   troops(): number;
   gold(): Gold;
   units(type: UnitType): readonly UnitLike[];
+  /** How much of its bonuses the player's capital gives: 0 with none, else 50 to 100. */
+  capitalStrengthPercent?(): number;
 }
 
 export interface UnitLike {

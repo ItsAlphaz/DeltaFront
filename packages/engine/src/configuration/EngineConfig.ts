@@ -12,6 +12,11 @@ import {
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
 import { TeamCountConfig } from "@openfront/engine-api/Schemas";
 import { NukeType } from "@openfront/engine-api/StatsSchemas";
+import {
+  CAPITAL_DISCOUNT_STRUCTURES,
+  discountedCost,
+  scaleBonus,
+} from "@openfront/engine-lib/capital/CapitalRules";
 import { Config } from "@openfront/engine-lib/configuration/Config";
 import { exp, log, pow2 } from "@openfront/engine-lib/DetMath";
 import {
@@ -25,7 +30,12 @@ import type { EngineUnitInfo, Game, Player, Unit } from "../game/Game";
 export interface AttackLogicInput {
   terrain: TerrainType;
   attackTroops: number;
-  attacker: { type: PlayerType; numTiles: number };
+  attacker: {
+    type: PlayerType;
+    numTiles: number;
+    /** 0 with no capital, else 50 to 100 (Capital System). */
+    capitalStrength?: number;
+  };
   /** null when attacking terra nullius. */
   defender: {
     type: PlayerType;
@@ -175,7 +185,12 @@ export class EngineConfig extends Config {
     if (playerInfo.playerType === PlayerType.Bot) {
       return 0n;
     }
-    return this.startingGoldFor(playerInfo);
+    // With the Capital System on everyone starts with a grant towards the
+    // first capital; a host's own starting gold is added on top.
+    const grant = this.capitalSystemEnabled()
+      ? this.capitalSpec().startingGold
+      : 0n;
+    return grant + this.startingGoldFor(playerInfo);
   }
 
   /**
@@ -305,6 +320,16 @@ export class EngineConfig extends Config {
       return cached;
     }
     const info = { ...super.unitInfo(type), cost: this.unitCost(type) };
+    if (CAPITAL_DISCOUNT_STRUCTURES.includes(type)) {
+      // A standing capital makes the basic structures cheaper.
+      const full = info.cost;
+      info.cost = (game, player, extraUnits) => {
+        const cost = full(game, player, extraUnits);
+        const strength = player.capitalStrengthPercent?.() ?? 0;
+        if (strength === 0 || !this.capitalSystemEnabled()) return cost;
+        return discountedCost(this.capitalSpec(), cost, strength);
+      };
+    }
     this.engineUnitInfoCache.set(type, info);
     return info;
   }
@@ -402,14 +427,14 @@ export class EngineConfig extends Config {
   }
 
   /**
-   * Gold a replacement capital costs this player: the spec's price, or nothing
-   * for a human with infinite gold, like every other purchase.
+   * Gold a capital costs this player, the first or a replacement: the spec's
+   * price, or nothing for a human with infinite gold, like every other purchase.
    */
-  capitalReplacementCost(player: PlayerLike): Gold {
+  capitalCost(player: PlayerLike): Gold {
     if (player.type() === PlayerType.Human && this.hasInfiniteGoldFor(player)) {
       return 0n;
     }
-    return this.capitalSpec().replacementCost;
+    return this.capitalSpec().cost;
   }
 
   private hasInfiniteTroopsForInfo(playerInfo: PlayerInfo): boolean {
@@ -534,7 +559,22 @@ export class EngineConfig extends Config {
    * budget; each tile consumes `tileCost`, scaled by how outnumbered the
    * attack is. The result reports that as a fraction of the tick.
    */
+  /** The attack's costs, less what the attacker's standing capital spares it. */
   attackLogic(input: AttackLogicInput): AttackLogicResult {
+    const result = this.baseAttackLogic(input);
+    const strength = input.attacker.capitalStrength ?? 0;
+    if (strength > 0 && this.capitalSystemEnabled()) {
+      const spared = scaleBonus(
+        this.capitalSpec().bonusAttackLossPercent,
+        strength,
+      );
+      result.attackerTroopLoss =
+        (result.attackerTroopLoss * (100 - spared)) / 100;
+    }
+    return result;
+  }
+
+  private baseAttackLogic(input: AttackLogicInput): AttackLogicResult {
     const { attackTroops, attacker, defender } = input;
     let { mag, tileCost } = terrainAttackBase(input.terrain);
 

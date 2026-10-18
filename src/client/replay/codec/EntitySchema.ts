@@ -395,6 +395,11 @@ export const PLAYER_FIELDS: readonly FieldDef<PlayerFields>[] = [
     ["crisisStartTick", I32],
     ["crisisEndTick", I32],
     ["insurgency", U8],
+    ["capitalFoundedTick", I32],
+    ["strainStartTick", I32],
+    ["capitalBuildTile", I32],
+    ["capitalBuildStartTick", I32],
+    ["capitalBuildEndTick", I32],
   ),
 ];
 

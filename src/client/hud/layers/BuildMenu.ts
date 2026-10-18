@@ -6,6 +6,7 @@ import {
   PlayerBuildableUnitType,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { CAPITAL_REQUIRED_STRUCTURES } from "@openfront/engine-lib/capital/CapitalRules";
 import { renderNumber } from "@openfront/engine-lib/Format";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -205,6 +206,11 @@ export class BuildMenu extends LitElement implements Controller {
     .build-description {
       font-size: 0.6rem;
     }
+    .build-needs {
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: #ffb020;
+    }
     .build-row {
       display: flex;
       justify-content: center;
@@ -373,6 +379,18 @@ export class BuildMenu extends LitElement implements Controller {
   @state()
   private _hidden = true;
 
+  /** The Capital System asks for a standing capital to build this, and the player has none. */
+  needsCapital(unitType: UnitType): boolean {
+    const me = this.game?.myPlayer();
+    return (
+      this.game?.config().capitalSystemEnabled() === true &&
+      CAPITAL_REQUIRED_STRUCTURES.includes(unitType) &&
+      me !== null &&
+      me !== undefined &&
+      !me.hasCapital()
+    );
+  }
+
   public canBuildOrUpgrade(item: BuildItemDisplay): boolean {
     if (this.game?.myPlayer() === null || this.playerBuildables === null) {
       return false;
@@ -447,18 +465,22 @@ export class BuildMenu extends LitElement implements Controller {
                 if (buildableUnit === undefined) {
                   return html``;
                 }
+                const needsCapital = this.needsCapital(item.unitType);
                 const enabled =
-                  buildableUnit.canBuild !== false ||
-                  buildableUnit.canUpgrade !== false;
+                  !needsCapital &&
+                  (buildableUnit.canBuild !== false ||
+                    buildableUnit.canUpgrade !== false);
                 return html`
                   <button
                     class="build-button"
                     @click=${() =>
                       this.sendBuildOrUpgrade(buildableUnit, this.clickedTile)}
                     ?disabled=${!enabled}
-                    title=${!enabled
-                      ? translateText("build_menu.not_enough_money")
-                      : ""}
+                    title=${needsCapital
+                      ? translateText("build_menu.needs_capital_hint")
+                      : !enabled
+                        ? translateText("build_menu.not_enough_money")
+                        : ""}
                   >
                     <img
                       src=${item.icon}
@@ -475,6 +497,11 @@ export class BuildMenu extends LitElement implements Controller {
                         range: this.game.config().airportRange(),
                       })}</span
                     >
+                    ${needsCapital
+                      ? html`<span class="build-needs" data-needs-capital
+                          >${translateText("build_menu.needs_capital")}</span
+                        >`
+                      : ""}
                     <span class="build-cost" translate="no">
                       ${renderNumber(
                         this.game && this.game.myPlayer() ? this.cost(item) : 0,

@@ -338,6 +338,10 @@ export interface DisconnectSnapshot {
 }
 
 export interface Player extends PlayerLike {
+  /** How much of its bonuses the standing capital gives: 0 with none, else 50 to 100. */
+  capitalStrengthPercent(): number;
+  /** The Capital System asks for a standing capital to build this, and there is none. */
+  needsCapitalFor(unitType: UnitType): boolean;
   // Basic Info
   smallID(): number;
   info(): PlayerInfo;

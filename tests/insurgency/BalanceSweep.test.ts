@@ -13,6 +13,7 @@ import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import type { Game, Player } from "@openfront/engine/game/Game";
 import type { Insurgency } from "@openfront/engine/game/InsurgencySystem";
 import { appendFileSync, writeFileSync } from "node:fs";
+import { buyCapital } from "../capital/helpers";
 import { setup } from "../util/Setup";
 import { SPEC, human, rect, startEconomy } from "./helpers";
 
@@ -207,13 +208,20 @@ function occupierActs(
   }
 }
 
+/** Capitals give all their bonuses from the first tick, so a fill is a fill of the real maximum. */
+class FullStrengthEngineConfig extends EngineConfig {
+  capitalSpec() {
+    return { ...CAPITAL_SPEC, rampTicks: 1 };
+  }
+}
+
 async function play(sc: Scenario): Promise<Result> {
   const game = await setup(
     "big_plains",
     { capitalSystem: { enabled: true } },
     [human("alice"), human("bob")],
     undefined,
-    EngineConfig,
+    FullStrengthEngineConfig,
   );
   const alice = game.player("alice");
   const bob = game.player("bob");
@@ -228,6 +236,8 @@ async function play(sc: Scenario): Promise<Result> {
   for (let i = 0; i < game.config().spawnImmunityDuration() + 2; i++) {
     game.executeNextTick();
   }
+  // Everyone has bought a capital (alice's on the east side, where she chose it).
+  for (const p of [alice, bob]) buyCapital(game, p);
   alice.setTroops(game.config().maxTroops(alice));
   const fillTroops = () => Math.floor(sc.fill * game.config().maxTroops(bob));
   bob.setTroops(fillTroops());
@@ -527,16 +537,16 @@ describe.skipIf(!ENABLED)("balance sweep", () => {
         `a landless player has ${min(sp.limboTicks)} to win a tile back; a warning ${sec(sp.warnTicks)} before either end`,
       ],
       [
-        "Found a replacement capital",
-        `${g(cs.replacementCost)} gold`,
-        `${sec(cs.replacementDelayTicks)} after the fall; on owned land, off the border; not during the spawn phase`,
-        `bonus starts at ${cs.replacementBonusStartPercent} % and reaches 100 % in ${min(cs.replacementRampTicks)}`,
+        "Buy a capital (the first, or a replacement)",
+        `${g(cs.cost)} gold`,
+        `no wait for the first, ${sec(cs.replacementDelayTicks)} after a fall for a replacement; on owned land, off the border; not during the spawn phase`,
+        `bonuses start at ${cs.rampStartPercent} % and reach 100 % in ${min(cs.rampTicks)}`,
       ],
       [
         "CRISIS (the owner of a captured capital)",
         "-",
         "3 or 5 minutes, chosen for the match",
-        `income and troop regeneration at ${cs.crisisIncomePercent} % / ${cs.crisisRegenPercent} %; a standing capital gives +${cs.bonusIncomePercent} % / +${cs.bonusRegenPercent} %`,
+        `income and troop regeneration at ${cs.crisisIncomePercent} % / ${cs.crisisRegenPercent} %; a standing capital gives +${cs.bonusIncomePercent} % / +${cs.bonusRegenPercent} % and +${cs.bonusMaxTroops.toLocaleString("en-US")} maximum troops`,
       ],
     ];
     for (const r of rows) out.push(`| ${r.join(" | ")} |`);

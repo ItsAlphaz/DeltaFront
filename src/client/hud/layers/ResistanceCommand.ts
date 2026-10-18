@@ -98,7 +98,7 @@ type Form =
 const STYLE = `
 resistance-command { display: block; }
 .rc {
-  position: fixed; left: 12px; top: 200px; z-index: 1100; width: 316px;
+  position: fixed; left: 12px; top: max(200px, calc(var(--df-capital-panel-bottom, 0px) + var(--df-capital-extra, 0px) + var(--df-capital-extra2, 0px))); z-index: 1100; width: 316px;
   max-height: calc(100vh - 250px); overflow-y: auto; box-sizing: border-box;
   background: rgba(14, 14, 14, 0.93); color: var(--color-df-text, #f5f5f5);
   border: 1px solid var(--color-df-border, #2b2b2b);

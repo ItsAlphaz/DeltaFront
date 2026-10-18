@@ -21,6 +21,7 @@ const REFUSAL_MESSAGES: Record<FoundBlock, string> = {
   spawn_phase: "events_display.capital_found_spawn_phase",
   dead: "events_display.capital_found_dead",
   has_capital: "events_display.capital_found_has_capital",
+  building: "events_display.capital_found_building",
   too_soon: "events_display.capital_found_too_soon",
   gold: "events_display.capital_found_gold",
   tile: "events_display.capital_found_tile",
@@ -29,7 +30,7 @@ const REFUSAL_MESSAGES: Record<FoundBlock, string> = {
 };
 
 /**
- * A player's order to found a replacement capital at `tile`. The Capital System
+ * A player's order to buy a capital (the first or a replacement) at `tile`. The Capital System
  * decides everything (the match setting, that the player has no capital, owns
  * the tile off the front line, can pay and has waited): an order that fails any
  * check does nothing, charges nothing, and does so the same way on every client.
