@@ -18,6 +18,8 @@ export default [
       "src/server/gatekeeper/**",
       "tests/pathfinding/playground/**",
       ".claude/**",
+      // Browser-driving playtest scripts (not shipped; see scripts/playtest/README.md).
+      "scripts/playtest/**",
     ],
   },
   { files: ["**/*.{js,mjs,cjs,ts}"] },
