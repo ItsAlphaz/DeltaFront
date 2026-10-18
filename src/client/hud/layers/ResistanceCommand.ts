@@ -266,8 +266,15 @@ export class ResistanceCommand extends LitElement implements Controller {
     } catch {
       this.helpOpen = true;
     }
-    this.overlay = new RegionOverlay(this.game, this.transformHandler, () =>
-      this.overlayModel(),
+    this.overlay = new RegionOverlay(
+      this.game,
+      this.transformHandler,
+      () => this.overlayModel(),
+      {
+        troops: (n) => renderTroops(n),
+        band: (b) => this.bandText(b),
+        fx: (key) => translateText(`resistance.fx_${key}`),
+      },
     );
     this.overlay.start();
   }
@@ -401,6 +408,13 @@ export class ResistanceCommand extends LitElement implements Controller {
 
   // ---- The map overlay ----
 
+  /** What a suppression costs the army of `occupier` (engine units), for the effect on the map. */
+  private suppressCost(occupier: number): number {
+    const p = occupier >= 0 ? this.game.playerBySmallID(occupier) : null;
+    if (p === null || !p.isPlayer()) return 0;
+    return previewSuppress(this.spec(), p.troops(), 0, false).troops;
+  }
+
   private overlayModel(): OverlayModel | null {
     const regions: OverlayRegion[] = [];
     const mine = this.mine;
@@ -417,6 +431,10 @@ export class ResistanceCommand extends LitElement implements Controller {
           suppressed: r.suppressed,
           bandText: this.bandText(r.band),
           note: this.intelNote(mine, r.id),
+          suppressTroops: this.suppressCost(r.occupier),
+          operationTroops: mine.operations
+            .filter((o) => o.region === r.id)
+            .reduce((sum, o) => sum + o.committed, 0),
         });
       }
     }
@@ -433,6 +451,12 @@ export class ResistanceCommand extends LitElement implements Controller {
           suppressed: o.region.suppressed,
           bandText: this.bandText(o.region.band),
           note: "",
+          suppressTroops: this.suppressCost(
+            this.game.myPlayer()?.smallID() ?? -1,
+          ),
+          operationTroops: o.resistance.operations
+            .filter((x) => x.region === o.region.id)
+            .reduce((sum, x) => sum + x.committed, 0),
         });
       }
     }

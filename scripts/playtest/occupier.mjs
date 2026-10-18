@@ -202,7 +202,12 @@ try {
     `${before.troops} -> ${mid.troops}`,
   );
   await click('[data-rc="suppress"]');
-  await sleep(2500);
+  // the effect on the map itself: the shake and the "-N troops" float up from the square
+  await sleep(350);
+  await b.shot("occ-2b-suppress-fx-start");
+  await sleep(900);
+  await b.shot("occ-2c-suppress-fx-later");
+  await sleep(1250);
   const after = await stats(g);
   const vv = await g.J(`window.__ins[window.__pl[window.__p2].small]`);
   const sups = (vv && vv.suppressions) || [];

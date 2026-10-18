@@ -264,6 +264,18 @@ engine for every order so they cannot drift apart.
 
 `RegionOverlay` draws the regions on the map: a square per region with its name,
 its band colour and word, and a marker for a base. It takes no pointer events.
+
+So that an order feels like something done and not a number changed in a panel,
+`RegionEffects` (pure state, tested without a browser) makes the squares react to
+what happens in them: a dotted border goes round and round the square for each
+thing going on (an uprising red and fastest, a suppression blue the other way, a
+hideout gold and slow), small symbols (shield, swords, castle) sit in its corner,
+and when something starts the square shakes and flashes, sparks fly out, and a
+floating line rises over its top edge ("🛡 -4.57K Suppressed", "⚔ -3.00K
+Uprising!", "🏰 Hideout set up", "🎉 Won back!", "💥 Hideout lost", "🔥 band
+up", "🔍 Report in"). It only reacts to a change it sees, never to the first look
+at a square or while the game is catching up, so a reload replays nothing; reduced
+motion keeps the symbols and words and drops the shake, sparks and marching.
 `TilePicker` is how a base is placed: the next map click chooses the tile (and is
 not also an attack), a tile that will not do says why and the pick stays open,
 Escape or Cancel ends it.

@@ -9,6 +9,7 @@ import {
 } from "@openfront/engine-lib/insurgency/InsurgencyRules";
 import type { TransformHandler } from "../TransformHandler";
 import type { GameView } from "../view";
+import { RegionEffects, marches, type Seen, type Words } from "./RegionEffects";
 
 /**
  * The resistance's regions drawn on the map (docs/Insurgency.md): each 32 x 32
@@ -33,6 +34,9 @@ export interface OverlayRegion {
   /** The band in words, and a line from a report (precise unrest, garrison). */
   bandText: string;
   note: string;
+  /** Engine-unit troops: what suppressing it costs the occupier, what an uprising there sent. */
+  suppressTroops: number;
+  operationTroops: number;
 }
 
 export interface OverlayModel {
@@ -85,13 +89,16 @@ export class RegionOverlay {
   private width = 0;
   private height = 0;
   private reduced = false;
+  private readonly effects: RegionEffects;
 
   constructor(
     private readonly game: GameView,
     private readonly transform: TransformHandler,
     /** What to draw now, or null for nothing. Read every frame. */
     private readonly model: () => OverlayModel | null,
+    words: Words,
   ) {
+    this.effects = new RegionEffects(words);
     this.grid = regionGrid(
       game.width(),
       game.height(),
@@ -155,6 +162,23 @@ export class RegionOverlay {
       return;
     }
     this.dirty = true;
+    this.effects.observe(
+      m.regions.map(
+        (r): Seen => ({
+          id: r.id,
+          status: r.status,
+          band: r.band,
+          hasBase: r.hasBase,
+          hasOperation: r.hasOperation,
+          suppressed: r.suppressed,
+          suppressTroops: r.suppressTroops,
+          operationTroops: r.operationTroops,
+          note: r.note,
+        }),
+      ),
+      t,
+      this.game.isCatchingUp(),
+    );
     this.draw(ctx, m, t);
   };
 
@@ -170,6 +194,9 @@ export class RegionOverlay {
       const urgent =
         r.band >= 4 && r.status === InsurgencyRegionStatus.Occupied;
       const strong = r.status === InsurgencyRegionStatus.Occupied || m.picking;
+      const shake = this.effects.shake(r.id, t, this.reduced);
+      ctx.save();
+      ctx.translate(shake.dx, shake.dy);
 
       ctx.globalAlpha = (strong ? 0.2 : 0.07) + (urgent ? 0.12 * pulse : 0);
       ctx.fillStyle = color;
@@ -178,18 +205,131 @@ export class RegionOverlay {
       ctx.globalAlpha = selected ? 1 : strong ? 0.75 : 0.35;
       ctx.lineWidth = selected ? 3 : 1.5;
       ctx.strokeStyle = selected ? "#ffffff" : color;
-      if (r.suppressed) ctx.setLineDash([6, 4]);
       ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+
+      // A dotted border that goes round and round for each thing happening here.
+      marches(r).forEach((march, i) => {
+        const inset = 3 + i * 5;
+        if (rect.w < inset * 2 + 8 || rect.h < inset * 2 + 8) return;
+        ctx.globalAlpha = 0.95;
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = march.color;
+        ctx.setLineDash(march.dash);
+        ctx.lineDashOffset = this.reduced ? 0 : -(t / 1000) * march.speed;
+        ctx.strokeRect(
+          rect.x + inset,
+          rect.y + inset,
+          rect.w - inset * 2,
+          rect.h - inset * 2,
+        );
+      });
       ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
 
       ctx.globalAlpha = 1;
       this.drawLabel(ctx, r, rect, color);
+      this.drawIcons(ctx, r, rect, t);
+      ctx.restore();
     }
+    this.drawEffects(ctx, toScreen, t);
     for (const tile of m.bases) {
       const x = this.game.x(tile);
       const y = this.game.y(tile);
       const p = toScreen(new Cell(x + 0.5, y + 0.5));
       this.drawBase(ctx, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** The things going on in a square, as small symbols in its corner. */
+  private drawIcons(
+    ctx: CanvasRenderingContext2D,
+    r: OverlayRegion,
+    rect: ScreenRect,
+    t: number,
+  ) {
+    const icons = [
+      r.suppressed ? "🛡" : "",
+      r.hasOperation ? "⚔" : "",
+      r.hasBase ? "🏰" : "",
+    ].filter((x) => x !== "");
+    if (icons.length === 0 || rect.w < 60) return;
+    const size = Math.max(14, Math.min(24, rect.w / 9));
+    ctx.font = `${size}px sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.globalAlpha = 1;
+    icons.forEach((icon, i) => {
+      const bob = this.reduced ? 0 : Math.sin(t / 260 + i) * 1.5;
+      ctx.fillText(icon, rect.x + 8 + i * (size + 4), rect.y + 8 + bob);
+    });
+  }
+
+  /** Shake, flash, sparks and the floating words of what has just happened. */
+  private drawEffects(
+    ctx: CanvasRenderingContext2D,
+    toScreen: (c: Cell) => { x: number; y: number },
+    t: number,
+  ) {
+    for (const e of this.effects.active(t)) {
+      const rect = regionRect(this.grid, e.region, toScreen);
+      if (!intersects(rect, this.width, this.height)) continue;
+      const age = t - e.start;
+      const life = age / e.lifeMs;
+      const cx = rect.x + rect.w / 2;
+      const cy = rect.y + rect.h / 2;
+      // A flash over the square.
+      const flash = this.effects.flash(e, t);
+      if (flash > 0) {
+        ctx.globalAlpha = 0.45 * flash;
+        ctx.fillStyle = e.color;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      }
+      // Sparks thrown out from the middle.
+      if (!this.reduced && e.sparks > 0) {
+        const reach =
+          Math.min(rect.w, rect.h) *
+          0.55 *
+          (1 - Math.pow(1 - Math.min(1, life * 1.6), 3));
+        ctx.fillStyle = e.color;
+        for (let i = 0; i < e.sparks; i++) {
+          const angle = i * 2.399963 + e.region;
+          const dist = reach * (0.45 + ((i * 37) % 10) / 18);
+          ctx.globalAlpha = Math.max(0, 1 - life * 1.5);
+          const s = 2 + ((i * 13) % 3);
+          ctx.fillRect(
+            cx + Math.cos(angle) * dist - s / 2,
+            cy + Math.sin(angle) * dist - s / 2,
+            s,
+            s,
+          );
+        }
+      }
+      // The words rise and fade; they shake while the square does.
+      // They start in the upper part, clear of the square's own name, and float out over its top edge.
+      const rise = this.reduced ? 0 : Math.min(1, life * 1.6) * rect.h * 0.45;
+      const baseY = rect.y + rect.h * 0.3;
+      const jx = !this.reduced && age < e.shakeMs ? Math.sin(t / 19) * 3 : 0;
+      const size = e.big
+        ? Math.max(18, Math.min(34, rect.w / 5))
+        : Math.max(13, Math.min(20, rect.w / 8));
+      ctx.globalAlpha = Math.max(0, 1 - Math.pow(life, 2.5));
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      ctx.font = `800 ${size}px "Pixelify Sans", Inter, sans-serif`;
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(0,0,0,0.9)";
+      ctx.fillStyle = e.color;
+      ctx.strokeText(e.text, cx + jx, baseY - rise);
+      ctx.fillText(e.text, cx + jx, baseY - rise);
+      if (e.sub !== "") {
+        ctx.font = `700 ${Math.round(size * 0.55)}px Inter, sans-serif`;
+        ctx.fillStyle = "#ffffff";
+        ctx.lineWidth = 4;
+        ctx.strokeText(e.sub, cx + jx, baseY - rise + size * 0.85);
+        ctx.fillText(e.sub, cx + jx, baseY - rise + size * 0.85);
+      }
     }
     ctx.globalAlpha = 1;
   }
