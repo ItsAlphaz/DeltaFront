@@ -335,6 +335,20 @@ describe("CrisisOverlay", () => {
     expect(css).toMatch(/:host\s*{[^}]*pointer-events:\s*none/);
   });
 
+  it("keeps nothing holding the title once its animations end: none fills forwards", async () => {
+    // Measured in Chrome: a finished fill:forwards flight sometimes kept the
+    // announcement's transform on the title, big at the centre, for good.
+    await step();
+    await vi.advanceTimersByTimeAsync(5_000);
+    const titleAnims = animations.filter((a) =>
+      a.el.classList.contains("title"),
+    );
+    expect(titleAnims.length).toBeGreaterThanOrEqual(2); // entrance and flight
+    for (const a of titleAnims) {
+      expect(a.options).not.toHaveProperty("fill");
+    }
+  });
+
   describe("the size of the title in reduced motion", () => {
     const realRect = Element.prototype.getBoundingClientRect;
     const realWidth = window.innerWidth;

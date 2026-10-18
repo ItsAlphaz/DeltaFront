@@ -554,10 +554,7 @@ export class CrisisOverlay extends LitElement implements Controller {
     if (title === null || typeof title.animate !== "function") return;
     const at = this.centreTransform;
     if (this.reducedMotion()) {
-      title.animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: 500,
-        fill: "forwards",
-      });
+      title.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500 });
       return;
     }
     const scaled = (factor: number) => `${at} scale(${factor})`;
@@ -581,7 +578,6 @@ export class CrisisOverlay extends LitElement implements Controller {
       {
         duration: ANNOUNCE_IN_MS,
         easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-        fill: "forwards",
       },
     );
   }
@@ -628,13 +624,13 @@ export class CrisisOverlay extends LitElement implements Controller {
     // starts is worked out again from the layout as it is now.
     this.placeTitleAtCentre();
     title.style.transform = "";
+    // No `fill`: the title's own style (no offset) is where it ends, so once the
+    // flight is over, or cancelled, nothing is left holding it anywhere else.
+    // (A fill:forwards flight sometimes kept the centre transform on the title
+    // after it finished, measured in Chrome: the title stayed big at the centre.)
     const flight = title.animate(
       [{ transform: this.centreTransform }, { transform: "none" }],
-      {
-        duration: DOCK_MS,
-        easing: "cubic-bezier(0.65, 0, 0.2, 1)",
-        fill: "forwards",
-      },
+      { duration: DOCK_MS, easing: "cubic-bezier(0.65, 0, 0.2, 1)" },
     );
     flight.onfinish = finish;
     // Belt and braces: if the animation never reports finishing (a hidden
