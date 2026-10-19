@@ -18,7 +18,7 @@ import { playerProfileUrl } from "../utilities/PlayerProfileUrl";
 import { copyToClipboard, showToast, translateText } from "../Utils";
 import "./LevelBadge";
 import { displayLevel, levelBadgeLabel } from "./LevelBadge";
-import { xpProgressText, xpRing } from "./XpBar";
+import { xpProgressText, xpRing, xpSegmentRing } from "./XpBar";
 
 type MenuItem = {
   key: string;
@@ -37,10 +37,10 @@ type MenuItem = {
 const RING = {
   desktop: {
     size: 38,
-    stroke: 3,
+    stroke: 4,
     box: "h-[38px] w-[38px]",
-    lift: "mb-1",
-    face: "inset-[4.5px]",
+    lift: "",
+    face: "inset-[5px]",
     badgeAt: "-bottom-[3px]",
     badge: "px-1.5 py-[2px] text-[8px]",
     mark: 12,
@@ -56,6 +56,9 @@ const RING = {
     mark: 10,
   },
 } as const;
+
+/** Segments in the desktop pill's XP ring. */
+const DESKTOP_RING_SEGMENTS = 20;
 
 /**
  * The badge's words: "LV 23". A Legend is level 100 too; the crown beside the
@@ -438,10 +441,12 @@ export class NavAccountMenu extends LitElement {
     `;
   }
 
-  private renderChevron(): TemplateResult {
+  private renderChevron(big = false): TemplateResult {
     return html`
       <svg
-        class="w-3 h-3 shrink-0 transition-transform ${this.menuOpen
+        class="${big
+          ? "h-3.5 w-3.5 text-white/60"
+          : "h-3 w-3"} shrink-0 transition-transform ${this.menuOpen
           ? "rotate-180"
           : ""}"
         xmlns="http://www.w3.org/2000/svg"
@@ -507,13 +512,27 @@ export class NavAccountMenu extends LitElement {
     >
       ${progress === null
         ? nothing
-        : xpRing(levelFraction(progress.xpInLevel, progress.xpForNext) * 100, {
-            size: d.size,
-            stroke: d.stroke,
-            animate: true,
-            snap: this.levelUp,
-            pulse: this.levelUp,
-          })}
+        : variant === "desktop"
+          ? xpSegmentRing(
+              levelFraction(progress.xpInLevel, progress.xpForNext) * 100,
+              {
+                size: d.size,
+                stroke: d.stroke,
+                segments: DESKTOP_RING_SEGMENTS,
+                snap: this.levelUp,
+                pulse: this.levelUp,
+              },
+            )
+          : xpRing(
+              levelFraction(progress.xpInLevel, progress.xpForNext) * 100,
+              {
+                size: d.size,
+                stroke: d.stroke,
+                animate: true,
+                snap: this.levelUp,
+                pulse: this.levelUp,
+              },
+            )}
       <span
         data-account-face
         class="${ring
@@ -522,63 +541,116 @@ export class NavAccountMenu extends LitElement {
       >
         ${this.renderIdentityIcons(variant === "desktop")}
       </span>
-      ${progress === null ? nothing : this.renderRingExtras(d, progress)}
+      ${progress === null
+        ? nothing
+        : html`${this.renderAttention(progress)}${variant === "desktop"
+            ? nothing
+            : this.renderLevelBadge(d, progress)}`}
     </span>`;
   }
 
-  // What sits on the ring: the mark of something waiting, the level badge and
-  // the prestige emblem beside it. They take no pointer events of their own.
-  private renderRingExtras(
-    d: (typeof RING)[keyof typeof RING],
-    progress: Progress,
-  ): TemplateResult {
-    // Something waiting for the player: Credits to claim, or a prestige to take.
+  // Something waiting for the player (Credits to claim, or a prestige to take): a
+  // red dot on the ring's upper right. It takes no pointer events of its own.
+  private renderAttention(progress: Progress): TemplateResult | typeof nothing {
     const rewards =
       this.userMeResponse === false
         ? 0
         : (this.userMeResponse.player.rewards?.length ?? 0);
-    const attention = progress.canPrestige || rewards > 0;
-    const ranked = progress.legend || progress.prestige > 0;
-    return html`${attention
-        ? html`<span
-            data-account-attention
-            class="pointer-events-none absolute -right-0.5 -top-0.5 z-10 h-2 w-2 rounded-full bg-df-red-bright ring-[1.5px] ring-black"
-            title=${translateText(
-              progress.canPrestige
-                ? "nav_account_menu.prestige_ready"
-                : "nav_account_menu.rewards_waiting",
-            )}
-          ></span>`
-        : nothing}
+    if (!progress.canPrestige && rewards <= 0) return nothing;
+    return html`<span
+      data-account-attention
+      class="pointer-events-none absolute -right-0.5 -top-0.5 z-10 h-2 w-2 rounded-full bg-df-red-bright ring-[1.5px] ring-black"
+      title=${translateText(
+        progress.canPrestige
+          ? "nav_account_menu.prestige_ready"
+          : "nav_account_menu.rewards_waiting",
+      )}
+    ></span>`;
+  }
+
+  // The prestige emblem of a prestiged player or a Legend (nothing otherwise).
+  private renderEmblem(progress: Progress, size: number): TemplateResult {
+    if (!(progress.legend || progress.prestige > 0)) return html``;
+    return html`<span
+      data-account-prestige
+      class="block shrink-0"
+      aria-hidden="true"
+    >
+      <level-badge
+        emblem
+        .level=${progress.level}
+        .prestige=${progress.prestige}
+        .legend=${progress.legend}
+        .size=${size}
+      ></level-badge>
+    </span>`;
+  }
+
+  // Mobile top bar: the level as a small red badge on the ring's lower edge, with
+  // the prestige emblem beside it. (The desktop pill says it in words instead.)
+  private renderLevelBadge(
+    d: (typeof RING)[keyof typeof RING],
+    progress: Progress,
+  ): TemplateResult {
+    return html`<span
+      data-account-level
+      data-level-up=${this.levelUp ? "true" : nothing}
+      class="pointer-events-none absolute inset-x-0 ${d.badgeAt} z-10 flex items-center justify-center gap-0.5 ${this
+        .levelUp
+        ? "df-level-up"
+        : ""}"
+    >
+      ${this.renderEmblem(progress, d.mark)}
+      <span
+        data-account-level-text
+        class="block whitespace-nowrap rounded-md bg-df-red ${d.badge} font-display font-bold uppercase leading-none tracking-wider text-white ring-[1.5px] ring-black/70"
+        >${levelBadgeText(progress)}</span
+      >
+    </span>`;
+  }
+
+  /** The name the pill shows: the account's display username, else "Account". */
+  private displayName(): string {
+    const named =
+      this.userMeResponse === false
+        ? null
+        : this.userMeResponse.player.username;
+    const name = (named ?? this.crazyGamesUser?.username ?? "").trim();
+    return name !== "" ? name : translateText("main.account");
+  }
+
+  // Desktop pill: the name in white and, under it, "LEVEL 44" (the word dim, the
+  // number red), with the prestige emblem in front for a prestiged player. The
+  // name truncates rather than widening the nav. Nothing here takes pointer
+  // events: a click anywhere on the pill is a click on the button.
+  private renderIdentityText(progress: Progress): TemplateResult {
+    return html`<span
+      data-account-identity
+      class="pointer-events-none flex min-w-0 flex-col items-start justify-center gap-[3px] text-left"
+    >
+      <span
+        data-account-name
+        class="block max-w-[9rem] truncate font-sans text-[15px] font-bold normal-case leading-[1.2] tracking-normal text-white"
+        >${this.displayName()}</span
+      >
       <span
         data-account-level
         data-level-up=${this.levelUp ? "true" : nothing}
-        class="pointer-events-none absolute inset-x-0 ${d.badgeAt} z-10 flex items-center justify-center gap-0.5 ${this
-          .levelUp
+        class="flex items-center gap-1 leading-none ${this.levelUp
           ? "df-level-up"
           : ""}"
       >
-        ${ranked
-          ? html`<span
-              data-account-prestige
-              class="block shrink-0"
-              aria-hidden="true"
-            >
-              <level-badge
-                emblem
-                .level=${progress.level}
-                .prestige=${progress.prestige}
-                .legend=${progress.legend}
-                .size=${d.mark}
-              ></level-badge>
-            </span>`
-          : nothing}
+        ${this.renderEmblem(progress, 11)}
         <span
           data-account-level-text
-          class="block whitespace-nowrap rounded-md bg-df-red ${d.badge} font-display font-bold uppercase leading-none tracking-wider text-white ring-[1.5px] ring-black/70"
-          >${levelBadgeText(progress)}</span
+          class="block whitespace-nowrap font-display text-[9px] font-bold uppercase leading-none tracking-[0.22em] text-white/45"
+          >${translateText("nav_account_menu.level_label")}
+          <span class="text-df-red-bright"
+            >${displayLevel(progress.level)}</span
+          ></span
         >
-      </span>`;
+      </span>
+    </span>`;
   }
 
   // Avatar / spinner / person icon / email badge, shared by both triggers.
@@ -665,13 +737,14 @@ export class NavAccountMenu extends LitElement {
         aria-expanded=${this.menuOpen ? "true" : "false"}
         @click=${this.handleTriggerClick}
         class=${desktop
-          ? `nav-menu-item relative ${ring ? "h-12 pl-2.5 pr-3" : "h-10 px-3"} items-center rounded-full flex justify-center gap-2 bg-transparent border border-white/20 text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white`
+          ? `nav-menu-item relative ${ring ? "h-12 gap-3 border-white/10 bg-white/5 pl-[5px] pr-4 hover:border-white/25" : "h-10 gap-2 border-white/20 bg-transparent px-3"} items-center rounded-full flex justify-center border text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white`
           : "nav-menu-item h-10 flex items-center justify-center gap-1 pl-1 pr-1.5 rounded-full text-white/90 cursor-pointer transition-colors"}
         data-page="page-account"
         aria-label=${this.triggerLabel()}
         data-i18n-title="main.account"
       >
         ${this.renderCluster(variant)}
+        ${ring && desktop ? this.renderIdentityText(this.progress()!) : nothing}
         <!-- The sign-in label is desktop-only and only on the plain pill (the
              shared updater toggles it); on the top bar the icon alone is the
              affordance, so the element is kept but never shows text. -->
@@ -681,9 +754,8 @@ export class NavAccountMenu extends LitElement {
           class="hidden text-xs font-bold tracking-widest"
           data-i18n=${ifDefined(desktop ? "main.sign_in" : undefined)}
         ></span>
-        <span
-          class="flex items-center ${ring && desktop ? "mb-1 h-[38px]" : ""}"
-          >${this.renderChevron()}</span
+        <span class="flex items-center"
+          >${this.renderChevron(ring && desktop)}</span
         >
       </button>
     `;

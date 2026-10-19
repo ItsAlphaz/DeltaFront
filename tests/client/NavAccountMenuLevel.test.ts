@@ -77,9 +77,16 @@ describe("nav-account-menu level", () => {
       await mount(variant, userMe({ progress }));
       const level = el.querySelector("[data-account-level]");
       expect(level).not.toBeNull();
-      expect(
-        level!.querySelector("[data-account-level-text]")?.textContent,
-      ).toBe('progression.level_short:{"level":23}');
+      const words = level!
+        .querySelector("[data-account-level-text]")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim();
+      // the pill says it in words under the name, the top bar in a small badge
+      expect(words).toBe(
+        variant === "desktop"
+          ? "nav_account_menu.level_label 23"
+          : 'progression.level_short:{"level":23}',
+      );
       const emblem = level!.querySelector("level-badge") as HTMLElement & {
         level: number;
         prestige: number;
@@ -88,9 +95,18 @@ describe("nav-account-menu level", () => {
       expect(emblem.level).toBe(23);
       expect(emblem.prestige).toBe(1);
       expect(emblem.emblem).toBe(true);
-      // the ring fills to the level's progress (250 of 1,000)
-      const fill = el.querySelector("[data-xp-ring-fill]");
-      expect(fill?.getAttribute("style")).toContain("stroke-dasharray: 25 100");
+      // the ring fills to the level's progress (250 of 1,000): 5 of the pill's 20 arcs,
+      // a quarter of the top bar's continuous ring
+      if (variant === "desktop") {
+        expect(
+          el.querySelector("[data-xp-ring]")?.getAttribute("data-xp-ring-lit"),
+        ).toBe("5");
+      } else {
+        const fill = el.querySelector("[data-xp-ring-fill]");
+        expect(fill?.getAttribute("style")).toContain(
+          "stroke-dasharray: 25 100",
+        );
+      }
       expect(el.querySelector("[data-account-xp-bar]")).toBeNull();
     });
   }

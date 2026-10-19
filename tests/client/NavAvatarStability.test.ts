@@ -192,10 +192,8 @@ describe("the nav picture stays put", () => {
     expect(img()).toBe(before);
     expect(watch.flush()).toBe(0);
     expect(shown(img())).toBe(true);
-    // the ring moved
-    expect(q("[data-xp-ring-fill]").getAttribute("style")).toContain(
-      "stroke-dasharray: 57.14",
-    );
+    // the ring moved: 400 of 700 is 57%, 11 of the pill's 20 arcs
+    expect(q("[data-xp-ring]").getAttribute("data-xp-ring-lit")).toBe("11");
   });
 
   it("a level gained pops the badge and pulses the ring, and leaves the picture alone", async () => {
@@ -248,13 +246,17 @@ describe("the nav picture stays put", () => {
   it("the ring still eases, and still does not under reduced motion", async () => {
     await mount();
     await respond(userMe());
-    const fill = q("[data-xp-ring-fill]");
-    const cls = fill.getAttribute("class") ?? "";
-    expect(cls).toContain("transition-[stroke-dasharray]");
-    expect(cls).toContain("motion-reduce:transition-none");
+    const arcs = [...el.querySelectorAll("[data-xp-ring-segment]")];
+    expect(arcs.length).toBe(20);
+    for (const n of arcs) {
+      const cls = n.getAttribute("class") ?? "";
+      expect(cls).toContain("transition-colors");
+      expect(cls).toContain("motion-reduce:transition-none");
+    }
     await respond(userMe({ xpInLevel: 350 }));
-    expect(q("[data-xp-ring-fill]")).toBe(fill);
-    expect(fill.getAttribute("style")).toContain("stroke-dasharray: 50 100");
+    // the same arcs, recoloured in place (350 of 700 is half: 10 of 20)
+    expect([...el.querySelectorAll("[data-xp-ring-segment]")]).toEqual(arcs);
+    expect(q("[data-xp-ring]").getAttribute("data-xp-ring-lit")).toBe("10");
     const css = readFileSync("src/client/styles.css", "utf8");
     expect(css).toMatch(
       /prefers-reduced-motion: reduce\) \{\s*\.df-xp-pop,\s*\.df-level-up,\s*\.df-ring-pulse \{\s*animation: none;/,

@@ -134,29 +134,39 @@ describe("desktop: the avatar sits inside the XP ring", () => {
     ]) {
       expect(face.querySelector(hook), hook).not.toBeNull();
     }
-    // and the face is a circle clear of the ring's stroke: 38px ring, 3px
+    // and the face is a circle clear of the ring's stroke: 38px ring, 4px
     // stroke, a hairline of air
     // laid inside the ring's box, not beside it
     expect(classes("[data-account-face]")).toContain("absolute");
-    expect(classes("[data-account-face]")).toContain("inset-[4.5px]");
+    expect(classes("[data-account-face]")).toContain("inset-[5px]");
     expect(classes("[data-account-face]")).toContain("rounded-full");
     expect(classes("[data-account-cluster]")).toContain("h-[38px]");
     expect(classes("[data-account-cluster]")).toContain("w-[38px]");
     expect(ring.getAttribute("viewBox")).toBe("0 0 38 38");
   });
 
-  it("is a dark track with a red fill, drawn clockwise from the top", () => {
-    const track = q("[data-xp-ring-track]");
-    const fill = q("[data-xp-ring-fill]");
-    expect(track.getAttribute("class")).toContain("stroke-white/15");
-    expect(fill.getAttribute("class")).toContain("stroke-df-red");
-    // same circle, same stroke
-    expect(fill.getAttribute("r")).toBe(track.getAttribute("r"));
-    expect(fill.getAttribute("stroke-width")).toBe(
-      track.getAttribute("stroke-width"),
+  it("is 20 short arcs, red where the XP is earned and dark for the rest, drawn clockwise from the top", () => {
+    const segments = qs("[data-xp-ring-segment]");
+    expect(segments).toHaveLength(20);
+    // 25% of the level: the first 5 arcs are lit, in the fill's red, the rest dark
+    expect(segments.filter((n) => n.dataset.lit === "true")).toHaveLength(5);
+    expect(segments.slice(0, 5).every((n) => n.dataset.lit === "true")).toBe(
+      true,
     );
-    // the path is normalised to 100 so the dash is the percentage
-    expect(fill.getAttribute("pathLength")).toBe("100");
+    for (const n of segments) {
+      expect(n.getAttribute("class")).toContain(
+        n.dataset.lit === "true" ? "stroke-df-red" : "stroke-white/15",
+      );
+    }
+    // all on the same circle and stroke, each one a dash with a gap after it
+    expect(new Set(segments.map((n) => n.getAttribute("r"))).size).toBe(1);
+    expect(
+      new Set(segments.map((n) => n.getAttribute("stroke-width"))),
+    ).toEqual(new Set(["4"]));
+    const dashes = segments.map((n) =>
+      Number(n.getAttribute("stroke-dasharray")!.split(" ")[0]),
+    );
+    expect(dashes.every((d) => d > 0 && d === dashes[0])).toBe(true);
     // 12 o'clock is the start
     expect(q("[data-xp-ring] g").getAttribute("transform")).toBe(
       "rotate(-90 19 19)",
@@ -171,9 +181,38 @@ describe("desktop: the avatar sits inside the XP ring", () => {
   });
 });
 
-describe("the ring's percentage is the progression's", () => {
-  it("fills to xpInLevel / xpForNext, the fraction every progression panel uses", async () => {
+describe("the desktop ring's lit arcs follow the progression's fraction", () => {
+  it("lights round(fraction x 20) arcs, from the top, clockwise", async () => {
     await mount("desktop", userMe());
+    const lit = () => Number(q("[data-xp-ring]").dataset.xpRingLit);
+    expect(lit()).toBe(5);
+    for (const [inLevel, forNext, expected] of [
+      [0, 500, 0],
+      [125, 500, 5],
+      [333, 1000, 7],
+      [999, 1000, 20],
+      [1000, 1000, 20],
+      [2100, 4200, 10],
+    ] as const) {
+      await respond(userMe({ xpInLevel: inLevel, xpForNext: forNext }));
+      expect(lit(), `${inLevel}/${forNext}`).toBe(expected);
+      expect(
+        qs("[data-xp-ring-segment]").filter((n) => n.dataset.lit === "true"),
+      ).toHaveLength(expected);
+    }
+  });
+
+  it("is dark at the start of a level (no stray lit arc) and full at the top level", async () => {
+    await mount("desktop", userMe({ xpInLevel: 0 }));
+    expect(qs("[data-xp-ring-segment][data-lit='true']")).toHaveLength(0);
+    await mount("desktop", userMe({ level: 100, xpInLevel: 0, xpForNext: 0 }));
+    expect(qs("[data-xp-ring-segment][data-lit='true']")).toHaveLength(20);
+  });
+});
+
+describe("the ring's percentage is the progression's (mobile's continuous ring)", () => {
+  it("fills to xpInLevel / xpForNext, the fraction every progression panel uses", async () => {
+    await mount("mobile", userMe());
     expect(dash()).toBe("25");
     expect(q("[data-xp-ring]").getAttribute("data-xp-ring-percent")).toBe("25");
     for (const [inLevel, forNext] of [
@@ -191,7 +230,7 @@ describe("the ring's percentage is the progression's", () => {
   });
 
   it("is empty at the start of a level (and draws nothing at all, not a dot) and full at its end", async () => {
-    await mount("desktop", userMe({ xpInLevel: 0 }));
+    await mount("mobile", userMe({ xpInLevel: 0 }));
     expect(dash()).toBe("0");
     expect(fillStyle()).toContain("opacity: 0");
     await respond(userMe({ xpInLevel: 1000 }));
@@ -200,7 +239,7 @@ describe("the ring's percentage is the progression's", () => {
   });
 
   it("is full at the top level, where there is no next level", async () => {
-    await mount("desktop", userMe({ level: 100, xpInLevel: 0, xpForNext: 0 }));
+    await mount("mobile", userMe({ level: 100, xpInLevel: 0, xpForNext: 0 }));
     expect(dash()).toBe("100");
   });
 
@@ -213,26 +252,54 @@ describe("the ring's percentage is the progression's", () => {
 });
 
 describe("the level badge", () => {
-  it("reads the account's level, in a small red badge on the ring", async () => {
+  it("desktop says it in words under the name: LEVEL, then the number in red", async () => {
     await mount("desktop", userMe());
+    const text = q("[data-account-level-text]");
+    expect(text.textContent!.replace(/\s+/g, " ").trim()).toBe(
+      "nav_account_menu.level_label 23",
+    );
+    expect(text.querySelector(".text-df-red-bright")?.textContent).toBe("23");
+    // in the identity block beside the avatar, under the name, not on the ring
+    expect(q("[data-account-identity]").contains(text)).toBe(true);
+    expect(q("[data-account-cluster]").contains(text)).toBe(false);
+    expect(
+      q("[data-account-name]").compareDocumentPosition(
+        q("[data-account-level]"),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("desktop shows the account's name beside the avatar, truncated rather than widening the nav", async () => {
+    const named = userMe();
+    named.player.username = "Alphaz";
+    await mount("desktop", named);
+    expect(q("[data-account-name]").textContent).toBe("Alphaz");
+    expect(classes("[data-account-name]")).toContain("truncate");
+    expect(classes("[data-account-name]")).toContain("max-w-[9rem]");
+    // no username yet: the generic word, never an empty pill
+    await respond(userMe());
+    expect(q("[data-account-name]").textContent).toBe("main.account");
+  });
+
+  it("mobile keeps the small red badge on the ring's lower edge", async () => {
+    await mount("mobile", userMe());
     const text = q("[data-account-level-text]");
     expect(text.textContent).toBe('progression.level_short:{"level":23}');
     expect(text.className).toContain("bg-df-red");
-    // it sits on the ring's lower edge, inside the cluster, and takes no clicks
     expect(q("[data-account-cluster]").contains(text)).toBe(true);
     expect(classes("[data-account-level]")).toContain("absolute");
     expect(classes("[data-account-level]")).toContain("pointer-events-none");
   });
 
   it("follows the level: 1, 25 and 100", async () => {
+    const num = () =>
+      q("[data-account-level-text] .text-df-red-bright").textContent;
     await mount("desktop", userMe({ level: 1 }));
-    expect(q("[data-account-level-text]").textContent).toContain('"level":1}');
+    expect(num()).toBe("1");
     await respond(userMe({ level: 25 }));
-    expect(q("[data-account-level-text]").textContent).toContain('"level":25}');
+    expect(num()).toBe("25");
     await respond(userMe({ level: 100, xpInLevel: 0, xpForNext: 0 }));
-    expect(q("[data-account-level-text]").textContent).toContain(
-      '"level":100}',
-    );
+    expect(num()).toBe("100");
   });
 
   it("has no prestige emblem until the player has prestiged", async () => {
@@ -301,7 +368,7 @@ describe("the pill", () => {
     expect(trigger).toContain("h-12");
     expect(trigger).toContain("rounded-full");
     expect(trigger).toContain("border");
-    expect(trigger).toContain("border-white/20");
+    expect(trigger).toContain("border-white/10");
     // the imperative border toggle is for the plain pill only
     expect(
       q("[data-account-trigger]").hasAttribute("data-account-border"),
@@ -373,19 +440,22 @@ describe("the profile dropdown stays clickable", () => {
     const trigger = q("[data-account-trigger]");
     const opened = vi.fn();
     trigger.addEventListener("click", opened);
-    const chevron = trigger.querySelector("svg.w-3")!.parentElement!;
+    const chevron = trigger.querySelector(
+      "svg.transition-transform",
+    )!.parentElement!;
     for (const target of [
       q("[data-account-avatar]"),
       q("[data-account-face]"),
       q("[data-xp-ring]"),
       q("[data-account-level]"),
       q("[data-account-level-text]"),
+      q("[data-account-name]"),
       q("[data-account-cluster]"),
       chevron,
     ]) {
       target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
-    expect(opened).toHaveBeenCalledTimes(7);
+    expect(opened).toHaveBeenCalledTimes(8);
   });
 
   it("clicking opens and closes the menu", async () => {
@@ -421,7 +491,7 @@ describe("the profile dropdown stays clickable", () => {
     await mount("desktop", waiting);
     for (const sel of [
       "[data-xp-ring]",
-      "[data-account-level]",
+      "[data-account-identity]",
       "[data-account-attention]",
     ]) {
       expect(classes(sel), sel).toContain("pointer-events-none");
@@ -486,7 +556,7 @@ describe("responsive layout", () => {
       .split(/\s+/)
       .filter(
         (c) =>
-          /^(w|min-w)-(?!2|3|4|5|8|\[)/.test(c) &&
+          /^(w|min-w)-(?!0$|2|3|4|5|8|\[)/.test(c) &&
           !c.startsWith("w-full") &&
           !c.startsWith("w-max"),
       );
@@ -495,8 +565,8 @@ describe("responsive layout", () => {
     expect(classes("[data-account-trigger]")).toContain("h-12");
   });
 
-  it("the badge is centred on the ring and may overhang it without moving anything", async () => {
-    await mount("desktop", userMe({ prestige: 4 }));
+  it("mobile: the badge is centred on the ring and may overhang it without moving anything", async () => {
+    await mount("mobile", userMe({ prestige: 4 }));
     const row = classes("[data-account-level]");
     // absolutely placed: it takes no room in the flow
     expect(row).toContain("absolute");
@@ -504,6 +574,12 @@ describe("responsive layout", () => {
     expect(row).toContain("justify-center");
     // the text never wraps, whatever the translation
     expect(classes("[data-account-level-text]")).toContain("whitespace-nowrap");
+  });
+
+  it("desktop: the level line never wraps and takes no room beyond the name's block", async () => {
+    await mount("desktop", userMe({ prestige: 4 }));
+    expect(classes("[data-account-level-text]")).toContain("whitespace-nowrap");
+    expect(classes("[data-account-level]")).not.toContain("absolute");
   });
 
   it("sits in the desktop nav only from lg up and in the top bar below it", () => {
@@ -519,8 +595,8 @@ describe("responsive layout", () => {
 });
 
 describe("the ring's motion", () => {
-  it("eases to a new value when XP changes, on the same ring", async () => {
-    await mount("desktop", userMe());
+  it("mobile: eases to a new value when XP changes, on the same ring", async () => {
+    await mount("mobile", userMe());
     const fill = q("[data-xp-ring-fill]");
     const cls = fill.getAttribute("class") ?? "";
     expect(cls).toContain("transition-[stroke-dasharray]");
@@ -532,15 +608,15 @@ describe("the ring's motion", () => {
     expect(dash()).toBe("60");
   });
 
-  it("does not ease under reduced motion", async () => {
-    await mount("desktop", userMe());
+  it("mobile: does not ease under reduced motion", async () => {
+    await mount("mobile", userMe());
     expect(q("[data-xp-ring-fill]").getAttribute("class")).toContain(
       "motion-reduce:transition-none",
     );
   });
 
-  it("a level gained resets the ring without sweeping it backwards", async () => {
-    await mount("desktop", userMe({ xpInLevel: 900 }));
+  it("mobile: a level gained resets the ring without sweeping it backwards", async () => {
+    await mount("mobile", userMe({ xpInLevel: 900 }));
     expect(q("[data-xp-ring-fill]").getAttribute("class")).toContain(
       "transition-[stroke-dasharray]",
     );
@@ -555,6 +631,40 @@ describe("the ring's motion", () => {
     // and the easing is back for the next gain
     expect(q("[data-xp-ring-fill]").getAttribute("class")).toContain(
       "transition-[stroke-dasharray]",
+    );
+  });
+
+  it("desktop: arcs fade to their new colour on the same ring, and not under reduced motion", async () => {
+    await mount("desktop", userMe());
+    const arcs = qs("[data-xp-ring-segment]");
+    for (const n of arcs) {
+      expect(n.getAttribute("class")).toContain("transition-colors");
+      expect(n.getAttribute("class")).toContain(
+        "motion-reduce:transition-none",
+      );
+    }
+    // the same elements are updated in place, so the fade runs
+    await respond(userMe({ xpInLevel: 600 }));
+    expect(qs("[data-xp-ring-segment]")).toEqual(arcs);
+    expect(
+      qs("[data-xp-ring-segment]").filter((n) => n.dataset.lit === "true"),
+    ).toHaveLength(12);
+  });
+
+  it("desktop: a level gained resets the arcs at once, then the fade is back", async () => {
+    await mount("desktop", userMe({ xpInLevel: 900 }));
+    expect(q("[data-xp-ring-segment]").getAttribute("class")).toContain(
+      "transition-colors",
+    );
+    await respond(userMe({ level: 24, xpInLevel: 10 }));
+    expect(q("[data-xp-ring-segment]").getAttribute("class")).not.toContain(
+      "transition-colors",
+    );
+    expect(Number(q("[data-xp-ring]").dataset.xpRingLit)).toBe(0);
+    vi.advanceTimersByTime(800);
+    await el.updateComplete;
+    expect(q("[data-xp-ring-segment]").getAttribute("class")).toContain(
+      "transition-colors",
     );
   });
 });

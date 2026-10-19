@@ -1,4 +1,4 @@
-import { html, nothing, TemplateResult } from "lit";
+import { html, nothing, svg, TemplateResult } from "lit";
 import {
   isReducedKey,
   multiplierPercent,
@@ -180,6 +180,81 @@ export function xpRing(
           : ""}"
         style="stroke-dasharray: ${fill} 100; opacity: ${fill > 0 ? 1 : 0}"
       ></circle>
+    </g>
+  </svg>`;
+}
+
+/**
+ * The same ring, cut into segments (the desktop profile pill): `segments` short
+ * arcs with a hairline gap, lit red clockwise from the top for the share of XP
+ * earned, the rest dark. A segment is lit when its share of the ring has been
+ * reached, so the lit count is `round(percent / 100 * segments)`: nothing lit at
+ * the start of a level (no stray dot), all lit at the top.
+ *
+ * It keeps the ring's hooks (`data-xp-ring`, `data-xp-ring-percent`, the pulse)
+ * and adds `data-xp-ring-segments` / `data-xp-ring-lit` and, per arc,
+ * `data-xp-ring-segment` with `data-lit`. Segments change colour with a short
+ * fade (never under reduced motion); a level gained resets them at once (`snap`).
+ */
+export function xpSegmentRing(
+  percent: number,
+  opts: {
+    size?: number;
+    stroke?: number;
+    segments?: number;
+    snap?: boolean;
+    pulse?: boolean;
+  } = {},
+): TemplateResult {
+  const fill = Number.isFinite(percent)
+    ? Math.min(100, Math.max(0, percent))
+    : 0;
+  const size = opts.size ?? 38;
+  const stroke = opts.stroke ?? 4;
+  const segments = Math.max(2, Math.round(opts.segments ?? 20));
+  const lit = Math.round((fill / 100) * segments);
+  const centre = size / 2;
+  const radius = (size - stroke) / 2;
+  // Each arc is one dash of the circle's own circumference, placed by its index.
+  const circumference = 2 * Math.PI * radius;
+  const pitch = circumference / segments;
+  const gap = 0.3 * pitch;
+  const arc = pitch - gap;
+  const eased = opts.snap !== true;
+  return html`<svg
+    data-xp-ring
+    data-xp-ring-percent=${Math.round(fill)}
+    data-xp-ring-segments=${segments}
+    data-xp-ring-lit=${lit}
+    viewBox="0 0 ${size} ${size}"
+    width=${size}
+    height=${size}
+    aria-hidden="true"
+    focusable="false"
+    class="pointer-events-none absolute inset-0 block ${opts.pulse
+      ? "df-ring-pulse"
+      : ""}"
+  >
+    <g transform="rotate(-90 ${centre} ${centre})">
+      ${Array.from({ length: segments }, (_, i) => {
+        const on = i < lit;
+        return svg`<circle
+          data-xp-ring-segment
+          data-lit=${on ? "true" : "false"}
+          cx=${centre}
+          cy=${centre}
+          r=${radius}
+          fill="none"
+          stroke-width=${stroke}
+          stroke-dasharray="${arc} ${circumference}"
+          stroke-dashoffset=${-(i * pitch + gap / 2)}
+          class="${on ? "stroke-df-red" : "stroke-white/15"} ${
+            eased
+              ? "transition-colors duration-300 motion-reduce:transition-none"
+              : ""
+          }"
+        ></circle>`;
+      })}
     </g>
   </svg>`;
 }
