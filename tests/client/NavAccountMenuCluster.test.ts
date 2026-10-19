@@ -368,7 +368,7 @@ describe("the pill", () => {
     expect(trigger).toContain("h-12");
     expect(trigger).toContain("rounded-full");
     expect(trigger).toContain("border");
-    expect(trigger).toContain("border-white/10");
+    expect(trigger).toContain("border-white/6");
     // the imperative border toggle is for the plain pill only
     expect(
       q("[data-account-trigger]").hasAttribute("data-account-border"),
