@@ -94,6 +94,7 @@ export class PlayPage extends LitElement {
              version is stamped into .game-version-display at boot
              (renderNavVersion), as it is in the nav drawer. -->
         <div class="hidden lg:flex flex-col items-center shrink-0 mt-[38px]">
+          ${(void import("./SplashStamp"), html`<splash-stamp></splash-stamp>`)}<!-- SPLASH-STAMP -->
           <img
             src=${assetUrl("images/branding/deltafront-logo.png")}
             alt="DeltaFront"
