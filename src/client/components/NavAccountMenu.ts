@@ -737,7 +737,7 @@ export class NavAccountMenu extends LitElement {
         aria-expanded=${this.menuOpen ? "true" : "false"}
         @click=${this.handleTriggerClick}
         class=${desktop
-          ? `nav-menu-item relative ${ring ? "h-12 gap-3 border-white/6 bg-white/3 pl-[5px] pr-4 hover:border-white/15" : "h-10 gap-2 border-white/20 bg-transparent px-3"} items-center rounded-full flex justify-center border text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white`
+          ? `nav-menu-item relative ${ring ? "h-12 gap-3 border-white/6 bg-white/2 pl-[5px] pr-4 hover:border-white/15" : "h-10 gap-2 border-white/20 bg-transparent px-3"} items-center rounded-full flex justify-center border text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white`
           : "nav-menu-item h-10 flex items-center justify-center gap-1 pl-1 pr-1.5 rounded-full text-white/90 cursor-pointer transition-colors"}
         data-page="page-account"
         aria-label=${this.triggerLabel()}
