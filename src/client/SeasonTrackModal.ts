@@ -6,6 +6,7 @@ import { BaseModal } from "./components/BaseModal";
 import "./components/CreditsIcon";
 import { compactDuration } from "./components/ProgressionPanel";
 import { modalHeader } from "./components/ui/ModalHeader";
+import { uiButtonClasses } from "./components/ui/PageUi";
 import { formatXp, xpBar } from "./components/XpBar";
 import { titleText } from "./Progression";
 import { fetchProgressionMe } from "./ProgressionApi";
@@ -67,19 +68,19 @@ export class SeasonTrackModal extends BaseModal {
 
   protected renderBody(): TemplateResult {
     if (this.status === "loading") {
-      return html`<p class="p-6 text-df-text-muted">
+      return html`<p class="ui-body p-6 text-ui-muted">
         ${translateText("progression.loading")}
       </p>`;
     }
     const me = this.me;
     if (this.status === "failed" || me === null) {
-      return html`<p class="p-6 text-df-text-muted" data-season-failed>
+      return html`<p class="ui-body p-6 text-ui-muted" data-season-failed>
         ${translateText("progression.load_failed")}
       </p>`;
     }
     const season = me.season;
     if (season === null) {
-      return html`<p class="p-6 text-df-text-muted" data-season-none>
+      return html`<p class="ui-body p-6 text-ui-muted" data-season-none>
         ${translateText("progression.no_season")}
       </p>`;
     }
@@ -90,20 +91,18 @@ export class SeasonTrackModal extends BaseModal {
       <div class="flex flex-col gap-5 p-6">
         <div data-season-summary class="flex flex-col gap-2">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="m-0 text-xl font-black uppercase text-white">
-              ${season.name}
-            </h2>
-            <span class="text-xs text-white/50"
+            <h2 class="ui-title m-0 text-ui-text">${season.name}</h2>
+            <span class="ui-label"
               >${translateText("progression.season_ends_in", {
                 time: compactDuration(Date.parse(season.endsAt) - Date.now()),
               })}</span
             >
           </div>
-          <div class="text-sm text-white/80">
+          <div class="ui-body text-ui-text">
             ${translateText("progression.season_level", {
               level: season.level,
             })}
-            <span class="text-white/50">· ${formatXp(season.xp)} XP</span>
+            <span class="text-ui-muted">· ${formatXp(season.xp)} XP</span>
           </div>
           ${xpBar(maxed ? 100 : (into / season.xpPerLevel) * 100)}
         </div>
@@ -111,7 +110,7 @@ export class SeasonTrackModal extends BaseModal {
           ? html`<button
               type="button"
               data-season-claim-all
-              class="df-btn self-start"
+              class="${uiButtonClasses("secondary")} self-start"
               ?disabled=${this.claiming}
               @click=${() => void this.claim(null)}
             >
@@ -131,17 +130,17 @@ export class SeasonTrackModal extends BaseModal {
                   : entry.unlocked
                     ? "unlocked"
                     : "locked"}
-                class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${entry.unlocked
-                  ? "border-yellow-400/40 bg-yellow-400/5"
-                  : "border-white/10 bg-black/20 opacity-70"}"
+                class="flex items-center justify-between gap-3 rounded-ui-card border px-4 py-3 ${entry.unlocked
+                  ? "border-ui-gold/40 bg-ui-gold/10"
+                  : "border-ui-border bg-ui-surface opacity-70"}"
               >
                 <div class="min-w-0">
-                  <div class="text-sm font-bold text-white">
+                  <div class="ui-body font-bold text-ui-text">
                     ${translateText("progression.level", {
                       level: entry.level,
                     })}
                   </div>
-                  <div class="truncate text-xs text-white/60">
+                  <div class="ui-body truncate text-[12px] text-ui-muted">
                     ${formatXp(entry.credits)}
                     ${translateText("progression.credits")}${entry.title ===
                     null
@@ -159,13 +158,13 @@ export class SeasonTrackModal extends BaseModal {
                   ? html`<button
                       type="button"
                       data-season-claim=${entry.rewardId}
-                      class="df-btn shrink-0 text-xs"
+                      class="${uiButtonClasses("secondary")} shrink-0"
                       ?disabled=${this.claiming}
                       @click=${() => void this.claim(entry.rewardId)}
                     >
                       ${translateText("progression.claim")}
                     </button>`
-                  : html`<span class="shrink-0 text-xs text-white/50"
+                  : html`<span class="ui-label shrink-0"
                       >${entry.claimed
                         ? translateText("progression.claimed")
                         : entry.unlocked

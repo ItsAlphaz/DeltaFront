@@ -16,6 +16,7 @@ import { fetchGameById } from "../../../Api";
 import { terrainMapFileLoader } from "../../../TerrainMapFileLoader";
 import { getMapName, renderDuration, translateText } from "../../../Utils";
 import { renderLoadingSpinner } from "../../BaseModal";
+import { uiButtonClasses } from "../../ui/PageUi";
 import {
   RANK_TYPE_LABEL_KEYS,
   Ranking,
@@ -95,15 +96,15 @@ export class GameInfoView extends LitElement {
       return html`
         ${this.renderGameInfo()}
         <div
-          class="mt-5 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-white"
+          class="mt-5 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-ui-border bg-white/[0.03] p-8 text-center text-ui-text"
         >
           <div
-            class="mb-4 flex size-12 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/35"
+            class="mb-4 flex size-12 items-center justify-center rounded-ui-card border border-ui-border bg-ui-surface text-ui-muted"
             aria-hidden="true"
           >
             ${this.renderTrophyIcon("size-6")}
           </div>
-          <p class="max-w-md text-sm leading-relaxed text-white/60">
+          <p class="max-w-md text-sm leading-relaxed text-ui-muted">
             ${translateText("game_info_modal.no_winner")}
           </p>
         </div>
@@ -125,10 +126,10 @@ export class GameInfoView extends LitElement {
     return html`
       <div
         role="alert"
-        class="flex min-h-80 flex-col items-center justify-center rounded-2xl border border-red-400/15 bg-red-400/[0.04] p-8 text-center text-white"
+        class="flex min-h-80 flex-col items-center justify-center rounded-2xl border border-red-400/15 bg-red-400/[0.04] p-8 text-center text-ui-text"
       >
         <div
-          class="mb-4 flex size-12 items-center justify-center rounded-xl border border-red-300/15 bg-red-400/10 text-red-200/70"
+          class="mb-4 flex size-12 items-center justify-center rounded-ui-card border border-ui-accent/40 bg-ui-accent-tint text-ui-accent-soft"
           aria-hidden="true"
         >
           <svg
@@ -145,13 +146,13 @@ export class GameInfoView extends LitElement {
             />
           </svg>
         </div>
-        <p class="mb-5 text-sm text-white/65">
+        <p class="mb-5 text-sm text-ui-muted">
           ${translateText("game_info_modal.load_failed")}
         </p>
         <button
           type="button"
           @click=${() => this.retry()}
-          class="rounded-lg border border-df-red/40 bg-df-red/20 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-df-red-bright transition-colors hover:border-df-red/60 hover:bg-df-red/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-df-red-bright/70"
+          class="${uiButtonClasses("secondary")}"
         >
           ${translateText("game_info_modal.retry")}
         </button>
@@ -188,11 +189,11 @@ export class GameInfoView extends LitElement {
     return html`
       <div
         data-game-summary
-        class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.025] shadow-[0_18px_50px_rgba(0,0,0,0.2)]"
+        class="relative overflow-hidden rounded-ui-panel border border-ui-border bg-ui-surface"
       >
         <div class="grid sm:grid-cols-[240px_minmax(0,1fr)]">
           <div
-            class="relative min-h-36 overflow-hidden border-b border-white/10 bg-df-bg sm:min-h-44 sm:border-b-0 sm:border-r"
+            class="relative min-h-36 overflow-hidden border-b border-ui-border bg-df-bg sm:min-h-44 sm:border-b-0 sm:border-r"
           >
             ${this.mapImage
               ? html`<img
@@ -213,7 +214,7 @@ export class GameInfoView extends LitElement {
             <div>
               <div class="mb-2 flex flex-wrap items-center gap-2">
                 <span
-                  class="rounded-md border border-df-red/25 bg-df-red/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-df-red-bright"
+                  class="rounded-full border border-ui-border-strong bg-ui-surface px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-ui-text"
                 >
                   ${translateText(
                     info.config.gameMode === GameMode.Team
@@ -222,20 +223,20 @@ export class GameInfoView extends LitElement {
                   )}
                 </span>
                 <span
-                  class="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/45"
+                  class="rounded-full border border-ui-border bg-ui-surface px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-ui-muted"
                 >
                   ${this.gameTypeLabel(info.config.gameType)}
                 </span>
               </div>
               <h2
-                class="truncate text-xl font-bold tracking-wide text-white sm:text-2xl"
+                class="truncate text-xl font-bold tracking-wide text-ui-text sm:text-2xl"
                 title=${mapName}
               >
                 ${mapName}
               </h2>
               <div
                 data-game-date
-                class="mt-2 flex items-center gap-1.5 text-xs font-medium tabular-nums text-white/50"
+                class="mt-2 flex items-center gap-1.5 text-xs font-medium tabular-nums text-ui-muted"
               >
                 <span class="text-df-red-bright/70" aria-hidden="true">
                   ${this.renderCalendarIcon("size-3.5")}
@@ -270,14 +271,14 @@ export class GameInfoView extends LitElement {
     value: string,
   ): TemplateResult {
     return html`
-      <div class="rounded-xl border border-white/[0.08] bg-black/15 p-2.5">
+      <div class="rounded-ui-card border border-ui-border bg-ui-panel p-2.5">
         <div
-          class="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white/35"
+          class="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ui-muted"
         >
           <span class="text-df-red-bright/70" aria-hidden="true">${icon}</span>
           ${label}
         </div>
-        <div class="text-sm font-semibold tabular-nums text-white/85">
+        <div class="text-sm font-semibold tabular-nums text-ui-text">
           ${value}
         </div>
       </div>
@@ -333,7 +334,7 @@ export class GameInfoView extends LitElement {
     return html`
       <section
         aria-label=${translateText(RANK_TYPE_LABEL_KEYS[this.rankType])}
-        class="overflow-hidden rounded-2xl border border-white/10 bg-black/15 shadow-[0_12px_35px_rgba(0,0,0,0.16)]"
+        class="overflow-hidden rounded-ui-panel border border-ui-border bg-ui-surface"
       >
         <ol class="divide-y divide-white/[0.06]">
           ${this.rankedPlayers.map(

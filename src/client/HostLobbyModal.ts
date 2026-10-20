@@ -3,7 +3,6 @@ import {
   GameMapSize,
   GameMapType,
   GameMode,
-  maps,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import {
@@ -17,7 +16,6 @@ import {
 } from "@openfront/engine-lib/capital/CapitalRules";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
-import { assetUrl } from "@openfront/shared/AssetUrls";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import { EventBus } from "@openfront/shared/EventBus";
 import {
@@ -50,6 +48,7 @@ import "./components/LobbyPlayerView";
 import "./components/PlutoniumIcon";
 import "./components/ToggleInputCard";
 import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
+import { lobbyMapPreview, lobbySummaryRows } from "./components/ui/LobbyPanel";
 import {
   uiButton,
   uiDetailPanel,
@@ -450,94 +449,46 @@ export class HostLobbyModal extends BaseModal {
 
   /** The picked map, large, with its name: the panel's first block. */
   private renderMapPreview() {
-    const info = this.useRandomMap
-      ? undefined
-      : maps.find((m) => m.type === this.selectedMap);
-    const name = this.useRandomMap
-      ? translateText("map.random")
-      : info
-        ? translateText(info.translationKey)
-        : String(this.selectedMap);
-    const src = this.useRandomMap
-      ? assetUrl("images/RandomMap.webp")
-      : this.mapLoader.getMapData(this.selectedMap).webpPath;
-    return html`<div data-host-map-preview>
-      <div
-        class="aspect-[2/1] overflow-hidden rounded-ui-card border border-ui-border bg-ui-ground"
-      >
-        <img
-          src=${src}
-          alt=${name}
-          draggable="false"
-          class="h-full w-full object-cover"
-        />
-      </div>
-      <div class="ui-label mt-4">${translateText("map.map")}</div>
-      <h2 data-host-map-name class="ui-title mt-1 text-ui-text">${name}</h2>
-    </div>`;
+    return lobbyMapPreview({
+      map: this.selectedMap,
+      useRandom: this.useRandomMap,
+      mapImage: this.mapLoader.getMapData(this.selectedMap).webpPath,
+    });
   }
 
   /** The settings in a few rows: what the lobby is, at a glance. */
   private summaryRows() {
-    const difficulty = translateText(
-      `difficulty.${this.selectedDifficulty.toLowerCase()}`,
-    );
-    const rulesOn = [
-      this.instantBuild,
-      this.randomSpawn,
-      this.donateGold,
-      this.donateTroops,
-      this.infiniteGold,
-      this.infiniteTroops,
-      this.compactMap,
-      this.anonymizeNames,
-      this.waterNukes,
-      this.doomsdayClock,
-      this.capitalSystem,
-      this.hostCheatsEnabled && !this.publiclyListed,
-    ].filter(Boolean).length;
-    const limitsSet = [
-      this.maxTimer,
-      this.playerLimit,
-      this.spawnImmunity,
-      this.customAlliances,
-      this.overtime,
-      this.goldMultiplier,
-      this.startingGold,
-      this.whitelistEnabled && !this.publiclyListed,
-    ].filter(Boolean).length;
-    return [
-      {
-        label: translateText("difficulty.difficulty"),
-        value: this.nations === 0 ? "—" : difficulty,
-      },
-      {
-        label: translateText("host_modal.mode"),
-        value:
-          this.gameMode === GameMode.FFA
-            ? translateText("game_mode.ffa")
-            : translateText("game_mode.teams"),
-      },
-      {
-        label: translateText("host_modal.summary_population"),
-        value: `${this.bots} / ${this.nations}`,
-      },
-      {
-        label: translateText("host_modal.summary_rules"),
-        value: String(rulesOn),
-      },
-      {
-        label: translateText("host_modal.summary_limits"),
-        value: String(limitsSet),
-      },
-      {
-        label: translateText("host_modal.summary_units"),
-        value:
-          this.disabledUnits.length === 0
-            ? translateText("common.none")
-            : String(this.disabledUnits.length),
-      },
-    ];
+    return lobbySummaryRows({
+      difficulty: this.selectedDifficulty,
+      nations: this.nations,
+      bots: this.bots,
+      gameMode: this.gameMode,
+      rules: [
+        this.instantBuild,
+        this.randomSpawn,
+        this.donateGold,
+        this.donateTroops,
+        this.infiniteGold,
+        this.infiniteTroops,
+        this.compactMap,
+        this.anonymizeNames,
+        this.waterNukes,
+        this.doomsdayClock,
+        this.capitalSystem,
+        this.hostCheatsEnabled && !this.publiclyListed,
+      ],
+      limits: [
+        this.maxTimer,
+        this.playerLimit,
+        this.spawnImmunity,
+        this.customAlliances,
+        this.overtime,
+        this.goldMultiplier,
+        this.startingGold,
+        this.whitelistEnabled && !this.publiclyListed,
+      ],
+      disabledUnits: this.disabledUnits.length,
+    });
   }
 
   protected renderBody() {

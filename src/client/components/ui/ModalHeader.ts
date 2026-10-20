@@ -1,4 +1,5 @@
 import { html, TemplateResult } from "lit";
+import { uiIconButtonClasses, uiIcons } from "./PageUi";
 
 export interface ModalHeaderProps {
   title?: string | TemplateResult;
@@ -13,16 +14,15 @@ export interface ModalHeaderProps {
   showDivider?: boolean;
 }
 
+// The account pages' header (PageUi.ts uiPageHeader): 76px tall, a 44px back
+// button, the title in the page-title scale.
 const DEFAULT_WRAPPER_CLASS = "flex flex-wrap items-center gap-2 shrink-0";
-const DEFAULT_DIVIDER_CLASS = "border-b border-white/10";
-const DEFAULT_PADDING_CLASS = "p-4 lg:p-6";
-const DEFAULT_LEFT_CLASS = "flex items-center gap-4 flex-1";
-const DEFAULT_BUTTON_CLASS =
-  "group flex items-center justify-center w-10 h-10 rounded-full shrink-0 " +
-  "bg-white/5 hover:bg-white/10 transition-all border border-white/10";
+const DEFAULT_DIVIDER_CLASS = "border-b border-ui-border";
+const DEFAULT_PADDING_CLASS = "min-h-[76px] px-4 py-3 lg:px-6";
+const DEFAULT_LEFT_CLASS = "flex items-center gap-4 flex-1 min-w-0";
+const DEFAULT_BUTTON_CLASS = uiIconButtonClasses;
 export const DEFAULT_TITLE_CLASS =
-  "text-white text-xl lg:text-2xl font-bold uppercase " +
-  "tracking-widest break-words hyphens-auto";
+  "ui-title text-ui-text break-words hyphens-auto";
 
 const withClasses = (...classes: Array<string | undefined>) =>
   classes.filter(Boolean).join(" ");
@@ -56,20 +56,7 @@ export const modalHeader = ({
           class="${buttonClass}"
           aria-label="${ariaLabel}"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-5 h-5 text-gray-400 group-hover:text-white transition-colors"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            />
-          </svg>
+          ${uiIcons.back()}
         </button>
         ${titleContent ??
         html`<span class="${resolvedTitleClass}">${title}</span>`}

@@ -82,6 +82,85 @@ g.b.onEvent(async (d) => {
       ],
       body: Buffer.from(JSON.stringify(catalog)).toString("base64"),
     });
+  } else if (/:8787\/clans/.test(request.url)) {
+    // the clan API: the browse list, a clan, its members
+    const u = new URL(request.url);
+    const origin = request.headers?.Origin ?? "http://localhost:9000";
+    const reply = (body, code = 200) =>
+      g.b.send("Fetch.fulfillRequest", {
+        requestId,
+        responseCode: code,
+        responseHeaders: [
+          { name: "content-type", value: "application/json" },
+          { name: "access-control-allow-origin", value: origin },
+          { name: "access-control-allow-credentials", value: "true" },
+          {
+            name: "access-control-allow-headers",
+            value: "authorization,content-type",
+          },
+        ],
+        body: Buffer.from(JSON.stringify(body)).toString("base64"),
+      });
+    const clan = (tag, name, isOpen, n) => ({
+      tag,
+      name,
+      description: "Friendly, active, always recruiting.",
+      isOpen,
+      memberCount: n,
+      softBalance: String(n * 4100),
+      hardBalance: "0",
+      createdAt: "2026-09-01T10:00:00.000Z",
+      xp: n * 12345,
+    });
+    const clans = [
+      clan("STAFF", "DF Staff", false, 2),
+      clan("ALPHA", "Alpha Company", true, 14),
+      clan("IRON", "Iron Wolves", false, 31),
+    ];
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (request.method === "OPTIONS") await reply({}, 204);
+    else if (parts.length === 1)
+      await reply({ results: clans, total: 3, page: 1, limit: 20 });
+    else if (parts[2] === "members")
+      await reply({
+        results: [
+          {
+            role: "leader",
+            joinedAt: "2026-09-01T10:00:00.000Z",
+            publicId: "p1",
+            username: "Alphaz",
+            verified: true,
+            level: 44,
+            prestige: 0,
+          },
+          {
+            role: "officer",
+            joinedAt: "2026-09-02T10:00:00.000Z",
+            publicId: "p2",
+            username: "CptMendoYen",
+            verified: true,
+            level: 31,
+            prestige: 0,
+          },
+          {
+            role: "member",
+            joinedAt: "2026-09-05T10:00:00.000Z",
+            publicId: "p3",
+            username: "Player3",
+            level: 12,
+            prestige: 0,
+          },
+        ],
+        total: 3,
+        page: 1,
+        limit: 20,
+        pendingRequests: 2,
+      });
+    else if (parts.length === 2)
+      await reply(
+        clans.find((c) => c.tag === parts[1].toUpperCase()) ?? clans[0],
+      );
+    else await reply({ results: [], total: 0, page: 1, limit: 20 });
   } else if (!/\/leaderboard\//.test(request.url)) {
     await g.b.send("Fetch.continueRequest", { requestId });
   }
@@ -90,6 +169,7 @@ await g.b.send("Fetch.enable", {
   patterns: [
     { urlPattern: "*cosmetics.json*" },
     { urlPattern: "*leaderboard*" },
+    { urlPattern: "*:8787/clans*" },
   ],
 });
 
@@ -191,6 +271,24 @@ for (const page of pages) {
     await sleep(1200);
     await shot(`ui-lobby-units${narrow ? "-narrow" : ""}`);
   }
+  if (page === "home") {
+    await sleep(2500);
+    await shot(`ui-home${narrow ? "-narrow" : ""}`);
+  }
+  // any other page by its element id (page-settings, page-help, ...)
+  // optionally with a tab to open: page-settings:graphics
+  if (page.startsWith("page-")) {
+    const [id, tab] = page.split(":");
+    await g.ev(`window.showPage('${id}'); 1`);
+    await sleep(2500);
+    if (tab) {
+      await g.ev(
+        `document.querySelector('#${id} o-modal')?.shadowRoot?.querySelector('[role=tab][data-key=${tab}]')?.click(); 1`,
+      );
+      await sleep(1500);
+    }
+    await shot(`ui-${id}${tab ? "-" + tab : ""}${narrow ? "-narrow" : ""}`);
+  }
   if (page === "clans") {
     await g.ev(`window.showPage('page-clan'); 1`);
     await sleep(2500);
@@ -200,6 +298,27 @@ for (const page of pages) {
     );
     await sleep(800);
     await shot(`ui-clans${narrow ? "-narrow" : ""}`);
+  }
+  if (
+    page === "clan-detail" ||
+    page === "clan-manage" ||
+    page === "clan-requests"
+  ) {
+    await g.ev(`window.showPage('page-clan'); 1`);
+    await sleep(2000);
+    await g.ev(
+      `(()=>{ const m=document.querySelector('clan-modal'); m.signedOut=false; m.loading=false; m.myPublicId='p1'; m.myClans=[{tag:'STAFF',name:'DF Staff',description:'',isOpen:false,memberCount:2}]; m.myClanRoles=new Map([['STAFF','leader']]); m.myRole='leader'; m.openDetail('STAFF'); return 1 })()`,
+    );
+    await sleep(2500);
+    if (page === "clan-manage") {
+      await g.ev(`document.querySelector('clan-modal').view='manage'; 1`);
+      await sleep(1500);
+    }
+    if (page === "clan-requests") {
+      await g.ev(`document.querySelector('clan-modal').view='requests'; 1`);
+      await sleep(1500);
+    }
+    await shot(`ui-${page}${narrow ? "-narrow" : ""}`);
   }
   if (page === "inventory") {
     await g.ev(`window.showPage('page-inventory'); 1`);

@@ -119,10 +119,10 @@ export class LobbyTeamView extends LitElement {
 
   render() {
     return html`
-      <div class="border-t border-white/10 pt-6">
+      <div class="border-t border-ui-border pt-6">
         <div class="flex justify-between items-center mb-4">
           <div
-            class="text-xs font-bold text-white/40 uppercase tracking-widest"
+            class="text-xs font-bold text-ui-muted uppercase tracking-[0.1em]"
           >
             ${this.activePlayers.length}
             ${this.activePlayers.length === 1
@@ -136,7 +136,7 @@ export class LobbyTeamView extends LitElement {
           </div>
         </div>
         <div
-          class="players-list block rounded-lg border border-white/10 bg-white/5 p-2"
+          class="players-list block rounded-lg border border-ui-border bg-ui-surface p-2"
         >
           ${this.gameMode === GameMode.Team
             ? this.renderTeamMode()
@@ -158,7 +158,7 @@ export class LobbyTeamView extends LitElement {
     return html`
       <div class="mt-4">
         <div
-          class="text-xs font-bold text-white/40 uppercase tracking-widest mb-4"
+          class="text-xs font-bold text-ui-muted uppercase tracking-[0.1em] mb-4"
         >
           ${spectators.length}
           ${spectators.length === 1
@@ -166,7 +166,7 @@ export class LobbyTeamView extends LitElement {
             : translateText("host_modal.spectators")}
         </div>
         <div
-          class="players-list block rounded-lg border border-white/10 bg-white/5 p-2"
+          class="players-list block rounded-lg border border-ui-border bg-ui-surface p-2"
         >
           ${repeat(
             spectators,
@@ -177,7 +177,7 @@ export class LobbyTeamView extends LitElement {
                   ? "current-player"
                   : ""}"
               >
-                <span class="text-white"
+                <span class="text-ui-text"
                   >${this.renderLevelBadge(
                     client,
                     false,
@@ -218,7 +218,7 @@ export class LobbyTeamView extends LitElement {
           (client) => {
             const displayName = this.getClientDisplayName(client);
             return html`<div
-              class="px-2 py-1 rounded-sm mb-1 text-xs text-white border break-words
+              class="px-2 py-1 rounded-sm mb-1 text-xs text-ui-text border break-words
                 ${this.isCurrentPlayer(client)
                 ? "bg-df-red/20 border-df-red/40"
                 : "bg-gray-700/70 border-transparent"}"
@@ -287,7 +287,7 @@ export class LobbyTeamView extends LitElement {
             ? "current-player"
             : ""}"
         >
-          <span class="text-white"
+          <span class="text-ui-text"
             >${this.renderLevelBadge(client, false)}${displayName}
             ${this.renderVerifiedBadge(client)}
             ${this.renderFriendBadge(client)}</span
@@ -346,7 +346,7 @@ export class LobbyTeamView extends LitElement {
           : "border-gray-700"}"
       >
         <div
-          class="px-2 py-1 font-bold flex items-center justify-between text-white rounded-t-xl text-[13px] gap-2 bg-gray-700/70"
+          class="px-2 py-1 font-bold flex items-center justify-between text-ui-text rounded-t-xl text-[13px] gap-2 bg-gray-700/70"
         >
           <div class="flex items-center gap-1.5 min-w-0">
             ${this.showTeamColors
@@ -357,7 +357,7 @@ export class LobbyTeamView extends LitElement {
               : null}
             <span class="truncate">${teamLabel}</span>
           </div>
-          <span class="text-white/90 font-bold text-[13px] shrink-0"
+          <span class="text-ui-text font-bold text-[13px] shrink-0"
             >${displayCount}/${maxTeamSize}</span
           >
         </div>
@@ -379,13 +379,13 @@ export class LobbyTeamView extends LitElement {
                   >
                     <span class="flex items-center gap-1 min-w-0">
                       ${this.renderLevelBadge(p, badgeSlot)}
-                      <span class="truncate text-white">${displayName}</span>
+                      <span class="truncate text-ui-text">${displayName}</span>
                       ${this.renderVerifiedBadge(p)}
                       ${this.renderFriendBadge(p)}
                     </span>
                     ${this.renderRevealToggle(p.clientID)}
                     ${p.clientID === this.lobbyCreatorClientID
-                      ? html`<span class="ml-2 text-[11px] text-green-300"
+                      ? html`<span class="ml-2 text-[11px] text-ui-success"
                           >(${translateText("host_modal.host_badge")})</span
                         >`
                       : this.onKickPlayer
@@ -601,7 +601,7 @@ export class LobbyTeamView extends LitElement {
   private verifiedCheck() {
     return html`<svg
       viewBox="0 0 24 24"
-      class="inline-block w-3.5 h-3.5 align-[-2px] text-df-red-bright shrink-0"
+      class="inline-block w-3.5 h-3.5 align-[-2px] text-ui-accent-soft shrink-0"
       aria-label=${translateText("username.verified_heading")}
     >
       <circle cx="12" cy="12" r="10" fill="currentColor"></circle>
@@ -665,7 +665,7 @@ export class LobbyTeamView extends LitElement {
       return html``;
     return html`<svg
       viewBox="0 0 24 24"
-      class="lobby-friend-badge inline-block w-4 h-4 align-[-3px] text-emerald-400 shrink-0"
+      class="lobby-friend-badge inline-block w-4 h-4 align-[-3px] text-ui-success shrink-0"
       fill="currentColor"
       aria-label=${translateText("friends.lobby_marker")}
     >

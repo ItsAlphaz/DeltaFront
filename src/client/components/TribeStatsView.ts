@@ -48,29 +48,29 @@ export class TribeStatsView extends LitElement {
   }): TemplateResult {
     return html`<div class="grid grid-cols-2 gap-2">
       <div
-        class="bg-surface rounded-lg border border-white/10 px-3 py-2 flex flex-col"
+        class="bg-surface rounded-lg border border-ui-border px-3 py-2 flex flex-col"
       >
         <span
-          class="text-[11px] font-bold uppercase tracking-wider text-white/40"
+          class="text-[11px] font-bold uppercase tracking-wider text-ui-muted"
         >
           ${translateText("store.tribe_stats_games")}
         </span>
-        <span class="font-mono text-lg text-white">
+        <span class="font-mono text-lg text-ui-text">
           ${figures.gamesAppeared.toLocaleString()}
         </span>
       </div>
       <div
-        class="bg-surface rounded-lg border border-white/10 px-3 py-2 flex flex-col"
+        class="bg-surface rounded-lg border border-ui-border px-3 py-2 flex flex-col"
         title=${translateText("leaderboard_modal.tribes_reach_value_tooltip", {
           count: figures.playerReach.toLocaleString(),
         })}
       >
         <span
-          class="text-[11px] font-bold uppercase tracking-wider text-white/40"
+          class="text-[11px] font-bold uppercase tracking-wider text-ui-muted"
         >
           ${translateText("leaderboard_modal.tribes_reach")}
         </span>
-        <span class="font-mono text-lg text-white">
+        <span class="font-mono text-lg text-ui-text">
           ${figures.playerReach.toLocaleString()}
         </span>
       </div>
@@ -95,7 +95,7 @@ export class TribeStatsView extends LitElement {
           });
     return html`<div class="flex flex-col gap-4">
       <div class="flex items-center gap-2 text-sm">
-        <span class="text-white/40 font-medium">
+        <span class="text-ui-muted font-medium">
           ${translateText("store.tribe_stats_owner")}
         </span>
         <player-name
@@ -105,13 +105,13 @@ export class TribeStatsView extends LitElement {
         ></player-name>
       </div>
       <section class="flex flex-col gap-2">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-white/60">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-ui-muted">
           ${windowHeading}
         </h3>
         ${this.renderFigures(stats.window)}
       </section>
       <section class="flex flex-col gap-2">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-white/60">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-ui-muted">
           ${translateText("store.tribe_stats_lifetime")}
         </h3>
         ${this.renderFigures(stats.lifetime)}
@@ -124,7 +124,7 @@ export class TribeStatsView extends LitElement {
       return renderLoadingSpinner();
     }
     if (this.stats === false) {
-      return html`<p class="text-sm font-medium text-red-400">
+      return html`<p class="text-sm font-medium text-ui-accent-soft">
         ${translateText("store.tribe_stats_failed")}
       </p>`;
     }
@@ -138,7 +138,7 @@ export class TribeStatsView extends LitElement {
     // Display multiplier = 1 + activeBoosts, the same convention as the
     // leaderboard's Boosts column and the owner's row in the store.
     return html`<span
-      class="shrink-0 text-xs font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 rounded px-2 py-0.5"
+      class="shrink-0 text-xs font-bold text-ui-gold bg-amber-400/10 border border-amber-400/20 rounded px-2 py-0.5"
     >
       ${translateText("store.tribe_stats_boosted", { multiplier: boosts + 1 })}
     </span>`;
@@ -157,7 +157,7 @@ export class TribeStatsView extends LitElement {
         // must not get the default title's uppercase treatment (same reason
         // the profile modal does this for usernames).
         titleContent: html`<span
-          class="text-white text-xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
+          class="text-ui-text text-xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
         >
           ${heading} ${this.renderBoostedBadge()}
         </span>`,

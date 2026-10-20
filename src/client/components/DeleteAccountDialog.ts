@@ -68,14 +68,14 @@ export class DeleteAccountDialog extends LitElement {
         <div
           class="relative mx-4 w-full max-w-md p-6 rounded-2xl border border-red-500/50 bg-surface shadow-2xl"
         >
-          <h2 class="text-lg font-bold text-white mb-2">
+          <h2 class="text-lg font-bold text-ui-text mb-2">
             ${translateText("account_modal.delete_account_title")}
           </h2>
-          <p class="text-sm font-medium text-red-300 mb-5">
+          <p class="text-sm font-medium text-ui-accent-soft mb-5">
             ${translateText("account_modal.delete_account_warning")}
           </p>
           <label class="block mb-5">
-            <span class="text-white/50 text-xs">
+            <span class="text-ui-muted text-xs">
               ${translateText("account_modal.delete_account_type_to_confirm", {
                 word,
               })}
@@ -87,20 +87,20 @@ export class DeleteAccountDialog extends LitElement {
                 (this.typedWord = (e.target as HTMLInputElement).value)}
               placeholder=${word}
               autocomplete="off"
-              class="mt-1.5 w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-sm"
+              class="mt-1.5 w-full px-3 py-2 bg-ui-surface border border-ui-border rounded-lg text-ui-text placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-sm"
             />
           </label>
           <div class="flex gap-3">
             <button
               @click=${() => this.handleCancel()}
-              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-all"
+              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-ui-surface text-ui-muted border border-ui-border hover:bg-white/10 hover:text-ui-text transition-all"
             >
               ${translateText("common.cancel")}
             </button>
             <button
               @click=${() => this.handleConfirm()}
               ?disabled=${!this.wordMatches()}
-              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-red-600 text-white hover:bg-red-700 transition-all disabled:opacity-50 disabled:pointer-events-none border-0"
+              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-red-600 text-ui-text hover:bg-red-700 transition-all disabled:opacity-50 disabled:pointer-events-none border-0"
             >
               ${translateText("account_modal.delete_account_confirm_button")}
             </button>

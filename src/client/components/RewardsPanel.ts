@@ -119,7 +119,7 @@ export class RewardsPanel extends LitElement {
     const isHard = reward.currencyType === "hard";
     return html`
       <div
-        class="flex items-center justify-between gap-4 p-3 rounded-lg bg-white/5 border border-white/10"
+        class="flex items-center justify-between gap-4 rounded-ui-card border border-ui-border bg-ui-panel p-3"
       >
         <div class="flex items-center gap-3 min-w-0">
           ${isHard
@@ -128,8 +128,8 @@ export class RewardsPanel extends LitElement {
           <div class="flex flex-col min-w-0">
             <span
               class="text-sm font-bold ${isHard
-                ? "text-green-400"
-                : "text-amber-700"}"
+                ? "text-ui-success"
+                : "text-ui-gold"}"
               >+${this.formatAmount(reward.amount)}</span
             >
             <span class="text-xs text-white/60 truncate"
@@ -151,10 +151,9 @@ export class RewardsPanel extends LitElement {
   render() {
     if (this.rewards.length === 0) return html``;
     return html`
-      <div class="bg-white/5 rounded-xl border border-white/10 p-6">
+      <div class="rounded-ui-panel border border-ui-border bg-ui-surface p-6">
         <div class="flex items-center justify-between gap-4 mb-4">
-          <h3 class="text-lg font-bold text-white flex items-center gap-2">
-            <span>🎁</span>
+          <h3 class="ui-heading flex items-center gap-2 text-ui-text">
             ${translateText("account_modal.unclaimed_rewards")}
           </h3>
           ${this.rewards.length > 1

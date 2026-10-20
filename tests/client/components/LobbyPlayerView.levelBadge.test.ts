@@ -62,7 +62,7 @@ function tokens(container: Element): string[] {
 }
 
 const pills = (view: LobbyTeamView) =>
-  Array.from(view.querySelectorAll(".player-tag > span.text-white")).map(
+  Array.from(view.querySelectorAll(".player-tag > span.text-ui-text")).map(
     tokens,
   );
 // Team mode: the "Players" column on the left.

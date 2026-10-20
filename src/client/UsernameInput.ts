@@ -832,7 +832,7 @@ export class UsernameInput extends LitElement {
             ${this.validationError
               ? html`<div
                   id="username-validation-error"
-                  class="w-full px-3 py-2 text-sm font-medium border border-red-500/50 rounded-lg bg-red-900/90 text-red-200 backdrop-blur-md shadow-lg"
+                  class="w-full rounded-ui-card border border-ui-accent bg-ui-surface px-3 py-2 text-sm font-medium text-ui-accent-soft shadow-lg"
                 >
                   ${this.validationError}
                 </div>`
@@ -859,7 +859,7 @@ export class UsernameInput extends LitElement {
     if (grace === null) return null;
     return html`<div
       id="username-claim-grace"
-      class="w-full px-3 py-2 text-sm font-medium border border-amber-500/40 rounded-lg bg-amber-950/90 text-amber-200 backdrop-blur-md shadow-lg"
+      class="w-full rounded-ui-card border border-ui-gold/40 bg-ui-surface px-3 py-2 text-sm font-medium text-ui-gold shadow-lg"
     >
       ${translateText(
         grace.atRisk ? "username.claim_at_risk" : "username.claim_reserved",
@@ -936,7 +936,7 @@ export class UsernameInput extends LitElement {
         id="clan-tag-menu"
         role="dialog"
         aria-labelledby="clan-tag-button"
-        class="absolute left-0 top-full z-50 mt-1.5 w-[17rem] max-w-[80vw] rounded-xl border border-white/15 bg-surface/95 p-1.5 shadow-xl backdrop-blur-md"
+        class="absolute left-0 top-full z-50 mt-1.5 w-[17rem] max-w-[80vw] rounded-ui-panel border border-ui-border-strong bg-ui-surface p-1.5 shadow-xl"
       >
         ${clans.length > 0
           ? html`

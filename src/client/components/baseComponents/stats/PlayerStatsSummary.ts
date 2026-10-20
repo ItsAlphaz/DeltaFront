@@ -150,7 +150,7 @@ const METRIC_ICONS: Record<PlayerSummaryMetricKey, UnitIconName> = {
 const UNITS_TONE = "text-emerald-300 border-emerald-400/20";
 const NAVAL_TONE = "text-blue-300 border-blue-400/20";
 const COMBAT_TONE = "text-rose-300 border-rose-400/20";
-const GOLD_TONE = "text-amber-300 border-amber-400/20";
+const GOLD_TONE = "text-ui-gold border-ui-gold/30";
 
 const METRIC_TONES: Record<PlayerSummaryMetricKey, string> = {
   cities: UNITS_TONE,
@@ -324,21 +324,19 @@ export class PlayerStatsSummary extends LitElement {
       <div
         data-stat=${key}
         title=${fullLabel}
-        class="min-w-0 rounded-xl border bg-white/5 px-3 py-3 text-center ${METRIC_TONES[
+        class="min-w-0 rounded-xl border bg-ui-surface px-3 py-3 text-center ${METRIC_TONES[
           key
         ]}"
       >
         <div
           data-label
           aria-hidden="true"
-          class="truncate text-[10px] font-bold uppercase tracking-wider text-df-text-muted"
+          class="truncate text-[10px] font-bold uppercase tracking-wider text-ui-muted"
         >
           ${translateText(shortLabel)}
         </div>
         <span class="sr-only">${fullLabel}</span>
-        <div
-          class="mt-1 truncate text-2xl font-black leading-none tabular-nums"
-        >
+        <div class="mt-1 truncate text-2xl font-bold leading-none tabular-nums">
           ${value}<img
             data-unit
             src=${assetUrl(UNIT_ICONS[icon])}
@@ -346,7 +344,7 @@ export class PlayerStatsSummary extends LitElement {
             alt=""
             aria-hidden="true"
             class="${UNIT_ICON_BOX} align-[-0.1em]"
-          /><span data-per-game class="ml-1 text-xs font-semibold text-white/35"
+          /><span data-per-game class="ml-1 text-xs font-semibold text-ui-muted"
             >${translateText("player_stats_tree.stats_per_game_suffix")}</span
           >
         </div>
@@ -391,11 +389,8 @@ export class PlayerStatsSummary extends LitElement {
       >
         <div
           data-win-rate
-          class="relative overflow-hidden rounded-xl border border-df-red/25 bg-gradient-to-br from-df-red/15 via-white/5 to-transparent px-4 py-3"
+          class="relative overflow-hidden rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3"
         >
-          <div
-            class="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-df-red-bright/10 blur-2xl"
-          ></div>
           <div
             class="relative grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)] sm:items-center"
           >
@@ -406,12 +401,12 @@ export class PlayerStatsSummary extends LitElement {
             <div class="flex flex-wrap items-start gap-x-8 gap-y-3">
               <div>
                 <div
-                  class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted"
+                  class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-muted"
                 >
                   ${translateText("player_stats_tree.stats_win_rate")}
                 </div>
                 <div
-                  class="mt-1 text-3xl font-black leading-none tabular-nums text-emerald-300"
+                  class="mt-1 text-3xl font-bold leading-none tabular-nums text-ui-success"
                 >
                   ${summary.winRate}
                 </div>
@@ -420,12 +415,12 @@ export class PlayerStatsSummary extends LitElement {
                 ? html`
                     <div data-last-100>
                       <div
-                        class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted"
+                        class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-muted"
                       >
                         ${translateText("player_stats_tree.stats_last_100")}
                       </div>
                       <div
-                        class="mt-1 text-3xl font-black leading-none tabular-nums text-cyan-300"
+                        class="mt-1 text-3xl font-bold leading-none tabular-nums text-cyan-300"
                       >
                         ${summary.recentWinRate}
                       </div>
@@ -435,7 +430,7 @@ export class PlayerStatsSummary extends LitElement {
             </div>
             <div
               data-record-group
-              class="grid grid-cols-3 overflow-hidden rounded-lg border border-white/10 bg-black/20 shadow-inner shadow-black/20"
+              class="grid grid-cols-3 overflow-hidden rounded-ui-card border border-ui-border bg-ui-panel"
             >
               ${recordStats.map(
                 (stat, index) => html`
@@ -446,13 +441,13 @@ export class PlayerStatsSummary extends LitElement {
                       : "border-l border-white/10"}"
                   >
                     <div
-                      class="truncate text-[10px] font-bold uppercase tracking-wider text-df-text-muted"
+                      class="truncate text-[10px] font-bold uppercase tracking-wider text-ui-muted"
                       title=${translateText(stat.label)}
                     >
                       ${translateText(stat.label)}
                     </div>
                     <div
-                      class="mt-1 truncate text-xl font-black leading-none tabular-nums ${stat.tone}"
+                      class="mt-1 truncate text-xl font-bold leading-none tabular-nums ${stat.tone}"
                     >
                       ${stat.value}
                     </div>
@@ -468,7 +463,7 @@ export class PlayerStatsSummary extends LitElement {
             (group) => html`
               <div data-metric-group=${group.heading}>
                 <div
-                  class="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted"
+                  class="mb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ui-muted"
                 >
                   ${translateText(group.heading)}
                 </div>

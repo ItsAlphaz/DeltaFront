@@ -59,7 +59,7 @@ export class PastGameXpCard extends LitElement {
     return html`<section
       data-past-xp
       data-past-xp-state=${stateName}
-      class="mt-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] px-4 py-3.5 text-left text-white sm:px-[18px]"
+      class="mt-4 rounded-2xl border border-ui-border bg-gradient-to-br from-white/[0.06] to-white/[0.02] px-4 py-3.5 text-left text-ui-text sm:px-[18px]"
       aria-live="polite"
     >
       ${content}
@@ -68,7 +68,7 @@ export class PastGameXpCard extends LitElement {
 
   private heading(extra = "", mode?: GameXpEligible["mode"]): TemplateResult {
     return html`<div
-      class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-text-muted ${extra}"
+      class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-muted ${extra}"
     >
       ${translateText(xpHeadingKey(mode))}
     </div>`;
@@ -173,7 +173,7 @@ export class PastGameXpCard extends LitElement {
               ? translateText("progression.legend")
               : translateText("progression.level", { level: after.level })}
           </div>
-          <div class="text-xs tabular-nums text-white/55">
+          <div class="text-xs tabular-nums text-ui-muted">
             ${xpProgressText(after.xpInLevel, after.xpForNext)}
           </div>
         </div>
@@ -187,7 +187,7 @@ export class PastGameXpCard extends LitElement {
       class="flex flex-none flex-wrap items-center gap-2"
     >
       ${this.badge(before.level, before.prestige)}
-      <span class="text-base font-bold text-white/45" aria-hidden="true"
+      <span class="text-base font-bold text-ui-muted" aria-hidden="true"
         >→</span
       >
       <span
@@ -211,7 +211,7 @@ export class PastGameXpCard extends LitElement {
       ${milestone
         ? html`<span
             data-past-xp-milestone
-            class="ml-1 rounded-full border border-yellow-400/45 bg-yellow-400/10 px-2 py-[3px] text-[10px] font-extrabold uppercase tracking-[0.14em] text-yellow-300"
+            class="ml-1 rounded-full border border-yellow-400/45 bg-yellow-400/10 px-2 py-[3px] text-[10px] font-extrabold uppercase tracking-[0.14em] text-ui-gold"
           >
             ${translateText("progression.milestone_chip")}
           </span>`
@@ -264,7 +264,7 @@ export class PastGameXpCard extends LitElement {
     if (data.mode !== "solo" || solo === undefined) return nothing;
     const key = difficultyNameKey(solo.difficulty);
     return html`<div data-past-xp-solo class="mt-2.5">
-      <div class="text-xs text-white/55">
+      <div class="text-xs text-ui-muted">
         ${translateText("progression.solo_setup_summary", {
           difficulty: key === null ? solo.difficulty : translateText(key),
           tribes: solo.tribes,
@@ -298,7 +298,7 @@ export class PastGameXpCard extends LitElement {
             ${this.heading("", data.mode)}
             <div
               data-past-xp-total
-              class="mt-0.5 text-2xl font-black leading-tight tabular-nums text-yellow-300 [text-shadow:0_0_10px_rgba(250,204,21,0.35)]"
+              class="mt-0.5 text-2xl font-bold leading-tight tabular-nums text-ui-gold [text-shadow:0_0_10px_rgba(250,204,21,0.35)]"
             >
               ${translateText("progression.xp_total", {
                 xp: formatXp(data.breakdown.total),
@@ -318,10 +318,10 @@ export class PastGameXpCard extends LitElement {
                     data-past-xp-line=${line.key}
                     class="flex justify-between gap-3 text-[13px] leading-relaxed"
                   >
-                    <span class="min-w-0 text-white/70"
+                    <span class="min-w-0 text-ui-muted"
                       >${translateText(XP_LINE_LABEL_KEYS[line.key])}</span
                     >
-                    <span class="font-bold tabular-nums text-yellow-300"
+                    <span class="font-bold tabular-nums text-ui-gold"
                       >${this.signed(line.amount)}</span
                     >
                   </div>`,
@@ -332,7 +332,7 @@ export class PastGameXpCard extends LitElement {
         ${data.breakdown.leftEarly
           ? html`<p
               data-past-xp-left-early
-              class="m-0 mt-2 text-xs text-amber-300"
+              class="m-0 mt-2 text-xs text-ui-gold"
             >
               ${translateText("progression.left_early")}
             </p>`

@@ -13,7 +13,7 @@ import {
 } from "../client/Utils";
 import { BaseModal } from "./components/BaseModal";
 import "./components/Difficulties";
-import { modalHeader } from "./components/ui/ModalHeader";
+import { uiButtonClasses, uiPageHeader } from "./components/ui/PageUi";
 import { Platform } from "./Platform";
 import { TroubleshootingModal } from "./TroubleshootingModal";
 import { UserSettings } from "./UserSettings";
@@ -67,16 +67,16 @@ export class HelpModal extends BaseModal {
     // (and combos like "Shift + click") never scramble.
     return html`<span
       dir="ltr"
-      class="inline-block min-w-[32px] text-center px-2 py-1 rounded bg-[#2a2a2a] border-b-2 border-[#1a1a1a] text-white font-mono text-xs font-bold mx-0.5"
+      class="ui-mono mx-0.5 inline-block min-w-[32px] rounded-[6px] border border-ui-border-strong bg-ui-ground px-2 py-1 text-center text-xs font-bold text-ui-text"
       >${label}</span
     >`;
   }
 
   protected renderHeaderSlot() {
-    return modalHeader({
+    return uiPageHeader({
       title: translateText("main.help"),
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
+      backLabel: translateText("common.back"),
     });
   }
 
@@ -89,8 +89,8 @@ export class HelpModal extends BaseModal {
         class="prose prose-invert prose-sm max-w-none px-6 py-3
           [&_a]:text-df-red-bright [&_a:hover]:text-df-text transition-colors
           [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-white [&_h1]:border-b [&_h1]:border-white/10 [&_h1]:pb-2
-          [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-df-text
-          [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-df-text
+          [&_h2]:text-ui-text
+          [&_h3]:text-[15px] [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-ui-text
           [&_ul]:ps-5 [&_ul]:list-disc [&_ul]:space-y-1
           [&_li]:text-gray-300 [&_li]:leading-relaxed
           [&_p]:text-gray-300 [&_p]:mb-3 [&_strong]:text-white [&_strong]:font-bold
@@ -100,7 +100,7 @@ export class HelpModal extends BaseModal {
       >
           <!-- In-game tutorial: starts a default solo game with the guide on -->
           <section
-            class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/5 rounded-xl border border-white/10 px-5 py-4 mb-8"
+            class="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-ui-card border border-ui-border bg-ui-surface px-5 py-4 mb-8"
           >
             <div>
               <h3 class="!mt-0 !mb-1">
@@ -111,7 +111,7 @@ export class HelpModal extends BaseModal {
               </p>
             </div>
             <button
-              class="shrink-0 hover:bg-white/5 px-6 py-2 text-xs font-bold transition-all duration-200 rounded-lg uppercase tracking-widest bg-df-red/20 text-df-red-bright border border-df-red/30 shadow-[var(--shadow-df-red)]"
+              class="${uiButtonClasses("primary")} shrink-0"
               @click=${() =>
                 document.dispatchEvent(new CustomEvent("start-tutorial"))}
             >
@@ -123,32 +123,13 @@ export class HelpModal extends BaseModal {
           ${
             TUTORIAL_VIDEO_URL === ""
               ? null
-              : html` <div class="flex items-center gap-3 mb-3">
-                    <div class="text-df-red-bright">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="w-5 h-5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                      </svg>
-                    </div>
-                    <h3
-                      class="text-xl font-bold uppercase tracking-widest text-white/90"
-                    >
-                      ${translateText("help_modal.video_tutorial")}
-                    </h3>
-                    <div
-                      class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-                    ></div>
-                  </div>
+              : html` <h2
+                    class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
+                  >
+                    ${translateText("help_modal.video_tutorial")}
+                  </h2>
                   <section
-                    class="bg-white/5 rounded-xl border border-white/10 overflow-hidden mb-8"
+                    class="rounded-ui-card border border-ui-border bg-ui-surface overflow-hidden mb-8"
                   >
                     <div class="relative w-full h-0 pb-[56.25%]">
                       ${Platform.isElectron
@@ -178,33 +159,7 @@ export class HelpModal extends BaseModal {
           }
 
           <!-- Troubleshooting Section -->
-          <div class="flex items-center gap-3 mb-3">
-            <div class="text-df-red-bright">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M2 20 L12 0 L22 20 L2 20"></path>
-                <line x1="12" y1="8" x2="12" y2="14"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-            </div>
-            <h3
-              class="text-xl font-bold uppercase tracking-widest text-white/90"
-            >
-              ${translateText("main.troubleshooting")}
-            </h3>
-            <div
-              class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-            ></div>
-          </div>
+          <h2 class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text">${translateText("main.troubleshooting")}</h2>
           <section>
             <div class="w-full flex flex-col items-center">
               <p class="mb-6 text-white/70 text-sm">
@@ -212,54 +167,18 @@ export class HelpModal extends BaseModal {
               </p>
               <button
                 id="troubleshooting-button"
-                class="hover:bg-white/5 px-6 py-2 text-xs font-bold transition-all duration-200 rounded-lg uppercase tracking-widest bg-df-red/20 text-df-red-bright border border-df-red/30 shadow-[var(--shadow-df-red)]"
+                class="${uiButtonClasses("secondary")}"
                 data-page="page-troubleshooting"
                 @click="${this.openTroubleshooting}"
-                data-i18n="main.go_to_troubleshooting"
               >
-                <span
-                  class="relative z-10 text-2xl"
-                  data-i18n="main.go_to_troubleshooting"
-                ></span>
+                ${translateText("main.go_to_troubleshooting")}
               </button>
             </div>
           </section>
           <!-- Hotkeys Section -->
-          <div class="flex items-center gap-3 mb-3">
-            <div class="text-df-red-bright">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="w-5 h-5 text-df-red-bright"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
-                <path d="M6 8h.001"></path>
-                <path d="M10 8h.001"></path>
-                <path d="M14 8h.001"></path>
-                <path d="M18 8h.001"></path>
-                <path d="M6 12h.001"></path>
-                <path d="M10 12h.001"></path>
-                <path d="M14 12h.001"></path>
-                <path d="M18 12h.001"></path>
-                <path d="M6 16h12"></path>
-              </svg>
-            </div>
-            <h3
-              class="text-xl font-bold uppercase tracking-widest text-white/90"
-            >
-              ${translateText("help_modal.hotkeys")}
-            </h3>
-            <div
-              class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-            ></div>
-          </div>
+          <h2 class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text">${translateText("help_modal.hotkeys")}</h2>
           <section
-            class="bg-white/5 rounded-xl border border-white/10 overflow-hidden"
+            class="rounded-ui-card border border-ui-border bg-ui-surface overflow-hidden"
           >
             <div class="pt-2 pb-4 px-4 overflow-x-auto">
               <table class="w-full text-sm border-separate border-spacing-y-1">
@@ -536,38 +455,12 @@ export class HelpModal extends BaseModal {
 
           <!-- UI Interface Section -->
           <section class="mb-8 mt-8">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="text-df-red-bright">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                  <line x1="3" y1="9" x2="21" y2="9"></line>
-                  <line x1="9" y1="21" x2="9" y2="9"></line>
-                </svg>
-              </div>
-              <h3
-                class="text-xl font-bold uppercase tracking-widest text-white/90"
-              >
-                ${translateText("help_modal.ui_section")}
-              </h3>
-              <div
-                class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-              ></div>
-            </div>
+            <h2 class="ui-heading mt-8 mb-4 border-b border-ui-border pb-3 text-ui-text">${translateText("help_modal.ui_section")}</h2>
 
             <div class="grid grid-cols-1 gap-6">
               <!-- Leaderboard -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
               >
                 <div class="flex flex-col items-center gap-3 shrink-0">
                   <span
@@ -590,7 +483,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Control Panel -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
               >
                 <div class="flex flex-col items-center gap-3 shrink-0">
                   <span
@@ -617,7 +510,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Events Panel -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
               >
                 <div class="flex flex-col items-center gap-3 shrink-0">
                   <span
@@ -653,7 +546,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Options -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
               >
                 <div class="flex flex-col items-center gap-3 shrink-0">
                   <span
@@ -683,7 +576,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Player Overlay -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
               >
                 <div class="flex flex-col items-center gap-3 shrink-0">
                   <span
@@ -708,35 +601,10 @@ export class HelpModal extends BaseModal {
 
           <!-- Radial Menu Section -->
           <section class="mb-8">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="text-df-red-bright">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </div>
-              <h3
-                class="text-xl font-bold uppercase tracking-widest text-white/90"
-              >
-                ${translateText("help_modal.radial_title")}
-              </h3>
-              <div
-                class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-              ></div>
-            </div>
+            <h2 class="ui-heading mt-8 mb-4 border-b border-ui-border pb-3 text-ui-text">${translateText("help_modal.radial_title")}</h2>
 
             <div
-              class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
+              class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col md:flex-row gap-6 hover:bg-white/5 transition-colors"
             >
               <div class="flex flex-col gap-4 shrink-0">
                 <img
@@ -817,38 +685,12 @@ export class HelpModal extends BaseModal {
 
           <!-- Info/Ally Panels Section -->
           <section class="mb-8">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="text-df-red-bright">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
-              </div>
-              <h3
-                class="text-xl font-bold uppercase tracking-widest text-white/90"
-              >
-                ${translateText("help_modal.info_title")}
-              </h3>
-              <div
-                class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-              ></div>
-            </div>
+            <h2 class="ui-heading mt-8 mb-4 border-b border-ui-border pb-3 text-ui-text">${translateText("help_modal.info_title")}</h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- Enemy Info -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col gap-6 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col gap-6 hover:bg-white/5 transition-colors"
               >
                 <div class="flex flex-col items-center gap-3">
                   <span
@@ -909,7 +751,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Ally Info -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-6 flex flex-col gap-6 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-6 flex flex-col gap-6 hover:bg-white/5 transition-colors"
               >
                 <div class="flex flex-col items-center gap-3">
                   <span
@@ -959,33 +801,7 @@ export class HelpModal extends BaseModal {
 
           <!-- Build Menu Section -->
           <section class="mb-8">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="text-df-red-bright">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path>
-                  <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path>
-                  <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path>
-                </svg>
-              </div>
-              <h3
-                class="text-xl font-bold uppercase tracking-widest text-white/90"
-              >
-                ${translateText("help_modal.build_menu_title")}
-              </h3>
-              <div
-                class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-              ></div>
-            </div>
+            <h2 class="ui-heading mt-8 mb-4 border-b border-ui-border pb-3 text-ui-text">${translateText("help_modal.build_menu_title")}</h2>
 
             <p class="mb-4 text-white/70 text-sm">
               ${translateText("help_modal.build_menu_desc")}
@@ -1215,32 +1031,7 @@ export class HelpModal extends BaseModal {
 
           <!-- Player Icons Section -->
           <section class="mb-4">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="text-df-red-bright">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              </div>
-              <h3
-                class="text-xl font-bold uppercase tracking-widest text-white/90"
-              >
-                ${translateText("help_modal.player_icons")}
-              </h3>
-              <div
-                class="flex-1 h-px bg-gradient-to-r from-df-red/60 to-transparent"
-              ></div>
-            </div>
+            <h2 class="ui-heading mt-8 mb-4 border-b border-ui-border pb-3 text-ui-text">${translateText("help_modal.player_icons")}</h2>
 
             <p class="mb-6 text-white/70 text-sm">
               ${translateText("help_modal.icon_desc")}
@@ -1249,7 +1040,7 @@ export class HelpModal extends BaseModal {
             <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
               <!-- Crown -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
               >
                 <img
                   src=${assetUrl("images/helpModal/crown.webp")}
@@ -1266,7 +1057,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Traitor -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
               >
                 <img
                   src=${assetUrl("images/helpModal/traitor2.webp")}
@@ -1283,7 +1074,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Ally -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
               >
                 <img
                   src=${assetUrl("images/helpModal/ally2.webp")}
@@ -1300,7 +1091,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Embargo -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
               >
                 <img
                   src=${assetUrl("images/helpModal/embargo.webp")}
@@ -1317,7 +1108,7 @@ export class HelpModal extends BaseModal {
 
               <!-- Alliance Request -->
               <div
-                class="bg-black/20 rounded-xl border border-white/10 p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
+                class="rounded-ui-card border border-ui-border bg-ui-surface p-4 flex flex-col items-center gap-3 hover:bg-white/5 transition-colors"
               >
                 <img
                   src=${assetUrl("images/helpModal/allianceRequest.webp")}

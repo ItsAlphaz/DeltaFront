@@ -18,7 +18,7 @@ export interface ModalConfig {
   alwaysMaximized?: boolean;
   maxWidth?: string;
   hideTabs?: boolean;
-  /** Use the account pages' shell (see o-modal's `ui`). */
+  /** The website's shell (see o-modal's `ui`); on unless a page opts out. */
   ui?: boolean;
 }
 
@@ -149,7 +149,7 @@ export abstract class BaseModal extends LitElement {
         ?hideHeader=${cfg.hideHeader ?? true}
         ?hideCloseButton=${cfg.hideCloseButton ?? true}
         ?alwaysMaximized=${cfg.alwaysMaximized ?? false}
-        ?ui=${cfg.ui ?? false}
+        .ui=${cfg.ui ?? true}
         maxWidth=${cfg.maxWidth ?? ""}
         .tabs=${cfg.hideTabs ? [] : tabs}
         .activeTab=${this.activeTab}
@@ -324,10 +324,10 @@ export abstract class BaseModal extends LitElement {
 }
 
 const spinnerColorClasses: Record<string, string> = {
-  brand: "border-df-red/30 border-t-df-red",
-  green: "border-green-500/30 border-t-green-500",
-  yellow: "border-yellow-500/30 border-t-yellow-500",
-  white: "border-white/20 border-t-white",
+  brand: "border-ui-border-strong border-t-ui-accent",
+  green: "border-ui-border-strong border-t-ui-success",
+  yellow: "border-ui-border-strong border-t-ui-gold",
+  white: "border-ui-border-strong border-t-ui-text",
 };
 
 /**
@@ -340,7 +340,7 @@ export function renderLoadingSpinner(
 ): TemplateResult {
   return html`
     <div
-      class="flex flex-col items-center justify-center p-12 text-white h-full min-h-[400px]"
+      class="flex flex-col items-center justify-center p-12 text-ui-text h-full min-h-[400px]"
     >
       <div
         class="w-12 h-12 border-4 ${spinnerColorClasses[
@@ -348,9 +348,7 @@ export function renderLoadingSpinner(
         ]} rounded-full animate-spin mb-4"
       ></div>
       ${message
-        ? html`<p class="text-white/60 font-medium tracking-wide animate-pulse">
-            ${message}
-          </p>`
+        ? html`<p class="ui-body animate-pulse text-ui-muted">${message}</p>`
         : ""}
     </div>
   `;

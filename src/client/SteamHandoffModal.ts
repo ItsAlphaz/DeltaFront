@@ -7,11 +7,12 @@ import { UserSettings } from "./UserSettings";
 import { translateText } from "./Utils";
 
 const BUTTON_BASE =
-  "flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl " +
-  "transition-all border-0";
+  "ui-focus flex-1 min-h-11 px-4 text-[13px] font-semibold uppercase tracking-[0.06em] rounded-ui-card " +
+  "transition-colors border cursor-pointer";
 const BUTTON_SECONDARY =
-  "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 hover:text-white/80";
-const BUTTON_PRIMARY = "bg-df-red text-white hover:bg-df-red-bright";
+  "bg-ui-surface text-ui-text border-ui-border-strong hover:border-ui-border-hover";
+const BUTTON_PRIMARY =
+  "bg-ui-accent text-white border-transparent hover:bg-ui-accent-soft";
 
 @customElement("steam-handoff-modal")
 export class SteamHandoffModal extends BaseModal {
@@ -95,7 +96,7 @@ export class SteamHandoffModal extends BaseModal {
   protected renderBody() {
     return html`
       <div class="flex flex-col gap-4 p-6">
-        <p class="text-sm text-white/80">
+        <p class="ui-body text-ui-text">
           ${translateText(
             this.launched ? "steam_handoff.launched" : "steam_handoff.prompt",
           )}
@@ -103,7 +104,7 @@ export class SteamHandoffModal extends BaseModal {
         ${this.launched
           ? null
           : html`<label
-              class="flex items-center gap-2 text-xs text-white/60 cursor-pointer"
+              class="ui-body flex cursor-pointer items-center gap-2 text-[13px] text-ui-muted"
             >
               <input
                 type="checkbox"

@@ -160,9 +160,9 @@ describe("another player's profile uses the same system as yours", () => {
       PH_SPACING.identity,
     );
     // and the card itself: one border, one panel
-    expect(other.root.className).toContain("rounded-xl");
-    expect(other.root.className).toContain("bg-df-panel");
-    expect(other.root.className).toContain("border-white/10");
+    expect(other.root.className).toContain("rounded-ui-panel");
+    expect(other.root.className).toContain("bg-ui-surface");
+    expect(other.root.className).toContain("border-ui-border");
     for (const cls of other.root.className
       .split(/\s+/)
       .filter((c) => /^(rounded|bg-|border)/.test(c))) {
@@ -216,7 +216,7 @@ describe("another player's profile uses the same system as yours", () => {
     expect(other.q("[data-ph-name]")!.textContent).toBe("CptMendoYen.5807");
     expect(other.q("[data-ph-name] span")!.textContent).toBe(".5807");
     expect(other.q("[data-ph-name] span")!.className).toContain(
-      "text-white/40",
+      "text-ui-muted",
     );
     // the check and the staff badge beside the name, and a chip each under it
     const row = other.q("[data-ph-name]")!.parentElement!;

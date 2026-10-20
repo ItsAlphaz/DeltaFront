@@ -38,9 +38,9 @@ export const steamLinkButton = (
 ): TemplateResult => html`
   <button
     @click=${onClick}
-    class="w-full px-6 py-3 text-white bg-[#1b2838] hover:bg-[#2a475e] border border-[#66c0f4]/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#66c0f4] transition-colors duration-200 flex items-center justify-center gap-3 shadow-lg"
+    class="ui-focus flex min-h-11 w-full cursor-pointer items-center justify-center gap-3 rounded-ui-card border border-[#66c0f4]/30 bg-[#1b2838] px-6 py-3 text-white transition-colors hover:bg-[#2a475e]"
   >
     ${steamGlyph("w-5 h-5 shrink-0")}
-    <span class="font-bold tracking-wide">${translateText(labelKey)}</span>
+    <span class="text-[14px] font-semibold">${translateText(labelKey)}</span>
   </button>
 `;

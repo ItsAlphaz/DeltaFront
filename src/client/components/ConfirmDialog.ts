@@ -72,18 +72,21 @@ export class ConfirmDialog extends LitElement {
 
   private renderOverlay() {
     const isDanger = this.variant === "danger";
-    // Danger is red text on a red border; a warning is white on a neutral
-    // border with the red primary button (DeltaFront's palette has no amber).
-    const borderColor = isDanger ? "border-red-500/50" : "border-white/20";
-    const cardBg = "bg-surface";
-    const textColor = isDanger ? "text-red-300" : "text-white/90";
-    const btnClass = isDanger
-      ? "bg-red-600 text-white hover:bg-red-700"
-      : "bg-df-red text-white hover:bg-df-red-bright";
+    // The website's dialog (components/ui/PageUi.ts): a bordered panel, a
+    // quiet Cancel and one main action. Danger puts the accent on the border
+    // and the message; the main action is the accent button either way.
+    const borderColor = isDanger
+      ? "border-ui-accent"
+      : "border-ui-border-strong";
+    const textColor = isDanger ? "text-ui-accent-soft" : "text-ui-muted";
+    const btnClass =
+      "bg-ui-accent text-white border-transparent hover:bg-ui-accent-soft";
+    const buttonBase =
+      "ui-focus flex-1 min-h-11 px-4 text-[13px] font-semibold uppercase tracking-[0.06em] rounded-ui-card border transition-colors disabled:opacity-50 disabled:pointer-events-none cursor-pointer";
 
     return html`
       <div
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/80"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/80 font-ui"
         @click=${(e: Event) => {
           if (e.target === e.currentTarget) this.handleCancel();
         }}
@@ -91,22 +94,23 @@ export class ConfirmDialog extends LitElement {
         <div
           class="relative mx-4 w-full ${this.wide
             ? "max-w-md"
-            : "max-w-sm"} p-6 rounded-2xl border ${borderColor} ${cardBg} shadow-2xl"
+            : "max-w-sm"} rounded-ui-panel border ${borderColor} bg-ui-panel p-6 text-ui-text shadow-2xl"
         >
           ${this.showClose
             ? html`<button
                 @click=${() => this.handleCancel()}
-                class="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-white/50 hover:bg-white/10 hover:text-white transition-all"
+                aria-label=${translateText("common.close")}
+                class="ui-focus absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-ui-card text-xl leading-none text-ui-muted transition-colors hover:bg-ui-surface hover:text-ui-text cursor-pointer"
               >
                 ×
               </button>`
             : ""}
           ${this.heading
-            ? html`<h2 class="text-lg font-bold text-white mb-2 pr-8">
+            ? html`<h2 class="ui-heading mb-2 pr-8 text-ui-text">
                 ${this.heading}
               </h2>`
             : ""}
-          <p class="text-sm font-medium ${textColor} mb-5">${this.message}</p>
+          <p class="ui-body mb-5 ${textColor}">${this.message}</p>
           ${this.textareaPlaceholder
             ? html`<textarea
                 .value=${this.text}
@@ -115,7 +119,7 @@ export class ConfirmDialog extends LitElement {
                 maxlength="200"
                 rows="2"
                 placeholder="${this.textareaPlaceholder}"
-                class="w-full px-3 py-2 mb-4 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm resize-none"
+                class="ui-focus mb-4 w-full resize-none rounded-ui-card border border-ui-border-strong bg-ui-ground px-3 py-2 text-sm text-ui-text placeholder:text-ui-placeholder"
               ></textarea>`
             : ""}
           ${this.buttons === "none"
@@ -125,7 +129,7 @@ export class ConfirmDialog extends LitElement {
                   ? html`<button
                       @click=${() => this.handleCancel()}
                       ?disabled=${this.disabled}
-                      class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                      class="${buttonBase} border-ui-border-strong bg-ui-surface text-ui-text hover:border-ui-border-hover"
                     >
                       ${this.cancelText || translateText("common.cancel")}
                     </button>`
@@ -133,7 +137,7 @@ export class ConfirmDialog extends LitElement {
                 <button
                   @click=${() => this.handleConfirm()}
                   ?disabled=${this.disabled}
-                  class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl ${btnClass} transition-all disabled:opacity-50 disabled:pointer-events-none border-0"
+                  class="${buttonBase} ${btnClass}"
                 >
                   ${this.confirmText || translateText("common.confirm")}
                 </button>

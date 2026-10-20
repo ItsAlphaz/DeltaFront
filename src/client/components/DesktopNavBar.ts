@@ -7,7 +7,7 @@ import "./NavUtilityIcons";
 
 // Page links: pixel face, white on hover, a red underline marks the open page.
 const NAV_ITEM =
-  "nav-menu-item font-display text-base text-df-text-secondary hover:text-df-text tracking-[0.15em] uppercase cursor-pointer transition-colors px-1 pt-2.5 pb-2 border-b-2 border-transparent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-df-red [&.active]:text-df-text [&.active]:border-df-red";
+  "nav-menu-item font-pixel text-base text-df-text-secondary hover:text-df-text tracking-[0.15em] uppercase cursor-pointer transition-colors px-1 pt-2.5 pb-2 border-b-2 border-transparent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-df-red [&.active]:text-df-text [&.active]:border-df-red";
 
 @customElement("desktop-nav-bar")
 export class DesktopNavBar extends LitElement {

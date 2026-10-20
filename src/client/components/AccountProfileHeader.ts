@@ -103,7 +103,7 @@ export class AccountProfileHeader extends ProfileHeaderBase {
     return html`<div
       data-ph-handle
       data-ph-handle-kind=${handle.kind}
-      class="order-2 truncate text-base text-white/55"
+      class="order-2 truncate text-base text-ui-muted"
       title=${handle.text}
     >
       ${handle.text}
@@ -117,10 +117,10 @@ export class AccountProfileHeader extends ProfileHeaderBase {
       class="relative flex flex-col gap-3 ${PH_SPACING.band} sm:flex-row sm:items-center sm:justify-between sm:gap-6"
     >
       <div class="min-w-0">
-        <div class="text-base font-bold text-white">
+        <div class="text-base font-bold text-ui-text">
           ${translateText("progression.display_title")}
         </div>
-        <div class="text-sm text-white/50">
+        <div class="text-sm text-ui-muted">
           ${translateText("progression.display_title_hint")}
         </div>
       </div>
@@ -193,7 +193,7 @@ export class AccountProfileHeader extends ProfileHeaderBase {
         nothing
           ? html`<div
               data-ph-fallback-name
-              class="order-1 truncate text-2xl font-black text-white"
+              class="order-1 truncate text-2xl font-bold text-ui-text"
             >
               ${handle?.text ?? ""}
             </div>`

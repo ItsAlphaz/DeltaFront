@@ -625,7 +625,7 @@ export class GameXpPanel extends LitElement {
       data-xp-state=${stateName}
       data-xp-revealing=${revealing ? "true" : nothing}
       style=${style ?? nothing}
-      class="relative mb-4 rounded-lg bg-black/30 p-3 text-left text-white ${revealing
+      class="relative mb-4 rounded-lg bg-ui-panel p-3 text-left text-ui-text ${revealing
         ? "cursor-pointer"
         : ""}"
       aria-live="polite"
@@ -639,7 +639,7 @@ export class GameXpPanel extends LitElement {
           html`<button
             type="button"
             data-xp-skip
-            class="sr-only focus:not-sr-only focus:absolute focus:right-2 focus:top-2 focus:z-10 focus:rounded-sm focus:bg-black/80 focus:px-2 focus:py-1 focus:text-xs focus:font-bold focus:text-white"
+            class="sr-only focus:not-sr-only focus:absolute focus:right-2 focus:top-2 focus:z-10 focus:rounded-sm focus:bg-black/80 focus:px-2 focus:py-1 focus:text-xs focus:font-bold focus:text-ui-text"
             @click=${(e: Event) => {
               e.stopPropagation();
               this.skipReveal();
@@ -654,7 +654,7 @@ export class GameXpPanel extends LitElement {
 
   private renderNote(key: string, stateName: string): TemplateResult {
     return this.frame(
-      html`<p class="m-0 text-sm text-white/80">${translateText(key)}</p>`,
+      html`<p class="m-0 text-sm text-ui-text">${translateText(key)}</p>`,
       stateName,
     );
   }
@@ -664,7 +664,7 @@ export class GameXpPanel extends LitElement {
     return this.frame(
       html`<div
         data-xp-solo-phase=${phase}
-        class="flex items-center gap-2 text-sm text-white/80"
+        class="flex items-center gap-2 text-sm text-ui-text"
       >
         <span
           class="w-4 h-4 shrink-0 border-2 border-white/30 border-t-white/80 rounded-full animate-spin"
@@ -684,19 +684,17 @@ export class GameXpPanel extends LitElement {
   ): TemplateResult {
     return this.frame(
       html`<div data-xp-solo-failed=${failure} class="flex flex-col gap-2">
-        <div
-          class="text-xs font-bold uppercase tracking-[0.18em] text-amber-300"
-        >
+        <div class="text-xs font-bold uppercase tracking-[0.1em] text-ui-gold">
           ${translateText("progression.solo_failed_heading")}
         </div>
-        <p class="m-0 text-sm text-white/80">
+        <p class="m-0 text-sm text-ui-text">
           ${translateText(SOLO_FAILURE_KEYS[failure])}
         </p>
         ${retryable
           ? html`<button
               type="button"
               data-xp-solo-retry
-              class="self-start rounded-md border border-white/25 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/10"
+              class="self-start rounded-md border border-white/25 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ui-text hover:bg-white/10"
               @click=${(e: Event) => {
                 e.stopPropagation();
                 this.dispatchEvent(
@@ -717,7 +715,7 @@ export class GameXpPanel extends LitElement {
 
   private renderCalculating(): TemplateResult {
     return this.frame(
-      html`<div class="flex items-center gap-2 text-sm text-white/80">
+      html`<div class="flex items-center gap-2 text-sm text-ui-text">
         <span
           class="w-4 h-4 shrink-0 border-2 border-white/30 border-t-white/80 rounded-full animate-spin"
           aria-hidden="true"
@@ -736,7 +734,7 @@ export class GameXpPanel extends LitElement {
     switch (caption.kind) {
       case "line":
         return html`${translateText(XP_LINE_LABEL_KEYS[caption.key])}
-          <span class="text-yellow-300"
+          <span class="text-ui-gold"
             >${translateText("progression.xp_total", {
               xp: formatXp(caption.amount),
             })}</span
@@ -745,7 +743,7 @@ export class GameXpPanel extends LitElement {
         return html`${xpBonusText(caption.key, caption.permille)}`;
       case "challenge":
         return html`${translateText(challengeLabelKey(caption.id))}
-          <span class="text-yellow-300"
+          <span class="text-ui-gold"
             >${translateText("progression.xp_total", {
               xp: formatXp(caption.xp),
             })}</span
@@ -753,13 +751,13 @@ export class GameXpPanel extends LitElement {
       case "heading":
         return html`${translateText(headingKey)}`;
       case "level_up":
-        return html`<span class="text-yellow-300"
+        return html`<span class="text-ui-gold"
           >${translateText("progression.level_reached", {
             level: caption.level,
           })}</span
         >`;
       case "legend":
-        return html`<span class="text-yellow-300"
+        return html`<span class="text-ui-gold"
           >${translateText("progression.legend_reached_title")}</span
         >`;
     }
@@ -774,7 +772,7 @@ export class GameXpPanel extends LitElement {
       // Becoming a Legend: the biggest moment on the track.
       key = "legend";
       content = html`<div
-        class="xp-levelup-in xp-legend-text text-center text-2xl font-black uppercase italic tracking-wide sm:text-3xl"
+        class="xp-levelup-in xp-legend-text text-center text-2xl font-bold uppercase italic tracking-wide sm:text-3xl"
         data-xp-caption-levelup=${levelUp}
         data-xp-caption-legend
       >
@@ -784,7 +782,7 @@ export class GameXpPanel extends LitElement {
       // The level-up moment: a big "LEVEL 24!" that slams in.
       key = `lvl-${levelUp}`;
       content = html`<div
-        class="xp-levelup-in text-center text-2xl font-black uppercase italic tracking-wide text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)] sm:text-3xl"
+        class="xp-levelup-in text-center text-2xl font-bold uppercase italic tracking-wide text-ui-gold drop-shadow-[0_0_10px_rgba(250,204,21,0.8)] sm:text-3xl"
         data-xp-caption-levelup=${levelUp}
       >
         ${translateText("progression.level_reached", { level: levelUp })}
@@ -810,7 +808,7 @@ export class GameXpPanel extends LitElement {
         </div>`;
       } else if (caption !== null) {
         content = html`<div
-          class="xp-caption-in text-center text-lg font-black uppercase italic tracking-wide sm:text-xl"
+          class="xp-caption-in text-center text-lg font-bold uppercase italic tracking-wide sm:text-xl"
           data-xp-caption-step=${r?.step ?? REST_STEP}
         >
           ${this.captionContent(caption, xpHeadingKey(data.mode))}
@@ -949,7 +947,7 @@ export class GameXpPanel extends LitElement {
               </span>
               <span
                 data-xp-header-level
-                class="max-w-full truncate text-center text-[11px] tabular-nums text-white/60 @min-[16rem]:text-right"
+                class="max-w-full truncate text-center text-[11px] tabular-nums text-ui-muted @min-[16rem]:text-right"
               >
                 ${progressText}
               </span>
@@ -1333,7 +1331,7 @@ export class GameXpPanel extends LitElement {
       ${data.breakdown.leftEarly
         ? this.collapsible(
             r === null,
-            html`<p data-xp-left-early class="m-0 mt-3 text-xs text-amber-300">
+            html`<p data-xp-left-early class="m-0 mt-3 text-xs text-ui-gold">
               ${translateText("progression.left_early")}
             </p>`,
           )
@@ -1373,11 +1371,11 @@ export class GameXpPanel extends LitElement {
       >
         <div class="min-w-0 text-center">
           <div
-            class="text-[10px] font-bold uppercase tracking-[0.18em] text-df-red-bright"
+            class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-accent-soft"
           >
             ${translateText("progression.promoted")}
           </div>
-          <div class="text-base font-black leading-tight text-white">
+          <div class="text-base font-bold leading-tight text-ui-text">
             ${translateText("progression.promotion_line", {
               from: translateText(rankLabelKey(data.before.level)),
               to: translateText(rankLabelKey(data.after.level)),
@@ -1404,15 +1402,15 @@ export class GameXpPanel extends LitElement {
       this.awardSettled(),
       html`<div
         data-xp-solo
-        class="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5"
+        class="mt-3 rounded-lg border border-ui-border bg-ui-panel px-3 py-2.5"
       >
         <div
           data-xp-solo-heading
-          class="text-[10px] font-bold uppercase tracking-[0.18em] text-white/55"
+          class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-muted"
         >
           ${translateText("progression.solo_setup_heading")}
         </div>
-        <div data-xp-solo-setup class="mt-0.5 text-xs text-white/50">
+        <div data-xp-solo-setup class="mt-0.5 text-xs text-ui-muted">
           ${translateText("progression.solo_setup_summary", {
             difficulty,
             tribes: solo.tribes,
@@ -1445,12 +1443,12 @@ export class GameXpPanel extends LitElement {
         </ul>
         <div
           data-xp-solo-multiplier
-          class="mt-2 flex items-baseline justify-between gap-3 border-t border-white/10 pt-2 text-sm"
+          class="mt-2 flex items-baseline justify-between gap-3 border-t border-ui-border pt-2 text-sm"
         >
-          <span class="text-white/70"
+          <span class="text-ui-muted"
             >${translateText("progression.solo_multiplier_label")}</span
           >
-          <span class="font-bold tabular-nums text-yellow-300"
+          <span class="font-bold tabular-nums text-ui-gold"
             >${translateText("progression.solo_multiplier_value", {
               multiplier: (solo.multiplierPermille / 1000).toFixed(2),
             })}</span
@@ -1471,7 +1469,7 @@ export class GameXpPanel extends LitElement {
       html`${solo
         ? html`<p
             data-xp-note="solo"
-            class="m-0 mt-3 text-center text-xs text-white/60"
+            class="m-0 mt-3 text-center text-xs text-ui-muted"
           >
             ${translateText(
               b.reducedReason === "eliminated"
@@ -1485,7 +1483,7 @@ export class GameXpPanel extends LitElement {
       ${reduced
         ? html`<p
             data-xp-note="reduced"
-            class="m-0 mt-3 text-center text-xs text-white/60"
+            class="m-0 mt-3 text-center text-xs text-ui-muted"
           >
             ${translateText(
               b.reducedReason === "eliminated"
@@ -1497,7 +1495,7 @@ export class GameXpPanel extends LitElement {
       ${b.softCapped || b.capped
         ? html`<p
             data-xp-note=${b.softCapped ? "soft_cap" : "cap"}
-            class="m-0 mt-3 text-center text-xs text-amber-300"
+            class="m-0 mt-3 text-center text-xs text-ui-gold"
           >
             ${translateText(
               b.softCapped
@@ -1527,7 +1525,7 @@ export class GameXpPanel extends LitElement {
             >
               <span class="min-w-0 truncate"
                 ><span
-                  class="mr-2 text-[10px] font-bold uppercase tracking-wider text-yellow-300"
+                  class="mr-2 text-[10px] font-bold uppercase tracking-wider text-ui-gold"
                   >${translateText(
                     c.period === "daily"
                       ? "progression.challenge_daily_done"
@@ -1535,11 +1533,11 @@ export class GameXpPanel extends LitElement {
                   )}</span
                 >${translateText(challengeLabelKey(c.id))}</span
               >
-              <span class="shrink-0 font-bold tabular-nums text-yellow-300"
+              <span class="shrink-0 font-bold tabular-nums text-ui-gold"
                 >${translateText("progression.xp_total", {
                   xp: formatXp(c.xp),
                 })}${(c.credits ?? 0) > 0
-                  ? html` <span class="text-white/70"
+                  ? html` <span class="text-ui-muted"
                       >+${formatXp(c.credits ?? 0)}
                       ${translateText("progression.credits")}</span
                     >`
@@ -1559,7 +1557,7 @@ export class GameXpPanel extends LitElement {
     }
     return this.collapsible(
       this.awardSettled(),
-      html`<p data-xp-season class="m-0 mt-3 text-center text-xs text-white/70">
+      html`<p data-xp-season class="m-0 mt-3 text-center text-xs text-ui-muted">
         ${translateText("progression.season_line", {
           name: season.name,
           level: season.level,
@@ -1581,11 +1579,11 @@ export class GameXpPanel extends LitElement {
         class="xp-shine mt-3 rounded-xl border border-yellow-300/50 bg-gradient-to-r from-transparent via-yellow-400/15 to-transparent px-3 py-2 text-center"
       >
         <div
-          class="text-[10px] font-bold uppercase tracking-[0.18em] text-yellow-300"
+          class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-gold"
         >
           ${translateText("progression.prestige_available")}
         </div>
-        <div class="text-xs text-white/80">
+        <div class="text-xs text-ui-text">
           ${translateText("progression.prestige_available_body")}
         </div>
       </div>`,
@@ -1641,11 +1639,11 @@ export class GameXpPanel extends LitElement {
         ></level-badge>
         <div class="min-w-0">
           <div
-            class="text-[10px] font-bold uppercase tracking-[0.18em] text-yellow-300"
+            class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-gold"
           >
             ${translateText("progression.legend")}
           </div>
-          <div class="text-sm text-white/80">
+          <div class="text-sm text-ui-text">
             ${translateText("progression.legend_reached_body", {
               xp: formatXp(data.after.lifetimeXp),
             })}
@@ -1692,11 +1690,11 @@ export class GameXpPanel extends LitElement {
         </span>
         <div class="min-w-0">
           <div
-            class="text-[10px] font-bold uppercase tracking-[0.18em] text-yellow-300"
+            class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-gold"
           >
             ${translateText("progression.new_milestone")}
           </div>
-          <div class="text-lg font-black leading-tight text-white">
+          <div class="text-lg font-bold leading-tight text-ui-text">
             ${translateText("progression.level", { level: milestone.level })}
           </div>
         </div>
@@ -1723,18 +1721,18 @@ export class GameXpPanel extends LitElement {
       <div
         data-xp-card
         title=${label}
-        class="xp-shine h-full rounded-xl border bg-white/5 px-2 py-2.5 text-center ${classes}"
+        class="xp-shine h-full rounded-xl border bg-ui-surface px-2 py-2.5 text-center ${classes}"
         style=${attrs.style ?? nothing}
       >
         <div
           data-xp-line=${attrs.line ?? nothing}
-          class="truncate text-[10px] font-bold uppercase tracking-wider text-df-text-muted"
+          class="truncate text-[10px] font-bold uppercase tracking-wider text-ui-muted"
         >
           ${label}
         </div>
         <div
           data-xp-card-value
-          class="mt-1 truncate text-lg font-black leading-none tabular-nums"
+          class="mt-1 truncate text-lg font-bold leading-none tabular-nums"
         >
           ${value}
         </div>

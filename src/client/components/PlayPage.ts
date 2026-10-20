@@ -112,11 +112,11 @@ export class PlayPage extends LitElement {
           class="mx-auto w-full max-w-[480px] shrink-0 px-4 pt-4 sm:px-0 lg:pt-0 lg:mt-(--df-gap)"
         >
           <div
-            class="relative flex h-16 lg:h-(--df-name) items-center overflow-visible rounded-sm border border-df-border bg-df-panel"
+            class="relative flex h-16 lg:h-(--df-name) items-center overflow-visible rounded-ui-card border border-df-border bg-df-panel"
           >
             <!-- Selected skin/pattern fills the panel like the player's territory in game. -->
             <cosmetic-background
-              class="absolute inset-0 z-0 overflow-hidden rounded-sm pointer-events-none"
+              class="absolute inset-0 z-0 overflow-hidden rounded-ui-card pointer-events-none"
             ></cosmetic-background>
             <div
               class="relative z-10 flex h-full w-full min-w-0 items-center bg-df-panel/80 p-1"

@@ -166,7 +166,7 @@ describe("PlayerRow", () => {
     expect(score.classList.contains("border")).toBe(false);
     expect(score.classList.contains("rounded-lg")).toBe(false);
     expect(score.classList.contains("text-sm")).toBe(true);
-    expect(score.classList.contains("text-white/75")).toBe(true);
+    expect(score.classList.contains("text-ui-text")).toBe(true);
   });
 
   it.each([

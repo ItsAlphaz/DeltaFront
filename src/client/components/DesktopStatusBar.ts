@@ -290,7 +290,7 @@ export class DesktopStatusBar extends LitElement {
         ${ref(this.barRef)}
         class="fixed bottom-0 left-0 w-full z-[300] in-[.in-game]:hidden
                bg-gray-900/95 backdrop-blur-sm border-t border-white/10
-               px-4 py-3 flex items-center gap-4 text-white"
+               px-4 py-3 flex items-center gap-4 text-ui-text"
         role="status"
         aria-live="polite"
       >

@@ -157,7 +157,7 @@ export class ClanTransferView extends LitElement {
     return html`
       <div class="space-y-6">
         ${this.errorMsg
-          ? html`<p class="text-red-400 text-sm">${this.errorMsg}</p>`
+          ? html`<p class="text-ui-accent-soft text-sm">${this.errorMsg}</p>`
           : ""}
 
         <div class="bg-amber-500/10 rounded-xl border border-amber-500/20 p-4">
@@ -188,7 +188,7 @@ export class ClanTransferView extends LitElement {
                   class="absolute inset-0 w-full h-full rounded-xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                 ></button>
                 <div
-                  class="relative pointer-events-none w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/50 text-xs font-bold shrink-0"
+                  class="relative pointer-events-none w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-ui-muted text-xs font-bold shrink-0"
                 >
                   ${renderRoleIcon(m.role)}
                 </div>
@@ -216,7 +216,7 @@ export class ClanTransferView extends LitElement {
                 ${this.transferTarget === m.publicId
                   ? html`<svg
                       xmlns="http://www.w3.org/2000/svg"
-                      class="relative pointer-events-none w-5 h-5 text-amber-400 shrink-0"
+                      class="relative pointer-events-none w-5 h-5 text-ui-gold shrink-0"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -242,7 +242,7 @@ export class ClanTransferView extends LitElement {
 
         <button
           @click=${() => (this.confirmAction = "transfer")}
-          class="w-full px-6 py-3 text-sm font-bold text-white uppercase tracking-wider rounded-xl transition-all border disabled:opacity-50 disabled:pointer-events-none
+          class="w-full px-6 py-3 text-sm font-bold text-ui-text uppercase tracking-wider rounded-xl transition-all border disabled:opacity-50 disabled:pointer-events-none
                 ${this.transferTarget && !this.actionPending
             ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 shadow-lg hover:shadow-amber-900/40 border-white/5"
             : "bg-white/5 border-white/10 text-white/30 cursor-not-allowed"}"

@@ -95,9 +95,9 @@ export class ClanDonationsView extends LitElement {
     if (this.loadState === "forbidden") {
       return html`
         <div
-          class="bg-white/5 rounded-xl border border-white/10 p-8 text-center"
+          class="bg-ui-surface rounded-xl border border-ui-border p-8 text-center"
         >
-          <p class="text-white/40 text-sm">
+          <p class="text-ui-muted text-sm">
             ${translateText("clan_modal.donations_members_only")}
           </p>
         </div>
@@ -112,7 +112,7 @@ export class ClanDonationsView extends LitElement {
     return html`
       <div
         role="tablist"
-        class="flex gap-1 p-1 bg-white/5 border border-white/10 rounded-xl"
+        class="flex gap-1 p-1 bg-ui-surface border border-ui-border rounded-xl"
       >
         ${FILTER_TABS.map((tab) => {
           const active = this.filter === tab.key;
@@ -142,15 +142,15 @@ export class ClanDonationsView extends LitElement {
     if (this.loadState === "failed") {
       return html`
         <div
-          class="bg-white/5 rounded-xl border border-white/10 p-8 text-center"
+          class="bg-ui-surface rounded-xl border border-ui-border p-8 text-center"
         >
-          <p class="text-white/40 text-sm mb-3">
+          <p class="text-ui-muted text-sm mb-3">
             ${translateText("clan_modal.donations_unavailable")}
           </p>
           <button
             type="button"
             @click=${() => this.load()}
-            class="text-xs font-bold text-white/60 hover:text-white uppercase tracking-wider px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 hover:bg-white/5 transition-colors"
+            class="text-xs font-bold text-ui-muted hover:text-ui-text uppercase tracking-wider px-3 py-1.5 rounded-lg border border-ui-border hover:border-ui-border-strong hover:bg-ui-surface transition-colors"
           >
             ${translateText("leaderboard_modal.try_again")}
           </button>
@@ -160,9 +160,9 @@ export class ClanDonationsView extends LitElement {
     if (this.donations.length === 0) {
       return html`
         <div
-          class="bg-white/5 rounded-xl border border-white/10 p-8 text-center"
+          class="bg-ui-surface rounded-xl border border-ui-border p-8 text-center"
         >
-          <p class="text-white/40 text-sm">
+          <p class="text-ui-muted text-sm">
             ${translateText("clan_modal.donations_empty")}
           </p>
         </div>
@@ -187,17 +187,17 @@ export class ClanDonationsView extends LitElement {
     return html`
       <div
         data-donation-id=${d.id}
-        class="flex items-center gap-3 py-2.5 px-3 rounded-xl border bg-white/5 border-white/10"
+        class="flex items-center gap-3 py-2.5 px-3 rounded-xl border bg-ui-surface border-ui-border"
       >
         <div class="flex-1 min-w-0 flex flex-col">
           ${d.createdBy === null
-            ? html`<span class="text-sm text-white/40 italic"
+            ? html`<span class="text-sm text-ui-muted italic"
                 >${translateText("clan_modal.donations_deleted_player")}</span
               >`
             : html`<div class="min-w-0">
                 ${playerNameLink(this, d.createdByUsername, d.createdBy)}
               </div>`}
-          <span class="text-white/30 text-[10px] whitespace-nowrap"
+          <span class="text-ui-muted text-[10px] whitespace-nowrap"
             >${formatAbsoluteTime(d.createdAt)}</span
           >
         </div>

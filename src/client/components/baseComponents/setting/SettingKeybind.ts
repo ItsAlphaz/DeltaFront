@@ -1,6 +1,7 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { formatKeyForDisplay, translateText } from "../../../../client/Utils";
+import { DESCRIPTION, LABEL, RAINBOW, ROW } from "./SettingStyles";
 
 @customElement("setting-keybind")
 export class SettingKeybind extends LitElement {
@@ -22,29 +23,24 @@ export class SettingKeybind extends LitElement {
     const currentValue = this.value === "" ? "" : this.value || this.defaultKey;
     const canReset = this.value !== undefined && this.value !== this.defaultKey;
     const displayValue = this.display || currentValue;
-    const rainbowClass = this.easter
-      ? "bg-[linear-gradient(270deg,#990033,#996600,#336600,#008080,#1c3f99,#5e0099,#990033)] bg-[length:1400%_1400%] animate-rainbow-bg text-white hover:bg-[linear-gradient(270deg,#990033,#996600,#336600,#008080,#1c3f99,#5e0099,#990033)]"
-      : "";
+    const smallButton =
+      "ui-focus min-h-8 rounded-ui-card border border-ui-border-strong bg-ui-surface px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ui-muted transition-colors hover:border-ui-border-hover hover:text-ui-text";
 
     return html`
-      <div
-        class="flex flex-row items-center justify-between w-full p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all gap-4 ${rainbowClass}"
-      >
-        <div class="flex flex-col flex-1 min-w-0 mr-4">
-          <label class="text-white font-bold text-base block mb-1"
-            >${this.label}</label
-          >
-          <div class="text-white/50 text-sm leading-snug">
-            ${this.description}
-          </div>
+      <div class="${ROW} ${this.easter ? RAINBOW : ""}">
+        <div class="min-w-0 flex-1">
+          <label class="${LABEL}">${this.label}</label>
+          ${this.description
+            ? html`<div class="${DESCRIPTION}">${this.description}</div>`
+            : nothing}
         </div>
 
-        <div class="flex items-center gap-3 shrink-0">
+        <div class="flex shrink-0 items-center gap-3">
           <div
-            class="relative h-12 min-w-[80px] px-4 flex items-center justify-center bg-black/60 border border-white/20 rounded-lg text-xl font-bold font-mono shadow-inner hover:border-df-red focus:border-df-red focus:ring-2 focus:ring-df-red/50 transition-all cursor-pointer select-none text-white
-            ${this.listening
-              ? "border-df-red text-df-red-bright ring-2 ring-df-red/50"
-              : ""}"
+            class="ui-focus ui-mono relative flex h-11 min-w-[80px] cursor-pointer select-none items-center justify-center rounded-ui-card border bg-ui-ground px-4 text-[16px] font-bold text-ui-text transition-colors hover:border-ui-border-hover ${this
+              .listening
+              ? "border-ui-accent text-ui-accent-soft"
+              : "border-ui-border-strong"}"
             role="button"
             aria-label="${translateText("user_setting.press_a_key")}"
             tabindex="0"
@@ -57,18 +53,15 @@ export class SettingKeybind extends LitElement {
 
           <div class="flex flex-col gap-1">
             <button
-              class="text-[10px] font-bold uppercase tracking-wider bg-white/5 hover:bg-white/20 border border-white/10 px-3 py-1 rounded text-white/60 hover:text-white transition-colors ${canReset
+              class="${smallButton} ${canReset
                 ? ""
-                : "opacity-50 cursor-not-allowed pointer-events-none"}"
+                : "pointer-events-none cursor-not-allowed opacity-50"}"
               @click=${this.resetToDefault}
               ?disabled=${!canReset}
             >
               ${translateText("user_setting.reset")}
             </button>
-            <button
-              class="text-[10px] font-bold uppercase tracking-wider bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/50 px-3 py-1 rounded text-white/60 hover:text-red-200 transition-colors"
-              @click=${this.unbindKey}
-            >
+            <button class="${smallButton}" @click=${this.unbindKey}>
               ${translateText("user_setting.unbind")}
             </button>
           </div>

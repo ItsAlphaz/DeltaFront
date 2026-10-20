@@ -8,13 +8,18 @@ import "./components/baseComponents/setting/SettingNumber";
 import "./components/baseComponents/setting/SettingSelect";
 import { SettingSelect } from "./components/baseComponents/setting/SettingSelect";
 import "./components/baseComponents/setting/SettingSlider";
+import {
+  COLUMN_ROW,
+  DESCRIPTION,
+  LABEL,
+} from "./components/baseComponents/setting/SettingStyles";
 import "./components/baseComponents/setting/SettingToggle";
 import { BaseModal } from "./components/BaseModal";
 import "./components/GraphicsAdvancedSettings";
 import type { GraphicsAdvancedSettings } from "./components/GraphicsAdvancedSettings";
 import "./components/GraphicsPresetSelector";
 import "./components/GraphicsPresetTools";
-import { modalHeader } from "./components/ui/ModalHeader";
+import { uiPageHeader } from "./components/ui/PageUi";
 import {
   desktopDisplay,
   DISPLAY_SETTLE_TIMEOUT_MS,
@@ -661,10 +666,10 @@ export class UserSettingModal extends BaseModal {
     return html`
       <button
         id="audio-${category}-test"
-        class="self-end px-3 py-1 text-sm font-medium rounded-lg border border-white/10 text-white transition-colors ${muted ||
+        class="self-end ui-focus min-h-9 rounded-ui-card border border-ui-border-strong bg-ui-surface px-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-ui-text transition-colors ${muted ||
         pending
-          ? "opacity-40 cursor-not-allowed"
-          : "bg-white/5 hover:bg-white/15"}"
+          ? "cursor-not-allowed opacity-40"
+          : "hover:border-ui-border-hover cursor-pointer"}"
         ?disabled=${muted || pending}
         title=${muted ? translateText(hint) : ""}
         @click=${() => this.playTestCue(category)}
@@ -728,7 +733,7 @@ export class UserSettingModal extends BaseModal {
       <div class="flex justify-end pt-2">
         <button
           id="audio-reset"
-          class="px-3 py-1 text-sm font-medium rounded-lg border border-white/10 text-white bg-white/5 hover:bg-white/15 transition-colors"
+          class="ui-focus min-h-9 rounded-ui-card border border-ui-border-strong bg-ui-surface px-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-ui-text transition-colors hover:border-ui-border-hover cursor-pointer"
           @click=${this.resetAudio}
         >
           ${translateText("user_setting.audio_reset")}
@@ -781,11 +786,10 @@ export class UserSettingModal extends BaseModal {
   }
 
   protected renderHeaderSlot() {
-    return modalHeader({
+    return uiPageHeader({
       title: translateText("user_setting.title"),
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
-      showDivider: true,
+      backLabel: translateText("common.back"),
     });
   }
 
@@ -808,7 +812,9 @@ export class UserSettingModal extends BaseModal {
         body = this.renderGameplaySettings();
     }
     return html`
-      <div class="flex flex-col gap-2 p-4 lg:p-[1.4rem]">${body}</div>
+      <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-4 lg:p-6">
+        ${body}
+      </div>
     `;
   }
 
@@ -1115,7 +1121,7 @@ export class UserSettingModal extends BaseModal {
       : html`
           <div
             id="display-f11-hint"
-            class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-white/5 border border-df-border text-df-text-secondary text-xs"
+            class="ui-body mb-3 flex items-center gap-2 rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3 text-[13px] text-ui-muted"
           >
             ${translateText("user_setting.display_f11_hint")}
           </div>
@@ -1139,7 +1145,7 @@ export class UserSettingModal extends BaseModal {
       : html`
           <div
             id="display-missing-note"
-            class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/80 text-xs"
+            class="ui-body mb-3 flex items-center gap-2 rounded-ui-card border border-ui-gold/40 bg-ui-gold/10 px-4 py-3 text-[13px] text-ui-gold"
           >
             ${translateText("user_setting.display_missing")}
           </div>
@@ -1207,7 +1213,7 @@ export class UserSettingModal extends BaseModal {
   private renderKeybindSettings() {
     return html`
       <div
-        class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-white/5 border border-df-border text-df-text-secondary text-xs"
+        class="ui-body mb-3 flex items-center gap-2 rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3 text-[13px] text-ui-muted"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -1227,7 +1233,7 @@ export class UserSettingModal extends BaseModal {
       </div>
 
       <h2
-        class="text-df-text text-xl font-bold mt-4 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-4 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.view_options")}
       </h2>
@@ -1276,7 +1282,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.build_controls")}
       </h2>
@@ -1402,7 +1408,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.menu_shortcuts")}
       </h2>
@@ -1478,7 +1484,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.attack_ratio_controls")}
       </h2>
@@ -1508,7 +1514,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.attack_keybinds")}
       </h2>
@@ -1554,7 +1560,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.ally_keybinds")}
       </h2>
@@ -1610,7 +1616,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.zoom_controls")}
       </h2>
@@ -1636,7 +1642,7 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <h2
-        class="text-df-text text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
+        class="ui-heading mt-8 mb-3 border-b border-ui-border pb-3 text-ui-text"
       >
         ${translateText("user_setting.camera_movement")}
       </h2>
@@ -1701,14 +1707,12 @@ export class UserSettingModal extends BaseModal {
   private renderGraphicsSettings() {
     return html`
       <!-- 🎨 Graphics preset -->
-      <div
-        class="flex flex-col w-full p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all gap-3"
-      >
-        <div class="flex flex-col min-w-0">
-          <div class="text-white font-bold text-base block mb-1">
+      <div class="${COLUMN_ROW}">
+        <div class="min-w-0">
+          <div class="${LABEL}">
             ${translateText("user_setting.graphics_preset_label")}
           </div>
-          <div class="text-white/50 text-sm leading-snug">
+          <div class="${DESCRIPTION}">
             ${translateText("user_setting.graphics_preset_desc")}
           </div>
         </div>

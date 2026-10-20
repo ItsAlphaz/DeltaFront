@@ -85,7 +85,7 @@ export class ClanStatsBreakdown extends LitElement {
     const toggleVisible = !!expand && !expand.disabled;
     const toggleIcon = html`
       <span
-        class="w-3 h-3 shrink-0 flex items-center justify-center text-white/40 transition-transform duration-150
+        class="w-3 h-3 shrink-0 flex items-center justify-center text-ui-muted transition-transform duration-150
           ${expand?.expanded ? "rotate-90" : ""}"
         aria-hidden="true"
       >

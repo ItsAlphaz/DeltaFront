@@ -91,10 +91,12 @@ function statsSection(
       >
         ${translateText(heading)}
       </div>
-      <div class="overflow-x-auto rounded-lg border border-white/5 bg-black/20">
+      <div
+        class="overflow-x-auto rounded-lg border border-ui-border bg-ui-panel"
+      >
         <table class="w-full table-fixed text-sm text-gray-300">
           <thead>
-            <tr class="bg-white/5">
+            <tr class="bg-ui-surface">
               ${rowHeader === undefined
                 ? nothing
                 : html`<th
@@ -114,17 +116,17 @@ function statsSection(
           <tbody class="divide-y divide-white/5">
             ${rows.map(
               (row) => html`
-                <tr class="hover:bg-white/5 transition-colors">
+                <tr class="hover:bg-ui-surface transition-colors">
                   ${row.label === undefined
                     ? nothing
                     : html`<td
-                        class="px-4 py-2 text-left font-medium text-white/80"
+                        class="px-4 py-2 text-left font-medium text-ui-text"
                       >
                         ${translateText(row.label)}
                       </td>`}
                   ${row.values.map(
                     (value) => html`
-                      <td class="px-3 py-2 text-center text-white/60">
+                      <td class="px-3 py-2 text-center text-ui-muted">
                         ${renderNumber(value)}
                       </td>
                     `,

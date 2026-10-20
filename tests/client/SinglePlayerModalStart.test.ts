@@ -13,7 +13,9 @@ vi.mock("../../src/client/CrazyGamesSDK", () => ({
 }));
 
 vi.mock("../../src/client/TerrainMapFileLoader", () => ({
-  terrainMapFileLoader: { getMapData: vi.fn() },
+  terrainMapFileLoader: {
+    getMapData: vi.fn(() => ({ webpPath: "/m.webp" })),
+  },
 }));
 
 // Side-effect import so the custom element registers (a type-only import

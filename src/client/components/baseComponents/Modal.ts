@@ -1,5 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
+import { translateText } from "../../Utils";
 import { documentStylesSheet } from "./SharedStyles";
 
 export type OModalTab = { key: string; label: string };
@@ -30,12 +31,12 @@ export class OModal extends LitElement {
   public hideHeader = false;
 
   /**
-   * The account pages' shell (components/ui/PageUi.ts): a dark panel with the
-   * design system's 16px radius and border, the full width of its column, in
-   * place of the translucent glass of the other pages.
+   * The website's shell (components/ui/PageUi.ts): a dark panel with the
+   * design system's 16px radius and border, the full width of its column.
+   * Every page and dialog uses it; `false` gives the translucent glass.
    */
   @property({ type: Boolean })
-  public ui = false;
+  public ui = true;
 
   @property({ type: String })
   public maxWidth = "";
@@ -99,7 +100,7 @@ export class OModal extends LitElement {
     return html`
       <div
         role="tablist"
-        class="flex flex-wrap justify-center border-b border-white/10 px-4 lg:px-6 gap-1 shrink-0"
+        class="flex gap-6 overflow-x-auto overflow-y-hidden border-b border-ui-border px-4 lg:px-6 shrink-0 font-ui"
       >
         ${this.tabs.map((tab) => {
           const active = this.activeTab === tab.key;
@@ -109,17 +110,12 @@ export class OModal extends LitElement {
               role="tab"
               data-key=${tab.key}
               aria-selected=${active}
-              class="px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all relative cursor-pointer ${active
-                ? "text-df-red-bright"
-                : "text-white/40 hover:text-white/70"}"
+              class="ui-focus -mb-px flex h-[52px] shrink-0 items-center whitespace-nowrap border-b-2 text-[14px] font-semibold transition-colors cursor-pointer ${active
+                ? "border-ui-accent text-ui-text"
+                : "border-transparent text-ui-muted hover:text-ui-text"}"
               @click=${() => this.handleTabClick(tab.key)}
             >
               ${tab.label}
-              ${active
-                ? html`<div
-                    class="absolute bottom-0 left-0 right-0 h-0.5 bg-df-red"
-                  ></div>`
-                : ""}
             </button>
           `;
         })}
@@ -139,7 +135,7 @@ export class OModal extends LitElement {
 
     const wrapperClass = this.inline
       ? "relative flex flex-col w-full h-full m-0 max-w-full max-h-none shadow-none"
-      : `relative flex flex-col w-full h-full lg:w-[90%] lg:h-auto lg:min-w-[400px] lg:max-w-[900px] lg:m-8 lg:rounded-lg lg:max-h-[calc(100vh-4rem)] ${
+      : `relative flex flex-col w-full h-full lg:w-[90%] lg:h-auto lg:min-w-[400px] lg:max-w-[900px] lg:m-8 lg:rounded-ui-modal lg:max-h-[calc(100vh-4rem)] ${
           this.alwaysMaximized ? "h-auto" : ""
         }`;
     const wrapperStyle =
@@ -162,12 +158,14 @@ export class OModal extends LitElement {
         >
           ${this.inline || this.hideCloseButton
             ? html``
-            : html`<div
-                class="absolute top-5 right-5 z-10 text-white cursor-pointer"
+            : html`<button
+                type="button"
+                aria-label=${translateText("common.close")}
+                class="ui-focus absolute top-5 right-5 z-10 flex h-11 w-11 items-center justify-center rounded-ui-card border border-ui-border-strong bg-ui-surface text-ui-muted transition-colors hover:border-ui-border-hover hover:text-ui-text cursor-pointer"
                 @click=${() => this.close()}
               >
                 ✕
-              </div>`}
+              </button>`}
           ${!this.hideHeader && this.title
             ? html`<div
                 class="px-[1.4rem] py-[1rem] text-2xl font-bold text-white"

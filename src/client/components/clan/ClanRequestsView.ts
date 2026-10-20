@@ -127,7 +127,7 @@ export class ClanRequestsView extends LitElement {
     return html`
       <div>
         <div
-          class="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2"
+          class="text-[10px] font-bold uppercase tracking-wider text-ui-muted mb-2"
         >
           ${translateText("clan_modal.pending_requests_count", {
             count: this.requestsTotal,
@@ -142,7 +142,7 @@ export class ClanRequestsView extends LitElement {
           ? html`<div
               class="flex flex-col items-center justify-center p-12 text-center"
             >
-              <p class="text-white/40 text-sm">
+              <p class="text-ui-muted text-sm">
                 ${translateText("clan_modal.no_requests")}
               </p>
             </div>`
@@ -151,11 +151,11 @@ export class ClanRequestsView extends LitElement {
                 ${filtered.map(
                   (req) => html`
                     <div
-                      class="flex items-center gap-3 bg-white/5 rounded-xl border border-white/10 p-4"
+                      class="flex items-center gap-3 bg-ui-surface rounded-xl border border-ui-border p-4"
                     >
                       <div class="flex-1 min-w-0">
                         ${playerNameLink(this, req.username, req.publicId)}
-                        <span class="text-white/30 text-[10px]">
+                        <span class="text-ui-muted text-[10px]">
                           ${translateText("clan_modal.requested_on", {
                             tag: this.selectedClan?.tag ?? this.clanTag,
                             date: formatClanDate(req.createdAt),
@@ -166,14 +166,14 @@ export class ClanRequestsView extends LitElement {
                         <button
                           @click=${() => this.handleApprove(req.publicId)}
                           ?disabled=${this.memberActionPending}
-                          class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                          class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-green-500/20 text-ui-success border border-green-500/30 hover:bg-green-500/30 transition-all disabled:opacity-50 disabled:pointer-events-none"
                         >
                           ${translateText("clan_modal.approve")}
                         </button>
                         <button
                           @click=${() => this.handleDeny(req.publicId)}
                           ?disabled=${this.memberActionPending}
-                          class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                          class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-red-500/20 text-ui-accent-soft border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50 disabled:pointer-events-none"
                         >
                           ${translateText("clan_modal.deny")}
                         </button>

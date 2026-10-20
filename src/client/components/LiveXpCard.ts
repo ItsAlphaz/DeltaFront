@@ -130,7 +130,7 @@ export class LiveXpCard extends LitElement {
             data-live-xp-line=${line.key}
             class="flex items-baseline justify-between gap-3"
           >
-            <span class="min-w-0 text-white/70"
+            <span class="min-w-0 text-ui-muted"
               >${line.key === "eliminations" && breakdown.eliminationCount > 0
                 ? translateText("progression.live_eliminations", {
                     count: breakdown.eliminationCount,
@@ -142,7 +142,7 @@ export class LiveXpCard extends LitElement {
                   : translateText(XP_LINE_LABEL_KEYS[line.key])}</span
             >
             <span
-              class="shrink-0 whitespace-nowrap font-bold tabular-nums text-yellow-300"
+              class="shrink-0 whitespace-nowrap font-bold tabular-nums text-ui-gold"
               >${translateText("progression.xp_total", {
                 xp: formatXp(amounts[i]),
               })}</span
@@ -153,7 +153,7 @@ export class LiveXpCard extends LitElement {
         (m) =>
           html`<li
             data-live-xp-multiplier=${m.key}
-            class="text-xs font-bold uppercase tracking-wider text-white/50"
+            class="text-xs font-bold uppercase tracking-wider text-ui-muted"
           >
             ${xpBonusText(m.key, m.permille)}
           </li>`,
@@ -198,14 +198,14 @@ export class LiveXpCard extends LitElement {
     // the reduced award.
     const unconfirmed = status === "pending" && data.status === "live";
     const figure = unconfirmed
-      ? html`<span data-live-xp-total class="text-white/60"
+      ? html`<span data-live-xp-total class="text-ui-muted"
           >${translateText("progression.live_finalizing")}</span
         >`
       : forfeited
-        ? html`<span data-live-xp-total class="text-white/40 line-through"
+        ? html`<span data-live-xp-total class="text-ui-muted line-through"
             >${translateText("progression.xp_total", { xp: "0" })}</span
           >`
-        : html`<span data-live-xp-total class="text-yellow-300"
+        : html`<span data-live-xp-total class="text-ui-gold"
             >${keyed(
               this.bump,
               html`<span class=${this.bump > 0 ? "df-xp-pop" : "inline-block"}
@@ -221,30 +221,30 @@ export class LiveXpCard extends LitElement {
       data-live-xp
       data-live-status=${status}
       data-live-mode=${data.mode ?? nothing}
-      class="flex flex-col gap-2 text-white"
+      class="flex flex-col gap-2 text-ui-text"
     >
       <div
         class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
       >
         <span
           data-live-xp-title
-          class="font-display text-xs font-bold uppercase tracking-[0.2em] text-white/60"
+          class="font-display text-xs font-bold uppercase tracking-[0.1em] text-ui-muted"
           >${translateText(HEADING_KEYS[status])}</span
         >
         <span
-          class="ml-auto whitespace-nowrap text-xl font-black tabular-nums leading-none"
+          class="ml-auto whitespace-nowrap text-xl font-bold tabular-nums leading-none"
           >${figure}</span
         >
       </div>
       ${detailed ? this.renderLines(data) : nothing}
       ${data.mode === "reduced" && detailed
-        ? html`<p data-live-xp-reduced class="m-0 text-xs text-white/50">
+        ? html`<p data-live-xp-reduced class="m-0 text-xs text-ui-muted">
             ${translateText("progression.live_reduced_note")}
           </p>`
         : nothing}
       ${note === null || this.summary
         ? nothing
-        : html`<p data-live-xp-note class="m-0 text-xs text-white/60">
+        : html`<p data-live-xp-note class="m-0 text-xs text-ui-muted">
             ${note}
           </p>`}
     </section>`;

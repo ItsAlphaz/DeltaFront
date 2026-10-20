@@ -13,7 +13,7 @@ import {
   trustRequiredDialog,
   viewerIsTrusted,
 } from "./LobbyCard";
-import { modalHeader } from "./ui/ModalHeader";
+import { uiPageHeader } from "./ui/PageUi";
 
 @customElement("ranked-modal")
 export class RankedModal extends BaseModal {
@@ -119,17 +119,17 @@ export class RankedModal extends BaseModal {
   }
 
   protected renderHeaderSlot() {
-    return modalHeader({
+    return uiPageHeader({
       title: translateText("mode_selector.ranked_title"),
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
+      backLabel: translateText("common.back"),
     });
   }
 
   protected renderBody() {
     return html`
-      <div class="custom-scrollbar p-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="p-6">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           ${this.renderCard(
             translateText("mode_selector.ranked_1v1_title"),
             this.errorMessage ??
@@ -159,7 +159,9 @@ export class RankedModal extends BaseModal {
             "",
           )}
         </div>
-        <p class="mt-6 text-xs text-white/60 leading-relaxed text-center">
+        <p
+          class="ui-body mt-6 max-w-3xl text-[13px] leading-relaxed text-ui-muted"
+        >
           ${translateText("mode_selector.ranked_pairing_note")}
         </p>
         ${this.showTrustRequired
@@ -185,21 +187,13 @@ export class RankedModal extends BaseModal {
       : "";
     return html`
       <button
+        type="button"
+        data-ranked-card
         @click=${onClick}
-        class="relative flex flex-col w-full h-28 sm:h-32 rounded-2xl bg-df-red border-0 transition-all duration-200 hover:bg-df-red-bright hover:scale-[1.03] hover:shadow-[var(--shadow-action-card-hover)] active:bg-df-red/80 active:scale-[0.98] p-6 items-center justify-center gap-3"
+        class="ui-focus relative flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-ui-card border border-ui-border bg-ui-surface p-6 text-center transition-colors hover:border-ui-border-hover"
       >
-        <div class="flex flex-col items-center gap-1 text-center">
-          <h3
-            class="text-lg sm:text-xl font-bold text-white uppercase tracking-widest leading-tight"
-          >
-            ${title}
-          </h3>
-          <p
-            class="text-xs text-white/80 uppercase tracking-wider whitespace-pre-line leading-tight"
-          >
-            ${subtitle}
-          </p>
-        </div>
+        <h3 class="ui-title text-ui-text">${title}</h3>
+        <p class="ui-label whitespace-pre-line">${subtitle}</p>
         ${lock}
       </button>
     `;
@@ -208,20 +202,10 @@ export class RankedModal extends BaseModal {
   private renderDisabledCard(title: string, subtitle: string) {
     return html`
       <div
-        class="group relative isolate flex flex-col w-full h-28 sm:h-32 overflow-hidden rounded-2xl bg-slate-900/40 backdrop-blur-md border-0 shadow-none p-6 items-center justify-center gap-3 opacity-50 cursor-not-allowed"
+        class="relative flex h-32 w-full cursor-not-allowed flex-col items-center justify-center gap-2 rounded-ui-card border border-dashed border-ui-border-strong p-6 text-center opacity-60"
       >
-        <div class="flex flex-col items-center gap-1 text-center">
-          <h3
-            class="text-lg sm:text-xl font-bold text-white/60 uppercase tracking-widest leading-tight"
-          >
-            ${title}
-          </h3>
-          <p
-            class="text-xs text-white/40 uppercase tracking-wider whitespace-pre-line leading-tight"
-          >
-            ${subtitle}
-          </p>
-        </div>
+        <h3 class="ui-title text-ui-muted">${title}</h3>
+        <p class="ui-label whitespace-pre-line">${subtitle}</p>
       </div>
     `;
   }

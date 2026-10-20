@@ -184,7 +184,7 @@ export class ClanDonateDialog extends LitElement {
         @click=${() => this.selectCurrency(type)}
         class="relative flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border transition-all ${selected
           ? selectedClasses
-          : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white"} disabled:opacity-50 disabled:pointer-events-none"
+          : "bg-ui-surface border-ui-border text-ui-muted hover:bg-white/10 hover:text-ui-text"} disabled:opacity-50 disabled:pointer-events-none"
       >
         ${selected
           ? html`<span
@@ -218,7 +218,7 @@ export class ClanDonateDialog extends LitElement {
             : html`<credits-icon .size=${16}></credits-icon>`}
           ${this.currencyLabel(type)}
         </span>
-        <span class="text-[11px] text-white/50">
+        <span class="text-[11px] text-ui-muted">
           ${balance === null
             ? "…"
             : translateText("clan_modal.donate_your_balance", {
@@ -247,10 +247,10 @@ export class ClanDonateDialog extends LitElement {
             ? "border-red-500/50"
             : "border-amber-500/50"} bg-surface shadow-2xl"
         >
-          <h2 class="text-lg font-bold text-white mb-1">
+          <h2 class="text-lg font-bold text-ui-text mb-1">
             ${translateText("clan_modal.donate_title", { tag: this.clanTag })}
           </h2>
-          <p class="text-white/50 text-xs mb-4">
+          <p class="text-ui-muted text-xs mb-4">
             ${translateText("clan_modal.donate_subtitle")}
           </p>
 
@@ -260,7 +260,7 @@ export class ClanDonateDialog extends LitElement {
           </div>
 
           <label
-            class="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2"
+            class="block text-[10px] font-bold text-ui-muted uppercase tracking-wider mb-2"
             for="clan-donate-amount"
             >${translateText("clan_modal.donate_amount")}</label
           >
@@ -276,10 +276,10 @@ export class ClanDonateDialog extends LitElement {
             @keydown=${(e: KeyboardEvent) => {
               if (e.key === "Enter") void this.submit();
             }}
-            class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm disabled:opacity-50"
+            class="w-full px-4 py-3 bg-ui-surface border border-ui-border rounded-xl text-ui-text placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm disabled:opacity-50"
           />
           ${error
-            ? html`<p class="text-red-400 text-xs mt-2" role="alert">
+            ? html`<p class="text-ui-accent-soft text-xs mt-2" role="alert">
                 ${error}
               </p>`
             : ""}
@@ -304,7 +304,7 @@ export class ClanDonateDialog extends LitElement {
               type="button"
               @click=${() => this.cancel()}
               ?disabled=${this.submitting}
-              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-all disabled:opacity-50 disabled:pointer-events-none"
+              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-ui-surface text-ui-muted border border-ui-border hover:bg-white/10 hover:text-ui-text transition-all disabled:opacity-50 disabled:pointer-events-none"
             >
               ${translateText("common.cancel")}
             </button>
@@ -313,7 +313,7 @@ export class ClanDonateDialog extends LitElement {
               data-action="donate"
               @click=${() => void this.submit()}
               ?disabled=${!canSubmit}
-              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl text-white transition-all disabled:opacity-50 disabled:pointer-events-none border-0 ${isHard
+              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl text-ui-text transition-all disabled:opacity-50 disabled:pointer-events-none border-0 ${isHard
                 ? "bg-red-600 hover:bg-red-700"
                 : "bg-amber-600 hover:bg-amber-700"}"
             >

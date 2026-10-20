@@ -29,7 +29,15 @@ import "./components/GameConfigSettings";
 import type { CrisisMinutes } from "./components/GameConfigSettings";
 import { MEDAL_ORDER, medalIcon } from "./components/map/Medals";
 import "./components/ToggleInputCard";
-import { modalHeader } from "./components/ui/ModalHeader";
+import { lobbyMapPreview, lobbySummaryRows } from "./components/ui/LobbyPanel";
+import {
+  uiButton,
+  uiButtonClasses,
+  uiDetailPanel,
+  uiDetailRows,
+  uiPageHeader,
+  uiTwoColumn,
+} from "./components/ui/PageUi";
 import { getPlayerCosmetics, prewarmCosmetics } from "./Cosmetics";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
 import { GameStartingModal } from "./GameStartingModal";
@@ -306,7 +314,9 @@ export class SinglePlayerModal extends BaseModal {
       return html``;
     }
     return html`<button
-      class="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors duration-200 rounded-lg bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 whitespace-nowrap shrink-0 cursor-pointer hover:bg-yellow-500/30"
+      type="button"
+      data-ui-button="sign-in-for-achievements"
+      class="${uiButtonClasses("secondary")}"
       @click=${() => {
         this.close();
         window.showPage?.("page-account");
@@ -344,30 +354,33 @@ export class SinglePlayerModal extends BaseModal {
     this.mapWins = winsMap;
   }
 
+  protected modalConfig() {
+    return { ui: true };
+  }
+
   protected renderHeaderSlot() {
-    return modalHeader({
+    return uiPageHeader({
       title: translateText("main.solo") || "Solo",
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
-      rightContent: responseHasLinkedIdentity(this.userMeResponse)
+      backLabel: translateText("common.back"),
+      status: responseHasLinkedIdentity(this.userMeResponse)
         ? html`<button
-              @click=${this.toggleAchievements}
-              class="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all shrink-0 ${this
-                .showAchievements
-                ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
-                : "text-white/60"}"
-            >
-              <img
-                src=${assetUrl("images/MedalIconWhite.svg")}
-                class="w-4 h-4 opacity-80 shrink-0"
-                style="${this.showAchievements ? "" : "filter: grayscale(1);"}"
-              />
-              <span
-                class="text-xs font-bold uppercase tracking-wider whitespace-nowrap"
-                >${translateText("single_modal.toggle_achievements")}</span
-              >
-            </button>
-            ${this.showAchievements ? this.renderMedalOverview() : null}`
+            type="button"
+            data-ui-button="achievements"
+            aria-pressed=${this.showAchievements ? "true" : "false"}
+            @click=${this.toggleAchievements}
+            class="${uiButtonClasses("secondary")} ${this.showAchievements
+              ? "border-ui-gold! text-ui-gold"
+              : ""}"
+          >
+            <img
+              src=${assetUrl("images/MedalIconWhite.svg")}
+              alt=""
+              class="h-4 w-4 shrink-0 opacity-80"
+              style="${this.showAchievements ? "" : "filter: grayscale(1);"}"
+            />
+            ${translateText("single_modal.toggle_achievements")}
+          </button>`
         : this.renderNotLoggedInBanner(),
     });
   }
@@ -378,13 +391,11 @@ export class SinglePlayerModal extends BaseModal {
   private renderMedalOverview(): TemplateResult {
     const counts = this.medalCounts();
     const total = this.eligibleMaps?.size ?? null;
-    return html`<div class="basis-full w-full">
+    return html`<div class="mb-6">
       <div
-        class="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5 rounded-xl border border-yellow-500/20 bg-yellow-500/5"
+        class="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3"
       >
-        <span
-          class="text-[11px] font-bold uppercase tracking-wider text-yellow-400/80 shrink-0"
-        >
+        <span class="ui-label shrink-0">
           ${translateText("single_modal.medals_earned")}
         </span>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
@@ -392,9 +403,7 @@ export class SinglePlayerModal extends BaseModal {
             this.renderMedalStat(difficulty, counts[difficulty]),
           )}
         </div>
-        <span
-          class="ml-auto text-[11px] font-semibold uppercase tracking-wider text-white/40 shrink-0"
-        >
+        <span class="ui-label ml-auto shrink-0">
           ${translateText("single_modal.medals_of_maps", {
             total: total ?? "…",
           })}
@@ -412,10 +421,10 @@ export class SinglePlayerModal extends BaseModal {
       title=${translateText(`difficulty.${difficulty.toLowerCase()}`)}
     >
       ${medalIcon(difficulty, "w-4 h-4")}
-      <span class="text-xs font-medium text-white/50 hidden sm:inline"
+      <span class="ui-body hidden text-[13px] text-ui-muted sm:inline"
         >${translateText(`difficulty.${difficulty.toLowerCase()}`)}</span
       >
-      <span class="text-sm font-bold text-white tabular-nums">${count}</span>
+      <span class="ui-mono text-[14px] font-bold text-ui-text">${count}</span>
     </div>`;
   }
 
@@ -501,123 +510,162 @@ export class SinglePlayerModal extends BaseModal {
       ></toggle-input-card>`,
     ];
 
-    return html`
-      <div class="flex flex-col h-full">
-        <div
-          class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 pt-4 pb-6 mr-1 mx-auto w-full max-w-5xl"
-        >
-          <game-config-settings
-            class="block"
-            .sectionGapClass=${"space-y-6"}
-            .settings=${{
-              map: {
-                selected: this.selectedMap,
-                useRandom: this.useRandomMap,
-                showMedals: this.showAchievements,
-                mapWins: this.mapWins,
+    const content = html`
+      <div class="p-6">
+        ${this.showAchievements &&
+        responseHasLinkedIdentity(this.userMeResponse)
+          ? this.renderMedalOverview()
+          : null}
+        <game-config-settings
+          class="block"
+          .sectionGapClass=${"space-y-6"}
+          .settings=${{
+            map: {
+              selected: this.selectedMap,
+              useRandom: this.useRandomMap,
+              showMedals: this.showAchievements,
+              mapWins: this.mapWins,
+            },
+            difficulty: {
+              selected: this.selectedDifficulty,
+              disabled: this.nations === 0,
+            },
+            gameMode: {
+              selected: this.gameMode,
+            },
+            teamCount: {
+              selected: this.teamCount,
+            },
+            options: {
+              titleKey: "game_settings.options",
+              bots: {
+                value: this.bots,
+                labelKey: "game_settings.bots",
+                disabledKey: "common.disabled",
               },
-              difficulty: {
-                selected: this.selectedDifficulty,
-                disabled: this.nations === 0,
+              nations: {
+                value: this.nations,
+                defaultValue: this.defaultNationCount,
+                labelKey: "game_settings.nations",
+                disabledKey: "common.disabled",
               },
-              gameMode: {
-                selected: this.gameMode,
-              },
-              teamCount: {
-                selected: this.teamCount,
-              },
-              options: {
-                titleKey: "game_settings.options",
-                bots: {
-                  value: this.bots,
-                  labelKey: "game_settings.bots",
-                  disabledKey: "common.disabled",
+              toggles: [
+                {
+                  labelKey: "game_settings.instant_build",
+                  checked: this.instantBuild,
                 },
-                nations: {
-                  value: this.nations,
-                  defaultValue: this.defaultNationCount,
-                  labelKey: "game_settings.nations",
-                  disabledKey: "common.disabled",
+                {
+                  labelKey: "game_settings.random_spawn",
+                  checked: this.randomSpawn,
                 },
-                toggles: [
-                  {
-                    labelKey: "game_settings.instant_build",
-                    checked: this.instantBuild,
-                  },
-                  {
-                    labelKey: "game_settings.random_spawn",
-                    checked: this.randomSpawn,
-                  },
-                  {
-                    labelKey: "game_settings.infinite_gold",
-                    checked: this.infiniteGold,
-                  },
-                  {
-                    labelKey: "game_settings.infinite_troops",
-                    checked: this.infiniteTroops,
-                  },
-                  {
-                    labelKey: "game_settings.compact_map",
-                    checked: this.compactMap,
-                  },
-                  {
-                    labelKey: "game_settings.water_nukes",
-                    checked: this.waterNukes,
-                  },
-                  {
-                    labelKey: "game_settings.doomsday_clock",
-                    checked: this.doomsdayClock,
-                    doomsdayClockSpeed: this.doomsdayClockSpeed,
-                  },
-                  {
-                    labelKey: "game_settings.capital_system",
-                    checked: this.capitalSystem,
-                    crisisMinutes: this.crisisMinutes,
-                  },
-                ],
-                inputCards,
-              },
-              unitTypes: {
-                titleKey: "game_settings.disable_units",
-                disabledUnits: this.disabledUnits,
-              },
-            }}
-            @map-selected=${this.handleConfigMapSelected}
-            @random-map-selected=${this.handleConfigRandomMapSelected}
-            @difficulty-selected=${this.handleConfigDifficultySelected}
-            @doomsday-clock-speed-selected=${this
-              .handleConfigDoomsdayClockSpeedSelected}
-            @crisis-minutes-selected=${this.handleConfigCrisisMinutesSelected}
-            @game-mode-selected=${this.handleConfigGameModeSelected}
-            @team-count-selected=${this.handleConfigTeamCountSelected}
-            @bots-changed=${this.handleBotsChange}
-            @nations-changed=${this.handleNationsChange}
-            @option-toggle-changed=${this.handleConfigOptionToggleChanged}
-            @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
-          ></game-config-settings>
-        </div>
+                {
+                  labelKey: "game_settings.infinite_gold",
+                  checked: this.infiniteGold,
+                },
+                {
+                  labelKey: "game_settings.infinite_troops",
+                  checked: this.infiniteTroops,
+                },
+                {
+                  labelKey: "game_settings.compact_map",
+                  checked: this.compactMap,
+                },
+                {
+                  labelKey: "game_settings.water_nukes",
+                  checked: this.waterNukes,
+                },
+                {
+                  labelKey: "game_settings.doomsday_clock",
+                  checked: this.doomsdayClock,
+                  doomsdayClockSpeed: this.doomsdayClockSpeed,
+                },
+                {
+                  labelKey: "game_settings.capital_system",
+                  checked: this.capitalSystem,
+                  crisisMinutes: this.crisisMinutes,
+                },
+              ],
+              inputCards,
+            },
+            unitTypes: {
+              titleKey: "game_settings.disable_units",
+              disabledUnits: this.disabledUnits,
+            },
+          }}
+          @map-selected=${this.handleConfigMapSelected}
+          @random-map-selected=${this.handleConfigRandomMapSelected}
+          @difficulty-selected=${this.handleConfigDifficultySelected}
+          @doomsday-clock-speed-selected=${this
+            .handleConfigDoomsdayClockSpeedSelected}
+          @crisis-minutes-selected=${this.handleConfigCrisisMinutesSelected}
+          @game-mode-selected=${this.handleConfigGameModeSelected}
+          @team-count-selected=${this.handleConfigTeamCountSelected}
+          @bots-changed=${this.handleBotsChange}
+          @nations-changed=${this.handleNationsChange}
+          @option-toggle-changed=${this.handleConfigOptionToggleChanged}
+          @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
+        ></game-config-settings>
+      </div>
+    `;
 
-        <!-- Footer Action -->
-        <div class="p-6 border-t border-white/10 bg-black/20 shrink-0">
-          ${responseHasLinkedIdentity(this.userMeResponse) &&
-          this.hasOptionsChanged()
-            ? html`<div
-                class="mb-4 px-4 py-3 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-bold uppercase tracking-wider text-center"
-              >
-                ${translateText("single_modal.options_changed_no_achievements")}
-              </div>`
-            : null}
-          <o-button
-            variant="primary"
-            width="block"
-            size="lg"
-            translationKey=${this.starting
-              ? "game_settings.starting"
-              : "game_settings.start"}
-            .disable=${this.starting}
-            @click=${this.startGame}
-          ></o-button>
-        </div>
+    const changedNotice =
+      responseHasLinkedIdentity(this.userMeResponse) && this.hasOptionsChanged()
+        ? html`<div
+            data-solo-options-changed
+            class="ui-body rounded-ui-card border border-ui-gold/40 bg-ui-gold/10 px-4 py-3 text-center text-[13px] text-ui-gold"
+          >
+            ${translateText("single_modal.options_changed_no_achievements")}
+          </div>`
+        : undefined;
+
+    const panel = uiDetailPanel({
+      body: html`${lobbyMapPreview({
+        map: this.selectedMap,
+        useRandom: this.useRandomMap,
+        mapImage: this.mapLoader.getMapData(this.selectedMap).webpPath,
+      })}
+      ${uiDetailRows(
+        lobbySummaryRows({
+          difficulty: this.selectedDifficulty,
+          nations: this.nations,
+          bots: this.bots,
+          gameMode: this.gameMode,
+          rules: [
+            this.instantBuild,
+            this.randomSpawn,
+            this.infiniteGold,
+            this.infiniteTroops,
+            this.compactMap,
+            this.waterNukes,
+            this.doomsdayClock,
+            this.capitalSystem,
+          ],
+          limits: [
+            this.maxTimer,
+            this.customAlliances,
+            this.overtime,
+            this.goldMultiplier,
+            this.startingGold,
+          ],
+          disabledUnits: this.disabledUnits.length,
+        }),
+      )}`,
+      footer: changedNotice,
+      action: uiButton({
+        label: translateText(
+          this.starting ? "game_settings.starting" : "game_settings.start",
+        ),
+        variant: "primary",
+        block: true,
+        name: "start",
+        disabled: this.starting,
+        onClick: () => void this.startGame(),
+      }),
+    });
+
+    return html`
+      <div class="flex h-full min-h-0 flex-col">
+        ${uiTwoColumn({ content, detail: panel })}
       </div>
     `;
   }

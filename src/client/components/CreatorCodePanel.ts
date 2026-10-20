@@ -233,7 +233,7 @@ export class CreatorCodePanel extends LitElement {
           })}
         </div>
         ${locked
-          ? html`<div class="text-xs text-amber-300">
+          ? html`<div class="text-xs text-ui-gold">
               ${translateText("creator_code.cooldown_days", {
                 days: this.daysUntil(this.cooldownEnd()!),
               })}
@@ -254,14 +254,10 @@ export class CreatorCodePanel extends LitElement {
 
     return html`
       <div
-        class="rounded-xl border border-white/10 bg-gradient-to-br from-white/10 to-white/[0.02] p-5 flex flex-col gap-4"
+        class="flex flex-col gap-4 rounded-ui-panel border border-ui-border bg-ui-surface p-5"
       >
         <div class="flex flex-col gap-1">
-          <span
-            class="text-[10px] uppercase tracking-widest text-white/40 font-bold"
-          >
-            ${translateText("creator_code.title")}
-          </span>
+          <span class="ui-label"> ${translateText("creator_code.title")} </span>
           ${this.creator ? this.renderStatus(this.creator, locked) : nothing}
         </div>
 
@@ -270,10 +266,7 @@ export class CreatorCodePanel extends LitElement {
             ? "border-t border-white/10 pt-4"
             : ""} flex flex-col gap-2"
         >
-          <label
-            for="creator-code-panel-input"
-            class="text-[10px] uppercase tracking-widest text-white/40 font-bold"
-          >
+          <label for="creator-code-panel-input" class="ui-label">
             ${translateText("creator_code.input_label")}
           </label>
           <input
@@ -286,12 +279,14 @@ export class CreatorCodePanel extends LitElement {
             }}
             placeholder=${translateText("creator_code.input_placeholder")}
             ?disabled=${locked || this.busy}
-            class="w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 transition-all font-medium hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-white/5 ${this
+            class="ui-focus ui-mono h-11 w-full rounded-ui-card border bg-ui-ground px-4 text-ui-text transition-colors placeholder:text-ui-placeholder hover:border-ui-border-hover disabled:opacity-50 ${this
               .error
-              ? "border-red-500/50 focus:ring-red-500/40 focus:border-red-500/50"
-              : "border-white/10 focus:ring-df-red/50 focus:border-df-red/50"}"
+              ? "border-ui-accent"
+              : "border-ui-border-strong"}"
           />
-          <div class="text-sm text-red-400 min-h-[1.25rem]">${this.error}</div>
+          <div class="min-h-[1.25rem] text-sm text-ui-accent-soft">
+            ${this.error}
+          </div>
           <o-button
             variant=${setArmed ? "warning" : "primary"}
             width="block"

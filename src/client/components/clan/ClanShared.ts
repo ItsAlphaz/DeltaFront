@@ -56,7 +56,7 @@ export function renderRoleIcon(role: string): TemplateResult {
   }
   return html`<svg
     xmlns="http://www.w3.org/2000/svg"
-    class="w-4 h-4 text-white/40"
+    class="w-4 h-4 text-ui-muted"
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"
@@ -72,13 +72,15 @@ export function renderRoleIcon(role: string): TemplateResult {
 
 export function renderStat(label: string, value: string): TemplateResult {
   return html`
-    <div class="bg-white/5 rounded-xl border border-white/10 p-4 text-center">
+    <div
+      class="bg-ui-surface rounded-xl border border-ui-border p-4 text-center"
+    >
       <div
-        class="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1"
+        class="text-[10px] font-bold text-ui-muted uppercase tracking-wider mb-1"
       >
         ${label}
       </div>
-      <div class="text-white font-bold text-sm truncate">${value}</div>
+      <div class="text-ui-text font-bold text-sm truncate">${value}</div>
     </div>
   `;
 }
@@ -110,7 +112,7 @@ function renderPaginationButtons(
       >
         &lt;
       </button>
-      <span class="text-xs text-white/50 font-medium px-1">
+      <span class="text-xs text-ui-muted font-medium px-1">
         ${currentPage} / ${totalPages}
       </span>
       <button
@@ -144,7 +146,7 @@ export function renderServerPagination(
 ): TemplateResult {
   return html`
     <div
-      class="flex items-center justify-center gap-1 pt-4 border-t border-white/10"
+      class="flex items-center justify-center gap-1 pt-4 border-t border-ui-border"
     >
       ${renderPaginationButtons(currentPage, totalPages, onPageChange)}
     </div>
@@ -163,12 +165,12 @@ export function renderMemberSearchInput(
         type="text"
         .value=${value}
         @input=${onInput}
-        class="w-full h-10 pl-10 pr-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm"
+        class="w-full h-10 pl-10 pr-4 bg-ui-surface border border-ui-border rounded-xl text-ui-text placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm"
         placeholder="${translateText(placeholderKey)}"
       />
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        class="w-4 h-4 text-white/30 absolute left-3 top-1/2 -translate-y-1/2"
+        class="w-4 h-4 text-ui-muted absolute left-3 top-1/2 -translate-y-1/2"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -235,14 +237,14 @@ export function renderMemberSortControl(
   return html`
     <div class="flex items-center gap-2 shrink-0">
       <label
-        class="text-[10px] font-bold text-white/40 uppercase tracking-wider hidden sm:inline"
+        class="text-[10px] font-bold text-ui-muted uppercase tracking-wider hidden sm:inline"
       >
         ${translateText("clan_modal.sort_by")}
       </label>
       <select
         @change=${(e: Event) =>
           onSortChange((e.target as HTMLSelectElement).value as ClanMemberSort)}
-        class="flex-1 sm:flex-none h-10 pl-3 pr-8 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1rem] bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22rgba(255,255,255,0.5)%22 stroke-width=%222%22><path stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22m6 9 6 6 6-6%22/></svg>')]"
+        class="flex-1 sm:flex-none h-10 pl-3 pr-8 bg-ui-surface border border-ui-border rounded-xl text-ui-text focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm appearance-none bg-no-repeat bg-[right_0.5rem_center] bg-[length:1rem] bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22rgba(255,255,255,0.5)%22 stroke-width=%222%22><path stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22m6 9 6 6 6-6%22/></svg>')]"
       >
         ${sortOptions.map(
           (opt) => html`
@@ -261,7 +263,7 @@ export function renderMemberSortControl(
         @click=${onOrderToggle}
         title=${orderLabel}
         aria-label=${orderLabel}
-        class="h-10 w-10 shrink-0 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all"
+        class="h-10 w-10 shrink-0 flex items-center justify-center bg-ui-surface border border-ui-border rounded-xl text-ui-muted hover:text-ui-text hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all"
       >
         ${renderOrderIcon(order)}
       </button>
@@ -283,11 +285,11 @@ export function renderMemberPagination(
 
   return html`
     <div
-      class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/10"
+      class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-ui-border"
     >
       <div class="flex items-center gap-2">
         <span
-          class="text-[10px] font-bold text-white/40 uppercase tracking-wider"
+          class="text-[10px] font-bold text-ui-muted uppercase tracking-wider"
         >
           ${translateText("clan_modal.per_page")}
         </span>
@@ -328,13 +330,13 @@ export function renderWLBarRow(
   return html`
     <div class="flex items-center gap-2">
       <span
-        class="text-[10px] font-bold uppercase tracking-wider text-white/50 w-14 shrink-0 truncate"
+        class="text-[10px] font-bold uppercase tracking-wider text-ui-muted w-14 shrink-0 truncate"
         title=${label}
       >
         ${label}
       </span>
       <div
-        class="relative flex-1 h-5 rounded-md overflow-hidden bg-white/5"
+        class="relative flex-1 h-5 rounded-md overflow-hidden bg-ui-surface"
         role="img"
         aria-label="${wins} wins, ${losses} losses"
       >
@@ -353,7 +355,7 @@ export function renderWLBarRow(
             : ""}
         </div>
         <div
-          class="absolute inset-0 flex items-center justify-between px-1.5 text-[11px] font-bold text-white tabular-nums whitespace-nowrap pointer-events-none"
+          class="absolute inset-0 flex items-center justify-between px-1.5 text-[11px] font-bold text-ui-text tabular-nums whitespace-nowrap pointer-events-none"
         >
           <span>${wins > 0 ? `${wins}W` : ""}</span>
           <span>${losses > 0 ? `${losses}L` : ""}</span>
@@ -429,7 +431,7 @@ export function renderMemberRow(
                     })}</span
                   >`}
               <span
-                class="text-white/30 text-[10px] text-right whitespace-nowrap"
+                class="text-ui-muted text-[10px] text-right whitespace-nowrap"
                 >${translateText("clan_modal.joined_date", {
                   date: formatClanDate(member.joinedAt),
                 })}</span

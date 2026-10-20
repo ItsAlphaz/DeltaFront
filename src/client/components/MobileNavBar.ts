@@ -6,7 +6,7 @@ import { NavNotificationsController } from "./NavNotificationsController";
 
 // The open page gets a red bar on its left edge and white text.
 const MOBILE_ITEM =
-  "nav-menu-item block w-full text-left font-display font-bold uppercase tracking-[0.08em] " +
+  "nav-menu-item block w-full text-left font-pixel font-bold uppercase tracking-[0.08em] " +
   "text-df-text-secondary transition-colors duration-150 cursor-pointer " +
   "border-l-4 border-transparent pl-3 hover:text-df-text " +
   "focus-visible:outline-2 focus-visible:outline-df-red " +

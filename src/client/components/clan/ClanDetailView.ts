@@ -428,9 +428,9 @@ export class ClanDetailView extends LitElement {
       if (!isMember) {
         return html`
           <div
-            class="bg-white/5 rounded-xl border border-white/10 p-8 text-center"
+            class="bg-ui-surface rounded-xl border border-ui-border p-8 text-center"
           >
-            <p class="text-white/40 text-sm">
+            <p class="text-ui-muted text-sm">
               ${translateText("clan_modal.members_visible_to_members")}
             </p>
           </div>
@@ -522,7 +522,7 @@ export class ClanDetailView extends LitElement {
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              class="w-5 h-5 text-amber-400"
+              class="w-5 h-5 text-ui-gold"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -536,7 +536,7 @@ export class ClanDetailView extends LitElement {
             </svg>
           </div>
           <div class="text-left">
-            <span class="text-amber-400 text-sm font-bold">
+            <span class="text-ui-gold text-sm font-bold">
               ${translateText("clan_modal.join_requests")}
             </span>
             <span class="text-amber-400/60 text-xs block">
@@ -548,7 +548,7 @@ export class ClanDetailView extends LitElement {
         </div>
         <div class="flex items-center gap-2">
           <span
-            class="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30"
+            class="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-500/20 text-ui-gold border border-amber-500/30"
           >
             ${this.pendingRequestCount}
           </span>
@@ -585,15 +585,17 @@ export class ClanDetailView extends LitElement {
       this.allStatsExpanded ? "common.collapse_all" : "common.expand_all",
     );
     return html`
-      <div class="bg-white/5 rounded-xl border border-white/10 p-5 space-y-3">
+      <div
+        class="bg-ui-surface rounded-xl border border-ui-border p-5 space-y-3"
+      >
         <div class="flex items-center justify-between gap-2">
-          <h3 class="text-sm font-bold text-white/60 uppercase tracking-wider">
+          <h3 class="text-sm font-bold text-ui-muted uppercase tracking-wider">
             ${translateText("clan_modal.members")}
           </h3>
           <button
             type="button"
             @click=${() => this.toggleAllStats()}
-            class="text-[10px] font-bold text-white/50 hover:text-white uppercase tracking-wider px-2 py-1 rounded-md border border-white/10 hover:border-white/20 hover:bg-white/5 transition-colors"
+            class="text-[10px] font-bold text-ui-muted hover:text-ui-text uppercase tracking-wider px-2 py-1 rounded-md border border-ui-border hover:border-ui-border-strong hover:bg-ui-surface transition-colors"
             title=${toggleLabel}
             aria-pressed=${this.allStatsExpanded}
           >
@@ -630,8 +632,8 @@ export class ClanDetailView extends LitElement {
 
   private renderDescriptionCard(clan: ClanInfo) {
     return html`
-      <div class="bg-white/5 rounded-xl border border-white/10 p-5">
-        <p class="text-white/70 text-sm">
+      <div class="bg-ui-surface rounded-xl border border-ui-border p-5">
+        <p class="text-ui-muted text-sm">
           ${clan.description || translateText("clan_modal.no_description")}
         </p>
       </div>
@@ -703,7 +705,7 @@ export class ClanDetailView extends LitElement {
                   />
                 </svg>
                 <h3
-                  class="text-sm font-bold text-white/60 uppercase tracking-wider"
+                  class="text-sm font-bold text-ui-muted uppercase tracking-wider"
                 >
                   ${translateText("clan_modal.discord_section_title")}
                 </h3>
@@ -716,17 +718,17 @@ export class ClanDetailView extends LitElement {
                   class="w-12 h-12 rounded-2xl shrink-0 object-cover ring-1 ring-white/10"
                 />`
               : html`<div
-                  class="w-12 h-12 rounded-2xl bg-[#5865F2] flex items-center justify-center shrink-0 text-white text-lg font-bold"
+                  class="w-12 h-12 rounded-2xl bg-[#5865F2] flex items-center justify-center shrink-0 text-ui-text text-lg font-bold"
                 >
                   ${serverName.charAt(0).toUpperCase()}
                 </div>`}
             <div class="min-w-0 flex-1">
-              <div class="text-white text-sm font-bold truncate">
+              <div class="text-ui-text text-sm font-bold truncate">
                 ${serverName}
               </div>
               ${showCounts
                 ? html`<div
-                    class="flex items-center gap-1.5 mt-1 text-white/50 text-xs"
+                    class="flex items-center gap-1.5 mt-1 text-ui-muted text-xs"
                   >
                     <span
                       class="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0"
@@ -741,7 +743,7 @@ export class ClanDetailView extends LitElement {
           </div>
           ${description
             ? html`<p
-                class="mt-3 text-white/50 text-xs leading-relaxed line-clamp-2"
+                class="mt-3 text-ui-muted text-xs leading-relaxed line-clamp-2"
               >
                 ${description}
               </p>`
@@ -757,7 +759,7 @@ export class ClanDetailView extends LitElement {
                 href=${url}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="mt-4 flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white uppercase tracking-wider bg-[#5865F2] hover:bg-[#4752c4] active:bg-[#3c45a5] rounded-xl transition-all shadow-lg shadow-[#5865F2]/20"
+                class="mt-4 flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-ui-text uppercase tracking-wider bg-[#5865F2] hover:bg-[#4752c4] active:bg-[#3c45a5] rounded-xl transition-all shadow-lg shadow-[#5865F2]/20"
               >
                 ${translateText("clan_modal.open_discord")}
                 <svg
@@ -794,7 +796,7 @@ export class ClanDetailView extends LitElement {
       buttons.push(html`
         <button
           @click=${() => window.showPage?.("page-account")}
-          class="flex-1 px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-xl transition-all"
+          class="flex-1 px-6 py-3 text-sm font-bold text-ui-text uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-xl transition-all"
         >
           ${translateText("clan_modal.sign_in_to_join")}
         </button>
@@ -803,7 +805,7 @@ export class ClanDetailView extends LitElement {
       buttons.push(html`
         <button
           disabled
-          class="flex-1 px-6 py-3 text-sm font-bold text-white/40 uppercase tracking-wider bg-white/5 rounded-xl border border-white/10 cursor-not-allowed"
+          class="flex-1 px-6 py-3 text-sm font-bold text-ui-muted uppercase tracking-wider bg-ui-surface rounded-xl border border-ui-border cursor-not-allowed"
         >
           ${translateText("clan_modal.request_pending")}
         </button>
@@ -813,7 +815,7 @@ export class ClanDetailView extends LitElement {
         <button
           @click=${() => this.handleJoin()}
           ?disabled=${this.actionPending}
-          class="flex-1 px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-xl transition-all disabled:opacity-50 disabled:pointer-events-none"
+          class="flex-1 px-6 py-3 text-sm font-bold text-ui-text uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-xl transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           ${translateText("clan_modal.join_clan")}
         </button>
@@ -823,7 +825,7 @@ export class ClanDetailView extends LitElement {
         <button
           @click=${() => this.handleJoin()}
           ?disabled=${this.actionPending}
-          class="flex-1 px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 rounded-xl transition-all shadow-lg hover:shadow-amber-900/40 border border-white/5 disabled:opacity-50 disabled:pointer-events-none"
+          class="flex-1 px-6 py-3 text-sm font-bold text-ui-text uppercase tracking-wider bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 rounded-xl transition-all shadow-lg hover:shadow-amber-900/40 border border-ui-border disabled:opacity-50 disabled:pointer-events-none"
         >
           ${translateText("clan_modal.request_invite")}
         </button>
@@ -833,7 +835,7 @@ export class ClanDetailView extends LitElement {
       buttons.push(html`
         <button
           @click=${() => (this.donateOpen = true)}
-          class="flex-1 px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 rounded-xl transition-all shadow-lg hover:shadow-amber-900/40 border border-white/5"
+          class="flex-1 px-6 py-3 text-sm font-bold text-ui-text uppercase tracking-wider bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 rounded-xl transition-all shadow-lg hover:shadow-amber-900/40 border border-ui-border"
         >
           ${translateText("clan_modal.donate")}
         </button>
@@ -844,7 +846,7 @@ export class ClanDetailView extends LitElement {
         <button
           @click=${() => this.handleLeave()}
           ?disabled=${this.actionPending}
-          class="flex-1 px-6 py-3 text-sm font-bold text-white/70 uppercase tracking-wider bg-red-600/30 hover:bg-red-600/50 rounded-xl transition-all border border-red-500/30 disabled:opacity-50 disabled:pointer-events-none"
+          class="flex-1 px-6 py-3 text-sm font-bold text-ui-muted uppercase tracking-wider bg-red-600/30 hover:bg-red-600/50 rounded-xl transition-all border border-red-500/30 disabled:opacity-50 disabled:pointer-events-none"
         >
           ${translateText("clan_modal.leave_clan")}
         </button>
@@ -860,7 +862,7 @@ export class ClanDetailView extends LitElement {
                 composed: true,
               }),
             )}
-          class="flex-1 px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-white/10 hover:bg-white/15 rounded-xl transition-all border border-white/10"
+          class="flex-1 px-6 py-3 text-sm font-bold text-ui-text uppercase tracking-wider bg-white/10 hover:bg-white/15 rounded-xl transition-all border border-ui-border"
         >
           ${translateText("clan_modal.manage_clan")}
         </button>

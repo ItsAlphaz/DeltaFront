@@ -603,7 +603,7 @@ export class NavAccountMenu extends LitElement {
       ${this.renderEmblem(progress, d.mark)}
       <span
         data-account-level-text
-        class="block whitespace-nowrap rounded-md bg-df-red ${d.badge} font-display font-bold uppercase leading-none tracking-wider text-white ring-[1.5px] ring-black/70"
+        class="block whitespace-nowrap rounded-md bg-df-red ${d.badge} font-pixel font-bold uppercase leading-none tracking-wider text-white ring-[1.5px] ring-black/70"
         >${levelBadgeText(progress)}</span
       >
     </span>`;
@@ -643,7 +643,7 @@ export class NavAccountMenu extends LitElement {
         ${this.renderEmblem(progress, 11)}
         <span
           data-account-level-text
-          class="block whitespace-nowrap font-display text-[9px] font-bold uppercase leading-none tracking-[0.22em] text-white/45"
+          class="block whitespace-nowrap font-pixel text-[9px] font-bold uppercase leading-none tracking-[0.22em] text-white/45"
           >${translateText("nav_account_menu.level_label")}
           <span class="text-df-red-bright"
             >${displayLevel(progress.level)}</span

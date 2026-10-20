@@ -142,7 +142,7 @@ export class PlayerRow extends LitElement {
             : ""}
           <div
             data-player-name
-            class="min-w-0 flex-1 truncate text-sm font-semibold tracking-wide text-white/85 sm:text-[15px]"
+            class="min-w-0 flex-1 truncate text-sm font-semibold tracking-wide text-ui-text sm:text-[15px]"
             title=${this.player.username}
           >
             ${this.player.username}
@@ -186,7 +186,7 @@ export class PlayerRow extends LitElement {
         <div
           data-player-score
           aria-hidden="true"
-          class="flex min-h-10 shrink-0 items-center justify-end gap-2 px-3 py-2 font-mono text-sm font-bold tabular-nums text-white/75"
+          class="flex min-h-10 shrink-0 items-center justify-end gap-2 px-3 py-2 font-mono text-sm font-bold tabular-nums text-ui-text"
         >
           ${formattedScore}
         </div>
@@ -237,7 +237,7 @@ export class PlayerRow extends LitElement {
       <div
         data-player-score
         aria-label=${`${this.scoreLabel()}, ${formattedScore}`}
-        class="flex min-h-10 items-center justify-end gap-2 px-3 py-2 font-mono text-sm font-bold tabular-nums text-white/75"
+        class="flex min-h-10 items-center justify-end gap-2 px-3 py-2 font-mono text-sm font-bold tabular-nums text-ui-text"
       >
         ${showCoin ? this.renderCoinIcon() : ""}
         <div>${formattedScore}</div>
@@ -261,7 +261,7 @@ export class PlayerRow extends LitElement {
         draggable="false"
         decoding="async"
         @error=${() => this.handleFlagError()}
-        class="size-10 rounded-xl border border-white/10 bg-white/[0.055] object-contain p-1"
+        class="size-10 rounded-xl border border-ui-border bg-white/[0.055] object-contain p-1"
       />`;
     }
 

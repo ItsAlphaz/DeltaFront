@@ -23,9 +23,9 @@ export class ChangeUsernameModal extends ProfileMenuModal {
       return html`
         <div class="p-6">
           <div
-            class="bg-white/5 rounded-xl border border-white/10 p-8 text-center"
+            class="rounded-ui-panel border border-ui-border bg-ui-surface p-8 text-center"
           >
-            <p class="text-white/60 text-sm">
+            <p class="ui-body text-ui-muted">
               ${translateText("change_username_modal.unavailable")}
             </p>
           </div>

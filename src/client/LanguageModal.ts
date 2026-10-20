@@ -3,7 +3,7 @@ import { html, TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { translateText } from "../client/Utils";
 import { BaseModal } from "./components/BaseModal";
-import { modalHeader } from "./components/ui/ModalHeader";
+import { uiIcons, uiPageHeader } from "./components/ui/PageUi";
 
 interface LanguageOption {
   code: string;
@@ -31,16 +31,16 @@ export class LanguageModal extends BaseModal {
   };
 
   protected renderHeaderSlot() {
-    return modalHeader({
+    return uiPageHeader({
       title: translateText("select_lang.title"),
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
+      backLabel: translateText("common.back"),
     });
   }
 
   protected renderBody(): TemplateResult {
     return html`
-      <div class="custom-scrollbar p-2">
+      <div class="p-6">
         <div
           class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
         >
@@ -49,16 +49,17 @@ export class LanguageModal extends BaseModal {
             const isDebug = lang.code === "debug";
 
             let buttonClasses =
-              "relative group rounded-xl border transition-all duration-200 flex items-center p-3 gap-3 w-full cursor-pointer";
+              "ui-focus relative group rounded-ui-card border transition-colors flex items-center p-3 gap-3 w-full cursor-pointer";
 
             if (isDebug) {
               buttonClasses +=
                 " animate-pulse font-bold text-white border-2 border-dashed border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)] bg-gradient-to-r from-red-600 via-yellow-600 via-green-600 via-blue-600 to-purple-600";
             } else if (isActive) {
-              buttonClasses += " bg-df-red/20 border-df-red/50";
+              buttonClasses +=
+                " border-ui-accent bg-ui-surface ring-1 ring-ui-accent";
             } else {
               buttonClasses +=
-                " bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20";
+                " bg-ui-surface border-ui-border hover:border-ui-border-hover";
             }
 
             return html`
@@ -68,38 +69,27 @@ export class LanguageModal extends BaseModal {
               >
                 <img
                   src=${assetUrl(`flags/${lang.svg}.svg`)}
-                  class="w-8 h-6 object-contain rounded-sm shrink-0"
+                  class="w-8 h-6 object-contain rounded-[3px] shrink-0"
                   alt="${lang.code}"
                 />
                 <div class="flex flex-col items-start min-w-0">
                   <span
-                    class="text-sm font-bold uppercase tracking-wider whitespace-normal break-words w-full text-left ${isActive
-                      ? "text-white"
-                      : "text-gray-200 group-hover:text-white"}"
+                    class="ui-body whitespace-normal break-words w-full text-left font-bold text-ui-text"
                     >${lang.native}</span
                   >
                   <span
-                    class="text-xs text-white/40 uppercase tracking-widest group-hover:text-white/60 transition-colors whitespace-normal break-words w-full text-left"
+                    class="ui-label whitespace-normal break-words w-full text-left"
                     >${lang.en}</span
                   >
                 </div>
 
                 ${isActive
                   ? html`
-                      <div class="ml-auto text-df-red-bright shrink-0">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          class="w-5 h-5"
-                        >
-                          <path
-                            fill-rule="evenodd"
-                            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                            clip-rule="evenodd"
-                          />
-                        </svg>
-                      </div>
+                      <span
+                        class="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ui-accent text-white"
+                        aria-hidden="true"
+                        >${uiIcons.check()}</span
+                      >
                     `
                   : ""}
               </button>

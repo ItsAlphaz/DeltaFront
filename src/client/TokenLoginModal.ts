@@ -52,16 +52,18 @@ export class TokenLoginModal extends BaseModal {
     return html`
       <div class="flex items-center gap-4">
         <div
-          class="w-12 h-12 rounded-full border border-df-red/40 bg-df-red/10 flex items-center justify-center"
+          class="flex h-12 w-12 items-center justify-center rounded-full border border-ui-accent/40 bg-ui-accent-tint"
         >
           <div
-            class="w-6 h-6 border-2 border-df-red/30 border-t-df-red rounded-full animate-spin"
+            class="h-6 w-6 animate-spin rounded-full border-2 border-ui-border-strong border-t-ui-accent"
           ></div>
         </div>
         <div class="flex flex-col gap-2">
-          <p class="text-lg font-semibold text-white">${loggingText}</p>
-          <div class="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-            <div class="h-full w-1/2 bg-df-red/80 animate-pulse"></div>
+          <p class="ui-heading text-ui-text">${loggingText}</p>
+          <div
+            class="h-1 w-full overflow-hidden rounded-full bg-ui-border-strong"
+          >
+            <div class="h-full w-1/2 animate-pulse bg-ui-accent"></div>
           </div>
         </div>
       </div>
@@ -73,11 +75,11 @@ export class TokenLoginModal extends BaseModal {
     return html`
       <div class="flex items-center gap-4">
         <div
-          class="w-12 h-12 rounded-full border border-emerald-400/40 bg-emerald-500/10 flex items-center justify-center"
+          class="flex h-12 w-12 items-center justify-center rounded-full border border-ui-success/40 bg-ui-success/10"
         >
-          <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+          <div class="h-2 w-2 animate-pulse rounded-full bg-ui-success"></div>
         </div>
-        <p class="text-base text-white/90">${successText}</p>
+        <p class="ui-body text-ui-text">${successText}</p>
       </div>
     `;
   }

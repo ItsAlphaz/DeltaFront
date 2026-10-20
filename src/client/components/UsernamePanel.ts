@@ -355,14 +355,14 @@ export class UsernamePanel extends LitElement {
       "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider border shrink-0";
     if (cooldownEnd === null) {
       return html`<span
-        class="${base} bg-green-500/10 border-green-500/30 text-green-300"
+        class="${base} bg-green-500/10 border-green-500/30 text-ui-success"
       >
         <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
         ${translateText("account_modal.username_change_ready")}
       </span>`;
     }
     return html`<span
-      class="${base} bg-amber-500/10 border-amber-500/30 text-amber-300"
+      class="${base} bg-amber-500/10 border-amber-500/30 text-ui-gold"
     >
       <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
       ${translateText("account_modal.username_locked_until", {
@@ -386,22 +386,22 @@ export class UsernamePanel extends LitElement {
     return html`
       <div class="flex flex-col gap-4">
         <div
-          class="rounded-xl border border-white/10 bg-gradient-to-br from-white/10 to-white/[0.02] p-5 flex flex-col gap-4"
+          class="rounded-xl border border-ui-border bg-gradient-to-br from-white/10 to-white/[0.02] p-5 flex flex-col gap-4"
         >
           <div class="flex items-start justify-between gap-3 flex-wrap">
             <div class="flex flex-col gap-1 min-w-0">
               <span
-                class="text-[10px] uppercase tracking-widest text-white/40 font-bold"
+                class="text-[10px] uppercase tracking-[0.1em] text-ui-muted font-bold"
               >
                 ${translateText("account_modal.username_current_label")}
               </span>
               ${this.player.username
                 ? html`<div
-                    class="text-xl font-bold text-white leading-tight break-all"
+                    class="text-xl font-bold text-ui-text leading-tight break-all"
                   >
                     ${usernameText(this.player.username, "text-white")}
                   </div>`
-                : html`<div class="text-sm text-white/50">
+                : html`<div class="text-sm text-ui-muted">
                     ${translateText("account_modal.username_not_set")}
                   </div>`}
             </div>
@@ -409,10 +409,10 @@ export class UsernamePanel extends LitElement {
           </div>
           ${this.renderNotices()}
 
-          <div class="border-t border-white/10 pt-4 flex flex-col gap-2">
+          <div class="border-t border-ui-border pt-4 flex flex-col gap-2">
             <label
               for="username-panel-input"
-              class="text-[10px] uppercase tracking-widest text-white/40 font-bold"
+              class="text-[10px] uppercase tracking-[0.1em] text-ui-muted font-bold"
             >
               ${translateText("account_modal.username_new_label")}
             </label>
@@ -427,15 +427,15 @@ export class UsernamePanel extends LitElement {
               placeholder=${translateText("account_modal.username_placeholder")}
               maxlength=${MAX_ACCOUNT_USERNAME_LENGTH}
               ?disabled=${locked || this.busy}
-              class="w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 transition-all font-medium hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-white/5 ${this
+              class="w-full px-4 py-3 bg-ui-surface border rounded-xl text-ui-text placeholder-white/20 focus:outline-none focus:ring-2 transition-all font-medium hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-ui-surface ${this
                 .error
                 ? "border-red-500/50 focus:ring-red-500/40 focus:border-red-500/50"
                 : "border-white/10 focus:ring-df-red/50 focus:border-df-red/50"}"
             />
             <div class="flex items-start justify-between gap-3 min-h-[1.25rem]">
-              <span class="text-sm text-red-400">${this.error}</span>
+              <span class="text-sm text-ui-accent-soft">${this.error}</span>
               <span
-                class="text-xs text-white/30 tabular-nums shrink-0 leading-5"
+                class="text-xs text-ui-muted tabular-nums shrink-0 leading-5"
               >
                 ${trimmed.length}/${MAX_ACCOUNT_USERNAME_LENGTH}
               </span>

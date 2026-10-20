@@ -439,3 +439,57 @@ describe("JoinLobbyModal map preview", () => {
     expect(tags({ infiniteGold: true, instantBuild: true })).toBe(tags({}) + 2);
   });
 });
+
+describe("JoinLobbyModal in the website's design", () => {
+  function renderBody(setup: (modal: JoinLobbyModal) => void = () => {}) {
+    const modal = new JoinLobbyModal();
+    setup(modal);
+    const container = document.createElement("div");
+    render(
+      (modal as unknown as { renderBody(): unknown }).renderBody() as never,
+      container,
+    );
+    return container;
+  }
+
+  it("is a two-column page: the open lobbies, and the join form in the detail panel", () => {
+    const body = renderBody();
+    expect(body.querySelector('[data-ui="two-column"]')).not.toBeNull();
+    const panel = body.querySelector('[data-ui="detail-panel"]')!;
+    expect(panel.querySelector("input#lobbyIdInput")).not.toBeNull();
+    expect(
+      body.querySelector('[data-config-section="open-lobbies"]'),
+    ).not.toBeNull();
+  });
+
+  it("has one main action, Join, pinned at the bottom of the panel and submitting the form", () => {
+    const body = renderBody();
+    const action = body.querySelector('[data-ui="detail-action"]')!;
+    const join = action.querySelector<HTMLButtonElement>("button")!;
+    expect(join.getAttribute("type")).toBe("submit");
+    expect(join.getAttribute("data-variant")).toBe("primary");
+    expect(join.closest("form")).not.toBeNull();
+    // Spectate and Paste are not the main action
+    const secondary = body.querySelectorAll('[data-variant="secondary"]');
+    expect(secondary.length).toBeGreaterThan(0);
+    expect(body.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+  });
+
+  it("labels the paste button, which has no text", () => {
+    const body = renderBody();
+    expect(
+      body
+        .querySelector('[data-ui-button="paste"]')
+        ?.getAttribute("aria-label"),
+    ).toBe("common.paste");
+  });
+
+  it("says so when no lobby is open", () => {
+    const body = renderBody((modal) => {
+      (
+        modal as unknown as { hostedLobbiesLoaded: boolean }
+      ).hostedLobbiesLoaded = true;
+    });
+    expect(body.querySelector("[data-open-lobbies-empty]")).not.toBeNull();
+  });
+});

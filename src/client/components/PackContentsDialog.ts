@@ -100,24 +100,24 @@ export class PackContentsDialog extends LitElement {
         data-pack-contents
         role="dialog"
         aria-label=${pack.displayName}
-        class="relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-surface p-6 shadow-2xl"
+        class="relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-ui-border bg-surface p-6 shadow-2xl"
       >
         <button
           type="button"
           aria-label=${translateText("common.close")}
           @click=${() => this.close()}
-          class="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-white/50 transition-all hover:bg-white/10 hover:text-white"
+          class="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-ui-muted transition-all hover:bg-white/10 hover:text-ui-text"
         >
           ×
         </button>
-        <h2 class="mb-1 pr-8 text-lg font-bold text-white">
+        <h2 class="mb-1 pr-8 text-lg font-bold text-ui-text">
           ${pack.displayName}
         </h2>
         ${pack.description
-          ? html`<p class="mb-4 text-sm text-white/60">${pack.description}</p>`
+          ? html`<p class="mb-4 text-sm text-ui-muted">${pack.description}</p>`
           : html`<div class="mb-4"></div>`}
         ${items.length === 0
-          ? html`<p class="py-6 text-center text-sm text-white/50">
+          ? html`<p class="py-6 text-center text-sm text-ui-muted">
               ${translateText("store.pack_no_items")}
             </p>`
           : html`<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -135,7 +135,7 @@ export class PackContentsDialog extends LitElement {
                     ></cosmetic-card>
                     <span
                       data-pack-contents-type
-                      class="text-[10px] font-bold uppercase tracking-wider text-white/50"
+                      class="text-[10px] font-bold uppercase tracking-wider text-ui-muted"
                       >${cosmeticTypeLabel(item)}</span
                     >
                   </div>`,

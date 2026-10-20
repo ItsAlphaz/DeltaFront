@@ -43,7 +43,7 @@ export class EmailSignIn extends LitElement {
           @input=${this.onInput}
           @keydown=${this.onKeydown}
           placeholder=${translateText("account_modal.email_placeholder")}
-          class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 disabled:opacity-60"
+          class="w-full px-4 py-3 bg-ui-surface border border-ui-border rounded-xl text-ui-text placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 disabled:opacity-60"
         />
         <o-button
           variant="primary"

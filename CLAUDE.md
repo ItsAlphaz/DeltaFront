@@ -97,6 +97,7 @@ The game server only serves `index.html` and the WebSocket. All other assets (JS
 
 - Product name, community links, source-code link, Steam app ID: `src/client/Branding.ts` (empty link hides its UI).
 - Colours, radii, shared `.df-btn` / `.df-input` / `.df-panel` classes: `src/client/styles.css` (`--color-df-*` tokens). Use them instead of hard-coded colours; red is for primary actions, selection, focus and accents.
+- The whole website (every page, modal and dialog under `.df-home-shell`) is in the account pages' design system (`--color-ui-*`, `--radius-ui-*`, `src/client/components/ui/PageUi.ts`: header, tabs, two-column body + detail panel, buttons, chips, switch rows). One block in `styles.css` re-points `--color-df-*`, `--radius-*` and `--font-sans/--font-display` at it, so legacy utilities follow; it also sets them on `o-modal` and `username-input` because Tailwind's `:host` copy of the theme would otherwise reset them inside those shadow roots. The pixel face (`font-pixel`) is the top nav's only. The in-game HUD sits outside the shell and keeps the sharp corners and brand reds. Every page takes the 1240px column; a new page uses `uiPageHeader`, `uiTwoColumn` and `uiDetailPanel`, with at most one primary button.
 - Logo and icon: `resources/images/branding/`. Upstream's `proprietary/` folder (All Rights Reserved OpenFront assets) is removed and must not be re-added.
 
 ## Production deployment

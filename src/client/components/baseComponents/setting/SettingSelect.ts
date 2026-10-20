@@ -1,5 +1,6 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { COLUMN_ROW, DESCRIPTION, FIELD, LABEL } from "./SettingStyles";
 
 type SelectOption = {
   value: number | string;
@@ -41,23 +42,19 @@ export class SettingSelect extends LitElement {
 
   render() {
     return html`
-      <div
-        class="flex flex-col w-full p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all gap-3"
-      >
-        <div class="flex flex-col min-w-0">
-          <label
-            class="text-white font-bold text-base block mb-1"
-            for="setting-select-input"
+      <div class="${COLUMN_ROW}">
+        <div class="min-w-0">
+          <label class="${LABEL}" for="setting-select-input"
             >${this.label}</label
           >
-          <div class="text-white/50 text-sm leading-snug">
-            ${this.description}
-          </div>
+          ${this.description
+            ? html`<div class="${DESCRIPTION}">${this.description}</div>`
+            : nothing}
         </div>
         <div class="relative w-full">
           <select
             id="setting-select-input"
-            class="w-full appearance-none py-2 pl-3 pr-9 border border-white/20 rounded-lg bg-black/40 text-white font-mono text-sm focus:outline-none focus:border-df-red focus:ring-1 focus:ring-df-red transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            class="${FIELD} w-full appearance-none pr-9"
             .value=${String(this.value)}
             ?disabled=${this.disabled}
             @change=${this.handleChange}
@@ -73,7 +70,7 @@ export class SettingSelect extends LitElement {
             )}
           </select>
           <span
-            class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/60"
+            class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ui-muted"
             aria-hidden="true"
           >
             <svg

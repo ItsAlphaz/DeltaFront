@@ -38,18 +38,49 @@ async function flush(): Promise<void> {
   for (let i = 0; i < 5; i++) await Promise.resolve();
 }
 
-function startButton(modal: SinglePlayerModal): Element {
+function startButton(modal: SinglePlayerModal): HTMLButtonElement {
   const container = document.createElement("div");
   render(
     (modal as unknown as { render(): unknown }).render() as never,
     container,
   );
-  const button = Array.from(container.querySelectorAll("o-button")).find((b) =>
-    (b.getAttribute("translationKey") ?? "").startsWith("game_settings.start"),
+  const button = container.querySelector<HTMLButtonElement>(
+    '[data-ui-button="start"]',
   );
-  if (button === undefined) throw new Error("no start button rendered");
+  if (button === null) throw new Error("no start button rendered");
   return button;
 }
+
+function renderedModal(modal: SinglePlayerModal): HTMLElement {
+  const container = document.createElement("div");
+  render(
+    (modal as unknown as { render(): unknown }).render() as never,
+    container,
+  );
+  return container;
+}
+
+describe("SinglePlayerModal in the website's design", () => {
+  it("is a two-column page with the map and a summary in the detail panel", () => {
+    const view = renderedModal(new SinglePlayerModal());
+    const panel = view.querySelector('[data-ui="detail-panel"]')!;
+    expect(panel.querySelector("[data-lobby-map-preview]")).not.toBeNull();
+    expect(
+      panel.querySelectorAll('[data-ui="detail-rows"] > div'),
+    ).toHaveLength(6);
+  });
+
+  it("has one main action: Start, pinned at the bottom of the panel", () => {
+    const view = renderedModal(new SinglePlayerModal());
+    const action = view.querySelector('[data-ui="detail-action"]')!;
+    expect(
+      action
+        .querySelector('[data-ui-button="start"]')
+        ?.getAttribute("data-variant"),
+    ).toBe("primary");
+    expect(view.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+  });
+});
 
 describe("SinglePlayerModal start feedback", () => {
   let modal: SinglePlayerModal;
@@ -88,18 +119,15 @@ describe("SinglePlayerModal start feedback", () => {
   it("renders the button disabled and relabelled while busy", async () => {
     cosmeticsMocks.getPlayerCosmetics.mockReturnValue(new Promise(() => {}));
 
-    expect(startButton(modal).getAttribute("translationKey")).toBe(
-      "game_settings.start",
-    );
+    expect(startButton(modal).textContent?.trim()).toBe("game_settings.start");
+    expect(startButton(modal).disabled).toBe(false);
 
     void internals(modal).startGame();
     await flush();
 
     const button = startButton(modal);
-    expect(button.getAttribute("translationKey")).toBe(
-      "game_settings.starting",
-    );
-    expect((button as unknown as { disable: boolean }).disable).toBe(true);
+    expect(button.textContent?.trim()).toBe("game_settings.starting");
+    expect(button.disabled).toBe(true);
   });
 
   // A second click during the wait would dispatch a second join-lobby for a

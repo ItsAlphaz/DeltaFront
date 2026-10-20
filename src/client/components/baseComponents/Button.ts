@@ -24,24 +24,27 @@ export class OButton extends LitElement {
     return this;
   }
 
+  // The website's button (components/ui/PageUi.ts uiButton): Inter, 10px
+  // corners, a flat accent fill for the one main action, a quiet surface for
+  // the rest.
   private readonly BASE =
-    "font-bold tracking-wider rounded-xl border border-transparent " +
-    "transition-all duration-300 transform hover:-translate-y-px " +
-    "outline-none text-center whitespace-normal break-words leading-tight overflow-hidden relative " +
-    "disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:opacity-70";
+    "ui-focus font-ui font-semibold tracking-[0.06em] rounded-ui-card border border-transparent " +
+    "transition-colors " +
+    "text-center whitespace-normal break-words leading-tight overflow-hidden relative " +
+    "disabled:cursor-not-allowed";
 
   private variantClasses(): string {
     switch (this.variant) {
       case "primary":
-        return "bg-df-red hover:bg-df-red-bright text-white disabled:bg-gray-600 disabled:text-gray-300";
+        return "bg-ui-accent hover:bg-ui-accent-soft text-white disabled:bg-ui-disabled disabled:text-ui-placeholder";
       case "secondary":
-        return "bg-gray-700 hover:bg-gray-600 text-white disabled:bg-gray-800 disabled:text-gray-400";
+        return "bg-ui-surface border-ui-border-strong hover:border-ui-border-hover text-ui-text disabled:bg-ui-disabled disabled:text-ui-placeholder";
       case "danger":
-        return "bg-red-600 hover:bg-red-500 text-white disabled:bg-red-900 disabled:text-gray-300";
+        return "bg-ui-accent-tint border-ui-accent text-ui-accent-soft hover:bg-ui-accent/25 disabled:border-ui-border-strong disabled:bg-ui-disabled disabled:text-ui-placeholder";
       case "warning":
-        return "bg-cyber-yellow hover:brightness-110 text-gray-900 disabled:bg-yellow-900 disabled:text-gray-300";
+        return "bg-ui-gold hover:brightness-110 text-black disabled:bg-ui-disabled disabled:text-ui-placeholder";
       case "ghost":
-        return "bg-transparent hover:bg-white/10 text-df-red disabled:text-gray-500 disabled:hover:bg-transparent";
+        return "bg-transparent hover:bg-ui-surface text-ui-text disabled:text-ui-placeholder disabled:hover:bg-transparent";
     }
   }
 
@@ -49,24 +52,24 @@ export class OButton extends LitElement {
     if (this.iconPosition === "only") {
       switch (this.size) {
         case "xs":
-          return "w-6 h-6 text-xs";
+          return "w-8 h-8 text-xs";
         case "sm":
-          return "w-8 h-8 text-sm";
+          return "w-9 h-9 text-sm";
         case "md":
-          return "w-10 h-10 text-base";
+          return "w-11 h-11 text-base";
         case "lg":
           return "w-12 h-12 text-lg";
       }
     }
     switch (this.size) {
       case "xs":
-        return "py-1 px-2 text-xs";
+        return "min-h-8 px-2.5 py-1 text-[12px]";
       case "sm":
-        return "py-1.5 px-3 text-sm";
+        return "min-h-9 px-3 py-1.5 text-[13px]";
       case "md":
-        return "py-3 px-4 text-base lg:text-lg";
+        return "min-h-11 px-4 py-2.5 text-[14px]";
       case "lg":
-        return "py-4 px-6 text-lg lg:text-xl";
+        return "min-h-[52px] px-6 py-3 text-[15px]";
     }
   }
 

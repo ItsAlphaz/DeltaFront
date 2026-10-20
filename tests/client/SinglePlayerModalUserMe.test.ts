@@ -8,7 +8,9 @@ vi.mock("../../src/client/Cosmetics", () => ({
 }));
 
 vi.mock("../../src/client/TerrainMapFileLoader", () => ({
-  terrainMapFileLoader: { getMapData: vi.fn() },
+  terrainMapFileLoader: {
+    getMapData: vi.fn(() => ({ webpPath: "/m.webp" })),
+  },
 }));
 
 // The broadcast the modal missed, under the test's control.

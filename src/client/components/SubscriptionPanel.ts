@@ -145,7 +145,7 @@ export class SubscriptionPanel extends LitElement {
 
     if (this.sub.cancelAtPeriodEnd) {
       return html`<span
-        class="${base} bg-amber-500/10 border-amber-500/30 text-amber-300"
+        class="${base} bg-amber-500/10 border-amber-500/30 text-ui-gold"
       >
         <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
         ${translateText("account_modal.sub_status_canceling")}
@@ -234,15 +234,15 @@ export class SubscriptionPanel extends LitElement {
   private renderPerk(value: number, labelKey: string): TemplateResult {
     return html`
       <div
-        class="flex items-center gap-3 rounded-lg bg-white/5 border border-white/10 px-3 py-2.5"
+        class="flex items-center gap-3 rounded-lg bg-ui-surface border border-ui-border px-3 py-2.5"
       >
         <plutonium-icon .size=${24}></plutonium-icon>
         <div class="flex flex-col min-w-0">
-          <span class="text-sm font-bold text-white leading-tight"
+          <span class="text-sm font-bold text-ui-text leading-tight"
             >${value.toLocaleString()}</span
           >
           <span
-            class="text-[10px] uppercase tracking-wider text-white/50 leading-tight"
+            class="text-[10px] uppercase tracking-wider text-ui-muted leading-tight"
             >${translateText(labelKey)}</span
           >
         </div>
@@ -266,7 +266,7 @@ export class SubscriptionPanel extends LitElement {
    */
   private renderManageOnWeb(): TemplateResult {
     return html`
-      <p class="text-[11px] text-center text-white/40 leading-snug">
+      <p class="text-[11px] text-center text-ui-muted leading-snug">
         ${translateText("account_modal.manage_subscription_on_web")}
       </p>
     `;
@@ -298,7 +298,7 @@ export class SubscriptionPanel extends LitElement {
   private renderGrantedNote(tierName: string): TemplateResult {
     if (!isSteamGrant(this.sub)) {
       return html`
-        <p class="text-[11px] text-center text-white/40 leading-snug">
+        <p class="text-[11px] text-center text-ui-muted leading-snug">
           ${translateText("account_modal.sub_granted_indefinite")}
         </p>
       `;
@@ -309,7 +309,7 @@ export class SubscriptionPanel extends LitElement {
     // translations made before that.
     return html`
       <div class="flex flex-col gap-3">
-        <p class="text-[11px] text-center text-white/40 leading-snug">
+        <p class="text-[11px] text-center text-ui-muted leading-snug">
           ${translateText("account_modal.sub_granted_from_purchase", {
             tier: tierName,
           })}
@@ -346,7 +346,7 @@ export class SubscriptionPanel extends LitElement {
       // the date; Manage opens the Steam subscriptions page.
       return html`<div class="flex flex-col gap-2">
         ${manage}
-        <p class="text-[11px] text-center text-white/40 leading-snug">
+        <p class="text-[11px] text-center text-ui-muted leading-snug">
           ${this.steamText(
             "account_modal.manage_subscription_on_steam_ending",
             "account_modal.manage_subscription_on_steam_ending_no_date",
@@ -355,7 +355,7 @@ export class SubscriptionPanel extends LitElement {
       </div>`;
     }
     const note = html`<p
-      class="text-[11px] text-center text-white/40 leading-snug"
+      class="text-[11px] text-center text-ui-muted leading-snug"
     >
       ${translateText(
         STEAM_TIER_CHANGE_IN_APP
@@ -381,7 +381,7 @@ export class SubscriptionPanel extends LitElement {
         ${note}
         <button
           @click=${this.handleCancel}
-          class="self-center text-[11px] font-bold uppercase tracking-widest text-white/30 hover:text-red-400 transition-colors py-1 cursor-pointer"
+          class="self-center text-[11px] font-bold uppercase tracking-[0.1em] text-ui-muted hover:text-ui-accent-soft transition-colors py-1 cursor-pointer"
         >
           ${translateText("account_modal.cancel_subscription")}
         </button>
@@ -462,7 +462,7 @@ export class SubscriptionPanel extends LitElement {
         ${onDesktop ? this.renderManageOnWeb() : nothing}
         <button
           @click=${this.handleCancel}
-          class="self-center text-[11px] font-bold uppercase tracking-widest text-white/30 hover:text-red-400 transition-colors py-1 cursor-pointer"
+          class="self-center text-[11px] font-bold uppercase tracking-[0.1em] text-ui-muted hover:text-ui-accent-soft transition-colors py-1 cursor-pointer"
         >
           ${translateText("account_modal.cancel_subscription")}
         </button>
@@ -479,15 +479,15 @@ export class SubscriptionPanel extends LitElement {
     return html`
       <div class="flex flex-col gap-4">
         <div
-          class="rounded-xl border border-white/10 bg-gradient-to-br from-white/10 to-white/[0.02] p-5 flex flex-col gap-4"
+          class="rounded-xl border border-ui-border bg-gradient-to-br from-white/10 to-white/[0.02] p-5 flex flex-col gap-4"
         >
           <div class="flex items-start justify-between gap-3 flex-wrap">
             <div class="flex flex-col gap-1 min-w-0">
-              <div class="text-xl font-bold text-white leading-tight">
+              <div class="text-xl font-bold text-ui-text leading-tight">
                 ${tierName}
               </div>
               ${cosmetic?.product?.price
-                ? html`<div class="text-sm text-white/50">
+                ? html`<div class="text-sm text-ui-muted">
                     ${translateText("account_modal.sub_price_monthly", {
                       price: cosmetic.product.price,
                     })}
@@ -498,7 +498,7 @@ export class SubscriptionPanel extends LitElement {
           </div>
 
           ${cosmetic?.description
-            ? html`<p class="text-sm text-white/70 leading-relaxed">
+            ? html`<p class="text-sm text-ui-muted leading-relaxed">
                 ${cosmetic.description}
               </p>`
             : ""}
@@ -516,7 +516,7 @@ export class SubscriptionPanel extends LitElement {
             : ""}
           ${this.renderPeriodLine(tierName)}
 
-          <div class="border-t border-white/10 pt-4">
+          <div class="border-t border-ui-border pt-4">
             ${this.renderActions(tierName)}
           </div>
         </div>

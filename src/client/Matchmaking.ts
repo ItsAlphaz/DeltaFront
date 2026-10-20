@@ -10,7 +10,7 @@ import { getPlayToken } from "./Auth";
 import { BaseModal } from "./components/BaseModal";
 import "./components/Difficulties";
 import { GameStartAlertController } from "./components/GameStartAlertController";
-import { DEFAULT_TITLE_CLASS, modalHeader } from "./components/ui/ModalHeader";
+import { uiButtonClasses, uiPageHeader } from "./components/ui/PageUi";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
 import type { JoinLobbyEvent } from "./Main";
 import {
@@ -76,17 +76,17 @@ export class MatchmakingModal extends BaseModal {
           ? "matchmaking_modal.title_ffa"
           : "matchmaking_modal.title",
     );
-    return modalHeader({
-      titleContent: html`<span class="${DEFAULT_TITLE_CLASS}">${title}</span>
-        ${this.gameStartAlert.renderBell()}`,
+    return uiPageHeader({
+      title,
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
+      backLabel: translateText("common.back"),
+      status: this.gameStartAlert.renderBell(),
     });
   }
 
   protected renderBody() {
     const eloDisplay = html`
-      <p class="text-center mt-2 mb-4 text-white/60">
+      <p class="ui-body mb-2 text-center text-ui-muted">
         ${translateText("matchmaking_modal.elo", { elo: this.elo })}
       </p>
     `;
@@ -105,25 +105,27 @@ export class MatchmakingModal extends BaseModal {
         : "matchmaking_modal.not_trusted_info";
       return html`
         <div class="flex flex-col items-center gap-4 text-center">
-          <p class="text-white font-bold">
+          <p class="ui-heading text-ui-text">
             ${translateText("matchmaking_modal.not_trusted")}
           </p>
-          <p class="text-sm text-white/60">${translateText(info)}</p>
+          <p class="ui-body text-[13px] text-ui-muted">
+            ${translateText(info)}
+          </p>
         </div>
       `;
     }
     if (this.limitReached) {
       return html`
         <div class="flex flex-col items-center gap-4 text-center">
-          <p class="text-white font-bold">
+          <p class="ui-heading text-ui-text">
             ${translateText("matchmaking_modal.limit_reached")}
           </p>
-          <p class="text-sm text-white/60">
+          <p class="ui-body text-[13px] text-ui-muted">
             ${translateText("matchmaking_modal.limit_reached_info")}
           </p>
           <button
             @click=${this.openSubscriptions}
-            class="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold uppercase tracking-wider rounded-xl transition-colors"
+            class="${uiButtonClasses("primary")}"
           >
             ${translateText("matchmaking_modal.limit_upsell")}
           </button>
@@ -140,7 +142,7 @@ export class MatchmakingModal extends BaseModal {
       return html`
         ${this.queueSize !== null
           ? html`
-              <p class="text-center text-white/60">
+              <p class="ui-body text-center text-ui-muted">
                 ${translateText("matchmaking_modal.queue_size", {
                   count: this.queueSize,
                 })}

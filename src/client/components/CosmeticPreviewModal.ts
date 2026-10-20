@@ -253,7 +253,7 @@ export class CosmeticPreviewModal extends LitElement {
   ): TemplateResult | typeof nothing {
     if (options.length === 0) return nothing;
     return html`<div class="flex items-center gap-2.5">
-      <span class="font-bold text-white/70 whitespace-nowrap"
+      <span class="font-bold text-ui-muted whitespace-nowrap"
         >${translateText(labelKey)}</span
       >
       <div class="flex items-center gap-2.5 p-1.5">
@@ -285,14 +285,14 @@ export class CosmeticPreviewModal extends LitElement {
       }}
     >
       <div
-        class="relative flex flex-col w-full max-w-3xl h-[600px] max-h-[85vh] rounded-2xl bg-zinc-900 border border-white/15 shadow-2xl overflow-hidden"
+        class="relative flex flex-col w-full max-w-3xl h-[600px] max-h-[85vh] rounded-2xl bg-zinc-900 border border-ui-border shadow-2xl overflow-hidden"
       >
         <!-- Header -->
         <div
-          class="flex items-center justify-between gap-4 px-6 py-3 border-b border-white/10 bg-zinc-900/90"
+          class="flex items-center justify-between gap-4 px-6 py-3 border-b border-ui-border bg-zinc-900/90"
         >
           <div class="flex items-center gap-3 min-w-0">
-            <h2 class="text-lg font-bold text-white tracking-wide truncate">
+            <h2 class="text-lg font-bold text-ui-text tracking-wide truncate">
               ${name}
             </h2>
             <span
@@ -316,17 +316,17 @@ export class CosmeticPreviewModal extends LitElement {
                 ? html`<div class="flex min-w-0 flex-col items-start gap-y-0.5">
                     ${artist
                       ? html`<span
-                          class="truncate text-xs text-white/60 max-w-full"
+                          class="truncate text-xs text-ui-muted max-w-full"
                         >
                           ${translateText("cosmetics.artist_label")}
-                          <span class="text-white/90 font-medium"
+                          <span class="text-ui-text font-medium"
                             >${artist}</span
                           >
                         </span>`
                       : nothing}
                     ${credits?.aiDisclosed === true
                       ? html`<span
-                          class="truncate text-xs text-white/60 max-w-full"
+                          class="truncate text-xs text-ui-muted max-w-full"
                         >
                           ${translateText("cosmetics.ai_label")}
                         </span>`
@@ -337,13 +337,13 @@ export class CosmeticPreviewModal extends LitElement {
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <div
-              class="flex items-center gap-1 p-1 rounded-lg bg-white/5 border border-white/10"
+              class="flex items-center gap-1 p-1 rounded-lg bg-ui-surface border border-ui-border"
             >
               <button
                 type="button"
                 aria-label=${translateText("user_setting.zoom_out")}
                 title=${translateText("user_setting.zoom_out")}
-                class="flex h-7 w-7 items-center justify-center rounded-md text-white/80 hover:bg-white/15 hover:text-white transition active:scale-90 cursor-pointer text-sm font-bold"
+                class="flex h-7 w-7 items-center justify-center rounded-md text-ui-text hover:bg-white/15 hover:text-ui-text transition active:scale-90 cursor-pointer text-sm font-bold"
                 @click=${() => this.canvasEl?.zoomOut()}
               >
                 −
@@ -352,7 +352,7 @@ export class CosmeticPreviewModal extends LitElement {
                 type="button"
                 aria-label=${translateText("user_setting.zoom_in")}
                 title=${translateText("user_setting.zoom_in")}
-                class="flex h-7 w-7 items-center justify-center rounded-md text-white/80 hover:bg-white/15 hover:text-white transition active:scale-90 cursor-pointer text-sm font-bold"
+                class="flex h-7 w-7 items-center justify-center rounded-md text-ui-text hover:bg-white/15 hover:text-ui-text transition active:scale-90 cursor-pointer text-sm font-bold"
                 @click=${() => this.canvasEl?.zoomIn()}
               >
                 +
@@ -362,7 +362,7 @@ export class CosmeticPreviewModal extends LitElement {
               type="button"
               aria-label=${translateText("common.close")}
               title=${translateText("common.close")}
-              class="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
+              class="flex h-8 w-8 items-center justify-center rounded-full bg-ui-surface text-ui-muted hover:bg-white/15 hover:text-ui-text transition-colors"
               @click=${() => this.close()}
             >
               ✕
@@ -383,7 +383,7 @@ export class CosmeticPreviewModal extends LitElement {
         ${skinPalettes.length + teamPalettes.length > 1
           ? html`
               <div
-                class="flex flex-wrap items-center gap-x-6 gap-y-1 px-6 py-2 border-t border-white/10 bg-zinc-900/80 text-xs text-white/80 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                class="flex flex-wrap items-center gap-x-6 gap-y-1 px-6 py-2 border-t border-ui-border bg-zinc-900/80 text-xs text-ui-text overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 ${this.renderPaletteGroup(
                   "store.preview_skin_colors",

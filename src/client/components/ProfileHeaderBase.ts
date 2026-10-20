@@ -195,12 +195,12 @@ export abstract class ProfileHeaderBase extends LitElement {
       this.patternId,
       this.isLegend()
         ? this.hexPath("#facc15", 0.075, 1.5)
-        : this.hexPath("#2dd4bf", 0.07, 1.5),
+        : this.hexPath("#ffffff", 0, 1.5),
       { className: "" },
     )}${this.pulse === null ? html`` : this.renderPulse(this.pulse)}`;
   }
 
-  // The hex pattern behind the card: teal, or gold on a Legend's card.
+  // The hex pattern behind the card: a faint white, or gold on a Legend's card.
   // `pulse` draws the brighter copy the opening pulse lights up.
   private renderPattern(
     id: string,
@@ -255,7 +255,7 @@ export abstract class ProfileHeaderBase extends LitElement {
             0.8,
             1.8,
           )}`
-        : this.hexPath("#7dd3fc", 0.75, 2);
+        : this.hexPath("#f2f2f3", 0.6, 2);
     const svgTemplate = this.renderPattern(`${this.patternId}-pulse`, paths, {
       className: `profile-card-pulse profile-card-pulse-${pulse.kind}`,
       style: `--cx: ${pulse.cx}px; --cy: ${pulse.cy}px; --reach: ${pulse.reach}px`,

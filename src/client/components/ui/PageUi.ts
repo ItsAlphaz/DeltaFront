@@ -44,6 +44,16 @@ export const uiIcons = {
     ),
   check: (size = "h-3.5 w-3.5") => icon(svg`<path d="m5 12 5 5L20 7" />`, size),
   chevronRight: () => icon(svg`<path d="m9 6 6 6-6 6" />`, "h-4 w-4"),
+  clipboard: () =>
+    icon(
+      svg`<rect width="8" height="4" x="8" y="2" rx="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />`,
+      "h-5 w-5",
+    ),
+  players: () =>
+    icon(
+      svg`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <path d="M16 3.13a4 4 0 0 1 0 7.75" />`,
+      "h-4 w-4",
+    ),
   plus: () => icon(svg`<path d="M12 5v14" /> <path d="M5 12h14" />`, "h-4 w-4"),
   arrowRight: () =>
     icon(svg`<path d="M5 12h14" /> <path d="m12 5 7 7-7 7" />`, "h-4 w-4"),

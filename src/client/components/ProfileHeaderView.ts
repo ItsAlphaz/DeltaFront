@@ -33,9 +33,9 @@ export const PH_SPACING = {
   identity: "px-6 pt-6 pb-9 sm:px-8 sm:pt-8 sm:pb-10",
   // The progression band: a rule, a shade of its own and room above the level line.
   progression:
-    "border-t border-white/15 bg-black/25 px-6 pb-7 pt-7 sm:px-8 sm:pb-8 sm:pt-8",
+    "border-t border-ui-border bg-ui-panel px-6 pb-7 pt-7 sm:px-8 sm:pb-8 sm:pt-8",
   // A band under it (the title row).
-  band: "border-t border-white/10 px-6 py-6 sm:px-8",
+  band: "border-t border-ui-border px-6 py-6 sm:px-8",
 } as const;
 
 export interface PhLevel {
@@ -47,7 +47,7 @@ export interface PhLevel {
 // The card both views sit in: one border, one panel (the hex pattern and the
 // opening flourish come from ProfileHeaderBase).
 export const PH_CARD_CLASS =
-  "relative overflow-hidden rounded-xl border border-white/10 bg-df-panel text-white";
+  "relative overflow-hidden rounded-ui-panel border border-ui-border bg-ui-surface text-ui-text";
 
 // ------------------------------------------------------------------ identity
 
@@ -66,11 +66,11 @@ export function phAvatar(opts: {
   return html`<div data-ph-avatar-wrap class="relative shrink-0">
     <div
       data-ph-avatar
-      class="grid h-20 w-20 place-items-center overflow-hidden border border-white/20 bg-black/50 sm:h-24 sm:w-24"
+      class="grid h-20 w-20 place-items-center overflow-hidden rounded-ui-card border border-ui-border-strong bg-ui-ground sm:h-24 sm:w-24"
     >
       ${url === null
         ? html`<span
-            class="font-display text-4xl font-bold text-white sm:text-5xl"
+            class="text-4xl font-bold text-ui-text sm:text-5xl"
             aria-hidden="true"
             >${initial}</span
           >`
@@ -93,7 +93,7 @@ export function phAvatar(opts: {
             level.prestige,
             level.legend,
           )}
-          class="absolute -bottom-2 -right-2 grid h-7 min-w-7 place-items-center bg-df-red px-1.5 font-display text-sm font-bold leading-none text-white shadow-[0_0_0_3px_var(--color-df-panel)]"
+          class="ui-mono absolute -bottom-2 -right-2 grid h-7 min-w-7 place-items-center rounded-md bg-ui-accent px-1.5 text-sm font-bold leading-none text-white shadow-[0_0_0_3px_var(--color-ui-surface)]"
           >${level.level}</span
         >`}
   </div>`;
@@ -105,7 +105,7 @@ export function phClan(tag: string | null): TemplateResult | typeof nothing {
     ? nothing
     : html`<span
         data-ph-clan
-        class="max-w-full truncate font-display text-xs font-bold uppercase tracking-[0.2em] text-df-red-bright"
+        class="ui-mono max-w-full truncate text-xs font-bold tracking-[0.1em] text-ui-gold"
         >[${tag}]</span
       >`;
 }
@@ -118,7 +118,7 @@ export function phName(username: string): TemplateResult {
   const { base, discriminator } = splitAccountUsername(username);
   return html`${base}${discriminator === null
     ? nothing
-    : html`<span class="font-normal text-white/40">.${discriminator}</span>`}`;
+    : html`<span class="font-normal text-ui-muted">.${discriminator}</span>`}`;
 }
 
 /**
@@ -147,15 +147,15 @@ export function phStatus(opts: {
   }
   const id = (name: string) => (ids ? name : nothing);
   const chip =
-    "inline-flex items-center gap-1.5 border px-3 py-1.5 font-display text-[11px] font-bold uppercase leading-none tracking-[0.16em]";
+    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase leading-none tracking-[0.1em]";
   const staffChip =
     staffRole === "owner"
-      ? "border-df-red/50 bg-df-red/15 text-red-200"
-      : "border-white/20 bg-white/10 text-white/80";
+      ? "border-ui-accent/50 bg-ui-accent-tint text-ui-accent-soft"
+      : "border-ui-border-strong bg-ui-surface text-ui-muted";
   return html`
     <div id=${id("account-status")} class="contents">
       <div
-        class="order-1 flex min-w-0 max-w-full items-center gap-2.5 text-2xl font-black leading-tight text-white sm:text-3xl"
+        class="order-1 flex min-w-0 max-w-full items-center gap-2.5 text-2xl font-bold leading-tight text-ui-text sm:text-3xl"
       >
         ${username !== null
           ? html`<span
@@ -175,9 +175,9 @@ export function phStatus(opts: {
               ? html`<span
                   id=${id("account-verified-chip")}
                   data-ph-chip="verified"
-                  class="${chip} border-white/25 bg-black text-white"
+                  class="${chip} border-ui-border-strong bg-ui-ground text-ui-text"
                 >
-                  ${verifiedBadge("w-3.5 h-3.5", "text-df-red-bright", null)}
+                  ${verifiedBadge("w-3.5 h-3.5", "text-ui-accent-soft", null)}
                   ${translateText("account_modal.verified_label")}
                 </span>`
               : nothing}
@@ -199,7 +199,7 @@ export function phStatus(opts: {
             id=${id("account-verified-needs-username")}
             class="order-4 mt-1 flex flex-col items-start gap-2"
           >
-            <span class="text-sm text-white/70"
+            <span class="text-sm text-ui-muted"
               >${translateText("account_modal.verified_needs_username")}</span
             >
             <button
@@ -222,7 +222,7 @@ export function phTitle(title: string | null): TemplateResult | typeof nothing {
   if (title === null) return nothing;
   return html`<span
     data-ph-title
-    class="order-2 max-w-full truncate text-sm font-bold uppercase tracking-wider text-yellow-300"
+    class="order-2 max-w-full truncate text-sm font-bold uppercase tracking-wider text-ui-gold"
     >★ ${titleText(title, translateText)}</span
   >`;
 }
@@ -261,10 +261,7 @@ export function phAside(
     data-ph-aside=${kind}
     class="flex shrink-0 flex-col gap-2 sm:items-end"
   >
-    <span
-      class="font-display text-xs font-bold uppercase tracking-[0.22em] text-white/50"
-      >${label}</span
-    >
+    <span class="ui-label">${label}</span>
     ${figure}
   </div>`;
 }
@@ -280,7 +277,7 @@ export function phLevelLine(level: PhLevel): TemplateResult {
   const emblem = level.legend || prestige > 0;
   const text = level.legend
     ? "bg-gradient-to-r from-yellow-300 via-fuchsia-300 to-yellow-300 bg-clip-text text-transparent"
-    : "text-white";
+    : "text-ui-text";
   return html`<div class="flex min-w-0 items-center gap-3">
     ${emblem
       ? html`<level-badge
@@ -293,20 +290,20 @@ export function phLevelLine(level: PhLevel): TemplateResult {
       : nothing}
     <div
       data-ph-level-line
-      class="min-w-0 break-words font-display text-lg font-bold uppercase leading-snug tracking-[0.16em] sm:text-xl ${text}"
+      class="min-w-0 break-words text-lg font-bold uppercase leading-snug tracking-[0.08em] sm:text-xl ${text}"
     >
       ${level.legend
         ? translateText("progression.legend")
         : translateText("progression.level", { level: level.level })}
-      <span class="text-white/30">·</span>
+      <span class="text-ui-border-hover">·</span>
       <span data-ph-rank class="whitespace-nowrap"
         >${translateText(rankLabelKey(level.level))}</span
       >
       ${prestige > 0
-        ? html`<span class="text-white/30">·</span>
+        ? html`<span class="text-ui-border-hover">·</span>
             <span
               data-ph-prestige
-              class="whitespace-nowrap ${level.legend ? "" : "text-yellow-300"}"
+              class="whitespace-nowrap ${level.legend ? "" : "text-ui-gold"}"
               >${translateText("progression.prestige", { prestige })}</span
             >`
         : nothing}
@@ -343,12 +340,12 @@ export function phProgressionBand(opts: {
     <div
       class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 text-sm"
     >
-      <div class="min-w-0 text-white/55">${opts.left}</div>
+      <div class="min-w-0 text-ui-muted">${opts.left}</div>
       ${xpText === null
         ? nothing
         : html`<span
             data-ph-xp-text
-            class="shrink-0 font-bold tabular-nums text-white"
+            class="ui-mono shrink-0 font-bold tabular-nums text-ui-text"
             >${xpText}</span
           >`}
     </div>
@@ -364,11 +361,9 @@ export function phProgressionBand(opts: {
 /** The Prestige strip, shown at level 100 on your own card. */
 export function phPrestigeStrip(onPrestige: () => void): TemplateResult {
   return html`<div
-    class="mt-2 flex flex-wrap items-center justify-between gap-3 border border-yellow-300/30 bg-yellow-300/5 px-4 py-3"
+    class="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-ui-card border border-ui-gold/40 bg-ui-gold/10 px-4 py-3"
   >
-    <span class="text-sm text-yellow-200"
-      >${translateText("prestige.ready")}</span
-    >
+    <span class="text-sm text-ui-gold">${translateText("prestige.ready")}</span>
     <button
       type="button"
       data-ph-prestige-button
@@ -384,7 +379,7 @@ export function phPrestigeStrip(onPrestige: () => void): TemplateResult {
 export function phLifetimeFigure(xp: number): TemplateResult {
   return html`<span
     data-ph-lifetime
-    class="text-3xl font-black leading-none tabular-nums text-yellow-300"
+    class="ui-mono text-3xl font-bold leading-none text-ui-gold"
     >${formatXp(xp)}</span
   >`;
 }

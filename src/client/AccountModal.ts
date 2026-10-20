@@ -175,7 +175,6 @@ export class AccountModal extends BaseModal {
     const publicId = this.userMeResponse?.player?.publicId ?? "";
     return modalHeader({
       title: translateText("account_modal.title"),
-      titleClassName: "font-display",
       onBack: () => this.close(),
       ariaLabel: translateText("common.back"),
       rightContent:
@@ -721,7 +720,7 @@ export class AccountModal extends BaseModal {
           "account_modal.provider_discord",
           `@${me.discord.username}`,
           html`<span
-            class="grid h-12 w-12 shrink-0 place-items-center bg-[#5865F2]"
+            class="grid h-12 w-12 shrink-0 place-items-center rounded-ui-card bg-[#5865F2]"
             ><img
               src=${assetUrl("images/DiscordLogo.svg")}
               alt=""
@@ -737,7 +736,8 @@ export class AccountModal extends BaseModal {
           "google",
           "account_modal.provider_google",
           me.google.email,
-          html`<span class="grid h-12 w-12 shrink-0 place-items-center bg-white"
+          html`<span
+            class="grid h-12 w-12 shrink-0 place-items-center rounded-ui-card bg-white"
             ><img
               src=${assetUrl("images/GoogleLogo.svg")}
               alt=${translateText("account_modal.google_alt")}
@@ -754,7 +754,7 @@ export class AccountModal extends BaseModal {
           "account_modal.provider_email",
           me.email,
           html`<span
-            class="grid h-12 w-12 shrink-0 place-items-center bg-white/10"
+            class="grid h-12 w-12 shrink-0 place-items-center rounded-ui-card bg-ui-border-strong"
             ><img
               src=${assetUrl("images/EmailIcon.svg")}
               alt=""
@@ -780,7 +780,7 @@ export class AccountModal extends BaseModal {
           "account_modal.provider_steam",
           html`<steam-user-header .data=${me.steam}></steam-user-header>`,
           html`<span
-            class="grid h-12 w-12 shrink-0 place-items-center bg-[#1b2838] text-white"
+            class="grid h-12 w-12 shrink-0 place-items-center rounded-ui-card bg-[#1b2838] text-white"
             >${steamGlyph("h-6 w-6")}</span
           >`,
           translateText("account_modal.link_steam_permanent"),
@@ -793,12 +793,10 @@ export class AccountModal extends BaseModal {
     if (rows.length === 0 && ctas.length === 0) return nothing;
     return html`<section
       data-linked-accounts
-      class="df-enter flex flex-col gap-4 rounded-xl border border-white/10 bg-df-panel p-5 sm:p-7"
+      class="df-enter flex flex-col gap-4 rounded-ui-panel border border-ui-border bg-ui-surface p-5 sm:p-6"
       style="--i: 4"
     >
-      <h3
-        class="m-0 font-display text-lg font-bold uppercase tracking-[0.25em] text-white"
-      >
+      <h3 class="ui-heading m-0 text-ui-text">
         ${translateText("account_modal.linked_accounts_heading")}
       </h3>
       ${rows}
@@ -818,20 +816,20 @@ export class AccountModal extends BaseModal {
   ): TemplateResult {
     return html`<div
       data-linked-provider=${provider}
-      class="df-enter flex flex-col gap-2 border border-white/10 bg-white/[0.04] p-3 sm:p-4"
+      class="df-enter flex flex-col gap-2 rounded-ui-card border border-ui-border bg-ui-panel p-3 sm:p-4"
       style="--i: ${5 + order}"
     >
       <div class="flex items-center gap-4">
         ${mark}
         <div class="min-w-0 flex-1">
-          <div class="text-base font-bold text-white">
+          <div class="text-base font-bold text-ui-text">
             ${translateText(nameKey)}
           </div>
-          <div class="min-w-0 truncate text-sm text-white/60">${identity}</div>
+          <div class="min-w-0 truncate text-sm text-ui-muted">${identity}</div>
         </div>
         <span
           data-linked-status
-          class="inline-flex shrink-0 items-center gap-1.5 font-display text-xs font-bold uppercase tracking-[0.18em] text-white/60"
+          class="ui-label inline-flex shrink-0 items-center gap-1.5"
         >
           <svg
             class="h-3.5 w-3.5"
@@ -850,7 +848,7 @@ export class AccountModal extends BaseModal {
       </div>
       ${note === undefined
         ? nothing
-        : html`<span class="text-xs text-white/40">${note}</span>`}
+        : html`<span class="text-xs text-ui-muted">${note}</span>`}
     </div>`;
   }
 

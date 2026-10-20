@@ -41,12 +41,12 @@ export class SubscriptionModal extends ProfileMenuModal {
       return html`
         <div class="p-6">
           <div
-            class="bg-white/5 rounded-xl border border-white/10 p-8 text-center flex flex-col items-center gap-4"
+            class="flex flex-col items-center gap-4 rounded-ui-panel border border-ui-border bg-ui-surface p-8 text-center"
           >
-            <p class="text-white/60 text-sm">
+            <p class="ui-body text-ui-muted">
               ${translateText("subscription_modal.none")}
             </p>
-            <div class="w-full text-left rounded-lg bg-white/5 px-4 py-3">
+            <div class="w-full rounded-ui-card bg-ui-panel px-4 py-3 text-left">
               ${renderFreePlayPerks("free_play.free_heading")}
             </div>
             <o-button

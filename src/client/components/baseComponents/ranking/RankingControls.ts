@@ -51,7 +51,7 @@ export class RankingControls extends LitElement {
       <div
         role="group"
         aria-label=${translateText("game_list.stats")}
-        class="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1"
+        class="grid grid-cols-3 gap-1 rounded-xl border border-ui-border bg-white/[0.04] p-1"
       >
         ${this.renderButton(
           RankType.Lifetime,
@@ -86,7 +86,7 @@ export class RankingControls extends LitElement {
         type="button"
         data-ranking-category=${type}
         aria-pressed=${active}
-        class="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all duration-200 sm:gap-2 sm:px-4 sm:text-xs sm:tracking-widest ${active
+        class="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all duration-200 sm:gap-2 sm:px-4 sm:text-xs sm:tracking-[0.1em] ${active
           ? "border-df-red/30 bg-df-red/20 text-df-red-bright shadow-(--shadow-df-red-soft)"
           : "border-transparent text-white/40 hover:bg-white/5 hover:text-white/75"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-df-red-bright/70"
         @click=${() => this.onSort(type)}
@@ -103,7 +103,7 @@ export class RankingControls extends LitElement {
       <div
         role="group"
         aria-label=${ariaLabel}
-        class="mt-2 grid grid-cols-6 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 ${hasSixMetrics
+        class="mt-2 grid grid-cols-6 gap-1 rounded-xl border border-ui-border bg-white/[0.03] p-1 ${hasSixMetrics
           ? "sm:grid-cols-6"
           : "sm:grid-cols-5"}"
       >

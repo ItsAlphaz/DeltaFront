@@ -66,11 +66,11 @@ export class CustomCurrencyCard extends LitElement {
         data-cosmetic-shell
         data-cosmetic-rarity="common"
         style="background:linear-gradient(to top, rgba(80,80,80,0.55) 0%, rgba(15,15,20,0.85) 100%);border-color:rgba(255,255,255,0.15)"
-        class="relative flex h-full w-full flex-col items-center overflow-visible rounded-xl border border-white/20 transition-all duration-200 ease-out hover:-translate-y-1 hover:z-10 hover:shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+        class="relative flex h-full w-full flex-col items-center overflow-visible rounded-xl border border-ui-border-strong transition-all duration-200 ease-out hover:-translate-y-1 hover:z-10 hover:shadow-[0_0_10px_rgba(255,255,255,0.5)]"
       >
         <span
           data-custom-currency-name
-          class="w-full whitespace-normal break-words px-3 pt-3 text-center text-sm font-bold leading-tight text-white"
+          class="w-full whitespace-normal break-words px-3 pt-3 text-center text-sm font-bold leading-tight text-ui-text"
           >${translateText("store.custom_amount")}</span
         >
 
@@ -80,7 +80,7 @@ export class CustomCurrencyCard extends LitElement {
         >
           <div
             data-custom-currency-preview
-            class="relative flex w-full aspect-square flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-white/5 p-2"
+            class="relative flex w-full aspect-square flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-ui-surface p-2"
           >
             <plutonium-icon class="block shrink-0" .size=${64}></plutonium-icon>
             <label for="custom-plutonium-amount" class="sr-only"
@@ -89,7 +89,7 @@ export class CustomCurrencyCard extends LitElement {
             <input
               id="custom-plutonium-amount"
               type="number"
-              class="custom-plutonium-input w-full min-w-0 max-w-24 text-center bg-black/30 border border-green-500/30 rounded px-1 py-0.5 text-lg font-black leading-none text-green-400 outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400/40"
+              class="custom-plutonium-input w-full min-w-0 max-w-24 text-center bg-ui-panel border border-green-500/30 rounded px-1 py-0.5 text-lg font-bold leading-none text-ui-success outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400/40"
               aria-label=${translateText("store.plutonium_amount")}
               min=${MIN_PLUTONIUM}
               max=${MAX_PLUTONIUM}
@@ -98,7 +98,7 @@ export class CustomCurrencyCard extends LitElement {
               @change=${this.onInputChange}
             />
             <span
-              class="text-[10px] font-bold leading-none text-white/50 uppercase"
+              class="text-[10px] font-bold leading-none text-ui-muted uppercase"
               >${translateText("cosmetics.hard")}</span
             >
             <span

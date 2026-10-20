@@ -79,7 +79,7 @@ export class PlayerProfileModal extends BaseModal {
       titleContent:
         this.username || this.verified === true || this.staffRole !== undefined
           ? html`<span
-              class="text-white text-xl lg:text-2xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
+              class="text-ui-text text-xl lg:text-2xl font-bold tracking-wide break-words hyphens-auto min-w-0 inline-flex items-center gap-2"
             >
               ${this.username
                 ? usernameText(this.username)
@@ -138,7 +138,7 @@ export class PlayerProfileModal extends BaseModal {
       return html`
         <div class="flex flex-col items-center justify-center p-12 text-center">
           <span class="text-4xl mb-4">🛡️</span>
-          <p class="text-white/40 text-sm">
+          <p class="text-ui-muted text-sm">
             ${translateText("player_profile.no_clans")}
           </p>
         </div>
@@ -204,7 +204,7 @@ export class PlayerProfileModal extends BaseModal {
       return html`
         <div class="flex flex-col items-center justify-center p-12 text-center">
           <span class="text-4xl mb-4">🎮</span>
-          <p class="text-white/40 text-sm">
+          <p class="text-ui-muted text-sm">
             ${translateText("account_modal.no_games")}
           </p>
         </div>
@@ -274,7 +274,7 @@ export class PlayerProfileModal extends BaseModal {
     return html`
       <div class="flex flex-col items-center justify-center p-12 text-center">
         <span class="text-4xl mb-4">📊</span>
-        <p class="text-white/40 text-sm">
+        <p class="text-ui-muted text-sm">
           ${translateText("player_profile.not_found")}
         </p>
       </div>

@@ -16,6 +16,7 @@ import {
   viewerIsSignedIn,
   viewerIsTrusted,
 } from "./components/LobbyCard";
+import { uiButtonClasses } from "./components/ui/PageUi";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
 import {
   getDesktopUpdateState,
@@ -56,10 +57,10 @@ import { isReplayShellHost } from "./VersionedReplay";
 
 /** Solo: the one red call to action. */
 const PRIMARY_ACTION =
-  "bg-df-red hover:bg-df-red-bright active:bg-df-red-dark text-xl lg:text-[1.625rem] tracking-[0.3em]";
-/** Create / Join (and Ranked when on): dark, with a red edge on hover/focus. */
+  "bg-df-red hover:bg-df-red-bright active:bg-df-red-dark text-xl lg:text-[1.625rem] font-bold tracking-[0.12em]";
+/** Create / Join (and Ranked when on): a quiet surface, a lighter edge on hover. */
 const SECONDARY_ACTION =
-  "bg-df-panel border border-df-border hover:border-df-red active:bg-df-bg-secondary text-sm lg:text-base tracking-[0.2em]";
+  "bg-df-panel border border-df-border hover:border-ui-border-hover active:bg-df-bg-secondary text-sm lg:text-base font-semibold tracking-[0.12em]";
 const DISABLED = "opacity-50 cursor-not-allowed pointer-events-none";
 
 /**
@@ -591,12 +592,12 @@ export class GameModeSelector extends LitElement {
         ? "mode_selector.servers_unreachable"
         : "mode_selector.lobbies_unreachable";
     return html`<div
-      class="flex flex-col items-center justify-center gap-3 h-44 sm:h-full rounded-xl bg-surface/60 px-6 text-center text-sm font-medium text-white/60"
+      class="flex h-44 flex-col items-center justify-center gap-3 rounded-ui-panel border border-ui-border bg-ui-surface px-6 text-center text-sm font-medium text-ui-muted sm:h-full"
     >
       ${translateText(message)}
       ${canRetry
         ? html`<button
-            class="px-4 py-2 rounded-md bg-df-red hover:bg-df-red-bright text-white text-sm font-medium uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-df-red"
+            class="${uiButtonClasses("secondary")} disabled:opacity-50"
             ?disabled=${this.retryCoolingDown}
             @click=${this.retryLobbies}
           >
@@ -720,10 +721,10 @@ export class GameModeSelector extends LitElement {
                 ${this.offlineForLobbies()
                   ? this.renderLobbiesUnavailable()
                   : html`<div
-                      class="flex h-full items-center justify-center rounded-sm border border-df-border bg-df-panel/60"
+                      class="flex h-full items-center justify-center rounded-ui-card border border-df-border bg-df-panel/60"
                     >
                       <span
-                        class="size-12 rounded-full border-4 border-df-red/30 border-t-df-red animate-spin"
+                        class="size-12 animate-spin rounded-full border-4 border-ui-border-strong border-t-ui-accent"
                       ></span>
                     </div>`}
               </div>`
@@ -874,16 +875,14 @@ export class GameModeSelector extends LitElement {
     const count = this.advertisedLobbyCount();
     return html`
       <div class="flex min-w-0 shrink-0 items-center justify-between gap-3">
-        <h2
-          class="truncate font-display font-bold text-base lg:text-lg uppercase tracking-[0.2em] text-df-text-secondary"
-        >
+        <h2 class="ui-heading truncate text-ui-text">
           ${translateText("public_lobby.upcoming")}
         </h2>
         <button
           data-see-all
           @click=${this.openDetailedView}
           ?disabled=${!this.inputValid}
-          class="flex shrink-0 items-center gap-1 rounded-sm bg-df-border py-1 pl-3 pr-2 font-display text-xs lg:text-sm uppercase tracking-[0.1em] text-df-text transition-colors hover:bg-df-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-df-red ${this
+          class="ui-focus flex min-h-9 shrink-0 items-center gap-1 rounded-ui-card border border-ui-border-strong bg-ui-surface py-1 pl-3 pr-2 text-xs font-semibold uppercase tracking-[0.06em] text-ui-text transition-colors hover:border-ui-border-hover ${this
             .inputValid
             ? ""
             : DISABLED}"
@@ -941,7 +940,7 @@ export class GameModeSelector extends LitElement {
         @click=${onClick}
         ?disabled=${!this.inputValid}
         aria-disabled=${blocked}
-        class="relative flex items-center justify-center w-full h-full rounded-sm ${bgClass} transition-colors duration-150 font-display text-white uppercase text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-df-text ${!this
+        class="relative flex items-center justify-center w-full h-full rounded-ui-card ${bgClass} transition-colors duration-150 font-display text-white uppercase text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-df-text ${!this
           .inputValid
           ? DISABLED
           : blocked

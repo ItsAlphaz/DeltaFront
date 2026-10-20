@@ -194,14 +194,14 @@ export class ProfileCard extends ProfileHeaderBase {
         : titleText(progress.title, translateText);
     return html`<div
       data-profile-rank-line
-      class="mt-0.5 text-xs font-bold uppercase tracking-wider text-white/70"
+      class="mt-0.5 text-xs font-bold uppercase tracking-wider text-ui-muted"
     >
       <span data-profile-rank
         >${translateText(rankLabelKey(progress.level))}</span
       >${title === null
         ? nothing
-        : html` <span class="text-white/30">·</span>
-            <span data-profile-title class="text-yellow-300">${title}</span>`}
+        : html` <span class="text-ui-muted">·</span>
+            <span data-profile-title class="text-ui-gold">${title}</span>`}
     </div>`;
   }
 
@@ -214,22 +214,22 @@ export class ProfileCard extends ProfileHeaderBase {
     if (progress.legend) {
       return html`<div
         data-profile-level-line
-        class="bg-gradient-to-r from-yellow-300 via-fuchsia-300 to-yellow-300 bg-clip-text font-black uppercase text-transparent ${size}"
+        class="bg-gradient-to-r from-yellow-300 via-fuchsia-300 to-yellow-300 bg-clip-text font-bold uppercase text-transparent ${size}"
       >
         ${translateText("progression.legend")}
-        <span class="text-white/40">·</span>
+        <span class="text-ui-muted">·</span>
         ${translateText("progression.prestige", { prestige })}
       </div>`;
     }
     return html`<div
       data-profile-level-line
-      class="font-black uppercase text-white ${size}"
+      class="font-bold uppercase text-ui-text ${size}"
     >
       ${prestige > 0
-        ? html`<span class="text-yellow-300"
+        ? html`<span class="text-ui-gold"
               >${translateText("progression.prestige", { prestige })}</span
             >
-            <span class="text-white/30">·</span>`
+            <span class="text-ui-muted">·</span>`
         : nothing}
       ${translateText("progression.level", { level: progress.level })}
     </div>`;
@@ -246,7 +246,7 @@ export class ProfileCard extends ProfileHeaderBase {
     >
       <div
         data-xp-bar-fill
-        class="h-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.6)]"
+        class="h-full bg-ui-gold"
         style="width: ${fill * 100}%"
       ></div>
       ${Array.from(
@@ -272,7 +272,7 @@ export class ProfileCard extends ProfileHeaderBase {
     return html`<div class="w-full shrink-0 sm:w-64">
       <div
         data-profile-xp
-        class="mb-1.5 text-right text-xs font-semibold tabular-nums text-white/60"
+        class="mb-1.5 text-right text-xs font-semibold tabular-nums text-ui-muted"
       >
         ${xpProgressText(xpInLevel, progress.legend ? 0 : xpForNext)}
       </div>
@@ -287,12 +287,12 @@ export class ProfileCard extends ProfileHeaderBase {
         ? nothing
         : html`<span
             data-profile-clan
-            class="shrink-0 text-sm font-black tracking-wider text-df-red-bright"
+            class="shrink-0 text-sm font-bold tracking-wider text-ui-accent-soft"
             >[${this.clanTag}]</span
           >`;
     const name = html`<span
       data-profile-name
-      class="truncate text-2xl font-black leading-tight"
+      class="truncate text-2xl font-bold leading-tight"
       title=${this.username}
       >${this.username}</span
     >`;
@@ -300,7 +300,7 @@ export class ProfileCard extends ProfileHeaderBase {
     // in a block of its own on the right (under them on a phone).
     return html`<section
       data-profile-card="compact"
-      class="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-[#0b1424] to-[#132644] px-5 py-4 text-white"
+      class="relative overflow-hidden rounded-ui-panel border border-ui-border bg-ui-surface px-5 py-4 text-ui-text"
     >
       <div
         class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6"
@@ -333,7 +333,7 @@ export class ProfileCard extends ProfileHeaderBase {
               <button
                 type="button"
                 data-profile-prestige
-                class="profile-prestige-button rounded-xl border border-yellow-300/70 bg-gradient-to-b from-yellow-300 to-amber-500 px-6 py-2.5 text-sm font-black uppercase tracking-widest text-zinc-900 transition-transform hover:-translate-y-0.5"
+                class="profile-prestige-button rounded-ui-card border border-ui-gold bg-ui-gold px-6 py-2.5 text-sm font-bold uppercase tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5"
                 @click=${this.requestPrestige}
               >
                 ${translateText("prestige.button")}

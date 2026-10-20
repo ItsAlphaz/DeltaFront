@@ -76,12 +76,12 @@ export class IOSAddToHomeScreenBanner extends LitElement {
             <div class="flex items-center justify-between">
               <h2
                 id="ios-banner-modal-title"
-                class="text-white font-bold text-lg"
+                class="text-ui-text font-bold text-lg"
               >
                 ${translateText("ios_banner.modal_title")}
               </h2>
               <button
-                class="text-slate-400 hover:text-white text-2xl leading-none"
+                class="text-slate-400 hover:text-ui-text text-2xl leading-none"
                 @click=${this.closeGuide}
                 aria-label=${translateText("common.close")}
               >
@@ -96,19 +96,19 @@ export class IOSAddToHomeScreenBanner extends LitElement {
             <ol class="flex flex-col gap-3 text-sm text-slate-200">
               <li class="flex items-start gap-3">
                 <span
-                  class="shrink-0 w-6 h-6 rounded-full bg-df-red flex items-center justify-center text-white font-bold text-xs"
+                  class="shrink-0 w-6 h-6 rounded-full bg-df-red flex items-center justify-center text-ui-text font-bold text-xs"
                   >1</span
                 >
                 <span>${translateText("ios_banner.step_share")}</span>
               </li>
               <li class="flex items-start gap-3">
                 <span
-                  class="shrink-0 w-6 h-6 rounded-full bg-df-red flex items-center justify-center text-white font-bold text-xs"
+                  class="shrink-0 w-6 h-6 rounded-full bg-df-red flex items-center justify-center text-ui-text font-bold text-xs"
                   >2</span
                 >
                 <span
                   >${translateText("ios_banner.step_scroll_and_tap")}
-                  <strong class="text-white"
+                  <strong class="text-ui-text"
                     >${translateText(
                       "ios_banner.step_add_to_home_label",
                     )}</strong
@@ -117,7 +117,7 @@ export class IOSAddToHomeScreenBanner extends LitElement {
               </li>
               <li class="flex items-start gap-3">
                 <span
-                  class="shrink-0 w-6 h-6 rounded-full bg-df-red flex items-center justify-center text-white font-bold text-xs"
+                  class="shrink-0 w-6 h-6 rounded-full bg-df-red flex items-center justify-center text-ui-text font-bold text-xs"
                   >3</span
                 >
                 <span>${translateText("ios_banner.step_open")}</span>
@@ -125,7 +125,7 @@ export class IOSAddToHomeScreenBanner extends LitElement {
             </ol>
 
             <button
-              class="w-full py-2.5 rounded-lg bg-df-red hover:bg-df-red-bright active:bg-df-red/80 text-white font-semibold transition-colors"
+              class="w-full py-2.5 rounded-lg bg-df-red hover:bg-df-red-bright active:bg-df-red/80 text-ui-text font-semibold transition-colors"
               @click=${this.closeGuide}
             >
               ${translateText("ios_banner.got_it")}
@@ -171,7 +171,7 @@ export class IOSAddToHomeScreenBanner extends LitElement {
 
         <div class="flex flex-col gap-1.5">
           <button
-            class="w-full py-1.5 rounded-lg bg-df-red hover:bg-df-red-bright active:bg-df-red/80 text-white font-semibold text-sm transition-colors"
+            class="w-full py-1.5 rounded-lg bg-df-red hover:bg-df-red-bright active:bg-df-red/80 text-ui-text font-semibold text-sm transition-colors"
             @click=${this.openGuide}
           >
             ${translateText("ios_banner.how")}

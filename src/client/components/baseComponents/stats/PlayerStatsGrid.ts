@@ -21,13 +21,13 @@ export class PlayerStatsGrid extends LitElement {
           .map(
             (_, i) => html`
               <div
-                class="flex flex-col items-center justify-center p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
+                class="flex flex-col items-center justify-center p-4 rounded-xl bg-ui-surface border border-ui-border hover:bg-white/10 transition-colors"
               >
-                <div class="text-2xl font-bold text-white mb-1">
+                <div class="text-2xl font-bold text-ui-text mb-1">
                   ${this.values[i] ?? ""}
                 </div>
                 <div
-                  class="text-df-text-muted text-xs font-bold uppercase tracking-widest"
+                  class="text-ui-muted text-xs font-bold uppercase tracking-[0.1em]"
                 >
                   ${this.titles[i] ?? ""}
                 </div>

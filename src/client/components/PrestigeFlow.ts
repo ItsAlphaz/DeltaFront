@@ -414,7 +414,7 @@ export class PrestigeFlow extends LitElement {
     const chargeFading = ceremony && this.beat !== "charge";
     return html`<div
       data-prestige-overlay
-      class="prestige-ceremony fixed inset-0 z-[10020] text-white"
+      class="prestige-ceremony fixed inset-0 z-[10020] text-ui-text"
       style="--tier: ${TIER_COLORS[prestigeTier(rank)]}"
     >
       ${this.renderStyles()}
@@ -471,7 +471,7 @@ export class PrestigeFlow extends LitElement {
       >
         <h2
           id="prestige-confirm-title"
-          class="prestige-title m-0 text-4xl font-black uppercase italic tracking-wide sm:text-6xl"
+          class="prestige-title m-0 text-4xl font-bold uppercase italic tracking-wide sm:text-6xl"
         >
           ${translateText("prestige.title", { rank })}
         </h2>
@@ -500,7 +500,7 @@ export class PrestigeFlow extends LitElement {
         ${this.renderTrack(this.rankOf(before), rank)}
         ${this.renderUnlocks(rank)}
 
-        <p class="m-0 mt-6 max-w-md text-sm text-white/75">
+        <p class="m-0 mt-6 max-w-md text-sm text-ui-text">
           ${translateText("prestige.summary")}
         </p>
         ${this.error === null
@@ -517,7 +517,7 @@ export class PrestigeFlow extends LitElement {
         <div class="mt-6 flex w-full max-w-md gap-3">
           <button
             type="button"
-            class="prestige-cut flex-1 border-0 bg-white/10 px-4 py-3 text-sm font-bold uppercase tracking-wider text-white/75 transition-colors hover:bg-white/20 hover:text-white disabled:opacity-50"
+            class="prestige-cut flex-1 border-0 bg-white/10 px-4 py-3 text-sm font-bold uppercase tracking-wider text-ui-text transition-colors hover:bg-white/20 hover:text-ui-text disabled:opacity-50"
             ?disabled=${submitting}
             @click=${() => this.close()}
           >
@@ -527,7 +527,7 @@ export class PrestigeFlow extends LitElement {
             type="button"
             data-prestige-confirm-button
             ?data-holding=${holding}
-            class="prestige-cut prestige-hold relative flex-[2] select-none border-0 bg-gradient-to-b from-yellow-300 to-amber-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-zinc-900 disabled:cursor-wait disabled:opacity-80"
+            class="prestige-cut prestige-hold relative flex-[2] select-none border-0 bg-gradient-to-b from-yellow-300 to-amber-500 px-4 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 disabled:cursor-wait disabled:opacity-80"
             ?disabled=${submitting}
             @pointerdown=${(e: PointerEvent) => {
               if (e.button === 0) this.startHold();
@@ -632,7 +632,7 @@ export class PrestigeFlow extends LitElement {
             ? translateText("prestige.gain_caps")
             : html`<span
                   data-prestige-caps-amount
-                  class="block text-lg font-black tracking-normal text-white"
+                  class="block text-lg font-bold tracking-normal text-ui-text"
                   >${formatXp(caps)}</span
                 ><span class="mt-0.5 block"
                   >${translateText("prestige.caps")}</span
@@ -645,13 +645,13 @@ export class PrestigeFlow extends LitElement {
         key: "cosmetic",
         icon: html`<div
           data-prestige-cosmetic-preview
-          class="grid h-12 w-12 place-items-center overflow-hidden rounded-md bg-white/5 p-0.5"
+          class="grid h-12 w-12 place-items-center overflow-hidden rounded-md bg-ui-surface p-0.5"
         >
           ${exclusive.preview}
         </div>`,
         label: html`<span
             data-prestige-cosmetic-name
-            class="block text-[13px] font-black normal-case tracking-normal text-white"
+            class="block text-[13px] font-bold normal-case tracking-normal text-ui-text"
             >${exclusive.name}</span
           ><span class="mt-0.5 block"
             >${exclusive.typeLabel === ""
@@ -665,7 +665,7 @@ export class PrestigeFlow extends LitElement {
     }
     return html`<div class="mt-6 w-full">
       <div
-        class="text-[11px] font-bold uppercase tracking-[0.3em] text-white/50"
+        class="text-[11px] font-bold uppercase tracking-[0.3em] text-ui-muted"
       >
         ${translateText("prestige.unlocks")}
       </div>
@@ -678,7 +678,7 @@ export class PrestigeFlow extends LitElement {
               >
                 <div class="grid h-12 place-items-center">${tile.icon}</div>
                 <div
-                  class="text-xs font-bold uppercase leading-tight text-white/85"
+                  class="text-xs font-bold uppercase leading-tight text-ui-text"
                 >
                   ${tile.label}
                 </div>
@@ -974,7 +974,7 @@ export class PrestigeFlow extends LitElement {
           ? html`<button
               type="button"
               data-prestige-continue
-              class="prestige-fade prestige-cut mt-6 border-0 bg-gradient-to-b from-yellow-300 to-amber-500 px-10 py-3 text-base font-black uppercase tracking-wider text-zinc-900 transition-transform hover:-translate-y-0.5"
+              class="prestige-fade prestige-cut mt-6 border-0 bg-gradient-to-b from-yellow-300 to-amber-500 px-10 py-3 text-base font-bold uppercase tracking-wider text-zinc-900 transition-transform hover:-translate-y-0.5"
               @click=${(e: Event) => {
                 e.stopPropagation();
                 this.close();

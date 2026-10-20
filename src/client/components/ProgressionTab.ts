@@ -207,13 +207,13 @@ export class ProgressionTab extends LitElement {
 
   render(): TemplateResult | typeof nothing {
     if (this.failed && this.track === null) {
-      return html`<p class="p-2 text-df-text-muted" data-progression-failed>
+      return html`<p class="p-2 text-ui-muted" data-progression-failed>
         ${translateText("progression.load_failed")}
       </p>`;
     }
     const track = this.track;
     if (track === null) {
-      return html`<p class="p-2 text-df-text-muted" data-progression-loading>
+      return html`<p class="p-2 text-ui-muted" data-progression-loading>
         ${translateText("progression.loading")}
       </p>`;
     }
@@ -242,14 +242,14 @@ export class ProgressionTab extends LitElement {
         <div class="relative h-5">
           <span
             data-track-you
-            class="absolute top-0 whitespace-nowrap text-xs font-bold text-amber-300"
+            class="absolute top-0 whitespace-nowrap text-xs font-bold text-ui-gold"
             style="left: ${marker}%; transform: translateX(-${marker}%)"
             >${translateText("progression.track_you", {
               level: progress.level,
             })}</span
           >
           <span
-            class="absolute right-0 top-0 text-xs font-bold text-white/60"
+            class="absolute right-0 top-0 text-xs font-bold text-ui-muted"
             style=${marker > 80 ? "display:none" : ""}
             >${translateText("progression.track_end", {
               max: MAX_LEVEL,
@@ -282,9 +282,9 @@ export class ProgressionTab extends LitElement {
               ></span>`,
           )}
         </div>
-        <div data-track-xp class="text-sm text-white/70">
+        <div data-track-xp class="text-sm text-ui-muted">
           ${translateText("progression.level", { level: progress.level })}
-          <span class="text-white/50"
+          <span class="text-ui-muted"
             >·
             ${progress.xpForNext > 0
               ? xpProgressText(progress.xpInLevel, progress.xpForNext)
@@ -331,10 +331,10 @@ export class ProgressionTab extends LitElement {
       </div>
       <ul
         data-track-legend
-        class="m-0 flex list-none flex-wrap items-center gap-x-5 gap-y-1 p-0 text-sm text-white/60"
+        class="m-0 flex list-none flex-wrap items-center gap-x-5 gap-y-1 p-0 text-sm text-ui-muted"
       >
-        <li class="flex items-center gap-1.5 text-emerald-400">
-          ${CHECK}<span class="text-white/60"
+        <li class="flex items-center gap-1.5 text-ui-success">
+          ${CHECK}<span class="text-ui-muted"
             >${translateText("progression.claimed")}</span
           >
         </li>
@@ -405,7 +405,7 @@ export class ProgressionTab extends LitElement {
       </div>
       ${state === "current"
         ? html`<span
-            class="text-[10px] font-black uppercase tracking-widest text-df-red-bright"
+            class="text-[10px] font-bold uppercase tracking-[0.1em] text-ui-accent-soft"
             >${translateText("progression.track_you_here")}</span
           >`
         : nothing}
@@ -433,7 +433,7 @@ export class ProgressionTab extends LitElement {
     >
       <span
         data-track-credits
-        class="flex items-center gap-1 text-sm font-bold text-white"
+        class="flex items-center gap-1 text-sm font-bold text-ui-text"
       >
         <credits-icon .size=${16}></credits-icon>
         ${translateText("progression.reward_credits", {
@@ -444,14 +444,14 @@ export class ProgressionTab extends LitElement {
         ? nothing
         : html`<span
             data-track-flare
-            class="max-w-full truncate text-[11px] text-white/70"
+            class="max-w-full truncate text-[11px] text-ui-muted"
             >${flareLabel(entry.flare)}</span
           >`}
       ${entry.title === null
         ? nothing
         : html`<span
             data-track-title
-            class="max-w-full truncate text-[11px] text-white/70"
+            class="max-w-full truncate text-[11px] text-ui-muted"
             >${translateText("progression.track_title_reward", {
               title: titleText(entry.title, translateText),
             })}</span
@@ -492,7 +492,7 @@ export class ProgressionTab extends LitElement {
         ${translateText("progression.prestige_history")}
       </h2>
       ${track.prestigeHistory.length === 0
-        ? html`<p class="m-0 text-lg text-white/70" data-prestige-empty>
+        ? html`<p class="m-0 text-lg text-ui-muted" data-prestige-empty>
             ${translateText("progression.prestige_history_empty")}
           </p>`
         : html`<ul class="m-0 flex list-none flex-col gap-2 p-0">
@@ -500,21 +500,21 @@ export class ProgressionTab extends LitElement {
               (e) =>
                 html`<li
                   data-prestige-event=${e.prestige}
-                  class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-black/20 px-4 py-3"
+                  class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-ui-border bg-ui-panel px-4 py-3"
                 >
                   <div class="min-w-0">
-                    <div class="font-bold text-white">
+                    <div class="font-bold text-ui-text">
                       ${translateText("progression.prestige_history_entry", {
                         rank: e.prestige,
                       })}
                     </div>
-                    <div class="text-xs text-white/50">
+                    <div class="text-xs text-ui-muted">
                       ${translateText("progression.prestige_history_run", {
                         xp: formatXp(e.runXpBefore),
                       })}
                     </div>
                   </div>
-                  <div class="text-xs text-white/60 sm:text-right">
+                  <div class="text-xs text-ui-muted sm:text-right">
                     <div data-prestige-date>
                       ${new Date(e.at).toLocaleDateString()}
                     </div>
@@ -548,13 +548,13 @@ export class ProgressionTab extends LitElement {
         <h2 class=${CARD_HEADING}>
           ${translateText("progression.milestones")}
         </h2>
-        <span class="text-sm text-white/50" data-milestones-total
+        <span class="text-sm text-ui-muted" data-milestones-total
           >${translateText("progression.milestones_total", {
             count: formatXp(track.wins),
           })}</span
         >
       </div>
-      <h3 class="m-0 text-base font-semibold text-white">
+      <h3 class="m-0 text-base font-semibold text-ui-text">
         ${translateText("progression.milestones_wins")}
       </h3>
       <ul
@@ -571,24 +571,24 @@ export class ProgressionTab extends LitElement {
                 : "border-white/10 bg-black/20 opacity-70"}"
             >
               <span
-                class="flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-black ${m.achieved
+                class="flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold ${m.achieved
                   ? "border-df-red bg-df-red/25 text-white"
                   : "border-white/15 text-white/40"}"
                 >${m.target}</span
               >
-              <span class="text-sm font-bold text-white"
+              <span class="text-sm font-bold text-ui-text"
                 >${translateText("progression.milestone_wins", {
                   count: m.target,
                 })}</span
               >
               ${m.achieved
                 ? html`<span
-                    class="flex items-center gap-1 text-xs text-emerald-400"
+                    class="flex items-center gap-1 text-xs text-ui-success"
                     >${CHECK}${translateText(
                       "progression.milestone_achieved",
                     )}</span
                   >`
-                : html`<span class="text-xs text-white/50"
+                : html`<span class="text-xs text-ui-muted"
                     >${translateText("progression.milestone_not_yet")} ·
                     ${translateText("progression.milestone_progress", {
                       current: m.progress,
@@ -596,7 +596,7 @@ export class ProgressionTab extends LitElement {
                     })}</span
                   >`}
               ${m.target === 100
-                ? html`<span class="text-[11px] text-white/50"
+                ? html`<span class="text-[11px] text-ui-muted"
                     >${translateText("progression.milestone_conqueror")}</span
                   >`
                 : nothing}

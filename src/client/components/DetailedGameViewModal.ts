@@ -85,23 +85,23 @@ type BoundKey =
   | "minTeamSize"
   | "maxTeamSize";
 
+// The website's chips, fields and buttons (components/ui/PageUi.ts): the
+// selected chip is the accent tint, the rest are quiet surfaces.
 const CHIP_BASE =
-  "px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider " +
-  "border transition-colors";
-const CHIP_ON = "bg-df-red text-white border-df-red";
+  "ui-focus min-h-9 px-3 rounded-ui-card text-[12px] font-semibold uppercase tracking-[0.06em] " +
+  "border transition-colors cursor-pointer";
+const CHIP_ON = "bg-ui-accent-tint text-ui-text border-ui-accent";
 const CHIP_OFF =
-  "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white";
-const PANE_HEADING =
-  "block text-sm font-bold uppercase tracking-widest text-white";
-const SECTION_LABEL =
-  "block text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5";
+  "bg-ui-surface text-ui-muted border-ui-border-strong hover:border-ui-border-hover hover:text-ui-text";
+const PANE_HEADING = "ui-heading block text-ui-text";
+const SECTION_LABEL = "ui-label mb-2 block";
 const FIELD_CLASS =
-  "px-2 py-1.5 rounded-lg bg-black/30 border border-white/10 text-white " +
-  "text-xs focus:outline-none focus:border-df-red";
+  "ui-focus ui-mono min-h-9 px-3 rounded-ui-card bg-ui-ground border border-ui-border-strong text-ui-text " +
+  "text-[13px] hover:border-ui-border-hover";
 const BUTTON_CLASS =
-  "px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider " +
-  "border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 " +
-  "hover:text-white transition-colors";
+  "ui-focus min-h-9 px-3 rounded-ui-card text-[12px] font-semibold uppercase tracking-[0.06em] " +
+  "border border-ui-border-strong bg-ui-surface text-ui-text hover:border-ui-border-hover " +
+  "transition-colors cursor-pointer";
 
 /**
  * The full lobby browser behind the homepage "More Games" button: every lobby
@@ -392,7 +392,7 @@ export class DetailedGameViewModal extends BaseModal {
         <div class="flex flex-col gap-4">
           ${lobbies.length === 0 && placeholders === 0
             ? html`<p
-                class="py-6 text-center text-xs text-white/30 rounded-xl border border-dashed border-white/10"
+                class="rounded-ui-card border border-dashed border-ui-border-strong py-6 text-center text-xs text-ui-muted"
               >
                 ${translateText("detailed_view.pane_empty")}
               </p>`
@@ -427,7 +427,7 @@ export class DetailedGameViewModal extends BaseModal {
         <span
           class="w-8 h-8 border-[3px] border-df-red/30 border-t-df-red rounded-full animate-spin"
         ></span>
-        <span class="text-xs uppercase tracking-widest text-white/50">
+        <span class="ui-label">
           ${translateText("detailed_view.spawning")}
         </span>
       </div>
@@ -513,7 +513,7 @@ export class DetailedGameViewModal extends BaseModal {
   private renderFilterPanel() {
     return html`
       <div
-        class="flex flex-col gap-4 p-4 rounded-2xl bg-black/20 border border-white/10"
+        class="flex flex-col gap-4 rounded-ui-panel border border-ui-border bg-ui-surface p-4"
       >
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           ${this.renderChipGroup(

@@ -75,13 +75,13 @@ export class ClanCreateForm extends LitElement {
 
   private field(label: string, input: unknown, hint = "") {
     return html`<label class="block space-y-1">
-      <span class="text-xs font-bold uppercase tracking-wider text-white/60"
+      <span class="text-xs font-bold uppercase tracking-wider text-ui-muted"
         >${label}</span
       >
       ${input}
       ${hint === ""
         ? ""
-        : html`<span class="block text-[11px] text-white/40">${hint}</span>`}
+        : html`<span class="block text-[11px] text-ui-muted">${hint}</span>`}
     </label>`;
   }
 
@@ -91,13 +91,13 @@ export class ClanCreateForm extends LitElement {
     return html`
       <form
         data-clan-create
-        class="space-y-4 bg-white/5 border border-white/10 rounded-xl p-4"
+        class="space-y-4 bg-ui-surface border border-ui-border rounded-xl p-4"
         @submit=${(e: Event) => this.submit(e)}
       >
-        <h3 class="text-sm font-bold uppercase tracking-wider text-white">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-ui-text">
           ${translateText("clan_modal.create_title")}
         </h3>
-        <p class="text-xs text-white/50">
+        <p class="text-xs text-ui-muted">
           ${translateText("clan_modal.create_requirements")}
         </p>
         ${this.field(
@@ -121,7 +121,7 @@ export class ClanCreateForm extends LitElement {
             maxlength=${TAG_MAX}
             autocomplete="off"
             autocapitalize="characters"
-            class="${inputClass} uppercase tracking-widest"
+            class="${inputClass} uppercase tracking-[0.1em]"
             .value=${this.tag}
             @input=${(e: Event) => {
               const input = e.target as HTMLInputElement;
@@ -148,7 +148,7 @@ export class ClanCreateForm extends LitElement {
               ).value.replace(/[\r\n]+/g, " "))}
           ></textarea>`,
         )}
-        <label class="flex items-center gap-2 text-sm text-white/80">
+        <label class="flex items-center gap-2 text-sm text-ui-text">
           <input
             data-create-open
             type="checkbox"
@@ -164,7 +164,7 @@ export class ClanCreateForm extends LitElement {
           : html`<p
               data-create-error
               role="alert"
-              class="text-sm font-medium text-red-400"
+              class="text-sm font-medium text-ui-accent-soft"
             >
               ${this.error}
             </p>`}
@@ -172,7 +172,7 @@ export class ClanCreateForm extends LitElement {
           <button
             type="button"
             @click=${() => this.cancel()}
-            class="flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/70 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all"
+            class="flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider text-ui-muted bg-ui-surface hover:bg-white/10 rounded-lg border border-ui-border transition-all"
           >
             ${translateText("clan_modal.create_cancel")}
           </button>
@@ -180,7 +180,7 @@ export class ClanCreateForm extends LitElement {
             data-create-submit
             type="submit"
             ?disabled=${!this.canSubmit}
-            class="flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white bg-df-red hover:bg-df-red-bright rounded-lg transition-all disabled:opacity-40 disabled:pointer-events-none"
+            class="flex-1 px-4 py-2 text-xs font-bold uppercase tracking-wider text-ui-text bg-df-red hover:bg-df-red-bright rounded-lg transition-all disabled:opacity-40 disabled:pointer-events-none"
           >
             ${translateText("clan_modal.create_submit")}
           </button>

@@ -1,9 +1,9 @@
 import { assetUrl } from "@openfront/shared/AssetUrls";
-import { html } from "lit";
+import { html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { translateText } from "./Utils";
 import { BaseModal } from "./components/BaseModal";
-import { modalHeader } from "./components/ui/ModalHeader";
+import { uiButton, uiPageHeader } from "./components/ui/PageUi";
 import {
   collectGraphicsDiagnostics,
   GraphicsDiagnostics,
@@ -31,36 +31,23 @@ export class TroubleshootingModal extends BaseModal {
   }
 
   protected renderHeaderSlot() {
-    return modalHeader({
-      titleContent: html` <div
-        class="w-full flex flex-col sm:flex-row justify-between gap-2"
-      >
-        <span
-          class="text-white text-xl sm:text-2xl md:text-3xl font-bold uppercase tracking-widest break-words hyphens-auto"
-        >
-          <a
-            class="hover:text-df-text text-df-red-bright cursor-pointer"
-            @click=${this.close}
-            >${translateText("main.help")}</a
-          >
-          / ${translateText("troubleshooting.title")}
-        </span>
-        <o-button
-          variant="primary"
-          size="sm"
-          translationKey="common.copy"
-          @click=${this.copyDiagnostics}
-        ></o-button>
-      </div>`,
+    return uiPageHeader({
+      title: `${translateText("main.help")} / ${translateText("troubleshooting.title")}`,
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
+      backLabel: translateText("common.back"),
+      status: uiButton({
+        label: translateText("common.copy"),
+        variant: "secondary",
+        name: "copy",
+        onClick: () => void this.copyDiagnostics(),
+      }),
     });
   }
 
   protected renderBody() {
     if (this.loading) return html``;
     return html`
-      <div class="px-1">
+      <div class="mx-auto w-full max-w-3xl py-2">
         ${this.section(
           "",
           html`${this.infoTip(
@@ -147,13 +134,11 @@ export class TroubleshootingModal extends BaseModal {
   private infoTip(text: string, warning?: boolean): unknown {
     return html`
       <div
-        class="mt-2 ${warning
-          ? "bg-orange-500/10"
-          : "bg-white/10"} flex gap-2 text-white py-1 px-3 rounded-sm  border-1 ${warning
-          ? "border-orange-400"
-          : "border-white/40"}"
+        class="ui-body mt-3 flex items-center gap-3 rounded-ui-card border px-4 py-3 text-[13px] ${warning
+          ? "border-ui-gold/40 bg-ui-gold/10 text-ui-gold"
+          : "border-ui-border bg-ui-surface text-ui-muted"}"
       >
-        <img src="${infoIcon}" class="w-4" />
+        <img src="${infoIcon}" alt="" class="w-4 shrink-0" />
         ${text}
       </div>
     `;
@@ -168,22 +153,22 @@ export class TroubleshootingModal extends BaseModal {
 
   private section(title: string, content: unknown) {
     return html`
-      <div class="px-4 py-3">
-        <h4
-          class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
-        >
-          ${title}
-        </h4>
+      <section class="px-6 py-4">
+        ${title ? html`<h2 class="ui-label mb-3">${title}</h2>` : nothing}
         <div class="space-y-1">${content}</div>
-      </div>
+      </section>
     `;
   }
 
   private row(label: string, value: unknown) {
     return html`
-      <div class="flex justify-between gap-4 text-sm">
-        <span class="text-slate-400">${label}</span>
-        <span class="text-right text-white max-w-100">${value}</span>
+      <div
+        class="ui-body flex min-h-9 items-center justify-between gap-4 border-b border-ui-border last:border-b-0"
+      >
+        <span class="text-ui-muted">${label}</span>
+        <span class="ui-mono max-w-[60%] text-right text-[13px] text-ui-text"
+          >${value}</span
+        >
       </div>
     `;
   }

@@ -306,7 +306,7 @@ export class PlayerGameHistoryView extends LitElement {
     return html`
       <div
         role="tablist"
-        class="flex flex-wrap gap-1 p-1 bg-white/5 border border-white/10 rounded-xl"
+        class="flex flex-wrap gap-1 p-1 bg-ui-surface border border-ui-border rounded-xl"
       >
         ${tabs.map((tab) => {
           const isActive = active === tab.key;
@@ -340,15 +340,15 @@ export class PlayerGameHistoryView extends LitElement {
     if (this.loadState === "failed") {
       return html`
         <div
-          class="bg-white/5 rounded-xl border border-white/10 p-8 text-center"
+          class="bg-ui-surface rounded-xl border border-ui-border p-8 text-center"
         >
-          <p class="text-white/40 text-sm mb-3">
+          <p class="text-ui-muted text-sm mb-3">
             ${translateText("clan_modal.history_unavailable")}
           </p>
           <button
             type="button"
             @click=${() => this.reload()}
-            class="text-xs font-bold text-white/60 hover:text-white uppercase tracking-wider px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 hover:bg-white/5 transition-colors"
+            class="text-xs font-bold text-ui-muted hover:text-ui-text uppercase tracking-wider px-3 py-1.5 rounded-lg border border-ui-border hover:border-ui-border-strong hover:bg-ui-surface transition-colors"
           >
             ${translateText("leaderboard_modal.try_again")}
           </button>
@@ -358,9 +358,9 @@ export class PlayerGameHistoryView extends LitElement {
     if (this.games.length === 0) {
       return html`
         <div
-          class="bg-white/5 rounded-xl border border-white/10 p-8 text-center"
+          class="bg-ui-surface rounded-xl border border-ui-border p-8 text-center"
         >
-          <p class="text-white/40 text-sm">
+          <p class="text-ui-muted text-sm">
             ${translateText("clan_modal.history_empty")}
           </p>
         </div>
@@ -385,7 +385,7 @@ export class PlayerGameHistoryView extends LitElement {
               >
                 <span class="h-px flex-1 bg-white/10"></span>
                 <h3
-                  class="text-xs font-bold uppercase tracking-widest text-white/70 whitespace-nowrap"
+                  class="text-xs font-bold uppercase tracking-[0.1em] text-ui-muted whitespace-nowrap"
                 >
                   ${formatDayHeader(group.day)}
                 </h3>
@@ -405,7 +405,7 @@ export class PlayerGameHistoryView extends LitElement {
   private renderScrollFooter(): TemplateResult {
     if (this.nextCursor === null) {
       return html`
-        <div class="text-center text-[11px] text-white/30 py-3 select-none">
+        <div class="text-center text-[11px] text-ui-muted py-3 select-none">
           ${translateText("clan_modal.history_end_of_history")}
         </div>
       `;
@@ -413,13 +413,13 @@ export class PlayerGameHistoryView extends LitElement {
     if (this.appendFailed) {
       return html`
         <div class="text-center py-3">
-          <p class="text-white/40 text-xs mb-2">
+          <p class="text-ui-muted text-xs mb-2">
             ${translateText("clan_modal.history_load_more_failed")}
           </p>
           <button
             type="button"
             @click=${() => this.load({ append: true })}
-            class="text-xs font-bold text-white/60 hover:text-white uppercase tracking-wider px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 hover:bg-white/5 transition-colors"
+            class="text-xs font-bold text-ui-muted hover:text-ui-text uppercase tracking-wider px-3 py-1.5 rounded-lg border border-ui-border hover:border-ui-border-strong hover:bg-ui-surface transition-colors"
           >
             ${translateText("leaderboard_modal.try_again")}
           </button>
@@ -454,7 +454,7 @@ export class PlayerGameHistoryView extends LitElement {
 
     return html`
       <div
-        class="relative bg-white/5 border border-white/10 rounded-xl overflow-hidden"
+        class="relative bg-ui-surface border border-ui-border rounded-xl overflow-hidden"
       >
         ${mapWebpPath
           ? html`<div
@@ -473,7 +473,7 @@ export class PlayerGameHistoryView extends LitElement {
               ></div>
               ${mapDisplayName
                 ? html`<div
-                    class="absolute bottom-2 left-3 text-xs font-bold text-white uppercase tracking-wider drop-shadow"
+                    class="absolute bottom-2 left-3 text-xs font-bold text-ui-text uppercase tracking-wider drop-shadow"
                   >
                     ${mapDisplayName}
                   </div>`
@@ -482,7 +482,7 @@ export class PlayerGameHistoryView extends LitElement {
                 ${this.renderResultBadge(game)}
               </div>
               <div
-                class="absolute bottom-2 right-2 text-xs font-medium text-white bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md whitespace-nowrap"
+                class="absolute bottom-2 right-2 text-xs font-medium text-ui-text bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md whitespace-nowrap"
               >
                 ${formatAbsoluteTime(game.start)}
               </div>
@@ -499,7 +499,7 @@ export class PlayerGameHistoryView extends LitElement {
               title=${translateText("game_list.stats")}
               aria-label=${translateText("game_list.stats")}
               @click=${() => this.showStats(game.gameId)}
-              class="inline-flex w-8 h-8 items-center justify-center text-white bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
+              class="inline-flex w-8 h-8 items-center justify-center text-ui-text bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
             >
               <img
                 src=${statsIcon}
@@ -515,7 +515,7 @@ export class PlayerGameHistoryView extends LitElement {
               title=${translateText("common.click_to_copy")}
               aria-label=${translateText("common.click_to_copy")}
               @click=${() => this.copyGameLink(game.gameId)}
-              class="inline-flex w-8 h-8 items-center justify-center text-white bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
+              class="inline-flex w-8 h-8 items-center justify-center text-ui-text bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
             >
               <img
                 src=${linkIcon}
@@ -533,7 +533,7 @@ export class PlayerGameHistoryView extends LitElement {
               title=${translateText("clan_modal.history_watch_replay")}
               aria-label=${translateText("clan_modal.history_watch_replay")}
               @click=${() => this.watchReplay(game.gameId)}
-              class="inline-flex w-8 h-8 items-center justify-center text-white bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
+              class="inline-flex w-8 h-8 items-center justify-center text-ui-text bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
             >
               <img
                 src=${replayIcon}
@@ -549,7 +549,7 @@ export class PlayerGameHistoryView extends LitElement {
           </div>
         </div>
         <div
-          class="px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-2 justify-items-center text-center border-b border-white/5"
+          class="px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-2 justify-items-center text-center border-b border-ui-border"
         >
           ${this.renderField(
             translateText("account_modal.games_clan_tag"),
@@ -590,11 +590,11 @@ export class PlayerGameHistoryView extends LitElement {
     return html`
       <div class="min-w-0">
         <div
-          class="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-0.5"
+          class="text-[10px] font-bold uppercase tracking-wider text-ui-muted mb-0.5"
         >
           ${label}
         </div>
-        <div class="text-sm text-white truncate" title=${value}>${value}</div>
+        <div class="text-sm text-ui-text truncate" title=${value}>${value}</div>
       </div>
     `;
   }

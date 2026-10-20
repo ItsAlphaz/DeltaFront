@@ -115,7 +115,7 @@ export class PlayerStatsTreeView extends LitElement {
     return html`
       <div
         role="tablist"
-        class="flex flex-wrap gap-1 p-1 bg-white/5 border border-white/10 rounded-xl"
+        class="flex flex-wrap gap-1 p-1 bg-ui-surface border border-ui-border rounded-xl"
       >
         ${buttons}
       </div>
@@ -557,12 +557,12 @@ export class PlayerStatsTreeView extends LitElement {
 
         ${leaf
           ? html`
-              <div class="border-t border-white/10">
+              <div class="border-t border-ui-border">
                 <div class="py-3">
                   <player-stats-summary .leaf=${leaf}></player-stats-summary>
                 </div>
 
-                <div class="border-t border-white/10 pt-6">
+                <div class="border-t border-ui-border pt-6">
                   <player-stats-table
                     .stats=${leaf?.stats ?? null}
                   ></player-stats-table>
@@ -571,7 +571,7 @@ export class PlayerStatsTreeView extends LitElement {
             `
           : html`
               <div
-                class="py-12 text-center text-white/30 italic border border-white/5 rounded-xl bg-white/5"
+                class="py-12 text-center text-ui-muted italic border border-ui-border rounded-xl bg-ui-surface"
               >
                 ${translateText("player_stats_tree.no_stats")}
               </div>

@@ -35,7 +35,17 @@ import "./components/CopyButton";
 import { GameStartAlertController } from "./components/GameStartAlertController";
 import "./components/LobbyPlayerView";
 import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
-import { DEFAULT_TITLE_CLASS, modalHeader } from "./components/ui/ModalHeader";
+import {
+  uiBadge,
+  uiButton,
+  uiDetailPanel,
+  uiDetailRows,
+  uiIconButton,
+  uiIcons,
+  uiPageHeader,
+  uiSegmented,
+  uiTwoColumn,
+} from "./components/ui/PageUi";
 import { openReplayViewer } from "./replay/ReplayEntry";
 import { nationsConfigToSlider } from "./utilities/GameConfigHelpers";
 import {
@@ -45,8 +55,10 @@ import {
 
 // The homepage lobby card's modifier pill, one size down: a lobby can run a
 // dozen settings and they all have to fit beside the preview.
+const CHEAT_TAG =
+  "rounded-full border border-ui-gold/40 bg-ui-gold/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ui-gold";
 const SETTING_TAG =
-  "rounded bg-df-red px-1.5 py-0.5 text-[11px] font-bold tracking-widest text-white";
+  "rounded-full border border-ui-border-strong bg-ui-surface px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ui-muted";
 
 @customElement("join-lobby-modal")
 export class JoinLobbyModal extends BaseModal {
@@ -120,10 +132,10 @@ export class JoinLobbyModal extends BaseModal {
 
   protected renderHeaderSlot() {
     if (!this.currentLobbyId) {
-      return modalHeader({
+      return uiPageHeader({
         title: translateText("private_lobby.title"),
         onBack: () => this.closeAndLeave(),
-        ariaLabel: translateText("common.close"),
+        backLabel: translateText("common.close"),
       });
     }
     // Both affordances answer "get my friends into this lobby", so they sit
@@ -147,22 +159,15 @@ export class JoinLobbyModal extends BaseModal {
       this.gameConfig === null || isPublicFfa
         ? undefined
         : inviteFriendsButton();
-    return modalHeader({
-      // titleContent (not title) so the bell can sit at the right edge of the
-      // title row via ml-auto, next to the copy/invite cluster.
-      titleContent: html`<span class="${DEFAULT_TITLE_CLASS}"
-          >${translateText("public_lobby.title")}</span
-        >
-        ${this.gameStartAlert.renderBell()}`,
+    return uiPageHeader({
+      title: translateText("public_lobby.title"),
       onBack: () => this.closeAndLeave(),
-      ariaLabel: translateText("common.close"),
-      // Only pair them behind a wrapper when both are present, so a browser --
-      // which never gets the invite button -- renders exactly the markup it
-      // rendered before this change.
-      rightContent:
-        copy && invite
-          ? html`<div class="flex items-center gap-2">${copy}${invite}</div>`
-          : (copy ?? invite),
+      backLabel: translateText("common.close"),
+      // The bell sits with the copy/invite cluster at the right edge.
+      status: html`${this.gameStartAlert.renderBell()}
+      ${copy && invite
+        ? html`<div class="flex items-center gap-2">${copy}${invite}</div>`
+        : (copy ?? invite)}`,
     });
   }
 
@@ -175,29 +180,17 @@ export class JoinLobbyModal extends BaseModal {
     // exactly the lobbies it exists for. The server still refuses seating after
     // start, so no client-side start check is needed here.
     if (this.isConnecting) return html``;
-    const spectating = this.isSpectating;
-    const cls = (on: boolean) =>
-      `px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest transition ${
-        on ? "bg-white text-black" : "text-white/60 hover:text-white"
-      }`;
-    return html`
-      <div class="flex items-center gap-1 rounded-xl bg-white/5 p-1">
-        <button
-          class=${cls(!spectating)}
-          ?disabled=${!spectating}
-          @click=${() => this.setSpectating(false)}
-        >
-          ${translateText("private_lobby.play")}
-        </button>
-        <button
-          class=${cls(spectating)}
-          ?disabled=${spectating}
-          @click=${() => this.setSpectating(true)}
-        >
-          ${translateText("private_lobby.spectate")}
-        </button>
-      </div>
-    `;
+    return uiSegmented({
+      name: "spectate",
+      ariaLabel: translateText("private_lobby.spectate"),
+      fill: true,
+      value: this.isSpectating ? "spectate" : "play",
+      options: [
+        { key: "play", label: translateText("private_lobby.play") },
+        { key: "spectate", label: translateText("private_lobby.spectate") },
+      ],
+      onChange: (key) => this.setSpectating(key === "spectate"),
+    });
   }
 
   protected renderBody() {
@@ -230,171 +223,150 @@ export class JoinLobbyModal extends BaseModal {
     const hostClientID = this.isPrivateLobby()
       ? (this.lobbyCreatorClientID ?? "")
       : "";
-    return html`
-      <div class="flex flex-col h-full">
-        <div class="flex-1 custom-scrollbar p-6 space-y-4 mr-1">
-          ${this.isConnecting
-            ? html`
-                <div
-                  class="min-h-[240px] flex flex-col items-center justify-center gap-4"
-                >
-                  <div
-                    class="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin"
-                  ></div>
-                  <p class="text-center text-white/80 text-sm">
-                    ${translateText("public_lobby.connecting")}
-                  </p>
-                </div>
-              `
-            : html`
-                ${this.gameConfig ? this.renderGameConfig() : html``}
-                ${this.players.length > 0
-                  ? html`
-                      <lobby-player-view
-                        class="mt-6"
-                        .gameMode=${this.gameConfig?.gameMode ?? GameMode.FFA}
-                        .clients=${this.players}
-                        .lobbyCreatorClientID=${hostClientID}
-                        .currentClientID=${this.currentClientID}
-                        .anonymizeNames=${this.gameConfig?.anonymizeNames ??
-                        false}
-                        .teamCount=${this.gameConfig?.playerTeams ?? 2}
-                        .isPublicGame=${this.gameConfig?.gameType ===
-                        GameType.Public}
-                        .nationCount=${nationsConfigToSlider(
-                          this.gameConfig?.nations ?? "default",
-                          this.nationCount,
-                        )}
-                      ></lobby-player-view>
-                    `
-                  : ""}
-              `}
-        </div>
-
-        ${html`
-          <div
-            class="p-6 lg:p-6 border-t border-white/10 bg-black/60 backdrop-blur-md shrink-0 sticky bottom-0 z-10"
+    const content = html`<div class="p-6">
+      ${this.isConnecting
+        ? html`<div
+            class="flex min-h-[240px] flex-col items-center justify-center gap-4"
           >
             <div
-              class="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/5 flex items-center justify-between gap-3"
-            >
-              <div class="flex flex-col">
-                <span
-                  class="text-[10px] font-bold uppercase tracking-widest text-white/40"
-                  >${translateText("public_lobby.status")}</span
-                >
-                <span class="text-sm font-bold text-white">${statusLabel}</span>
-              </div>
-              ${this.renderSpectateToggle()}
-              ${maxPlayers > 0
-                ? html`
-                    <div
-                      class="flex items-center gap-2 text-white/80 text-xs font-bold uppercase tracking-widest"
-                    >
-                      <span>${playerCount}/${maxPlayers}</span>
-                      <svg
-                        class="w-4 h-4 text-white"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.972 0 004 15v3H1v-3a3 3 0 013.75-2.906z"
-                        ></path>
-                      </svg>
-                    </div>
-                  `
-                : html``}
-            </div>
-          </div>
-        `}
-      </div>
-    `;
+              class="h-10 w-10 animate-spin rounded-full border-4 border-ui-border-strong border-t-ui-accent"
+            ></div>
+            <p class="ui-body text-center text-ui-muted">
+              ${translateText("public_lobby.connecting")}
+            </p>
+          </div>`
+        : html`
+            ${this.gameConfig ? this.renderGameConfig() : html``}
+            ${this.players.length > 0
+              ? html`
+                  <lobby-player-view
+                    class="mt-6"
+                    .gameMode=${this.gameConfig?.gameMode ?? GameMode.FFA}
+                    .clients=${this.players}
+                    .lobbyCreatorClientID=${hostClientID}
+                    .currentClientID=${this.currentClientID}
+                    .anonymizeNames=${this.gameConfig?.anonymizeNames ?? false}
+                    .teamCount=${this.gameConfig?.playerTeams ?? 2}
+                    .isPublicGame=${this.gameConfig?.gameType ===
+                    GameType.Public}
+                    .nationCount=${nationsConfigToSlider(
+                      this.gameConfig?.nations ?? "default",
+                      this.nationCount,
+                    )}
+                  ></lobby-player-view>
+                `
+              : ""}
+          `}
+    </div>`;
+
+    const panel = uiDetailPanel({
+      body: html`<div data-lobby-status>
+          <div class="ui-label">${translateText("public_lobby.status")}</div>
+          <div class="ui-heading mt-1 text-ui-text">${statusLabel}</div>
+        </div>
+        ${maxPlayers > 0
+          ? uiDetailRows([
+              {
+                label: translateText("host_modal.players_in_lobby", {
+                  count: playerCount,
+                }),
+                value: html`<span class="inline-flex items-center gap-2"
+                  >${uiIcons.players()} ${playerCount}/${maxPlayers}</span
+                >`,
+              },
+            ])
+          : html``}
+        ${this.renderSpectateToggle()}`,
+    });
+
+    return html`<div class="flex h-full min-h-0 flex-col">
+      ${uiTwoColumn({ content, detail: panel })}
+    </div>`;
   }
 
   private renderJoinForm() {
-    return html`
-      <div class="custom-scrollbar p-6 space-y-4 mr-1">
-        <form @submit=${this.joinLobbyFromInput}>
-          <div class="flex flex-col gap-3">
-            <div class="flex gap-2">
+    // The right panel is the form: the lobby ID, a paste button, Spectate, and
+    // the page's one main action (Join) pinned at the bottom. The open lobbies
+    // are the content on the left.
+    const panel = html`<form
+      class="contents"
+      data-join-form
+      @submit=${this.joinLobbyFromInput}
+    >
+      ${uiDetailPanel({
+        body: html`<div>
+            <label for="lobbyIdInput" class="ui-label"
+              >${translateText("private_lobby.enter_id")}</label
+            >
+            <div class="mt-2 flex gap-2">
               <input
                 type="text"
                 id="lobbyIdInput"
+                autocomplete="off"
                 placeholder=${translateText("private_lobby.enter_id")}
                 @keyup=${this.handleChange}
-                class="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-df-red focus:border-transparent transition-all font-mono text-sm tracking-wider"
+                class="ui-focus ui-mono h-11 min-w-0 flex-1 rounded-ui-card border border-ui-border-strong bg-ui-ground px-4 text-[14px] text-ui-text placeholder:text-ui-placeholder"
               />
-              <o-button
-                variant="ghost"
-                size="md"
-                iconPosition="only"
-                .title=${translateText("common.paste")}
-                .icon=${html`<svg
-                  stroke="currentColor"
-                  fill="currentColor"
-                  stroke-width="0"
-                  viewBox="0 0 32 32"
-                  height="18px"
-                  width="18px"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M 15 3 C 13.742188 3 12.847656 3.890625 12.40625 5 L 5 5 L 5 28 L 13 28 L 13 30 L 27 30 L 27 14 L 25 14 L 25 5 L 17.59375 5 C 17.152344 3.890625 16.257813 3 15 3 Z M 15 5 C 15.554688 5 16 5.445313 16 6 L 16 7 L 19 7 L 19 9 L 11 9 L 11 7 L 14 7 L 14 6 C 14 5.445313 14.445313 5 15 5 Z M 7 7 L 9 7 L 9 11 L 21 11 L 21 7 L 23 7 L 23 14 L 13 14 L 13 26 L 7 26 Z M 15 16 L 25 16 L 25 28 L 15 28 Z"
-                  ></path>
-                </svg>`}
-                @click=${this.pasteFromClipboard}
-              ></o-button>
-            </div>
-            <div class="flex gap-2">
-              <div class="flex-[2]">
-                <o-button
-                  title=${translateText("private_lobby.join_lobby")}
-                  width="block"
-                  submit
-                ></o-button>
-              </div>
-              <div class="flex-1">
-                <o-button
-                  variant="ghost"
-                  title=${translateText("private_lobby.spectate")}
-                  width="block"
-                  @click=${this.spectateLobbyFromInput}
-                ></o-button>
-              </div>
+              ${uiIconButton({
+                icon: uiIcons.clipboard(),
+                ariaLabel: translateText("common.paste"),
+                name: "paste",
+                onClick: () => void this.pasteFromClipboard(),
+              })}
             </div>
           </div>
-        </form>
-        ${this.renderHostedLobbies()}
-      </div>
-    `;
+          ${uiButton({
+            label: translateText("private_lobby.spectate"),
+            variant: "secondary",
+            block: true,
+            name: "spectate",
+            onClick: () => void this.spectateLobbyFromInput(),
+          })}`,
+        action: uiButton({
+          label: translateText("private_lobby.join_lobby"),
+          variant: "primary",
+          block: true,
+          type: "submit",
+          name: "join",
+        }),
+      })}
+    </form>`;
+
+    return html`<div class="flex h-full min-h-0 flex-col">
+      ${uiTwoColumn({
+        content: html`<div class="p-6">${this.renderHostedLobbies()}</div>`,
+        detail: panel,
+      })}
+    </div>`;
   }
 
   private renderHostedLobbies() {
     let content: TemplateResult;
     if (!this.hostedLobbiesLoaded) {
-      content = html`<div class="flex justify-center py-3">
+      content = html`<div class="flex justify-center py-6">
         <div
-          class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
+          class="h-6 w-6 animate-spin rounded-full border-2 border-ui-border-strong border-t-ui-accent"
         ></div>
       </div>`;
     } else if (this.hostedLobbies.length === 0) {
-      content = html`<p class="text-sm text-white/50">
+      content = html`<p
+        data-open-lobbies-empty
+        class="ui-body rounded-ui-card border border-ui-border bg-ui-surface px-4 py-6 text-center text-ui-muted"
+      >
         ${translateText("private_lobby.no_open_lobbies")}
       </p>`;
     } else {
-      content = html`<div class="flex flex-col gap-2">
+      content = html`<div class="flex flex-col gap-3">
         ${this.hostedLobbies.map((lobby) => this.renderHostedLobbyRow(lobby))}
       </div>`;
     }
     return html`
-      <div class="pt-2">
-        <div
-          class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2"
-        >
+      <section data-config-section="open-lobbies">
+        <h2 class="ui-heading mb-4 text-ui-text">
           ${translateText("private_lobby.open_lobbies")}
-        </div>
+        </h2>
         ${content}
-      </div>
+      </section>
     `;
   }
 
@@ -417,12 +389,12 @@ export class JoinLobbyModal extends BaseModal {
     const featuredLabel = lobby.featured ? lobby.label : undefined;
     const accentClass =
       featuredLabel === undefined
-        ? "text-white"
+        ? "text-ui-text"
         : {
-            gold: "text-amber-300",
-            blue: "text-sky-300",
-            green: "text-emerald-300",
-            red: "text-rose-300",
+            gold: "text-ui-gold",
+            blue: "text-ui-tier-blue",
+            green: "text-ui-success",
+            red: "text-ui-accent-soft",
           }[lobby.accent ?? "gold"];
     const subtitle = c ? getGameModeLabel(c) : "";
     // The map name only moves down here when a label has taken the title line.
@@ -438,41 +410,38 @@ export class JoinLobbyModal extends BaseModal {
     return html`
       <button
         type="button"
+        data-hosted-lobby=${lobby.gameID}
         @click=${() => this.joinHostedLobby(lobby)}
-        class="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 active:bg-white/15 transition-all flex items-center gap-3 text-left"
+        class="ui-focus flex w-full cursor-pointer items-center gap-4 rounded-ui-card border border-ui-border bg-ui-surface p-4 text-left transition-colors hover:border-ui-border-hover"
       >
         <img
           src=${thumbnailUrl}
           alt=${mapName}
-          class="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0"
+          class="h-14 w-14 shrink-0 rounded-ui-card border border-ui-border object-cover"
           @error=${(e: Event) => {
             (e.target as HTMLImageElement).style.display = "none";
           }}
         />
-        <div class="flex flex-col flex-1 min-w-0">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-sm font-bold truncate ${accentClass}"
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <div class="flex min-w-0 items-center gap-2">
+            <span class="ui-body truncate font-bold ${accentClass}"
               >${featuredLabel ?? mapName}</span
             >
             ${lobby.custom
-              ? html`<span
-                  class="px-1.5 py-0.5 bg-orange-500 text-white text-[10px] rounded font-bold uppercase tracking-wider shrink-0"
-                  >${translateText("public_lobby.custom")}</span
-                >`
+              ? uiBadge(translateText("public_lobby.custom"), "gold")
               : ""}
           </div>
-          <span class="text-xs text-white/60">${subtitleLine}</span>
+          <span class="ui-body text-[13px] text-ui-muted">${subtitleLine}</span>
           ${settings.length > 0 || disabledUnitCount > 0
-            ? html`<div class="flex flex-wrap gap-1 mt-1">
-                ${settings.map((s) => {
-                  return html`<span
-                    class="px-1.5 py-0.5 bg-white/10 text-white/70 text-[10px] rounded font-bold"
-                    >${lobbySettingTagText(s)}</span
-                  >`;
-                })}
+            ? html`<div class="mt-1 flex flex-wrap gap-1.5">
+                ${settings.map(
+                  (s) =>
+                    html`<span class="${SETTING_TAG}"
+                      >${lobbySettingTagText(s)}</span
+                    >`,
+                )}
                 ${disabledUnitCount > 0
-                  ? html`<span
-                      class="px-1.5 py-0.5 bg-red-500/20 text-red-200 text-[10px] rounded font-bold border border-red-500/30"
+                  ? html`<span class="${SETTING_TAG}"
                       >${translateText("private_lobby.disabled_units")}:
                       ${disabledUnitCount}</span
                     >`
@@ -480,19 +449,17 @@ export class JoinLobbyModal extends BaseModal {
               </div>`
             : ""}
         </div>
-        <div class="flex flex-col items-end gap-1 shrink-0">
-          <div class="flex items-center gap-1 text-white/80 text-xs font-bold">
+        <div class="flex shrink-0 flex-col items-end gap-1">
+          <div
+            class="ui-mono flex items-center gap-2 text-[13px] font-semibold text-ui-text"
+          >
+            ${uiIcons.players()}
             ${lobby.numClients}${c?.maxPlayers ? `/${c.maxPlayers}` : ""}
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.972 0 004 15v3H1v-3a3 3 0 013.75-2.906z"
-              ></path>
-            </svg>
           </div>
           ${secondsToStart === undefined
             ? ""
             : html`<span
-                class="text-amber-300 text-xs font-bold tabular-nums"
+                class="ui-mono text-[12px] font-semibold text-ui-gold"
                 title=${translateText("host_modal.auto_start_timer")}
                 >${secondsToStart > 0
                   ? renderDuration(secondsToStart)
@@ -718,21 +685,21 @@ export class JoinLobbyModal extends BaseModal {
     // the map, so a long list of settings leaves no gap under the preview.
     // With no settings to show, the preview takes the whole row.
     return html`
-      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span class="text-lg font-bold text-white">${mapName}</span>
-        <span class="text-sm text-white/60">${modeSubtitle}</span>
+      <div class="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 class="ui-title text-ui-text">${mapName}</h2>
+        <span class="ui-body text-ui-muted">${modeSubtitle}</span>
       </div>
-      <div class="flex flex-col sm:flex-row gap-4 mb-6">
+      <div class="mb-6 flex flex-col gap-4 sm:flex-row">
         <div
           data-test-map-preview
-          class="flex items-center justify-center w-full ${tags.length > 0
+          class="flex w-full ${tags.length > 0
             ? "sm:w-3/5"
-            : ""} shrink-0 rounded-lg border border-white/10 bg-black/20 overflow-hidden"
+            : ""} shrink-0 items-center justify-center overflow-hidden rounded-ui-card border border-ui-border bg-ui-ground"
         >
           <img
             src=${thumbnailUrl}
             alt=${mapName ?? c.gameMap}
-            class="block w-full max-h-60 object-contain"
+            class="block max-h-60 w-full object-contain"
             @error=${(e: Event) => {
               const frame = (e.target as HTMLElement).parentElement;
               if (frame) frame.style.display = "none";
@@ -742,7 +709,7 @@ export class JoinLobbyModal extends BaseModal {
         ${tags.length > 0
           ? html`<div
               data-test-lobby-settings
-              class="flex flex-wrap content-start gap-1 min-w-0 flex-1 uppercase"
+              class="flex min-w-0 flex-1 flex-wrap content-start gap-1.5"
             >
               ${tags}
             </div>`
@@ -781,24 +748,18 @@ export class JoinLobbyModal extends BaseModal {
 
     return html`
       <div
-        class="mt-4 mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
+        class="mb-6 rounded-ui-card border border-ui-border bg-ui-surface p-4"
       >
-        <div
-          class="text-xs font-bold text-red-400 uppercase tracking-widest mb-2"
-        >
+        <div class="ui-label mb-3">
           ${translateText("private_lobby.disabled_units")}
         </div>
         <div class="flex flex-wrap gap-2">
           ${this.gameConfig.disabledUnits.map((unit) => {
             const key = unitKeys[unit];
             const name = key ? translateText(key) : unit;
-            return html`
-              <span
-                class="px-2 py-1 bg-red-500/20 text-red-200 text-xs rounded font-bold border border-red-500/30"
-              >
-                ${name}
-              </span>
-            `;
+            return html`<span class="${SETTING_TAG} line-through"
+              >${name}</span
+            >`;
           })}
         </div>
       </div>
@@ -815,34 +776,26 @@ export class JoinLobbyModal extends BaseModal {
 
     if (hc.infiniteGold)
       items.push(
-        html`<span
-          class="px-2 py-1 bg-yellow-500/20 text-yellow-200 text-xs rounded font-bold border border-yellow-500/30"
-        >
+        html`<span class="${CHEAT_TAG}">
           ${translateText("game_settings.infinite_gold")}
         </span>`,
       );
     if (hc.infiniteTroops)
       items.push(
-        html`<span
-          class="px-2 py-1 bg-yellow-500/20 text-yellow-200 text-xs rounded font-bold border border-yellow-500/30"
-        >
+        html`<span class="${CHEAT_TAG}">
           ${translateText("game_settings.infinite_troops")}
         </span>`,
       );
     if (hc.goldMultiplier)
       items.push(
-        html`<span
-          class="px-2 py-1 bg-yellow-500/20 text-yellow-200 text-xs rounded font-bold border border-yellow-500/30"
-        >
+        html`<span class="${CHEAT_TAG}">
           ${translateText("game_settings.gold_multiplier")}:
           x${hc.goldMultiplier}
         </span>`,
       );
     if (hc.startingGold)
       items.push(
-        html`<span
-          class="px-2 py-1 bg-yellow-500/20 text-yellow-200 text-xs rounded font-bold border border-yellow-500/30"
-        >
+        html`<span class="${CHEAT_TAG}">
           ${translateText("private_lobby.starting_gold")}:
           ${parseFloat((hc.startingGold / 1_000_000).toPrecision(12))}M
         </span>`,
@@ -852,11 +805,9 @@ export class JoinLobbyModal extends BaseModal {
 
     return html`
       <div
-        class="mt-4 mb-6 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg"
+        class="mb-6 rounded-ui-card border border-ui-gold/40 bg-ui-gold/10 p-4"
       >
-        <div
-          class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-2"
-        >
+        <div class="ui-label mb-3 text-ui-gold!">
           ${translateText("private_lobby.host_cheats")}
         </div>
         <div class="flex flex-wrap gap-2">${items}</div>

@@ -153,13 +153,13 @@ describe("account profile header: the one top card", () => {
     expect(identity).toMatch(/\bpb-9\b/);
     expect(identity).toMatch(/\bsm:pb-10\b/);
     // the band: a stronger rule than the others, its own shade, real top room
-    expect(band).toContain("border-white/15");
-    expect(band).toContain("bg-black/25");
+    expect(band).toContain("border-ui-border");
+    expect(band).toContain("bg-ui-panel");
     expect(band).toMatch(/\bpt-7\b/);
     expect(band).toMatch(/\bsm:pt-8\b/);
     // and more air between its lines than before
     expect(band).toMatch(/\bgap-4\b/);
-    expect(q("[data-ph-title-row]")!.className).toContain("border-white/10");
+    expect(q("[data-ph-title-row]")!.className).toContain("border-ui-border");
   });
 
   it("puts the band's lines in order: level, milestone and XP, then the bar", async () => {
@@ -263,10 +263,12 @@ describe("identity band", () => {
     );
     expect(text("#account-staff-chip")).toContain("staff.owner");
     // the owner chip is the red one; the other roles are neutral
-    expect(q("#account-staff-chip")?.className).toContain("border-df-red/50");
+    expect(q("#account-staff-chip")?.className).toContain(
+      "border-ui-accent/50",
+    );
     await mount({ player: player({ staffRole: "mod" }) });
     expect(q("#account-staff-chip")?.className).not.toContain(
-      "border-df-red/50",
+      "border-ui-accent/50",
     );
     expect(text("#account-staff-chip")).toContain("staff.mod");
   });

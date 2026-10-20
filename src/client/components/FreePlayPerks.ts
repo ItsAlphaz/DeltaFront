@@ -24,16 +24,14 @@ export function renderFreePlayPerks(headingKey: string): TemplateResult {
     : PERK_KEYS;
   return html`
     <div class="flex flex-col gap-1.5">
-      <div class="text-[10px] uppercase tracking-wider text-white/50">
+      <div class="text-[10px] uppercase tracking-wider text-ui-muted">
         ${translateText(headingKey)}
       </div>
-      <ul class="flex flex-col gap-1 text-sm text-white/70">
+      <ul class="flex flex-col gap-1 text-sm text-ui-muted">
         ${keys.map(
           (key) => html`
             <li class="flex gap-2 leading-snug">
-              <span class="text-emerald-400 shrink-0" aria-hidden="true"
-                >✓</span
-              >
+              <span class="text-ui-success shrink-0" aria-hidden="true">✓</span>
               <span>${translateText(key)}</span>
             </li>
           `,

@@ -3,7 +3,7 @@ import { html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { translateText } from "../client/Utils";
 import { BaseModal } from "./components/BaseModal";
-import { modalHeader } from "./components/ui/ModalHeader";
+import { uiPageHeader } from "./components/ui/PageUi";
 import { renderMarkdown } from "./Markdown";
 import { normalizeNewsMarkdown } from "./NewsMarkdown";
 
@@ -16,24 +16,24 @@ export class NewsModal extends BaseModal {
   private initialized = false;
 
   protected renderHeaderSlot() {
-    return modalHeader({
+    return uiPageHeader({
       title: translateText("news.title"),
       onBack: () => this.close(),
-      ariaLabel: translateText("common.back"),
+      backLabel: translateText("common.back"),
     });
   }
 
   protected renderBody() {
     return html`
       <div
-        class="prose prose-invert prose-sm max-w-none px-6 py-3
-          [&_a]:text-df-red-bright [&_a:hover]:text-df-text transition-colors
-          [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-white [&_h1]:border-b [&_h1]:border-white/10 [&_h1]:pb-2
-          [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-df-text
-          [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-df-text
+        class="prose prose-invert prose-sm mx-auto max-w-3xl px-6 py-6
+          [&_a]:text-ui-accent-soft [&_a:hover]:text-ui-text transition-colors
+          [&_h1]:text-xl [&_h1]:font-bold [&_h1]:uppercase [&_h1]:tracking-[0.08em] [&_h1]:mb-4 [&_h1]:text-ui-text [&_h1]:border-b [&_h1]:border-ui-border [&_h1]:pb-3
+          [&_h2]:text-[15px] [&_h2]:font-bold [&_h2]:uppercase [&_h2]:tracking-[0.06em] [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-ui-text
+          [&_h3]:text-[15px] [&_h3]:font-bold [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-ui-text
           [&_ul]:pl-5 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-1
-          [&_li]:text-gray-300 [&_li]:leading-relaxed
-          [&_p]:text-gray-300 [&_p]:mb-3 [&_strong]:text-white [&_strong]:font-bold"
+          [&_li]:text-ui-muted [&_li]:leading-relaxed
+          [&_p]:text-ui-muted [&_p]:mb-3 [&_strong]:text-ui-text [&_strong]:font-bold"
       >
         ${renderMarkdown(this.markdown, { includeImages: true })}
       </div>

@@ -94,10 +94,10 @@ export class ListLobbyDialog extends LitElement {
         <div
           class="relative mx-4 w-full max-w-md p-6 rounded-2xl border border-df-red/50 bg-surface shadow-2xl"
         >
-          <h2 class="text-lg font-bold text-white mb-2">
+          <h2 class="text-lg font-bold text-ui-text mb-2">
             ${translateText("host_modal.list_lobby_title")}
           </h2>
-          <p class="text-sm font-medium text-white/70 mb-5">
+          <p class="text-sm font-medium text-ui-muted mb-5">
             ${translateText("host_modal.list_lobby_body")}
           </p>
           <div class="flex flex-col gap-5 mb-6">
@@ -123,13 +123,13 @@ export class ListLobbyDialog extends LitElement {
           <div class="flex gap-3">
             <button
               @click=${() => this.handleCancel()}
-              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-all"
+              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-ui-surface text-ui-muted border border-ui-border hover:bg-white/10 hover:text-ui-text transition-all"
             >
               ${translateText("common.cancel")}
             </button>
             <button
               @click=${() => this.handleConfirm(maxPlayers)}
-              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-df-red text-white hover:brightness-110 transition-all border-0"
+              class="flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-df-red text-ui-text hover:brightness-110 transition-all border-0"
             >
               ${translateText("host_modal.list_lobby_confirm")}
             </button>

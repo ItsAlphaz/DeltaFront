@@ -61,9 +61,9 @@ function historyKey(entry: { source: string; detail?: string | null }): string {
   return specific ?? SOURCE_KEYS[entry.source] ?? "progression.history_other";
 }
 
-const CARD = "rounded-xl border border-white/10 bg-df-panel p-5 sm:p-7";
-const CARD_HEADING =
-  "m-0 font-display text-lg font-bold uppercase tracking-[0.25em] text-white";
+const CARD =
+  "rounded-ui-panel border border-ui-border bg-ui-surface p-5 sm:p-6";
+const CARD_HEADING = "ui-heading m-0 text-ui-text";
 
 const CLOCK = svg`<svg
   class="h-4 w-4 shrink-0"
@@ -227,7 +227,7 @@ export class ProgressionPanel extends LitElement {
           <span
             data-progression-count
             class="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums ${c.completed
-              ? "font-bold text-green-400"
+              ? "font-bold text-ui-success"
               : "text-white/55"}"
             >${c.completed
               ? html`${CHECK}${translateText("progression.challenge_completed")}`
@@ -243,7 +243,7 @@ export class ProgressionPanel extends LitElement {
         data-progression-reward
         class="my-4 flex w-28 shrink-0 flex-col items-center justify-center gap-1 border-l border-white/10 px-3 sm:w-36"
       >
-        <span class="whitespace-nowrap text-base font-extrabold text-yellow-300"
+        <span class="whitespace-nowrap text-base font-bold text-ui-gold"
           >${translateText("progression.xp_total", {
             xp: formatXp(c.xp),
           })}</span
@@ -296,11 +296,7 @@ export class ProgressionPanel extends LitElement {
             class="flex flex-col gap-3"
           >
             <div class="flex items-center justify-between gap-3">
-              <h4
-                class="m-0 text-xs font-bold uppercase tracking-[0.18em] text-white/55"
-              >
-                ${translateText(key)}
-              </h4>
+              <h4 class="ui-label m-0">${translateText(key)}</h4>
               <span
                 data-progression-resets
                 class="inline-flex items-center gap-1.5 text-sm text-white/50"
@@ -327,7 +323,7 @@ export class ProgressionPanel extends LitElement {
       style="--i: 3"
     >
       <summary
-        class="cursor-pointer font-display text-sm font-bold uppercase tracking-[0.25em] text-white/60"
+        class="ui-body cursor-pointer text-[13px] font-semibold uppercase tracking-[0.06em] text-ui-muted"
       >
         ${translateText("progression.history_heading")}
       </summary>
@@ -350,8 +346,8 @@ export class ProgressionPanel extends LitElement {
               >
               <span
                 class="font-bold tabular-nums ${h.amount < 0
-                  ? "text-sky-300"
-                  : "text-yellow-300"}"
+                  ? "text-ui-tier-blue"
+                  : "text-ui-gold"}"
                 >${translateText(
                   h.amount < 0
                     ? "progression.history_minus"

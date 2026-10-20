@@ -11,6 +11,9 @@
   /* Pixel display face for headings, buttons and nav labels; body text stays
      on the system sans for readability. Registered in Main.ts. */
   --font-display: "Pixelify Sans", Inter, Arial, sans-serif;
+  /* The pixel face on the website is the top nav's alone (--font-display is
+     re-pointed at Inter inside the website shell, below). */
+  --font-pixel: "Pixelify Sans", Inter, Arial, sans-serif;
 
   /* DeltaFront brand palette. Black/white surfaces with red reserved for
      primary actions, selection, focus and brand accents — not whole panels.
@@ -84,10 +87,6 @@
   --shadow-df-red-soft: 0 0 0 1px rgba(227, 27, 35, 0.25);
   --shadow-df-red-strong: 0 0 0 2px rgba(227, 27, 35, 0.45);
   --shadow-df-red-pill: 0 0 0 1px rgba(227, 27, 35, 0.4);
-  --shadow-df-red-ring-sm: 0 0 0 3px rgba(227, 27, 35, 0.25);
-  --shadow-df-red-ring-lg: 0 0 0 4px rgba(227, 27, 35, 0.35);
-  --shadow-lobby-card-hover: 0 0 0 2px var(--color-df-red);
-  --shadow-action-card-hover: 0 0 0 1px var(--color-df-red);
 
   /* Sharp, blocky corners: the whole radius scale is tightened here so every
      rounded-* utility follows. rounded-full (pills, avatars) is unchanged. */
@@ -136,6 +135,46 @@
   --color-zinc-800: var(--color-gray-800);
   --color-zinc-900: var(--color-gray-900);
   --color-zinc-950: var(--color-gray-950);
+}
+
+/* The website (every page, modal and dialog under .df-home-shell, and the
+   mobile menu) is in the account pages' design system. The same tokens the
+   components already read (bg-df-*, text-df-*, rounded-*, font-sans) are
+   re-pointed at it here, once, so nothing on the website carries its own hex
+   or radius. The in-game HUD sits outside the shell and keeps the sharp
+   corners, the brand reds and the pixel face above. */
+/* o-modal and username-input adopt this document's styles into their shadow
+   roots, where Tailwind's `:host` copy of the theme variables would put the
+   original values back on the host and so on everything inside it: they take
+   the website's values explicitly. */
+.df-home-shell,
+.df-home-shell :is(o-modal, username-input),
+mobile-nav-bar {
+  --font-sans: var(--font-ui);
+  --font-display: var(--font-ui);
+  font-family: var(--font-ui);
+
+  --color-df-bg: var(--color-ui-ground);
+  --color-df-bg-secondary: var(--color-ui-panel);
+  --color-df-panel: var(--color-ui-surface);
+  --color-df-red: var(--color-ui-accent);
+  --color-df-red-dark: #b42a2d;
+  --color-df-red-bright: var(--color-ui-accent-soft);
+  --color-df-text: var(--color-ui-text);
+  --color-df-text-secondary: var(--color-ui-muted);
+  --color-df-text-muted: var(--color-ui-placeholder);
+  --color-df-border: var(--color-ui-border-strong);
+  --default-ring-color: var(--color-ui-accent);
+
+  /* 10px cards, buttons and inputs; 12-16px panels and modals. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 20px;
 }
 
 @layer base {
@@ -271,6 +310,54 @@
     background-color: var(--color-df-panel);
     border: 1px solid var(--color-df-border);
     border-radius: var(--radius-sm);
+  }
+
+  /* Inside the website the shared classes follow the design system: Inter,
+     10px corners, a flat red primary, a quiet secondary. */
+  .df-home-shell .df-btn,
+  mobile-nav-bar .df-btn {
+    border-width: 1px;
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    letter-spacing: 0.06em;
+  }
+  .df-home-shell .df-btn:focus-visible {
+    outline-color: var(--color-ui-accent);
+  }
+  .df-home-shell .df-btn-primary {
+    border-bottom-color: var(--color-df-red);
+  }
+  .df-home-shell .df-btn-primary:not(:disabled):hover {
+    border-bottom-color: var(--color-df-red-bright);
+  }
+  .df-home-shell .df-btn:disabled,
+  .df-home-shell .df-btn[aria-disabled="true"] {
+    background-color: var(--color-ui-disabled);
+    border-color: var(--color-ui-border-strong);
+  }
+  .df-home-shell .df-btn-secondary {
+    border-color: var(--color-ui-border-strong);
+  }
+  .df-home-shell .df-btn-secondary:not(:disabled):hover {
+    border-color: var(--color-ui-border-hover);
+  }
+  .df-home-shell .df-input {
+    background-color: var(--color-ui-surface);
+    border-color: var(--color-ui-border-strong);
+    border-radius: var(--radius-lg);
+  }
+  .df-home-shell .df-input:hover {
+    border-color: var(--color-ui-border-hover);
+  }
+  .df-home-shell .df-panel {
+    background-color: var(--color-ui-surface);
+    border-color: var(--color-ui-border);
+    border-radius: var(--radius-xl);
+  }
+  /* Keyboard focus anywhere on the website: the same 2px accent outline. */
+  .df-home-shell :focus-visible {
+    outline: 2px solid var(--color-ui-accent);
+    outline-offset: 2px;
   }
 
   /* The account pages' type scale (UI kit): page title, section heading, label
@@ -1016,10 +1103,10 @@ unit-display .tutorial-highlight::after {
 /* Menu backdrop: a dark field with a faint 1px square grid every 32px,
    anchored to the page origin. Pure CSS, so nothing is scaled or blurred. */
 .df-backdrop {
-  background-color: var(--color-df-page);
+  background-color: var(--color-ui-ground);
   background-image:
-    linear-gradient(to right, var(--color-df-grid) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-df-grid) 1px, transparent 1px);
+    linear-gradient(to right, #121214 1px, transparent 1px),
+    linear-gradient(to bottom, #121214 1px, transparent 1px);
   background-size: 32px 32px;
 }
 
