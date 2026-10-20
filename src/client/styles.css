@@ -87,6 +87,8 @@
   --shadow-df-red-soft: 0 0 0 1px rgba(227, 27, 35, 0.25);
   --shadow-df-red-strong: 0 0 0 2px rgba(227, 27, 35, 0.45);
   --shadow-df-red-pill: 0 0 0 1px rgba(227, 27, 35, 0.4);
+  --shadow-lobby-card-hover: 0 0 0 2px var(--color-df-red);
+  --shadow-action-card-hover: 0 0 0 1px var(--color-df-red);
 
   /* Sharp, blocky corners: the whole radius scale is tightened here so every
      rounded-* utility follows. rounded-full (pills, avatars) is unchanged. */
@@ -175,6 +177,60 @@ mobile-nav-bar {
   --radius-2xl: 16px;
   --radius-3xl: 16px;
   --radius-4xl: 20px;
+}
+
+/* The homepage (the play page, its news strip, the nav, the footer and the
+   notices over it) keeps the original brand look: the pixel face, the sharp
+   corners and the brand reds. It is the one part of the website that is not in
+   the design system, and only while no page is open: every page and dialog,
+   and the nav and footer on them, are. These are the original values of the
+   tokens the block above re-points. */
+body:not(.page-open)
+  .df-home-shell
+  :is(
+    play-page,
+    news-box,
+    homepage-promos,
+    page-footer,
+    desktop-nav-bar,
+    marketing-consent-toast,
+    purchase-nudge-modal,
+    ios-add-to-home-screen-banner
+  ),
+body:not(.page-open) .df-home-shell play-page username-input {
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  --font-display: var(--font-pixel);
+  font-family: var(--font-sans);
+
+  --color-df-bg: #090909;
+  --color-df-bg-secondary: #111111;
+  --color-df-panel: #1a1a1a;
+  --color-df-red: #e31b23;
+  --color-df-red-dark: #a80f16;
+  --color-df-red-bright: #ff252d;
+  --color-df-text: #f5f5f5;
+  --color-df-text-secondary: #a7a7a7;
+  --color-df-text-muted: #707070;
+  --color-df-border: #2b2b2b;
+  --default-ring-color: var(--color-df-red);
+
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 6px;
+  --radius-4xl: 8px;
+}
+
+body:not(.page-open) .df-backdrop {
+  background-color: var(--color-df-page);
+  background-image:
+    linear-gradient(to right, var(--color-df-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-df-grid) 1px, transparent 1px);
 }
 
 @layer base {

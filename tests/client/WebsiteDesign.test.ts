@@ -64,6 +64,19 @@ describe("the website's theme", () => {
     }
   });
 
+  it("keeps the homepage in its original brand look, while no page is open", () => {
+    const home = css.slice(
+      css.indexOf(".df-home-shell play-page username-input"),
+    );
+    expect(css).toMatch(/:is\(\s*play-page,\s*news-box,\s*homepage-promos/);
+    expect(home).toContain("--font-display: var(--font-pixel)");
+    expect(home).toContain("--color-df-red: #e31b23");
+    expect(home).toContain("--radius-sm: 2px");
+    expect(home).toContain("--color-df-panel: #1a1a1a");
+    // the grid backdrop is the original one too
+    expect(css).toContain("body:not(.page-open) .df-backdrop");
+  });
+
   it("gives every page the 1240px column", () => {
     const layout = readFileSync("src/client/components/MainLayout.ts", "utf8");
     expect(layout).toContain("in-[.page-open]:lg:max-w-[1240px]");

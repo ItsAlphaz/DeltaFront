@@ -36,7 +36,7 @@ export class Footer extends LitElement {
   render() {
     return html`
       <footer
-        class="[.in-game_&]:hidden bg-df-bg-secondary flex flex-col items-center justify-center gap-1 pt-1 pb-3 text-ui-muted w-full border-t border-df-border shrink-0 relative z-50 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-0 lg:min-h-12 lg:py-2"
+        class="[.in-game_&]:hidden bg-df-bg-secondary flex flex-col items-center justify-center gap-1 pt-1 pb-3 text-df-text-muted w-full border-t border-df-border shrink-0 relative z-50 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-0 lg:min-h-12 lg:py-2"
       >
         <!-- Icons and legal links stay centred on the bar; on desktop they
              share it with the Steam promo, which gets its own grid column so
@@ -130,14 +130,14 @@ export class Footer extends LitElement {
               href="/terms-of-service.html"
               data-i18n="main.terms_of_service"
               target="_blank"
-              class="hover:text-ui-text transition-colors"
+              class="hover:text-df-text transition-colors"
             ></a>
             <span data-i18n="main.copyright"></span>
             <a
               href="/privacy-policy.html"
               data-i18n="main.privacy_policy"
               target="_blank"
-              class="hover:text-ui-text transition-colors"
+              class="hover:text-df-text transition-colors"
             ></a>
           </div>
           <!-- Origin notice (AGPL §7(c)): DeltaFront is a modified OpenFront. -->
@@ -147,7 +147,7 @@ export class Footer extends LitElement {
               target="_blank"
               rel="noopener noreferrer"
               data-i18n="main.based_on_upstream"
-              class="hover:text-ui-text transition-colors"
+              class="hover:text-df-text transition-colors"
             ></a>
           </div>
         </div>

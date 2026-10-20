@@ -82,13 +82,13 @@ export class MarketingConsentToast extends LitElement {
 
     return html`
       <div
-        class="fixed top-16 z-[10000] left-4 right-4 w-auto sm:left-auto sm:right-4 sm:w-[236px] bg-surface border border-ui-border rounded-xl shadow-[var(--shadow-df-red)] p-3"
+        class="fixed top-16 z-[10000] left-4 right-4 w-auto sm:left-auto sm:right-4 sm:w-[236px] bg-surface border border-white/10 rounded-xl shadow-[var(--shadow-df-red)] p-3"
         role="dialog"
         aria-label=${translateText("marketing_consent.title")}
       >
         <div class="flex items-start gap-2 mb-2">
           <svg
-            class="shrink-0 mt-px text-ui-accent-soft"
+            class="shrink-0 mt-px text-df-red-bright"
             width="14"
             height="14"
             viewBox="0 0 24 24"
@@ -103,15 +103,15 @@ export class MarketingConsentToast extends LitElement {
             <path d="m3 7 9 6 9-6" />
           </svg>
           <div class="flex-1 min-w-0">
-            <div class="text-xs font-bold text-ui-text">
+            <div class="text-xs font-bold text-white">
               ${translateText("marketing_consent.title")}
             </div>
-            <div class="text-[11px] leading-snug text-ui-muted mt-0.5">
+            <div class="text-[11px] leading-snug text-white/60 mt-0.5">
               ${translateText("marketing_consent.body")}
             </div>
           </div>
           <button
-            class="shrink-0 grid place-items-center w-5 h-5 -mt-0.5 -mr-0.5 rounded-md text-ui-muted hover:text-ui-text hover:bg-ui-surface transition-colors cursor-pointer"
+            class="shrink-0 grid place-items-center w-5 h-5 -mt-0.5 -mr-0.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
             aria-label=${translateText("marketing_consent.dismiss")}
             ?disabled=${this.busy}
             @click=${() => this.dismiss()}
@@ -132,14 +132,14 @@ export class MarketingConsentToast extends LitElement {
         </div>
         <div class="flex gap-2">
           <button
-            class="flex-1 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-ui-border bg-ui-surface text-ui-muted hover:bg-white/10 hover:text-ui-text transition-all cursor-pointer"
+            class="flex-1 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
             ?disabled=${this.busy}
             @click=${() => this.decide(false)}
           >
             ${translateText("marketing_consent.no")}
           </button>
           <button
-            class="flex-1 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-transparent bg-df-red text-ui-text shadow-[var(--shadow-df-red-pill)] hover:bg-df-red-bright transition-all cursor-pointer whitespace-nowrap"
+            class="flex-1 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-transparent bg-df-red text-white shadow-[var(--shadow-df-red-pill)] hover:bg-df-red-bright transition-all cursor-pointer whitespace-nowrap"
             ?disabled=${this.busy}
             @click=${() => this.decide(true)}
           >
@@ -147,7 +147,7 @@ export class MarketingConsentToast extends LitElement {
           </button>
         </div>
         ${this.errored
-          ? html`<div class="mt-2 text-[10px] text-ui-accent-soft">
+          ? html`<div class="mt-2 text-[10px] text-red-400">
               ${translateText("marketing_consent.error")}
             </div>`
           : nothing}

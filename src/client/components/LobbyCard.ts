@@ -162,16 +162,16 @@ export interface LobbyCardOptions {
  * line box and renders short and low.
  */
 const PILL =
-  "rounded-md border border-ui-border-strong bg-ui-ground/90 px-2.5 py-1 font-semibold text-[12px] leading-[1.35] tracking-[0.08em] text-ui-text";
-/** Modifier tags and the countdown. */
+  "rounded-sm bg-df-bg/90 border-l-[3px] border-df-red px-2.5 py-1 font-bold text-[13px] leading-[1.35] tracking-[0.12em] text-df-text";
+/** Modifier tags read in the pixel face; the countdown stays in the sans, where "5S" can't pass for "SS". */
 const TAG_PILL = `${PILL} font-display`;
 const TIMER_PILL = `${PILL} font-sans shrink-0 tabular-nums`;
 // No backdrop-filter anywhere in the card: under a transformed ancestor
 // Chrome clips it with a separate mask and the map leaks at the corners.
-const BADGE = "rounded-md bg-ui-ground/80";
+const BADGE = "rounded-sm bg-df-bg/80";
 /** A player's listed lobby, so it can't pass for a scheduled public game. */
 const CUSTOM_PILL =
-  "rounded-md bg-ui-gold px-2 py-1 text-xs font-bold tracking-[0.08em] text-black";
+  "rounded bg-orange-500 px-2 py-1 text-xs font-bold tracking-widest text-white";
 
 /** Extreme aspect ratios (Amazon River is ~20:1) show whole rather than cropped. */
 function fitsByContain(mapType: GameMapType): boolean {
@@ -233,7 +233,7 @@ export function lobbyCard({
       @click=${onClick}
       ?disabled=${disabled}
       aria-disabled=${blocked}
-      class="group @container relative block w-full ${heightClass} overflow-hidden rounded-ui-card border border-ui-border bg-df-panel text-left uppercase text-white transition-colors duration-200 hover:border-ui-border-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-accent ${state}"
+      class="group @container relative block w-full ${heightClass} overflow-hidden rounded-sm bg-df-panel text-left uppercase text-white transition-shadow duration-200 hover:shadow-[var(--shadow-lobby-card-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-df-red ${state}"
     >
       <img
         src=${terrainMapFileLoader.getMapData(mapType).webpPath}

@@ -76,7 +76,7 @@ export class PurchaseNudgeModal extends LitElement {
         class="fixed inset-0 z-[10000] bg-black/50 flex items-center justify-center p-4"
       >
         <div
-          class="bg-gray-800 text-ui-text rounded-xl shadow-2xl max-w-md w-full p-6"
+          class="bg-gray-800 text-white rounded-xl shadow-2xl max-w-md w-full p-6"
           role="dialog"
           aria-label=${translateText("purchase_nudge.title")}
         >
@@ -85,7 +85,7 @@ export class PurchaseNudgeModal extends LitElement {
               ${translateText("purchase_nudge.title")}
             </h2>
             <button
-              class="shrink-0 text-ui-muted hover:text-ui-text text-2xl leading-none cursor-pointer"
+              class="shrink-0 text-white/70 hover:text-white text-2xl leading-none cursor-pointer"
               aria-label=${translateText("purchase_nudge.close")}
               @click=${this.dismiss}
             >

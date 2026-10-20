@@ -200,7 +200,7 @@ export class NewsBox extends LitElement {
         : nothing}
       <button
         @click=${() => this.dismiss(item.id)}
-        class="shrink-0 p-0.5 text-ui-muted hover:text-ui-muted transition-colors"
+        class="shrink-0 p-0.5 text-white/30 hover:text-white/70 transition-colors"
         aria-label="${translateText("news_box.dismiss")}"
       >
         <svg
@@ -226,7 +226,9 @@ export class NewsBox extends LitElement {
         class="flex min-h-[62px] items-center gap-4 border-b border-df-border bg-df-panel px-8 py-2"
       >
         ${this.renderBadge(item, "font-display text-xs px-2.5 py-1")}
-        <p class="flex-1 min-w-0 text-[13px] leading-[1.6] text-ui-muted">
+        <p
+          class="flex-1 min-w-0 text-[13px] leading-[1.6] text-df-text-secondary"
+        >
           ${this.renderTitle(item, "text-[15px] mr-1.5")}
           ${this.renderDescription(item, "[&_p]:inline")}
         </p>
@@ -240,7 +242,7 @@ export class NewsBox extends LitElement {
   private renderBox(item: NewsItem) {
     return html`
       <div
-        class="px-2 py-2 bg-surface border-y border-ui-border lg:border-y-0 lg:rounded-xl lg:p-3"
+        class="px-2 py-2 bg-surface border-y border-white/10 lg:border-y-0 lg:rounded-xl lg:p-3"
       >
         <div class="flex items-center gap-3">
           ${this.renderBadge(item, "text-[10px] px-2 py-0.5")}
