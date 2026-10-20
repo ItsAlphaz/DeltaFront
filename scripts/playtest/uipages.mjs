@@ -9,11 +9,14 @@ import { openGame, OUT, sleep } from "./game.mjs";
 
 const pages = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const narrow = process.argv.includes("--narrow");
+// `demo` leaves a real window open on the signed-in site for browsing (it is not pinned to a size, so it can be resized).
+const demo = pages.includes("demo");
 const width = narrow ? 700 : 1440;
-const g = await openGame({
-  viewport: { width, height: narrow ? 900 : 1000 },
-  dpr: 1,
-});
+const g = await openGame(
+  demo
+    ? { width: 1440, height: 1000 }
+    : { viewport: { width, height: narrow ? 900 : 1000 }, dpr: 1 },
+);
 
 // ---- a catalog big enough to fill the grids
 const catalog = JSON.parse(
@@ -199,7 +202,7 @@ g.b.onEvent(async (d) => {
         { name: "content-type", value: "application/json" },
         { name: "access-control-allow-origin", value: "*" },
       ],
-      body: Buffer.from(JSON.stringify(lb(2))).toString("base64"),
+      body: Buffer.from(JSON.stringify(lb(demo ? 8 : 2))).toString("base64"),
     });
   }
 });
@@ -329,6 +332,42 @@ for (const page of pages) {
     );
     await sleep(1200);
     await shot(`ui-inventory-effects${narrow ? "-narrow" : ""}`);
+  }
+}
+if (demo) {
+  // The private stack has no account API: keep the page signed in, and give the clan page the clans it would fetch.
+  const myClans = JSON.stringify([
+    {
+      tag: "STAFF",
+      name: "DF Staff",
+      description: "",
+      isOpen: false,
+      memberCount: 2,
+    },
+    {
+      tag: "ALPHA",
+      name: "Alpha Company",
+      description: "",
+      isOpen: true,
+      memberCount: 14,
+    },
+  ]);
+  const feed = () =>
+    g.ev(`(() => {
+      document.dispatchEvent(new CustomEvent('userMeResponse',{detail:${JSON.stringify(me)}}));
+      const a = document.querySelector('#nav-account-signin-text'); a && a.classList.add('hidden');
+      const m = document.querySelector('clan-modal');
+      if (m && m.signedOut) {
+        m.signedOut = false; m.loading = false; m.myPublicId = 'p1';
+        m.myClans = ${myClans};
+        m.myClanRoles = new Map([['STAFF','leader'],['ALPHA','member']]);
+        m.requestUpdate();
+      }
+      return 1 })()`);
+  console.log("demo window open: close it (or wait for the timeout) to stop");
+  while (!g.b.isClosed()) {
+    await feed();
+    await sleep(1500);
   }
 }
 console.log("out", OUT);
