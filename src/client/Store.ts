@@ -959,19 +959,20 @@ export class StoreModal extends BaseModal {
             .resolved=${active}
             size="detail"
           ></cosmetic-preview>
-          ${isPreviewableCosmetic(active)
-            ? html`<span class="absolute bottom-3 right-3">
-                ${uiButton({
-                  label: html`${uiIcons.play()}${translateText("store.preview")}`,
-                  onClick: () => {
-                    this.previewingCosmetic = active;
-                    this.requestUpdate();
-                  },
-                  name: "preview",
-                })}
-              </span>`
-            : ""}
         </div>
+        <!-- Under the artwork, not on it: the button used to cover its corner. -->
+        ${isPreviewableCosmetic(active)
+          ? html`<div class="[&>button]:w-full">
+              ${uiButton({
+                label: html`${uiIcons.play()}${translateText("store.preview")}`,
+                onClick: () => {
+                  this.previewingCosmetic = active;
+                  this.requestUpdate();
+                },
+                name: "preview",
+              })}
+            </div>`
+          : ""}
         ${uiDetailHeading({
           eyebrow,
           title: cosmeticDisplayName(active),

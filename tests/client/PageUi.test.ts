@@ -245,6 +245,27 @@ describe("cards and badges", () => {
     expect(card.className).toContain("bg-ui-surface");
   });
 
+  it("scales a square cosmetic preview to the preview box's height, so the whole image shows", () => {
+    mount(
+      uiItemCard({
+        preview: html`<cosmetic-preview></cosmetic-preview>`,
+        name: "Gilded Majesty",
+        onSelect: () => {},
+      }),
+    );
+    // the box is 4:3 and the artwork a square: it must take the box's height
+    // (it used to take the width and was cut off at the bottom)
+    const box = q("cosmetic-preview").parentElement!;
+    expect(box.className).toContain("aspect-[4/3]");
+    expect(box.className).toContain("overflow-hidden");
+    expect(box.className).toContain("[&_[data-cosmetic-preview]]:h-full");
+    expect(box.className).toContain("[&_[data-cosmetic-preview]]:w-auto");
+    expect(box.className).toContain(
+      "[&_[data-cosmetic-preview]]:aspect-square",
+    );
+    expect(box.className).toContain("[&_[data-cosmetic-preview]]:max-w-full");
+  });
+
   it("an unselected card has the neutral border and no ring", () => {
     mount(
       uiItemCard({

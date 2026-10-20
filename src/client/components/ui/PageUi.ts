@@ -459,6 +459,14 @@ export function tierForRarity(rarity: string | undefined): UiTier {
 }
 
 /**
+ * A cosmetic preview is a square; the card's preview box is not. The square
+ * takes the box's height and is centred in it, so the whole image shows (it
+ * used to take the box's width and get cut off at the bottom).
+ */
+const PREVIEW_FIT =
+  "[&>cosmetic-preview]:flex [&>cosmetic-preview]:items-center [&>cosmetic-preview]:justify-center [&_[data-cosmetic-preview]]:aspect-square [&_[data-cosmetic-preview]]:h-full [&_[data-cosmetic-preview]]:w-auto [&_[data-cosmetic-preview]]:max-w-full";
+
+/**
  * A card in a grid: a dark preview area, the name and a price or meta line
  * beneath it, a 3px tier stripe on top (never a coloured background), and an
  * Owned/Equipped badge when there is one. Selected is the accent border and a
@@ -501,7 +509,7 @@ export function uiItemCard(props: {
         ></span>`
       : nothing}
     <span
-      class="relative flex items-center justify-center overflow-hidden bg-ui-ground p-3 ${props.previewClass ??
+      class="${PREVIEW_FIT} relative flex items-center justify-center overflow-hidden bg-ui-ground p-3 ${props.previewClass ??
       "aspect-[4/3]"}"
     >
       ${props.preview}

@@ -252,6 +252,18 @@ for (const page of pages.length ? pages : ["store"]) {
     );
     await sleep(1200);
     await shot(`ui-store-cosmetics${narrow ? "-narrow" : ""}`);
+    // the other cosmetic categories: their artwork must show whole in the cards
+    for (const sub of ["flags", "crowns"]) {
+      await g.ev(
+        `document.querySelector('store-modal [data-ui-tabs] [data-key="${sub}"]')?.click(); 1`,
+      );
+      await sleep(1500);
+      await g.ev(
+        `document.querySelector('store-modal [data-ui-item="store-product"]')?.click(); 1`,
+      );
+      await sleep(900);
+      await shot(`ui-store-${sub}${narrow ? "-narrow" : ""}`);
+    }
   }
 }
 for (const page of pages) {

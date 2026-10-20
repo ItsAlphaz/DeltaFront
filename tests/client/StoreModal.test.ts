@@ -297,6 +297,14 @@ async function activateVariant(modal: StoreModal, key: string) {
   await modal.updateComplete;
 }
 
+// The detail panel's Preview button sits under the artwork, not on top of it
+// (it used to cover the artwork's corner).
+function previewIsOutsideTheArtwork(modal: StoreModal): boolean {
+  const button = modal.querySelector('[data-ui-button="preview"]')!;
+  const artwork = modal.querySelector("[data-store-detail-preview]")!;
+  return !artwork.contains(button);
+}
+
 async function clickPreview(modal: StoreModal) {
   modal.querySelector<HTMLButtonElement>('[data-ui-button="preview"]')!.click();
   await modal.updateComplete;
@@ -601,6 +609,7 @@ describe("StoreModal cosmetic browser", () => {
 
     await focusCard(modal, wake.key);
     expect(modal.querySelector("cosmetic-preview-modal")).toBeNull();
+    expect(previewIsOutsideTheArtwork(modal)).toBe(true);
 
     await clickPreview(modal);
 
