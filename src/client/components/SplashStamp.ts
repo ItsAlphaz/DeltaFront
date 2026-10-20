@@ -138,22 +138,23 @@ splash-stamp .splash-stamp {
   position: absolute;
   top: 0;
   right: 0;
-  max-width: 24vw;
+  width: max-content;
+  max-width: 9.5em;
   padding: 0.18em 0.5em 0.1em;
   border: 3px solid var(--stamp);
   border-radius: 3px;
   color: var(--stamp);
   font-family: var(--font-pixel);
-  font-size: clamp(11px, 1.1vw, 17px);
+  font-size: clamp(11px, calc(var(--df-logo) * 0.15), 24px);
   line-height: 1.15;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   cursor: pointer;
   user-select: none;
   pointer-events: auto;
-  transform: translate(8%, -145%) rotate(-12deg);
+  transform: translate(22%, -118%) rotate(-12deg);
   -webkit-mask-image: ${INK_MASK};
   mask-image: ${INK_MASK};
   -webkit-mask-size: 160px 160px;
@@ -169,25 +170,25 @@ splash-stamp .splash-stamp:focus-visible {
 `;
 
 const SLAM = [
-  { transform: "translate(8%, -145%) rotate(-12deg) scale(3)", opacity: 0 },
+  { transform: "translate(22%, -118%) rotate(-12deg) scale(3)", opacity: 0 },
   {
-    transform: "translate(8%, -145%) rotate(-12deg) scale(0.9)",
+    transform: "translate(22%, -118%) rotate(-12deg) scale(0.9)",
     opacity: 1,
     offset: 0.55,
   },
   {
-    transform: "translate(10%, -145%) rotate(-12deg) scale(1.06)",
+    transform: "translate(24%, -118%) rotate(-12deg) scale(1.06)",
     offset: 0.68,
   },
   {
-    transform: "translate(6%, -143%) rotate(-12deg) scale(0.98)",
+    transform: "translate(20%, -116%) rotate(-12deg) scale(0.98)",
     offset: 0.8,
   },
   {
-    transform: "translate(8.5%, -145%) rotate(-12deg) scale(1.01)",
+    transform: "translate(22.5%, -118%) rotate(-12deg) scale(1.01)",
     offset: 0.9,
   },
-  { transform: "translate(8%, -145%) rotate(-12deg) scale(1)", opacity: 1 },
+  { transform: "translate(22%, -118%) rotate(-12deg) scale(1)", opacity: 1 },
 ];
 
 @customElement("splash-stamp")
