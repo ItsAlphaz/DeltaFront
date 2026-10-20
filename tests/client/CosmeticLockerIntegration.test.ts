@@ -126,8 +126,23 @@ function cardFor(root: InventoryModal, key: string) {
     .groupsFor(m.activeTab)
     .find((candidate) => candidate.some((variant) => variant.key === key));
   const el = [
-    ...root.querySelectorAll<HTMLElement>('[data-ui-item="inventory-item"]'),
-  ].find((candidate) => candidate.dataset.key === group?.[0].key);
+    ...root.querySelectorAll<HTMLElement>("[data-inventory-item]"),
+  ].find((candidate) => candidate.dataset.cosmeticKey === group?.[0].key);
+  // A card's own click does nothing now (its buttons act); what a click used to do,
+  // select the card's item in the detail panel, is the modal's inspect().
+  const inner = m as unknown as {
+    inspect(item: unknown): void;
+    inspectedKey: string | null;
+    isEquipped(item: unknown): boolean;
+  };
+  if (el && group) {
+    el.click = () =>
+      inner.inspect(
+        group.find((v) => v.key === inner.inspectedKey) ??
+          group.find((v) => inner.isEquipped(v)) ??
+          group[0],
+      );
+  }
   const item = group?.find((variant) => variant.key === key);
   if (!el || !item) return undefined;
   return {
@@ -295,10 +310,8 @@ describe("Cosmetic locker integration", () => {
     expectNoNestedInteractiveControls(inventory);
     expectNoNestedInteractiveControls(store);
 
-    const inventoryMain = cardFor(inventory, blueKey)!.el as HTMLButtonElement;
-    expect(inventoryMain.tagName).toBe("BUTTON");
-    expect(inventoryMain.type).toBe("button");
-    // the Store's cards are the cosmetic cards; its colours are buttons in the panel
+    // both surfaces use the same cosmetic card; the colours are buttons in the panel
+    expect(cardFor(inventory, blueKey)!.el.tagName).toBe("COSMETIC-CARD");
     expect(
       store.querySelector("cosmetic-card[data-store-product]"),
     ).toBeTruthy();

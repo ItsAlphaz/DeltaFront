@@ -105,8 +105,23 @@ const card = (modal: InventoryModal, key: string) => {
     .groupsFor(m.activeTab)
     .find((candidate) => candidate.some((variant) => variant.key === key));
   const el = [
-    ...modal.querySelectorAll<HTMLElement>('[data-ui-item="inventory-item"]'),
-  ].find((candidate) => candidate.dataset.key === group?.[0].key);
+    ...modal.querySelectorAll<HTMLElement>("[data-inventory-item]"),
+  ].find((candidate) => candidate.dataset.cosmeticKey === group?.[0].key);
+  // A card's own click does nothing now (its buttons act); what a click used to do,
+  // select the card's item in the detail panel, is the modal's inspect().
+  const inner = m as unknown as {
+    inspect(item: unknown): void;
+    inspectedKey: string | null;
+    isEquipped(item: unknown): boolean;
+  };
+  if (el && group) {
+    el.click = () =>
+      inner.inspect(
+        group.find((v) => v.key === inner.inspectedKey) ??
+          group.find((v) => inner.isEquipped(v)) ??
+          group[0],
+      );
+  }
   if (!el || !group) return undefined;
   return { el, resolved: group.find((v) => v.key === key)!, variants: group };
 };

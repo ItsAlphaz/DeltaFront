@@ -1694,7 +1694,6 @@
     "waiting": "Waiting for players..."
   },
   "inventory": {
-    "colors_count": "{count, plural, one {# color} other {# colors}}",
     "equip": "Equip",
     "equipped": "Equipped",
     "equipped_heading": "Equipped",

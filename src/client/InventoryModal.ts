@@ -23,7 +23,6 @@ import { BaseModal } from "./components/BaseModal";
 import "./components/CosmeticCard";
 import {
   cosmeticDisplayName,
-  cosmeticRarity,
   cosmeticRarityLabel,
   cosmeticSelectionLabel,
   cosmeticTypeLabel,
@@ -40,14 +39,11 @@ import type {
 import "./components/InventoryLoadoutMenu";
 import { ProgressiveList } from "./components/ProgressiveList";
 import {
-  tierForRarity,
-  uiBadge,
   uiButton,
   uiDetailHeading,
   uiDetailPanel,
   uiDetailRows,
   uiIcons,
-  uiItemCard,
   uiPageHeader,
   uiSearch,
   uiSegmented,
@@ -675,35 +671,28 @@ export class InventoryModal extends BaseModal {
     </p>`;
   }
 
+  // The same card as the Store's (components/CosmeticCard.ts): a worn item is
+  // marked Equipped, the inspected one is focused, and picking one only shows it
+  // in the detail panel, which holds Equip / Unequip.
   private renderItemCard(group: readonly ResolvedCosmetic[]): TemplateResult {
     const worn = group.find((i) => this.isEquipped(i));
     const inspected = group.find((i) => i.key === this.inspectedKey);
     const active = inspected ?? worn ?? group[0];
-    const colours = group.filter((i) => i.colorPalette !== null).length;
-    return uiItemCard({
-      hook: "inventory-item",
-      dataKey: group[0].key,
-      preview: html`<cosmetic-preview
-        .resolved=${active}
-        size="card"
-      ></cosmetic-preview>`,
-      name: cosmeticDisplayName(active),
-      meta:
-        colours > 1
-          ? translateText("inventory.colors_count", { count: colours })
-          : undefined,
-      tier: tierForRarity(cosmeticRarity(active)),
-      selected: inspected !== undefined,
-      badge: worn
-        ? uiBadge(
-            html`${uiIcons.check("h-3 w-3")}${translateText(
-              "inventory.equipped",
-            )}`,
-            "success",
-          )
-        : undefined,
-      onSelect: () => this.inspect(inspected ?? worn ?? group[0]),
-    });
+    return html`<cosmetic-card
+      data-inventory-item
+      data-cosmetic-key=${group[0].key}
+      class="block h-full min-w-0"
+      .resolved=${group[0]}
+      .variants=${group.length > 1 ||
+      group[0].type === "pattern" ||
+      group[0].type === "skin"
+        ? group
+        : []}
+      .activeVariantKey=${active.key}
+      state=${worn ? "equipped" : inspected ? "focused" : "idle"}
+      .onActivate=${(item: ResolvedCosmetic) => this.inspect(item)}
+      .onVariantActivate=${(item: ResolvedCosmetic) => this.inspect(item)}
+    ></cosmetic-card>`;
   }
 
   private renderDetailPanel(
