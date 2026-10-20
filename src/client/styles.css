@@ -74,8 +74,8 @@
   --color-ui-tier-purple: #9b5de5;
   --color-ui-tier-gray: #8a8a92;
   --font-ui: "Inter", system-ui, Arial, sans-serif;
-  --font-ui-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo,
-    monospace;
+  --font-ui-mono:
+    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --radius-ui-card: 10px;
   --radius-ui-panel: 12px;
   --radius-ui-modal: 16px;
