@@ -589,6 +589,21 @@ class Client {
       displayFont.load().catch(() => {});
     }
 
+    // The account pages' UI face and its numbers face (variable fonts, SIL OFL,
+    // resources/fonts): Inter for text, JetBrains Mono for numbers and codes.
+    for (const [family, file] of [
+      ["Inter", "inter/Inter-latin.woff2"],
+      ["JetBrains Mono", "jetbrains-mono/JetBrainsMono-latin.woff2"],
+    ] as const) {
+      const uiFont = new FontFace(
+        family,
+        `url(${assetUrl(`fonts/${file}`)}) format("woff2")`,
+        { weight: "100 800", display: "swap" },
+      );
+      document.fonts.add(uiFont);
+      uiFont.load().catch(() => {});
+    }
+
     // The tagged version only, so a player's version reads the same across web
     // and Steam. The build's full identity -- the commit on an untagged build,
     // and the shell version on Steam -- is in page-footer instead, where it

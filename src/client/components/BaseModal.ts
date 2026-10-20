@@ -18,6 +18,8 @@ export interface ModalConfig {
   alwaysMaximized?: boolean;
   maxWidth?: string;
   hideTabs?: boolean;
+  /** Use the account pages' shell (see o-modal's `ui`). */
+  ui?: boolean;
 }
 
 /**
@@ -147,6 +149,7 @@ export abstract class BaseModal extends LitElement {
         ?hideHeader=${cfg.hideHeader ?? true}
         ?hideCloseButton=${cfg.hideCloseButton ?? true}
         ?alwaysMaximized=${cfg.alwaysMaximized ?? false}
+        ?ui=${cfg.ui ?? false}
         maxWidth=${cfg.maxWidth ?? ""}
         .tabs=${cfg.hideTabs ? [] : tabs}
         .activeTab=${this.activeTab}

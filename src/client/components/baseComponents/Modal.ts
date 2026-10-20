@@ -29,6 +29,14 @@ export class OModal extends LitElement {
   @property({ type: Boolean })
   public hideHeader = false;
 
+  /**
+   * The account pages' shell (components/ui/PageUi.ts): a dark panel with the
+   * design system's 16px radius and border, the full width of its column, in
+   * place of the translucent glass of the other pages.
+   */
+  @property({ type: Boolean })
+  public ui = false;
+
   @property({ type: String })
   public maxWidth = "";
 
@@ -138,8 +146,9 @@ export class OModal extends LitElement {
       !this.inline && this.maxWidth ? `max-width: ${this.maxWidth};` : "";
 
     const hasTabs = this.tabs.length > 0;
-    const sectionClass =
-      "relative flex-1 min-h-0 flex flex-col text-white bg-black/70 backdrop-blur-xl lg:rounded-2xl lg:border border-white/10 overflow-hidden";
+    const sectionClass = this.ui
+      ? "relative flex-1 min-h-0 flex flex-col text-ui-text bg-ui-panel lg:rounded-ui-modal lg:border border-ui-border overflow-hidden font-ui"
+      : "relative flex-1 min-h-0 flex flex-col text-white bg-black/70 backdrop-blur-xl lg:rounded-2xl lg:border border-white/10 overflow-hidden";
 
     return html`
       <aside

@@ -47,6 +47,39 @@
   /* App-specific surface color */
   --color-surface: var(--color-df-bg-secondary);
 
+  /* The account pages' design system (Store, Inventory, Leaderboard, Clans,
+     Create Lobby): src/client/components/ui/PageUi.ts and the UI kit it follows.
+     One place for every value those pages use; their components carry no hex.
+     Prefixed `ui` so the in-game HUD and every other screen keep the brand
+     tokens and the sharp corners above. Red is for the selected state and the
+     one main action only. */
+  --color-ui-ground: #0b0b0c;
+  --color-ui-surface: #141416;
+  --color-ui-panel: #0f0f11;
+  --color-ui-border: #1e1e22;
+  --color-ui-border-strong: #26262a;
+  --color-ui-border-hover: #3a3a40;
+  --color-ui-text: #f2f2f3;
+  --color-ui-muted: #9a9aa2;
+  --color-ui-placeholder: #7c7c84;
+  --color-ui-disabled: #1f1f23;
+  --color-ui-accent: #e5383b;
+  --color-ui-accent-soft: #f07174;
+  --color-ui-accent-tint: rgba(229, 56, 59, 0.14);
+  --color-ui-success: #4ade80;
+  --color-ui-gold: #facc15;
+  /* Item tiers: a 3px stripe on top of a card, never a card background. */
+  --color-ui-tier-green: #3fa37a;
+  --color-ui-tier-blue: #4a7be0;
+  --color-ui-tier-purple: #9b5de5;
+  --color-ui-tier-gray: #8a8a92;
+  --font-ui: "Inter", system-ui, Arial, sans-serif;
+  --font-ui-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo,
+    monospace;
+  --radius-ui-card: 10px;
+  --radius-ui-panel: 12px;
+  --radius-ui-modal: 16px;
+
   --shadow-df-red: 0 0 0 1px rgba(227, 27, 35, 0.35);
   --shadow-df-red-soft: 0 0 0 1px rgba(227, 27, 35, 0.25);
   --shadow-df-red-strong: 0 0 0 2px rgba(227, 27, 35, 0.45);
@@ -238,6 +271,50 @@
     background-color: var(--color-df-panel);
     border: 1px solid var(--color-df-border);
     border-radius: var(--radius-sm);
+  }
+
+  /* The account pages' type scale (UI kit): page title, section heading, label
+     and body in Inter; numbers and codes in JetBrains Mono (.ui-mono). */
+  .ui-title {
+    font-family: var(--font-ui);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+  .ui-heading {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.3;
+  }
+  .ui-label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ui-muted);
+    line-height: 1.3;
+  }
+  .ui-body {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .ui-mono {
+    font-family: var(--font-ui-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Keyboard focus on every control of these pages: a 2px accent outline. */
+  .ui-focus:focus-visible,
+  .ui-focus:has(:focus-visible) {
+    outline: 2px solid var(--color-ui-accent);
+    outline-offset: 2px;
   }
 }
 

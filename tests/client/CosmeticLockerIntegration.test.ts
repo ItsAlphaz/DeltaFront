@@ -115,6 +115,12 @@ function cardFor(
   );
 }
 
+// The Store's selection (the item its panel shows), and a colour swatch in that panel.
+const storeInspected = (store: StoreModal): string | undefined =>
+  (store as unknown as { inspected: { key: string } | null }).inspected?.key;
+const storeSwatch = (store: StoreModal, key: string) =>
+  store.querySelector<HTMLButtonElement>(`[data-variant-key="${key}"]`)!;
+
 function expectNoNestedInteractiveControls(root: ParentNode): void {
   const interactive = "button, a, input, select, textarea, [role='button']";
   for (const control of root.querySelectorAll(interactive)) {
@@ -227,16 +233,12 @@ describe("Cosmetic locker integration", () => {
     expect(cardFor(inventory, blueKey)?.state).toBe("equipped");
 
     store.open({ tab: "cosmetics" });
-    await vi.waitFor(() =>
-      expect(cardFor(store, yellowKey)?.activeVariantKey).toBe(yellowKey),
-    );
+    await vi.waitFor(() => expect(storeInspected(store)).toBe(yellowKey));
     const storeUpdate = vi.spyOn(store, "requestUpdate");
-    cardFor(store, redKey)!
-      .querySelector<HTMLButtonElement>(`[data-variant-key="${redKey}"]`)!
-      .click();
+    storeSwatch(store, redKey).click();
     await store.updateComplete;
 
-    expect(cardFor(store, redKey)?.activeVariantKey).toBe(redKey);
+    expect(storeInspected(store)).toBe(redKey);
     expect(storeUpdate).toHaveBeenCalled();
     storeUpdate.mockRestore();
     expect(settingsChangeCount).toBe(1);
@@ -261,20 +263,32 @@ describe("Cosmetic locker integration", () => {
   it("keeps accessible controls and phone layout markers across both surfaces", async () => {
     inventory.open({ tab: "skins" });
     store.open({ tab: "cosmetics" });
-    await vi.waitFor(() => expect(cardFor(store, yellowKey)).toBeDefined());
+    await vi.waitFor(() =>
+      expect(
+        store.querySelector('[data-ui-item="store-product"]'),
+      ).toBeTruthy(),
+    );
     await inventory.updateComplete;
 
     expectNoNestedInteractiveControls(inventory);
     expectNoNestedInteractiveControls(store);
 
     const inventoryCard = cardFor(inventory, blueKey)!;
-    const storeCard = cardFor(store, redKey)!;
-    for (const cosmeticCard of [inventoryCard, storeCard]) {
-      const main = cosmeticCard.querySelector<HTMLButtonElement>(
-        "button[data-cosmetic-main]",
-      );
-      expect(main?.tagName).toBe("BUTTON");
-      expect(main?.type).toBe("button");
+    const inventoryMain = inventoryCard.querySelector<HTMLButtonElement>(
+      "button[data-cosmetic-main]",
+    );
+    expect(inventoryMain?.tagName).toBe("BUTTON");
+    expect(inventoryMain?.type).toBe("button");
+    // the Store's card is itself one button, and its colours are buttons in the panel
+    const storeCard = store.querySelector<HTMLButtonElement>(
+      '[data-ui-item="store-product"]',
+    )!;
+    expect(storeCard.tagName).toBe("BUTTON");
+    expect(storeCard.type).toBe("button");
+    for (const swatch of store.querySelectorAll<HTMLButtonElement>(
+      "button[data-variant-key]",
+    )) {
+      expect(swatch.type).toBe("button");
     }
     const inventorySwatches = [
       ...inventoryCard.querySelectorAll<HTMLButtonElement>(
@@ -298,10 +312,18 @@ describe("Cosmetic locker integration", () => {
     expect(store.querySelector("[data-store-grid]")?.classList).toContain(
       "grid-cols-2",
     );
-    expect(store.querySelector("[data-store-browser]")?.classList).toContain(
-      "grid-cols-1",
-    );
+    // the detail panel stacks under the content below lg, beside it from lg up
+    const columns = store.querySelector('[data-ui="two-column"]')!;
+    expect(columns.classList).toContain("flex-col");
+    expect(columns.classList).toContain("lg:flex-row");
+    expect(store.querySelector('[data-ui="detail-panel"]')).toBeTruthy();
     expect(store.querySelector("[data-store-browser] aside")).toBeNull();
+    // and the category tabs scroll sideways instead of wrapping
+    expect(
+      store
+        .querySelector('[data-ui="tabs"]')
+        ?.classList.contains("overflow-x-auto"),
+    ).toBe(true);
   });
 
   it("preserves the Inventory route tab and clears empty Store products", async () => {
@@ -323,21 +345,17 @@ describe("Cosmetic locker integration", () => {
     expect(window.location.hash).toBe("#modal=inventory&tab=crowns");
 
     store.open({ tab: "cosmetics" });
-    await vi.waitFor(() =>
-      expect(cardFor(store, yellowKey)?.activeVariantKey).toBe(yellowKey),
-    );
-    cardFor(store, redKey)!
-      .querySelector<HTMLButtonElement>(`[data-variant-key="${redKey}"]`)!
-      .click();
+    await vi.waitFor(() => expect(storeInspected(store)).toBe(yellowKey));
+    storeSwatch(store, redKey).click();
     await store.updateComplete;
-    expect(cardFor(store, redKey)?.activeVariantKey).toBe(redKey);
+    expect(storeInspected(store)).toBe(redKey);
     const crownsTab = [
       ...store.querySelectorAll<HTMLButtonElement>("button"),
     ].find((candidate) => candidate.textContent?.trim() === "Crowns")!;
     crownsTab.click();
     await store.updateComplete;
 
-    expect(store.querySelector("[data-store-product]")).toBeNull();
+    expect(store.querySelector('[data-ui-item="store-product"]')).toBeNull();
     expect(store.querySelector("purchase-button")).toBeNull();
   });
 });

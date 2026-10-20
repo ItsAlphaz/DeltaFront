@@ -15,7 +15,6 @@ import {
   UserSettings,
 } from "../../src/client/UserSettings";
 import type { CosmeticCard } from "../../src/client/components/CosmeticCard";
-import type { EffectsGrid } from "../../src/client/components/EffectsGrid";
 import type { PurchaseButton } from "../../src/client/components/PurchaseButton";
 
 vi.mock("../../src/client/Cosmetics", async (importOriginal) => ({
@@ -221,7 +220,9 @@ const affiliatePattern: ResolvedCosmetic = {
 let resolvedCatalog: ResolvedCosmetic[];
 let store: StoreModal | undefined;
 
-function card(modal: StoreModal, key: string): CosmeticCard | undefined {
+// Packs, subscriptions and bundles (the payments features, off in the launch
+// configuration) keep the old tile: a <cosmetic-card> with its own buy button.
+function legacyCard(modal: StoreModal, key: string): CosmeticCard | undefined {
   return [...modal.querySelectorAll<CosmeticCard>("cosmetic-card")].find(
     (candidate) =>
       candidate.resolved.key === key ||
@@ -229,20 +230,24 @@ function card(modal: StoreModal, key: string): CosmeticCard | undefined {
   );
 }
 
-function product(modal: StoreModal, key: string): HTMLElement | undefined {
+function legacyProduct(
+  modal: StoreModal,
+  key: string,
+): HTMLElement | undefined {
   return (
-    card(modal, key)?.closest<HTMLElement>("[data-store-product]") ?? undefined
+    legacyCard(modal, key)?.closest<HTMLElement>("[data-store-product]") ??
+    undefined
   );
 }
 
-function purchaseButton(modal: StoreModal, key: string): PurchaseButton {
-  return product(modal, key)!.querySelector(
+function legacyPurchaseButton(modal: StoreModal, key: string): PurchaseButton {
+  return legacyProduct(modal, key)!.querySelector(
     "purchase-button",
   ) as PurchaseButton;
 }
 
-async function focusCard(modal: StoreModal, key: string) {
-  const candidate = card(modal, key)!;
+async function legacyFocus(modal: StoreModal, key: string) {
+  const candidate = legacyCard(modal, key)!;
   candidate.onActivate!(
     candidate.variants.find((variant) => variant.key === key) ??
       candidate.resolved,
@@ -250,12 +255,50 @@ async function focusCard(modal: StoreModal, key: string) {
   await modal.updateComplete;
 }
 
+// The Store is a grid of cards (one per group of colour variants) and one detail
+// panel for the selected item, which holds the swatches, the preview button and
+// the one buy button. `card` finds the card whose group holds a key.
+type Group = readonly ResolvedCosmetic[];
+const groupsOf = (modal: StoreModal): readonly Group[] =>
+  (modal as unknown as { visibleGroups: readonly Group[] }).visibleGroups;
+const inspectedKey = (modal: StoreModal): string | undefined =>
+  (modal as unknown as { inspected: ResolvedCosmetic | null }).inspected?.key;
+
+function card(modal: StoreModal, key: string): HTMLElement | undefined {
+  const group = groupsOf(modal).find((candidate) =>
+    candidate.some((item) => item.key === key),
+  );
+  if (!group) return undefined;
+  return (
+    [
+      ...modal.querySelectorAll<HTMLElement>('[data-ui-item="store-product"]'),
+    ].find((el) => el.dataset.key === group[0].key) ?? undefined
+  );
+}
+
+/** A card is "focused" when it is the pressed (selected) one. */
+const focused = (el: HTMLElement | undefined) =>
+  el?.getAttribute("aria-pressed") === "true";
+
+function purchaseButton(modal: StoreModal, _key?: string): PurchaseButton {
+  return modal.querySelector("purchase-button") as PurchaseButton;
+}
+
+const swatch = (modal: StoreModal, key: string) =>
+  modal.querySelector<HTMLButtonElement>(`[data-variant-key="${key}"]`);
+
+async function focusCard(modal: StoreModal, key: string) {
+  card(modal, key)!.click();
+  await modal.updateComplete;
+}
+
 async function activateVariant(modal: StoreModal, key: string) {
-  const cosmeticCard = card(modal, key)!;
-  const variant = cosmeticCard.variants.find(
-    (candidate) => candidate.key === key,
-  )!;
-  cosmeticCard.onVariantActivate!(variant);
+  swatch(modal, key)!.click();
+  await modal.updateComplete;
+}
+
+async function clickPreview(modal: StoreModal) {
+  modal.querySelector<HTMLButtonElement>('[data-ui-button="preview"]')!.click();
   await modal.updateComplete;
 }
 
@@ -268,6 +311,17 @@ async function clickHardPurchase(modal: StoreModal) {
     .dispatchEvent(new CustomEvent("confirm"));
 }
 
+const categoryTabs = (modal: StoreModal) => [
+  ...modal.querySelectorAll<HTMLButtonElement>(
+    '[data-ui-tabs="store-categories"] button',
+  ),
+];
+const nukeTypes = (modal: StoreModal) => [
+  ...modal.querySelectorAll<HTMLButtonElement>(
+    '[data-ui-segmented="nuke-type"] button',
+  ),
+];
+
 async function openStoreOnCosmetic(tab: "patterns" | "flags" | "crowns") {
   store = document.createElement("store-modal") as StoreModal;
   store.inline = true;
@@ -275,7 +329,7 @@ async function openStoreOnCosmetic(tab: "patterns" | "flags" | "crowns") {
   await store.updateComplete;
   store.open({ tab: "cosmetics" });
   await vi.waitFor(() =>
-    expect(store!.querySelector("cosmetic-card")).toBeTruthy(),
+    expect(store!.querySelector('[data-ui-item="store-product"]')).toBeTruthy(),
   );
 
   if (tab !== "patterns") {
@@ -295,11 +349,10 @@ async function openEffectsStore() {
   await store.updateComplete;
   store.open({ tab: "effects" });
   await vi.waitFor(() =>
-    expect(store!.querySelector("cosmetic-card")).toBeTruthy(),
+    expect(store!.querySelector('[data-ui-item="store-product"]')).toBeTruthy(),
   );
-  const grid = store.querySelector("effects-grid") as EffectsGrid;
-  await grid.updateComplete;
-  return { store, grid };
+  await store.updateComplete;
+  return { store };
 }
 
 async function openStoreOnTab(tab: "packs" | "subscriptions" | "bundles") {
@@ -349,7 +402,7 @@ describe("StoreModal cosmetic browser", () => {
 
   it("selects the first visible item and purchases the selected variant", async () => {
     const modal = await openStoreOnCosmetic("patterns");
-    expect(card(modal, red.key)?.activeVariantKey).toBe(red.key);
+    expect(inspectedKey(modal)).toBe(red.key);
 
     await focusCard(modal, blue.key);
     await activateVariant(modal, blue.key);
@@ -369,6 +422,8 @@ describe("StoreModal cosmetic browser", () => {
     await initialPurchaseButton.updateComplete;
 
     await activateVariant(modal, blue.key);
+    // one buy button serves whichever colour is selected; the confirmation
+    // already open keeps the colour and price it was opened for
     const pendingButton = purchaseButton(modal, blue.key);
     pendingButton
       .querySelector("confirm-dialog")!
@@ -419,8 +474,8 @@ describe("StoreModal cosmetic browser", () => {
 
     await activateVariant(modal, blue.key);
 
-    expect(card(modal, blue.key)?.state).toBe("focused");
-    expect(card(modal, blue.key)?.activeVariantKey).toBe(blue.key);
+    expect(focused(card(modal, blue.key))).toBe(true);
+    expect(inspectedKey(modal)).toBe(blue.key);
     expect(modal.querySelector('[data-cosmetic-state="equipped"]')).toBeNull();
     expect(localStorage.getItem(PATTERN_KEY)).toBe(green.key);
   });
@@ -433,7 +488,7 @@ describe("StoreModal cosmetic browser", () => {
     await modal.onUserMe(false);
     await modal.updateComplete;
 
-    expect(card(modal, blue.key)?.activeVariantKey).toBe(blue.key);
+    expect(inspectedKey(modal)).toBe(blue.key);
   });
 
   it("falls back to the first visible group when inspection becomes invisible", async () => {
@@ -446,10 +501,10 @@ describe("StoreModal cosmetic browser", () => {
     flagsTab.click();
     await modal.updateComplete;
 
-    expect(card(modal, flag.key)?.state).toBe("focused");
+    expect(focused(card(modal, flag.key))).toBe(true);
   });
 
-  it("styles cosmetic sub-tabs like the modal's own tab bar", async () => {
+  it("draws the cosmetic sub-tabs as the design system's underline tabs", async () => {
     // The Crowns tab exists only when the catalog has crowns; this one has a
     // crown nobody can buy, so the tab is there and empty.
     resolvedCatalog = [
@@ -472,20 +527,23 @@ describe("StoreModal cosmetic browser", () => {
       ...modal.querySelectorAll<HTMLButtonElement>("button"),
     ].find((candidate) => candidate.textContent?.trim() === "store.crowns")!;
 
-    // Same typography as the o-modal tab bar (px-4 py-3 text-sm font-bold),
-    // so the nested bar does not read as heavier or taller than its parent.
+    // Underline tabs: a tab in a tablist, an underline, no uppercase shouting,
+    // and a row that scrolls sideways when it does not fit.
+    expect(subTab.getAttribute("role")).toBe("tab");
     for (const token of [
-      "px-4",
-      "py-3",
-      "text-sm",
-      "font-bold",
-      "uppercase",
-      "tracking-wider",
+      "h-[52px]",
+      "border-b-2",
+      "text-[14px]",
+      "font-semibold",
       "whitespace-nowrap",
     ]) {
       expect(subTab.classList.contains(token)).toBe(true);
     }
-    expect(subTab.classList.contains("font-black")).toBe(false);
+    expect(subTab.classList.contains("uppercase")).toBe(false);
+    expect(subTab.parentElement?.getAttribute("role")).toBe("tablist");
+    expect(subTab.parentElement?.classList.contains("overflow-x-auto")).toBe(
+      true,
+    );
   });
 
   it("clears product tiles for an empty cosmetic category", async () => {
@@ -514,87 +572,67 @@ describe("StoreModal cosmetic browser", () => {
     crownsTab.click();
     await modal.updateComplete;
 
-    expect(modal.querySelector("[data-store-product]")).toBeNull();
+    expect(modal.querySelector('[data-ui-item="store-product"]')).toBeNull();
     expect(modal.querySelector("purchase-button")).toBeNull();
   });
 
   it("focuses effect and nuke-subtype purchases without changing effect settings", async () => {
-    const { store: modal, grid } = await openEffectsStore();
-    expect(grid.parentElement?.hasAttribute("data-store-browser")).toBe(false);
-    expect(card(modal, wake.key)?.state).toBe("focused");
+    const { store: modal } = await openEffectsStore();
+    expect(focused(card(modal, wake.key))).toBe(true);
 
-    const wakeCard = card(modal, wake.key)!;
-    wakeCard.onActivate!(wakeCard.resolved);
+    await focusCard(modal, wake.key);
+
+    categoryTabs(modal)[2]!.click();
+    await modal.updateComplete;
+    nukeTypes(modal)[1]!.click();
     await modal.updateComplete;
 
-    grid
-      .querySelectorAll<HTMLButtonElement>("button[class*='-mb-px']")[2]!
-      .click();
-    await grid.updateComplete;
-    grid
-      .querySelectorAll<HTMLButtonElement>("button[class*='rounded-full']")[1]!
-      .click();
-    await grid.updateComplete;
+    await focusCard(modal, hydro.key);
 
-    const hydroCard = card(modal, hydro.key)!;
-    hydroCard.onActivate!(hydroCard.resolved);
-    await modal.updateComplete;
-
-    expect(hydroCard.state).toBe("focused");
-    await purchaseButton(modal, hydro.key).onPurchaseHard!();
+    expect(focused(card(modal, hydro.key))).toBe(true);
+    await purchaseButton(modal).onPurchaseHard!();
     expect(purchaseCosmetic).toHaveBeenCalledWith(hydro, "hard");
     expect(localStorage.getItem(EFFECTS_KEY)).toBeNull();
   });
 
-  it("opens the in-game preview when an effect card is activated", async () => {
+  it("opens the in-game preview from the panel's Preview button, not by selecting a card", async () => {
     const { store: modal } = await openEffectsStore();
     expect(modal.querySelector("cosmetic-preview-modal")).toBeNull();
 
-    const wakeCard = card(modal, wake.key)!;
-    wakeCard.onActivate!(wakeCard.resolved);
-    await modal.updateComplete;
+    await focusCard(modal, wake.key);
+    expect(modal.querySelector("cosmetic-preview-modal")).toBeNull();
+
+    await clickPreview(modal);
 
     expect(modal.querySelector("cosmetic-preview-modal")).toBeTruthy();
   });
 
   it("reconciles inspected effects immediately when subtype tabs change", async () => {
-    const { store: modal, grid } = await openEffectsStore();
-    expect(card(modal, wake.key)?.state).toBe("focused");
+    const { store: modal } = await openEffectsStore();
+    expect(focused(card(modal, wake.key))).toBe(true);
 
-    grid
-      .querySelectorAll<HTMLButtonElement>("button[class*='-mb-px']")[2]!
-      .click();
-    await grid.updateComplete;
+    categoryTabs(modal)[2]!.click();
     await modal.updateComplete;
-    expect(card(modal, atom.key)?.state).toBe("focused");
+    expect(focused(card(modal, atom.key))).toBe(true);
 
-    const nukeTabs = () =>
-      grid.querySelectorAll<HTMLButtonElement>("button[class*='rounded-full']");
-    nukeTabs()[1]!.click();
-    await grid.updateComplete;
+    nukeTypes(modal)[1]!.click();
     await modal.updateComplete;
-    expect(card(modal, hydro.key)?.state).toBe("focused");
+    expect(focused(card(modal, hydro.key))).toBe(true);
 
-    const alternate = card(modal, hydroAlt.key)!;
-    alternate.onActivate!(alternate.resolved);
+    await focusCard(modal, hydroAlt.key);
+    nukeTypes(modal)[1]!.click();
     await modal.updateComplete;
-    nukeTabs()[1]!.click();
-    await grid.updateComplete;
-    await modal.updateComplete;
-    expect(card(modal, hydroAlt.key)?.state).toBe("focused");
+    expect(focused(card(modal, hydroAlt.key))).toBe(true);
 
-    nukeTabs()[2]!.click();
-    await grid.updateComplete;
+    nukeTypes(modal)[2]!.click();
     await modal.updateComplete;
-    expect(grid.querySelector("[data-store-product]")).toBeNull();
-    expect(grid.querySelector("purchase-button")).toBeNull();
+    expect(modal.querySelector('[data-ui-item="store-product"]')).toBeNull();
+    expect(modal.querySelector("purchase-button")).toBeNull();
   });
 
   it("drops an open preview when the store closes", async () => {
     const { store: modal } = await openEffectsStore();
-    const wakeCard = card(modal, wake.key)!;
-    wakeCard.onActivate!(wakeCard.resolved);
-    await modal.updateComplete;
+    await clickPreview(modal);
     expect(modal.querySelector("cosmetic-preview-modal")).toBeTruthy();
 
     modal.close();
@@ -612,8 +650,8 @@ describe("StoreModal cosmetic browser", () => {
     const modal = await openStoreOnCosmetic("patterns");
     // Both are variants of one card; activate the exact variant.
     const canvas = async (variant: ResolvedCosmetic) => {
-      card(modal, variant.key)!.onActivate!(variant);
-      await modal.updateComplete;
+      await activateVariant(modal, variant.key);
+      await clickPreview(modal);
       const preview = modal.querySelector(
         "cosmetic-preview-modal",
       ) as LitElement;
@@ -634,7 +672,7 @@ describe("StoreModal cosmetic browser", () => {
   it("previews a bundle item from the contents dialog, then restores the dialog", async () => {
     resolvedCatalog = [starterBundle];
     const modal = await openStoreOnTab("bundles");
-    card(modal, starterBundle.key)!.onActivate!(starterBundle);
+    legacyCard(modal, starterBundle.key)!.onActivate!(starterBundle);
     await modal.updateComplete;
     await (modal.querySelector("pack-contents-dialog") as LitElement)
       .updateComplete;
@@ -704,7 +742,7 @@ describe("StoreModal cosmetic browser", () => {
       /flex-wrap/,
     );
     for (const el of [
-      card(modal, pack.key),
+      legacyCard(modal, pack.key),
       modal.querySelector("custom-currency-card"),
     ]) {
       // Half-width (minus the gap) below sm so phones fit two per row, as the
@@ -713,12 +751,12 @@ describe("StoreModal cosmetic browser", () => {
       expect(el?.className).toContain("sm:w-48");
       expect(el?.className).not.toMatch(/h-full/);
     }
-    expect(card(modal, pack.key)?.state).toBe("focused");
-    expect(purchaseButton(modal, pack.key).closest("cosmetic-card")).toBe(
-      card(modal, pack.key),
+    expect(legacyCard(modal, pack.key)?.state).toBe("focused");
+    expect(legacyPurchaseButton(modal, pack.key).closest("cosmetic-card")).toBe(
+      legacyCard(modal, pack.key),
     );
 
-    await purchaseButton(modal, pack.key).onPurchaseDollar!();
+    await legacyPurchaseButton(modal, pack.key).onPurchaseDollar!();
 
     expect(purchaseCosmetic).toHaveBeenCalledWith(pack, "dollar");
   });
@@ -740,7 +778,7 @@ describe("StoreModal cosmetic browser", () => {
 
     const lines = (key: string) =>
       [
-        ...purchaseButton(modal, key).querySelectorAll(
+        ...legacyPurchaseButton(modal, key).querySelectorAll(
           ".flex.flex-col > button, .flex.flex-col > span",
         ),
       ].map((el) =>
@@ -769,15 +807,19 @@ describe("StoreModal cosmetic browser", () => {
     expect(grid.className).toMatch(/flex-wrap/);
     expect(grid.className).toMatch(/justify-center/);
     expect(grid.className).toMatch(/p-8/);
-    expect(card(modal, goldSubscription.key)?.className).toContain(
+    expect(legacyCard(modal, goldSubscription.key)?.className).toContain(
       "w-[calc(50%-0.5rem)]",
     );
-    expect(card(modal, goldSubscription.key)?.className).toContain("sm:w-48");
+    expect(legacyCard(modal, goldSubscription.key)?.className).toContain(
+      "sm:w-48",
+    );
     // h-full resolves against the whole wrapping flex container, so a card
     // would grow to the height of every row stacked — the phone layout.
-    expect(card(modal, goldSubscription.key)?.className).not.toMatch(/h-full/);
+    expect(legacyCard(modal, goldSubscription.key)?.className).not.toMatch(
+      /h-full/,
+    );
 
-    const status = product(modal, goldSubscription.key)?.querySelector(
+    const status = legacyProduct(modal, goldSubscription.key)?.querySelector(
       "[data-store-status]",
     );
     expect(status?.textContent).toContain("store.subscribed");
@@ -787,8 +829,8 @@ describe("StoreModal cosmetic browser", () => {
     expect(status?.className).toContain("min-h-11");
     expect(status?.className).toContain("text-base");
 
-    await focusCard(modal, platinumSubscription.key);
-    const switchButton = purchaseButton(modal, platinumSubscription.key);
+    await legacyFocus(modal, platinumSubscription.key);
+    const switchButton = legacyPurchaseButton(modal, platinumSubscription.key);
     expect(switchButton.dollarLabelKey).toBe("store.switch_button");
 
     await switchButton.onPurchaseDollar!();
@@ -820,20 +862,20 @@ describe("StoreModal cosmetic browser", () => {
 
     // The "Subscribed" box was the whole bug: it replaced the buy button.
     expect(
-      product(modal, goldSubscription.key)?.querySelector(
+      legacyProduct(modal, goldSubscription.key)?.querySelector(
         "[data-store-status]",
       ),
     ).toBeFalsy();
 
-    const gold = purchaseButton(modal, goldSubscription.key);
+    const gold = legacyPurchaseButton(modal, goldSubscription.key);
     expect(gold.onPurchaseDollar).toBeTypeOf("function");
     expect(gold.dollarLabelKey).toBe("");
 
-    await focusCard(modal, platinumSubscription.key);
+    await legacyFocus(modal, platinumSubscription.key);
     // Not "Switch": there is no paid plan to switch away from.
-    expect(purchaseButton(modal, platinumSubscription.key).dollarLabelKey).toBe(
-      "",
-    );
+    expect(
+      legacyPurchaseButton(modal, platinumSubscription.key).dollarLabelKey,
+    ).toBe("");
 
     await gold.onPurchaseDollar!();
     expect(purchaseCosmetic).toHaveBeenCalledWith(
@@ -846,14 +888,14 @@ describe("StoreModal cosmetic browser", () => {
     resolvedCatalog = [starterBundle];
     const modal = await openStoreOnTab("bundles");
 
-    expect(card(modal, starterBundle.key)?.state).toBe("focused");
-    const button = purchaseButton(modal, starterBundle.key);
+    expect(legacyCard(modal, starterBundle.key)?.state).toBe("focused");
+    const button = legacyPurchaseButton(modal, starterBundle.key);
     expect(button.priceHard).toBe(250);
     expect(button.priceSoft).toBeNull();
     expect(button.product).toBeNull();
     expect(button.itemName).toBe("Starter Pack");
     expect(
-      card(modal, starterBundle.key)?.querySelector(
+      legacyCard(modal, starterBundle.key)?.querySelector(
         "[data-cosmetic-info-items]",
       )?.textContent,
     ).toContain("inventory.selected_cosmetic_variant, Aurora");
@@ -867,7 +909,7 @@ describe("StoreModal cosmetic browser", () => {
     const modal = await openStoreOnTab("bundles");
     expect(document.querySelector("[data-pack-contents]")).toBeNull();
 
-    card(modal, starterBundle.key)!.onActivate!(starterBundle);
+    legacyCard(modal, starterBundle.key)!.onActivate!(starterBundle);
     await modal.updateComplete;
     const dialogHost = modal.querySelector(
       "pack-contents-dialog",
@@ -914,7 +956,7 @@ describe("StoreModal cosmetic browser", () => {
     await modal.updateComplete;
     expect(document.querySelector("[data-pack-contents]")).toBeNull();
     // The card stays inspected after closing.
-    expect(card(modal, starterBundle.key)?.state).toBe("focused");
+    expect(legacyCard(modal, starterBundle.key)?.state).toBe("focused");
   });
 
   it("shows owned and partially owned bundles as a status, not a sale", async () => {
@@ -931,7 +973,7 @@ describe("StoreModal cosmetic browser", () => {
 
     expect(modal.querySelector("purchase-button")).toBeNull();
     // The dialog shows the same status instead of a buy button.
-    card(modal, owned.key)!.onActivate!(owned);
+    legacyCard(modal, owned.key)!.onActivate!(owned);
     await modal.updateComplete;
     await (modal.querySelector("pack-contents-dialog") as LitElement)
       .updateComplete;
@@ -942,12 +984,12 @@ describe("StoreModal cosmetic browser", () => {
         ?.textContent,
     ).toContain("store.pack_owned");
     expect(
-      product(modal, owned.key)?.querySelector("[data-store-status]")
+      legacyProduct(modal, owned.key)?.querySelector("[data-store-status]")
         ?.textContent,
     ).toContain("store.pack_owned");
     // The partially owned bundle names the item that blocks it.
     expect(
-      product(modal, partial.key)?.querySelector("[data-store-status]")
+      legacyProduct(modal, partial.key)?.querySelector("[data-store-status]")
         ?.textContent,
     ).toContain("store.pack_partially_owned");
   });
@@ -972,13 +1014,12 @@ describe("StoreModal cosmetic browser", () => {
 
     modal.open({ affiliateCode: "creator" });
     await vi.waitFor(() =>
-      expect(card(modal, affiliatePattern.key)?.state).toBe("focused"),
+      expect(focused(card(modal, affiliatePattern.key))).toBe(true),
     );
-    await card(modal, affiliatePattern.key)!.updateComplete;
 
-    expect(modal.querySelector(`[data-cosmetic-key="${red.key}"]`)).toBeNull();
+    expect(modal.querySelector(`[data-key="${red.key}"]`)).toBeNull();
     expect(
-      modal.querySelector(`[data-cosmetic-key="${affiliatePattern.key}"]`),
+      modal.querySelector(`[data-key="${affiliatePattern.key}"]`),
     ).toBeTruthy();
 
     await purchaseButton(modal, affiliatePattern.key).onPurchaseHard!();

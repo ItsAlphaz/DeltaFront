@@ -256,6 +256,14 @@ export class PurchaseButton extends LitElement {
   reserveSoft = false;
 
   /**
+   * The account pages' look (components/ui/PageUi.ts): one 52px primary
+   * "BUY FOR 800" action per currency, no glow, sparkles or embers. The same
+   * confirmation and not-enough-funds dialogs; only the buttons differ.
+   */
+  @property({ type: Boolean })
+  ui = false;
+
+  /**
    * When set, the dollar line checks out inline — wallet button plus in-page
    * card form — instead of redirecting. `onPurchaseDollar` stays required:
    * it is the fallback where the inline flow can't run (Steam rail, keyless
@@ -413,12 +421,73 @@ export class PurchaseButton extends LitElement {
     >`;
   }
 
+  private renderDialogs() {
+    return html`${this.confirmingPurchase
+        ? html`<confirm-dialog
+            .heading=${translateText("store.confirm_purchase_title")}
+            .message=${translateText("store.confirm_purchase_body", {
+              item: this.confirmingPurchase.itemName,
+              amount: this.confirmingPurchase.amount,
+              currency: translateText(
+                this.confirmingPurchase.method === "hard"
+                  ? "cosmetics.hard"
+                  : "cosmetics.soft",
+              ),
+            })}
+            variant="warning"
+            @confirm=${() => {
+              const pending = this.confirmingPurchase;
+              this.confirmingPurchase = null;
+              this.executePurchase(pending?.handler);
+            }}
+            @cancel=${() => (this.confirmingPurchase = null)}
+          ></confirm-dialog>`
+        : nothing}
+      <insufficient-currency-dialog
+        .info=${this.insufficient}
+        @close=${() => (this.insufficient = null)}
+      ></insufficient-currency-dialog>`;
+  }
+
+  /** One primary button per way to pay, in the design system's style. */
+  private renderUi(hasDollar: boolean, hasHard: boolean, hasSoft: boolean) {
+    const buy = (method: "hard" | "soft", amount: number) =>
+      html`<button
+        type="button"
+        data-ui="button"
+        data-ui-button="buy-${method}"
+        data-variant="primary"
+        ?disabled=${this.busy}
+        class="ui-focus inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-ui-card border border-ui-accent bg-ui-accent px-4 font-ui text-[15px] font-bold uppercase tracking-[0.06em] text-white transition-colors hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:border-ui-border disabled:bg-ui-disabled disabled:text-ui-muted"
+        @click=${(e: Event) => {
+          e.stopPropagation();
+          this.requestCurrencyPurchase(method);
+        }}
+      >
+        <span
+          >${translateText("store.buy_for", {
+            amount: amount.toLocaleString(),
+          })}</span
+        >
+      </button>`;
+    return html`<div
+        class="flex w-full flex-col gap-2"
+        aria-busy=${this.busy ? "true" : nothing}
+      >
+        ${hasDollar ? this.renderDollarButton() : nothing}
+        ${hasHard ? buy("hard", this.priceHard!) : nothing}
+        ${hasSoft ? buy("soft", this.priceSoft!) : nothing}
+      </div>
+      ${this.renderDialogs()}`;
+  }
+
   render() {
     const hasDollar = this.offersDollar;
     const hasHard = this.offersHard;
     const hasSoft = this.offersSoft;
 
     if (!hasDollar && !hasHard && !hasSoft) return nothing;
+    if (this.ui) return this.renderUi(hasDollar, hasHard, hasSoft);
 
     // Reserved lines above the topmost real button push the rising particles
     // down with it, so they never sparkle over an empty line. Each line is
@@ -469,31 +538,7 @@ export class PurchaseButton extends LitElement {
             </div>`
           : nothing}
       </div>
-      ${this.confirmingPurchase
-        ? html`<confirm-dialog
-            .heading=${translateText("store.confirm_purchase_title")}
-            .message=${translateText("store.confirm_purchase_body", {
-              item: this.confirmingPurchase.itemName,
-              amount: this.confirmingPurchase.amount,
-              currency: translateText(
-                this.confirmingPurchase.method === "hard"
-                  ? "cosmetics.hard"
-                  : "cosmetics.soft",
-              ),
-            })}
-            variant="warning"
-            @confirm=${() => {
-              const pending = this.confirmingPurchase;
-              this.confirmingPurchase = null;
-              this.executePurchase(pending?.handler);
-            }}
-            @cancel=${() => (this.confirmingPurchase = null)}
-          ></confirm-dialog>`
-        : nothing}
-      <insufficient-currency-dialog
-        .info=${this.insufficient}
-        @close=${() => (this.insufficient = null)}
-      ></insufficient-currency-dialog>
+      ${this.renderDialogs()}
     `;
   }
 }

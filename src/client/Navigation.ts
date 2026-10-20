@@ -41,6 +41,13 @@ export function initNavigation() {
     // styles.css). Set after closing the previous modal: an inline modal's
     // close() re-enters showPage("page-play"), which would clear this.
     document.body.classList.toggle("page-open", pageId !== "page-play");
+    // The account pages (marked data-wide: components/ui/PageUi.ts) use the
+    // design system's 1240px column; every other page keeps its own width.
+    document.body.classList.toggle(
+      "page-wide",
+      pageId !== "page-play" &&
+        document.getElementById(pageId)?.hasAttribute("data-wide") === true,
+    );
 
     // Handle page-play separately (it's not a page-content element)
     const pagePlayEl = document.getElementById("page-play");

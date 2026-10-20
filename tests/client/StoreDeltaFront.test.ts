@@ -122,18 +122,46 @@ async function openStore(
   broadcast(me);
   store.open({ tab });
   await vi.waitFor(() =>
-    expect(store.querySelector("cosmetic-card")).toBeTruthy(),
+    expect(store.querySelector('[data-ui-item="store-product"]')).toBeTruthy(),
   );
   await store.updateComplete;
   return store;
 }
 
+// The page is a grid of cards and one detail panel: the buy button (and the
+// Owned status) belong to the SELECTED card, so a test selects a card first.
+const elements = () => [
+  ...store.querySelectorAll<HTMLElement>('[data-ui-item="store-product"]'),
+];
+const cards = () =>
+  elements().map((el) => {
+    const key = el.dataset.key!;
+    return {
+      el,
+      resolved: {
+        key,
+        type: key.split(":")[0],
+        relationship: /\bowned\b/i.test(el.textContent ?? "")
+          ? "owned"
+          : "purchasable",
+      },
+    };
+  });
+const select = async (card: { el: HTMLElement }) => {
+  card.el.click();
+  await store.updateComplete;
+};
+const selectKey = async (prefix: string) => {
+  const card = cards().find((c) => c.resolved.key.startsWith(prefix))!;
+  expect(card, prefix).toBeTruthy();
+  await select(card);
+};
+/** The panel's buy button: there is at most one, for the selected item. */
 const buttons = () => [
   ...store.querySelectorAll<PurchaseButton>("purchase-button"),
 ];
-const cards = () => [...store.querySelectorAll<CosmeticCard>("cosmetic-card")];
 const statuses = () =>
-  [...store.querySelectorAll("[data-store-status]")].map((e) =>
+  [...store.querySelectorAll('[data-ui-button="owned"]')].map((e) =>
     e.textContent?.trim(),
   );
 
@@ -197,38 +225,52 @@ afterEach(() => {
 describe("the Store page", () => {
   it("lists the catalog with the Credits prices the catalog sets, and nothing else for sale", async () => {
     await openStore(user([FREE], 1000));
-    const priced = buttons().map((b) => [b.itemName, b.priceSoft]);
-    // Skins tab: the paid Delta Stripes colour and Grid Check (the free ash colour is Owned)
-    expect(priced.map(([, p]) => p).sort()).toEqual([300, 500]);
-    for (const b of buttons()) {
-      expect(b.priceHard).toBeNull();
-      expect(b.product).toBeNull();
+    const priced: (number | null)[] = [];
+    for (const card of cards()) {
+      await select(card);
+      for (const b of buttons()) {
+        priced.push(b.priceSoft);
+        expect(b.priceHard).toBeNull();
+        expect(b.product).toBeNull();
+      }
     }
+    // Skins tab: the paid Delta Stripes colour and Grid Check (the free ash colour is Owned)
+    expect(priced.sort()).toEqual([300, 500]);
   });
 
   it("shows each Credits price with the Credits coin, never a premium or dollar price", async () => {
     await openStore(user([FREE], 1000));
-    for (const b of buttons()) {
-      await (b as LitElement).updateComplete;
-      expect(b.querySelector("credits-icon")).toBeTruthy();
-      expect(b.querySelector("plutonium-icon")).toBeNull();
-      expect(b.textContent).not.toMatch(/\$|€|£/);
+    for (const card of cards()) {
+      await select(card);
+      // the price on the card, and in the panel: the Credits coin, never a premium or dollar price
+      for (const root of [
+        card.el,
+        store.querySelector('[data-ui="detail-panel"]')!,
+      ]) {
+        if (!/\d/.test(root.textContent ?? "")) continue;
+        expect(root.querySelector("credits-icon")).toBeTruthy();
+        expect(root.querySelector("plutonium-icon")).toBeNull();
+      }
+      for (const b of buttons()) {
+        expect(b.textContent).not.toMatch(/\$|€|£/);
+      }
     }
   });
 
   it("marks the free default as Owned, with no buy button on it", async () => {
     await openStore(user([FREE], 1000));
-    const stripes = cards().find((c) =>
-      c.resolved.key.startsWith("pattern:delta_stripes"),
-    )!;
-    // the card opens on the paid colour; switch to the free one
-    const ash = stripes.variants.find(
-      (v) => v.key === "pattern:delta_stripes:ash",
-    )!;
-    expect(ash.relationship).toBe("owned");
-    stripes.onVariantActivate!(ash);
+    await selectKey("pattern:delta_stripes");
+    // it opens on the paid colour (a buy button); switch to the free one
+    expect(buttons().length).toBe(1);
+    expect(statuses()).not.toContain("Owned");
+    store
+      .querySelector<HTMLElement>(
+        '[data-variant-key="pattern:delta_stripes:ash"]',
+      )!
+      .click();
     await store.updateComplete;
     expect(statuses()).toContain("Owned");
+    expect(buttons().length).toBe(0);
   });
 
   it("offers only the Cosmetics and Effects tabs (no packs, subscriptions, bundles or tribes)", async () => {
@@ -267,11 +309,10 @@ describe("the Store page", () => {
 
   it("shows the Credits balance with the coin and no premium slot", async () => {
     await openStore(user([FREE], 1250));
-    const display = store.querySelector("currency-display") as LitElement;
-    await display.updateComplete;
-    expect(display.textContent).toContain((1250).toLocaleString());
-    expect(display.querySelector("credits-icon")).toBeTruthy();
-    expect(display.querySelector("plutonium-icon")).toBeNull();
+    const chip = store.querySelector('[data-ui="status-chip"]')!;
+    expect(chip.textContent).toContain((1250).toLocaleString());
+    expect(chip.querySelector("credits-icon")).toBeTruthy();
+    expect(chip.querySelector("plutonium-icon")).toBeNull();
   });
 
   it("renders no Caps or Plutonium wording", async () => {
@@ -286,15 +327,19 @@ describe("the Store page", () => {
 
   it("lists the effect for sale, priced", async () => {
     await openStore(user([FREE], 1000), "effects");
-    const grid = store.querySelector("effects-grid") as LitElement;
-    await grid.updateComplete;
-    const wake = [...grid.querySelectorAll<PurchaseButton>("purchase-button")];
-    expect(wake.map((b) => b.priceSoft)).toEqual([600]);
+    const priced: (number | null)[] = [];
+    for (const card of cards()) {
+      await select(card);
+      for (const b of buttons()) priced.push(b.priceSoft);
+    }
+    expect(priced).toEqual([600]);
   });
 });
 
 describe("buying", () => {
   async function buyCheck(): Promise<PurchaseButton> {
+    // Grid Check is the 500-Credit item: select its card, buy from the panel
+    await selectKey("pattern:grid_check");
     const b = buttons().find((x) => x.priceSoft === 500)!;
     expect(b).toBeTruthy();
     return b;
@@ -329,6 +374,7 @@ describe("buying", () => {
   it("shows the purchased item as Owned and the new balance as soon as the fresh profile arrives", async () => {
     vi.mocked(purchaseWithCurrency).mockResolvedValue({ ok: true });
     await openStore(user([FREE], 1000));
+    await selectKey("pattern:grid_check");
     expect(buttons().some((b) => b.priceSoft === 500)).toBe(true);
     // what /users/@me says after the purchase (the server's response, not the client's guess)
     const after = user([FREE, "pattern:grid_check:ember"], 500);
@@ -342,9 +388,8 @@ describe("buying", () => {
     )!;
     expect(grid.resolved.relationship).toBe("owned");
     expect(statuses()).toContain("Owned");
-    const display = store.querySelector("currency-display") as LitElement;
-    await display.updateComplete;
-    expect(display.textContent).toContain("500");
+    const chip = store.querySelector('[data-ui="status-chip"]')!;
+    expect(chip.textContent).toContain("500");
   });
 
   it("the inventory shows the purchased item at once (it reads the same profile)", async () => {
@@ -534,13 +579,19 @@ describe.each([
     for (const c of crowns) {
       expect(c.resolved.relationship).toBe("purchasable");
     }
-    const priced = buttons().map((b) => b.priceSoft);
+    const priced: (number | null)[] = [];
+    for (const crown of crowns) {
+      await select(crown);
+      for (const b of buttons()) {
+        priced.push(b.priceSoft);
+        expect(b.priceHard).toBeNull();
+      }
+    }
     expect(priced.length).toBeGreaterThanOrEqual(minCrowns);
     for (const price of priced) {
       expect(price).toBeGreaterThan(0);
       expect(price).toBeLessThanOrEqual(2000);
     }
-    for (const b of buttons()) expect(b.priceHard).toBeNull();
   });
 
   it("marks a crown the account owns as Owned", async () => {

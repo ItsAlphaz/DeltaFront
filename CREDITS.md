@@ -12,6 +12,16 @@ DeltaFront is a fork of OpenFront, licensed under AGPL-3.0.
 DeltaFront's display face. Copyright 2021 The Pixelify Sans Project Authors (https://github.com/eifetx/Pixelify-Sans).  
 Licensed under the [SIL Open Font License 1.1](resources/fonts/pixelify-sans/OFL.txt).
 
+### Inter
+
+The account pages' text face. Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter).  
+Licensed under the [SIL Open Font License 1.1](resources/fonts/inter/OFL.txt).
+
+### JetBrains Mono
+
+The account pages' face for numbers and codes. Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono).  
+Licensed under the [SIL Open Font License 1.1](resources/fonts/jetbrains-mono/OFL.txt).
+
 ## Map Data
 
 ### Battle Island (fan map)
