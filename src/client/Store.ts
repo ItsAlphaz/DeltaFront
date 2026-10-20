@@ -21,7 +21,6 @@ import { BaseModal } from "./components/BaseModal";
 import "./components/CosmeticCard";
 import {
   cosmeticDisplayName,
-  cosmeticRarity,
   cosmeticRarityLabel,
   cosmeticSelectionLabel,
   cosmeticTypeLabel,
@@ -41,15 +40,12 @@ import "./components/PurchaseButton";
 import { alignPurchaseRows } from "./components/PurchaseButton";
 import "./components/TribesPanel";
 import {
-  tierForRarity,
-  uiBadge,
   uiButton,
   uiCheck,
   uiDetailHeading,
   uiDetailPanel,
   uiDetailRows,
   uiIcons,
-  uiItemCard,
   uiPageHeader,
   uiSegmented,
   uiStatusChip,
@@ -768,28 +764,6 @@ export class StoreModal extends BaseModal {
     return undefined;
   }
 
-  private renderItemCard(group: readonly ResolvedCosmetic[]): TemplateResult {
-    const focused = group.find((item) => item.key === this.inspected?.key);
-    const active = focused ?? group[0];
-    return uiItemCard({
-      hook: "store-product",
-      dataKey: group[0].key,
-      preview: html`<cosmetic-preview
-        .resolved=${active}
-        size="card"
-      ></cosmetic-preview>`,
-      name: cosmeticDisplayName(active),
-      meta: this.priceMeta(active),
-      tier: tierForRarity(cosmeticRarity(active)),
-      selected: focused !== undefined,
-      badge:
-        active.relationship === "owned"
-          ? uiBadge(translateText("store.owned"), "success")
-          : undefined,
-      onSelect: () => this.inspect(focused ?? group[0]),
-    });
-  }
-
   private renderBrowserPage(): TemplateResult {
     // Affiliate mode lists one creator's items: no categories, just the grid.
     const nav = this.affiliateCode ? null : this.browserTabs();
@@ -845,9 +819,7 @@ export class StoreModal extends BaseModal {
               data-store-grid
               class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
             >
-              ${page.items.map((group) =>
-                this.renderItemCard(group),
-              )}${page.more}
+              ${this.renderCosmeticCards(page.items)}${page.more}
             </div>`}
       </div>`;
     return uiTwoColumn({ content, detail: this.renderDetailPanel() });

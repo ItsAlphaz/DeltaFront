@@ -270,25 +270,36 @@ function card(modal: StoreModal, key: string): HTMLElement | undefined {
   );
   if (!group) return undefined;
   return (
-    [
-      ...modal.querySelectorAll<HTMLElement>('[data-ui-item="store-product"]'),
-    ].find((el) => el.dataset.key === group[0].key) ?? undefined
+    [...modal.querySelectorAll<HTMLElement>("[data-store-product]")].find(
+      (el) => el.dataset.cosmeticKey === group[0].key,
+    ) ?? undefined
   );
 }
 
-/** A card is "focused" when it is the pressed (selected) one. */
+/** A card is "focused" when it is the inspected one (the card's `state`). */
 const focused = (el: HTMLElement | undefined) =>
-  el?.getAttribute("aria-pressed") === "true";
+  el?.getAttribute("state") === "focused";
+
+/** Selecting an item: the detail panel follows it. */
+function inspectKey(modal: StoreModal, key: string) {
+  const item = groupsOf(modal)
+    .flat()
+    .find((candidate) => candidate.key === key)!;
+  (modal as unknown as { inspect(item: ResolvedCosmetic): void }).inspect(item);
+}
 
 function purchaseButton(modal: StoreModal, _key?: string): PurchaseButton {
-  return modal.querySelector("purchase-button") as PurchaseButton;
+  // the panel's buy button (a card has its own too)
+  return modal.querySelector(
+    '[data-ui="detail-panel"] purchase-button',
+  ) as PurchaseButton;
 }
 
 const swatch = (modal: StoreModal, key: string) =>
   modal.querySelector<HTMLButtonElement>(`[data-variant-key="${key}"]`);
 
 async function focusCard(modal: StoreModal, key: string) {
-  card(modal, key)!.click();
+  inspectKey(modal, key);
   await modal.updateComplete;
 }
 
@@ -337,7 +348,7 @@ async function openStoreOnCosmetic(tab: "patterns" | "flags" | "crowns") {
   await store.updateComplete;
   store.open({ tab: "cosmetics" });
   await vi.waitFor(() =>
-    expect(store!.querySelector('[data-ui-item="store-product"]')).toBeTruthy(),
+    expect(store!.querySelector("[data-store-product]")).toBeTruthy(),
   );
 
   if (tab !== "patterns") {
@@ -357,7 +368,7 @@ async function openEffectsStore() {
   await store.updateComplete;
   store.open({ tab: "effects" });
   await vi.waitFor(() =>
-    expect(store!.querySelector('[data-ui-item="store-product"]')).toBeTruthy(),
+    expect(store!.querySelector("[data-store-product]")).toBeTruthy(),
   );
   await store.updateComplete;
   return { store };
@@ -580,7 +591,7 @@ describe("StoreModal cosmetic browser", () => {
     crownsTab.click();
     await modal.updateComplete;
 
-    expect(modal.querySelector('[data-ui-item="store-product"]')).toBeNull();
+    expect(modal.querySelector("[data-store-product]")).toBeNull();
     expect(modal.querySelector("purchase-button")).toBeNull();
   });
 
@@ -635,7 +646,7 @@ describe("StoreModal cosmetic browser", () => {
 
     nukeTypes(modal)[2]!.click();
     await modal.updateComplete;
-    expect(modal.querySelector('[data-ui-item="store-product"]')).toBeNull();
+    expect(modal.querySelector("[data-store-product]")).toBeNull();
     expect(modal.querySelector("purchase-button")).toBeNull();
   });
 
@@ -1026,9 +1037,9 @@ describe("StoreModal cosmetic browser", () => {
       expect(focused(card(modal, affiliatePattern.key))).toBe(true),
     );
 
-    expect(modal.querySelector(`[data-key="${red.key}"]`)).toBeNull();
+    expect(modal.querySelector(`[data-cosmetic-key="${red.key}"]`)).toBeNull();
     expect(
-      modal.querySelector(`[data-key="${affiliatePattern.key}"]`),
+      modal.querySelector(`[data-cosmetic-key="${affiliatePattern.key}"]`),
     ).toBeTruthy();
 
     await purchaseButton(modal, affiliatePattern.key).onPurchaseHard!();

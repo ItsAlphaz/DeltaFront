@@ -121,7 +121,7 @@ async function openStore(
   broadcast(me);
   store.open({ tab });
   await vi.waitFor(() =>
-    expect(store.querySelector('[data-ui-item="store-product"]')).toBeTruthy(),
+    expect(store.querySelector("[data-store-product]")).toBeTruthy(),
   );
   await store.updateComplete;
   return store;
@@ -130,11 +130,11 @@ async function openStore(
 // The page is a grid of cards and one detail panel: the buy button (and the
 // Owned status) belong to the SELECTED card, so a test selects a card first.
 const elements = () => [
-  ...store.querySelectorAll<HTMLElement>('[data-ui-item="store-product"]'),
+  ...store.querySelectorAll<HTMLElement>("[data-store-product]"),
 ];
 const cards = () =>
   elements().map((el) => {
-    const key = el.dataset.key!;
+    const key = el.dataset.cosmeticKey!;
     return {
       el,
       resolved: {
@@ -147,7 +147,17 @@ const cards = () =>
     };
   });
 const select = async (card: { el: HTMLElement }) => {
-  card.el.click();
+  // the detail panel follows the inspected item (a card's own buttons buy or preview)
+  const key = card.el.dataset.cosmeticKey!;
+  const item = (
+    store as unknown as {
+      visibleGroups: readonly (readonly { key: string }[])[];
+      inspect(item: unknown): void;
+    }
+  ).visibleGroups
+    .flat()
+    .find((candidate) => candidate.key === key)!;
+  (store as unknown as { inspect(item: unknown): void }).inspect(item);
   await store.updateComplete;
 };
 const selectKey = async (prefix: string) => {
@@ -157,7 +167,9 @@ const selectKey = async (prefix: string) => {
 };
 /** The panel's buy button: there is at most one, for the selected item. */
 const buttons = () => [
-  ...store.querySelectorAll<PurchaseButton>("purchase-button"),
+  ...store.querySelectorAll<PurchaseButton>(
+    '[data-ui="detail-panel"] purchase-button',
+  ),
 ];
 const statuses = () =>
   [...store.querySelectorAll('[data-ui-button="owned"]')].map((e) =>

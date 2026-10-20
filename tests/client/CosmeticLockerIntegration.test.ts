@@ -288,9 +288,7 @@ describe("Cosmetic locker integration", () => {
     inventory.open({ tab: "skins" });
     store.open({ tab: "cosmetics" });
     await vi.waitFor(() =>
-      expect(
-        store.querySelector('[data-ui-item="store-product"]'),
-      ).toBeTruthy(),
+      expect(store.querySelector("[data-store-product]")).toBeTruthy(),
     );
     await inventory.updateComplete;
 
@@ -300,12 +298,10 @@ describe("Cosmetic locker integration", () => {
     const inventoryMain = cardFor(inventory, blueKey)!.el as HTMLButtonElement;
     expect(inventoryMain.tagName).toBe("BUTTON");
     expect(inventoryMain.type).toBe("button");
-    // the Store's card is itself one button, and its colours are buttons in the panel
-    const storeCard = store.querySelector<HTMLButtonElement>(
-      '[data-ui-item="store-product"]',
-    )!;
-    expect(storeCard.tagName).toBe("BUTTON");
-    expect(storeCard.type).toBe("button");
+    // the Store's cards are the cosmetic cards; its colours are buttons in the panel
+    expect(
+      store.querySelector("cosmetic-card[data-store-product]"),
+    ).toBeTruthy();
     for (const swatch of store.querySelectorAll<HTMLButtonElement>(
       "button[data-variant-key]",
     )) {
@@ -380,7 +376,7 @@ describe("Cosmetic locker integration", () => {
     crownsTab.click();
     await store.updateComplete;
 
-    expect(store.querySelector('[data-ui-item="store-product"]')).toBeNull();
+    expect(store.querySelector("[data-store-product]")).toBeNull();
     expect(store.querySelector("purchase-button")).toBeNull();
   });
 });

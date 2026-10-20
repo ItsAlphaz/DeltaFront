@@ -243,7 +243,7 @@ for (const page of pages.length ? pages : ["store"]) {
     );
     await sleep(1200);
     await g.ev(
-      `(()=>{ const c=[...document.querySelectorAll('store-modal [data-ui-item="store-product"]')]; (c[9]||c[0])?.click(); return c.length })()`,
+      `(()=>{ const c=[...document.querySelectorAll('store-modal [data-store-product]')]; (c[9]||c[0])?.click(); return c.length })()`,
     );
     await sleep(900);
     await shot(`ui-store-effects-selected${narrow ? "-narrow" : ""}`);
@@ -259,7 +259,7 @@ for (const page of pages.length ? pages : ["store"]) {
       );
       await sleep(1500);
       await g.ev(
-        `document.querySelector('store-modal [data-ui-item="store-product"]')?.click(); 1`,
+        `document.querySelector('store-modal [data-store-product]')?.click(); 1`,
       );
       await sleep(900);
       await shot(`ui-store-${sub}${narrow ? "-narrow" : ""}`);
