@@ -64,17 +64,18 @@ describe("the website's theme", () => {
     }
   });
 
-  it("keeps the homepage in its original brand look, while no page is open", () => {
+  it("keeps the homepage's design (pixel face, sharp corners) in the website's colours, while no page is open", () => {
     const home = css.slice(
       css.indexOf(".df-home-shell play-page username-input"),
+      css.indexOf("@layer base"),
     );
     expect(css).toMatch(/:is\(\s*play-page,\s*news-box,\s*homepage-promos/);
     expect(home).toContain("--font-display: var(--font-pixel)");
-    expect(home).toContain("--color-df-red: #e31b23");
     expect(home).toContain("--radius-sm: 2px");
-    expect(home).toContain("--color-df-panel: #1a1a1a");
-    // the grid backdrop is the original one too
-    expect(css).toContain("body:not(.page-open) .df-backdrop");
+    // no colour token is set here: the homepage reads the design system's
+    expect(home).not.toContain("--color-");
+    // and it has the design system's backdrop
+    expect(css).not.toContain("body:not(.page-open) .df-backdrop");
   });
 
   it("gives every page the 1240px column", () => {
