@@ -56,7 +56,7 @@ import { isReplayShellHost } from "./VersionedReplay";
 
 /** Solo: the one red call to action. */
 const PRIMARY_ACTION =
-  "bg-df-red hover:bg-df-red-bright active:bg-df-red-dark text-xl lg:text-[1.625rem] tracking-[0.3em]";
+  "bg-df-red hover:bg-[#e5383bb0] active:bg-df-red-dark text-xl lg:text-[1.625rem] tracking-[0.3em]";
 /** Create / Join (and Ranked when on): dark, with a red edge on hover/focus. */
 const SECONDARY_ACTION =
   "bg-df-panel border border-df-border hover:border-df-red active:bg-df-bg-secondary text-sm lg:text-base tracking-[0.2em]";
