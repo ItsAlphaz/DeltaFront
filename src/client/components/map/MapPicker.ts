@@ -11,6 +11,7 @@ import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { translateText } from "../../Utils";
+import { uiSegmented } from "../ui/PageUi";
 import "./MapDisplay";
 import { getFavoriteMaps, starIcon, toggleFavoriteMap } from "./MapFavorites";
 const randomMap = assetUrl("images/RandomMap.webp");
@@ -124,7 +125,7 @@ export class MapPicker extends LitElement {
     // (e.g. the selected map gets prepended to the featured grid) —
     // positional reuse would leave stale thumbnails behind.
     return html`<div
-      class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+      class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4"
     >
       ${repeat(
         mapList,
@@ -135,11 +136,7 @@ export class MapPicker extends LitElement {
   }
 
   private renderSectionHeading(label: string) {
-    return html`<h4
-      class="text-xs font-bold text-white/40 uppercase tracking-widest mb-4 pl-2"
-    >
-      ${label}
-    </h4>`;
+    return html`<h4 class="ui-label mb-3">${label}</h4>`;
   }
 
   private renderCategoryBar(categoryKey: MapCategory, mapList: MapInfo[]) {
@@ -149,12 +146,12 @@ export class MapPicker extends LitElement {
         type="button"
         aria-expanded=${expanded}
         @click=${() => this.toggleCategory(categoryKey)}
-        class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-all duration-200 active:scale-[0.99] ${expanded
-          ? "bg-df-red/20 border-df-red/50"
-          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"}"
+        class="ui-focus flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-ui-card border bg-ui-surface px-4 transition-colors ${expanded
+          ? "border-ui-accent ring-1 ring-ui-accent"
+          : "border-ui-border hover:border-ui-border-hover"}"
       >
         <span
-          class="flex items-center gap-3 text-sm font-bold text-white uppercase tracking-wider"
+          class="flex items-center gap-3 font-ui text-[13px] font-bold uppercase tracking-[0.06em] text-ui-text"
         >
           <svg
             class="w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${expanded
@@ -168,7 +165,7 @@ export class MapPicker extends LitElement {
           </svg>
           ${translateText(`map_categories.${categoryKey}`)}
         </span>
-        <span class="text-xs font-bold text-white/40">${mapList.length}</span>
+        <span class="ui-mono text-[12px] text-ui-muted">${mapList.length}</span>
       </button>
       ${expanded
         ? html`<div class="mt-4">${this.renderMapGrid(mapList)}</div>`
@@ -203,7 +200,7 @@ export class MapPicker extends LitElement {
   private renderExpandToggle() {
     const anyExpanded = this.expandedCategories.size > 0;
     return html`<div
-      class="shrink-0 rounded-xl border border-white/10 bg-black/20 p-1"
+      class="shrink-0 rounded-ui-card border border-ui-border bg-ui-ground p-1"
     >
       <button
         type="button"
@@ -212,7 +209,7 @@ export class MapPicker extends LitElement {
           ? translateText("common.collapse_all")
           : translateText("common.expand_all")}
         @click=${() => this.toggleExpandAll()}
-        class="h-full flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white transition-all active:scale-95"
+        class="ui-focus flex h-full min-h-9 cursor-pointer items-center gap-1.5 rounded-[8px] px-3 font-ui text-[13px] font-semibold uppercase tracking-[0.06em] text-ui-muted transition-colors hover:text-ui-text"
       >
         <svg
           class="w-3 h-3 shrink-0 transition-transform duration-200 ${anyExpanded
@@ -236,10 +233,10 @@ export class MapPicker extends LitElement {
   private renderFavoritesTab() {
     if (this.favorites.length === 0) {
       return html`<div
-        class="w-full flex flex-col items-center justify-center gap-3 py-12 px-4 text-center rounded-xl border border-dashed border-white/10 bg-black/20"
+        class="flex w-full flex-col items-center justify-center gap-3 rounded-ui-card border border-dashed border-ui-border bg-ui-panel px-4 py-12 text-center"
       >
-        <div class="text-white/30">${starIcon(false, "w-8 h-8")}</div>
-        <p class="text-sm text-white/50 leading-relaxed max-w-xs">
+        <div class="text-ui-placeholder">${starIcon(false, "w-8 h-8")}</div>
+        <p class="ui-body max-w-xs text-ui-muted">
           ${translateText("map_component.favorites_empty")}
         </p>
       </div>`;
@@ -268,10 +265,10 @@ export class MapPicker extends LitElement {
     const results = this.filteredMaps;
     if (results.length === 0) {
       return html`<div
-        class="w-full flex flex-col items-center justify-center gap-3 py-12 px-4 text-center rounded-xl border border-dashed border-white/10 bg-black/20"
+        class="flex w-full flex-col items-center justify-center gap-3 rounded-ui-card border border-dashed border-ui-border bg-ui-panel px-4 py-12 text-center"
       >
         <svg
-          class="w-8 h-8 text-white/30"
+          class="h-8 w-8 text-ui-placeholder"
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -281,7 +278,7 @@ export class MapPicker extends LitElement {
             clip-rule="evenodd"
           />
         </svg>
-        <p class="text-sm text-white/50 leading-relaxed max-w-xs">
+        <p class="ui-body max-w-xs text-ui-muted">
           ${translateText("map_component.no_results")}
         </p>
       </div>`;
@@ -294,78 +291,63 @@ export class MapPicker extends LitElement {
     </div>`;
   }
 
-  private renderTabButton(tab: MapTab, label: string) {
-    const isActive = this.activeTab === tab;
-    return html`<button
-      type="button"
-      role="tab"
-      aria-selected=${isActive}
-      class="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95 ${isActive
-        ? "bg-df-red/20 text-white shadow-[var(--shadow-df-red-soft)]"
-        : "text-white/60 hover:text-white"}"
-      @click=${() => (this.activeTab = tab)}
-    >
-      ${label}
-    </button>`;
-  }
-
   render() {
     const isSearching = this.searchQuery.trim().length > 0;
     return html`
-      <div class="space-y-8">
-        <div class="w-full flex items-center gap-2">
+      <div class="space-y-6">
+        <div class="flex w-full items-center gap-2">
           ${isSearching
             ? null
-            : html`<div
-                  role="tablist"
-                  aria-label="${translateText("map.map")}"
-                  class="flex-1 grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-black/20 p-1"
-                >
-                  ${this.renderTabButton(
-                    "featured",
-                    translateText("map.featured"),
-                  )}
-                  ${this.renderTabButton("all", translateText("map.all"))}
-                  ${this.renderTabButton(
-                    "favorites",
-                    translateText("map.favorites"),
-                  )}
-                </div>
-                ${this.activeTab === "all" ? this.renderExpandToggle() : null}`}
+            : html`${uiSegmented<MapTab>({
+                options: [
+                  { key: "featured", label: translateText("map.featured") },
+                  { key: "all", label: translateText("map.all") },
+                  {
+                    key: "favorites",
+                    label: translateText("map.favorites"),
+                  },
+                ],
+                value: this.activeTab,
+                onChange: (tab) => (this.activeTab = tab),
+                ariaLabel: translateText("map.map"),
+                name: "map-tabs",
+              })}
+              ${this.activeTab === "all" ? this.renderExpandToggle() : null}`}
         </div>
         ${isSearching ? this.renderSearchResults() : this.renderActiveTab()}
-        <div
-          class="w-full ${this.randomMapDivider
-            ? "pt-4 border-t border-white/5"
-            : ""}"
-        >
+        <div class="w-full">
           ${this.renderSectionHeading(translateText("map_categories.special"))}
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             <button
               type="button"
-              class="w-full h-full p-3 flex flex-col items-center justify-between rounded-xl border cursor-pointer transition-all duration-200 active:scale-95 gap-3 group ${this
+              aria-pressed=${this.useRandomMap}
+              class="ui-focus group relative flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-ui-card border bg-ui-surface text-left transition-colors ${this
                 .useRandomMap
-                ? "bg-df-red/20 border-df-red/50 shadow-[var(--shadow-df-red-strong)]"
-                : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 hover:-translate-y-1"}"
+                ? "border-ui-accent ring-1 ring-ui-accent"
+                : "border-ui-border hover:border-ui-border-hover"}"
               @click=${this.handleSelectRandomMap}
             >
               <div
-                class="w-full aspect-[2/1] relative overflow-hidden rounded-lg bg-black/20"
+                class="relative aspect-[2/1] w-full overflow-hidden bg-ui-ground"
               >
                 <img
                   src=${randomMap}
                   alt=${translateText("map.random")}
                   draggable="false"
                   @dragstart=${this.preventImageDrag}
-                  class="w-full h-full object-cover ${this.useRandomMap
+                  class="h-full w-full object-cover ${this.useRandomMap
                     ? "opacity-100"
-                    : "opacity-80"} group-hover:opacity-100 transition-opacity duration-200"
+                    : "opacity-80"} transition-opacity duration-200 group-hover:opacity-100"
                 />
               </div>
-              <div
-                class="text-xs font-bold text-white uppercase tracking-wider text-center leading-tight break-words hyphens-auto"
-              >
-                ${translateText("map.random")}
+              <div class="flex items-center justify-between gap-2 px-4 py-3">
+                <span
+                  class="font-ui text-[13px] font-bold uppercase leading-tight tracking-[0.06em] text-ui-text"
+                  >${translateText("map.random")}</span
+                >
+                <span class="ui-label"
+                  >${translateText("map_categories.special")}</span
+                >
               </div>
             </button>
           </div>

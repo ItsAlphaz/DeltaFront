@@ -700,8 +700,8 @@ describe("LeaderboardModal", () => {
       const oModal = modal.querySelector("o-modal");
       await (oModal as unknown as { updateComplete: Promise<unknown> })
         .updateComplete;
-      const tab = oModal!.shadowRoot!.querySelector(
-        'button[role="tab"][data-key="players2v2"]',
+      const tab = modal.querySelector(
+        '[data-ui-tabs="leaderboard-tabs"] [data-key="players2v2"]',
       );
       expect(tab).toBeTruthy();
 
@@ -794,7 +794,7 @@ describe("LeaderboardModal", () => {
       // numeric ranks: the tied pair shows rank 2 twice, then 4
       expect(
         rows.map((r) => r.querySelector("td")!.textContent!.trim()),
-      ).toEqual(["👑", "🥈", "🥈", "4"]);
+      ).toEqual(["1", "2", "2", "4"]);
       expect(rows[0].textContent).toContain("11");
       expect(rows[0].textContent).toContain("91.7%");
     });
@@ -1155,8 +1155,8 @@ describe("LeaderboardModal", () => {
       const oModal = modal.querySelector("o-modal");
       await (oModal as unknown as { updateComplete: Promise<unknown> })
         .updateComplete;
-      const tab = oModal!.shadowRoot!.querySelector(
-        'button[role="tab"][data-key="clans"]',
+      const tab = modal.querySelector(
+        '[data-ui-tabs="leaderboard-tabs"] [data-key="clans"]',
       );
       expect(tab).toBeTruthy();
 

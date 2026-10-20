@@ -1,6 +1,7 @@
 import { RankedType } from "@openfront/engine-api/game/GameTypes";
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
-import { html } from "lit";
+import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
+import { html, nothing } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { BaseModal } from "./components/BaseModal";
 import "./components/leaderboard/LeaderboardClanTable";
@@ -11,7 +12,16 @@ import "./components/leaderboard/LeaderboardTribeTable";
 import type { LeaderboardTribeTable } from "./components/leaderboard/LeaderboardTribeTable";
 import "./components/leaderboard/LeaderboardXpTable";
 import type { LeaderboardXpTable } from "./components/leaderboard/LeaderboardXpTable";
-import { modalHeader } from "./components/ui/ModalHeader";
+import {
+  uiButton,
+  uiDetailPanel,
+  uiPageHeader,
+  uiTabs,
+  uiTwoColumn,
+} from "./components/ui/PageUi";
+import { formatXp } from "./components/XpBar";
+import { rankLabelKey } from "./Progression";
+import { lastUserMeResponse } from "./UserMeBroadcast";
 import { translateText } from "./Utils";
 
 // The basic (non-ranked) player board: first, and always there.
@@ -63,6 +73,29 @@ export class LeaderboardModal extends BaseModal {
 
   private loadToken = 0;
   private lastRankedType: RankedType = RankedType.OneVOne;
+  // Who is looking: their row is tagged "You" and "Your standing" is about them.
+  @state() private me: UserMeResponse | false =
+    lastUserMeResponse()?.response ?? false;
+
+  private onUserMe = (event: Event) => {
+    this.me = (event as CustomEvent<UserMeResponse | false>).detail;
+  };
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    document.addEventListener("userMeResponse", this.onUserMe);
+    const last = lastUserMeResponse();
+    if (last !== null) this.me = last.response;
+  }
+
+  disconnectedCallback(): void {
+    document.removeEventListener("userMeResponse", this.onUserMe);
+    super.disconnectedCallback();
+  }
+
+  private get myPublicId(): string {
+    return this.me === false ? "" : this.me.player.publicId;
+  }
 
   protected modalConfig() {
     const labels: Record<string, string> = {
@@ -76,6 +109,8 @@ export class LeaderboardModal extends BaseModal {
       tribes: translateText("leaderboard_modal.tribes_tab"),
     };
     return {
+      ui: true,
+      hideTabs: true,
       tabs: availableTabKeys().map((key) => ({ key, label: labels[key] })),
     };
   }
@@ -148,55 +183,130 @@ export class LeaderboardModal extends BaseModal {
   }
 
   protected renderHeaderSlot() {
-    let dateRange = html``;
-    if (this.clanDateRange) {
+    let note = html``;
+    if (this.activeTab === "clans" && this.clanDateRange) {
       const start = new Date(this.clanDateRange.start).toLocaleDateString();
       const end = new Date(this.clanDateRange.end).toLocaleDateString();
-      dateRange = html`<span
-        class="text-sm font-normal text-white/40 ml-2 wrap-break-words"
+      note = html`<span class="ui-body text-ui-muted"
         >(${start} - ${end})</span
       >`;
+    } else if (this.activeTab === BASIC_TAB) {
+      note = html`<span class="ui-body hidden italic text-ui-muted md:inline"
+        >(${translateText("leaderboard_modal.refresh_time_basic")})</span
+      >`;
+    } else if (
+      this.rankedTypeFor(this.activeTab) !== null ||
+      this.activeTab === "tribes"
+    ) {
+      note = html`<span class="ui-body hidden italic text-ui-muted md:inline"
+        >(${translateText("leaderboard_modal.refresh_time")})</span
+      >`;
     }
-    const refreshTime = html`<span
-      class="text-sm font-normal text-white/40 ml-2 wrap-break-words italic"
-      >(${translateText("leaderboard_modal.refresh_time")})</span
-    >`;
-
-    const basicRefreshTime = html`<span
-      class="text-sm font-normal text-white/40 ml-2 wrap-break-words italic"
-      >(${translateText("leaderboard_modal.refresh_time_basic")})</span
-    >`;
-
-    return modalHeader({
-      titleContent: html`
-        <div class="flex flex-wrap items-center gap-2">
-          <span
-            class="text-white text-xl sm:text-2xl font-bold uppercase tracking-widest"
-          >
-            ${translateText("leaderboard_modal.title")}
-          </span>
-          ${this.activeTab === "clans" ? dateRange : ""}
-          ${this.activeTab === BASIC_TAB
-            ? basicRefreshTime
-            : this.rankedTypeFor(this.activeTab) !== null ||
-                this.activeTab === "tribes"
-              ? refreshTime
-              : ""}
-        </div>
-      `,
+    return uiPageHeader({
+      title: translateText("leaderboard_modal.title"),
+      backLabel: translateText("common.close"),
       onBack: () => this.close(),
-      ariaLabel: translateText("common.close"),
+      controls: note,
+    });
+  }
+
+  private activeBoard() {
+    return this.tabComponent(this.activeTab) as
+      | { myRank?(): number | null; jumpToMe?(): boolean }
+      | undefined;
+  }
+
+  /** "Your standing": rank on the board shown, lifetime XP, title and level. */
+  private renderStanding() {
+    if (this.me === false) {
+      return uiDetailPanel({
+        body: html`<p data-standing-signed-out class="ui-body text-ui-muted">
+          ${translateText("leaderboard_modal.sign_in_standing")}
+        </p>`,
+      });
+    }
+    const player = this.me.player;
+    const progress = player.progress;
+    const name = player.username ?? translateText("main.account");
+    const rank = this.activeBoard()?.myRank?.() ?? null;
+    const tile = (label: string, value: string) =>
+      html`<div
+        class="min-w-0 flex-1 rounded-ui-card border border-ui-border bg-ui-panel p-3.5"
+      >
+        <div class="ui-label">${label}</div>
+        <div class="ui-mono mt-2 text-[22px] font-bold text-ui-text">
+          ${value}
+        </div>
+      </div>`;
+    return uiDetailPanel({
+      body: html`<div class="ui-label">
+          ${translateText("leaderboard_modal.your_standing")}
+        </div>
+        <div class="flex items-center gap-4">
+          <span
+            aria-hidden="true"
+            class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-ui-accent bg-ui-panel text-[20px] font-bold text-ui-accent-soft"
+            >${name.charAt(0).toUpperCase()}</span
+          >
+          <div class="min-w-0">
+            <div
+              data-standing-name
+              class="ui-title truncate normal-case tracking-normal text-ui-text"
+            >
+              ${name}
+            </div>
+            ${progress
+              ? html`<div data-standing-title class="ui-label mt-1">
+                  ${translateText(rankLabelKey(progress.level))} ·
+                  ${translateText("progression.level", {
+                    level: progress.level,
+                  })}
+                </div>`
+              : nothing}
+          </div>
+        </div>
+        <div class="flex gap-3">
+          ${tile(
+            translateText("leaderboard_modal.rank_stat"),
+            rank === null ? "—" : `#${rank}`,
+          )}
+          ${progress
+            ? tile(
+                translateText("leaderboard_modal.lifetime_xp_stat"),
+                formatXp(progress.lifetimeXp),
+              )
+            : nothing}
+        </div>`,
+      action: uiButton({
+        label: translateText("leaderboard_modal.jump_to_my_rank"),
+        block: true,
+        disabled: rank === null,
+        name: "jump",
+        onClick: () => this.activeBoard()?.jumpToMe?.(),
+      }),
     });
   }
 
   protected renderBody() {
-    return html`
-      <div class="flex-1 min-h-0 h-full">
+    const tabs = uiTabs({
+      tabs: availableTabKeys().map((key) => ({
+        key,
+        label:
+          (this.modalConfig().tabs ?? []).find((tab) => tab.key === key)
+            ?.label ?? key,
+      })),
+      value: this.activeTab,
+      onChange: (key) => this.setActiveTab(key),
+      ariaLabel: translateText("leaderboard_modal.title"),
+      name: "leaderboard-tabs",
+    });
+    const content = html`${tabs}
+      <div class="min-h-0 flex-1" @board-updated=${() => this.requestUpdate()}>
         ${ACCOUNT_FEATURES.ranked
           ? html`<leaderboard-player-list
               data-board="ranked"
               class=${this.rankedTypeFor(this.activeTab) !== null
-                ? "h-full"
+                ? "block h-full max-lg:h-[70vh]"
                 : "hidden"}
               .rankedType=${this.rankedTypeFor(this.activeTab) ??
               this.lastRankedType}
@@ -204,24 +314,28 @@ export class LeaderboardModal extends BaseModal {
           : ""}
         <leaderboard-player-list
           data-board="basic"
-          class=${this.activeTab === BASIC_TAB ? "h-full" : "hidden"}
+          class=${this.activeTab === BASIC_TAB
+            ? "block h-full max-lg:h-[70vh]"
+            : "hidden"}
           .basic=${true}
         ></leaderboard-player-list>
         ${ACCOUNT_FEATURES.progression
           ? html`<leaderboard-xp-table
                 data-board="xp"
                 mode="lifetime"
-                class=${this.activeTab === "xp" ? "h-full" : "hidden"}
+                .currentPublicId=${this.myPublicId}
+                class=${this.activeTab === "xp" ? "block" : "hidden"}
               ></leaderboard-xp-table>
               <leaderboard-xp-table
                 data-board="season"
                 mode="season"
-                class=${this.activeTab === "season" ? "h-full" : "hidden"}
+                .currentPublicId=${this.myPublicId}
+                class=${this.activeTab === "season" ? "block" : "hidden"}
               ></leaderboard-xp-table>`
           : ""}
         ${ACCOUNT_FEATURES.clans
           ? html`<leaderboard-clan-table
-              class=${this.activeTab === "clans" ? "h-full" : "hidden"}
+              class=${this.activeTab === "clans" ? "block" : "hidden"}
               @date-range-change=${(
                 event: CustomEvent<{ start: string; end: string }>,
               ) => this.handleClanDateRangeChange(event)}
@@ -229,10 +343,10 @@ export class LeaderboardModal extends BaseModal {
           : ""}
         ${ACCOUNT_FEATURES.tribes
           ? html`<leaderboard-tribe-table
-              class=${this.activeTab === "tribes" ? "h-full" : "hidden"}
+              class=${this.activeTab === "tribes" ? "block" : "hidden"}
             ></leaderboard-tribe-table>`
           : ""}
-      </div>
-    `;
+      </div>`;
+    return uiTwoColumn({ content, detail: this.renderStanding() });
   }
 }

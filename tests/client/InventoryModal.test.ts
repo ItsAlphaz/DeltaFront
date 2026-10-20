@@ -10,6 +10,7 @@ import type { LitElement } from "lit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getUserMe } from "../../src/client/Api";
 import { userAuth } from "../../src/client/Auth";
+import type { ResolvedCosmetic } from "../../src/client/Cosmetics";
 import { fetchCosmetics } from "../../src/client/Cosmetics";
 import "../../src/client/InventoryModal";
 import type { InventoryModal } from "../../src/client/InventoryModal";
@@ -22,8 +23,6 @@ import {
   PATTERN_KEY,
   UserSettings,
 } from "../../src/client/UserSettings";
-import type { CosmeticCard } from "../../src/client/components/CosmeticCard";
-import type { EffectsGrid } from "../../src/client/components/EffectsGrid";
 import type { InventoryLoadoutBar } from "../../src/client/components/InventoryLoadoutBar";
 
 vi.mock("../../src/client/Api", async (importOriginal) => ({
@@ -194,32 +193,71 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function card(modal: InventoryModal, key: string): CosmeticCard | undefined {
-  return [...modal.querySelectorAll<CosmeticCard>("cosmetic-card")].find(
-    (candidate) =>
-      candidate.resolved.key === key ||
-      candidate.variants.some((variant) => variant.key === key),
+// The Inventory is a grid of cards (one per group of colour variants) and a
+// detail panel. Selecting a card inspects it; the panel's Equip / Unequip button
+// changes what is worn. `card` finds the card whose group holds a key, with the
+// state it would have had as a tile: "equipped" when that item is worn.
+type Internals = {
+  resolvedItems(): ResolvedCosmetic[];
+  countryFlagTiles: ResolvedCosmetic[];
+  groupsFor(tab: string): readonly (readonly ResolvedCosmetic[])[];
+  isEquipped(item: ResolvedCosmetic): boolean;
+  activeTab: string;
+};
+const internals = (modal: InventoryModal) => modal as unknown as Internals;
+
+function card(modal: InventoryModal, key: string) {
+  const m = internals(modal);
+  const item = [...m.resolvedItems(), ...m.countryFlagTiles].find(
+    (candidate) => candidate.key === key,
   );
+  const group = m
+    .groupsFor(m.activeTab)
+    .find((candidate) => candidate.some((variant) => variant.key === key));
+  const el = [
+    ...modal.querySelectorAll<HTMLElement>('[data-ui-item="inventory-item"]'),
+  ].find((candidate) => candidate.dataset.key === group?.[0].key);
+  if (!el || !item) return undefined;
+  return {
+    el,
+    resolved: item,
+    variants: group!,
+    get state() {
+      return m.isEquipped(item) ? "equipped" : "idle";
+    },
+  };
 }
 
 function loadout(modal: InventoryModal): InventoryLoadoutBar {
   return modal.querySelector("inventory-loadout-bar") as InventoryLoadoutBar;
 }
 
-async function activateCard(modal: InventoryModal, key: string) {
-  const cosmeticCard = card(modal, key)!;
-  cosmeticCard.onActivate!(
-    cosmeticCard.variants.find((variant) => variant.key === key) ??
-      cosmeticCard.resolved,
+const button = (modal: InventoryModal, name: string) =>
+  modal.querySelector<HTMLButtonElement>(`[data-ui-button="${name}"]`)!;
+
+/** Select a card and, if the key is a colour variant, that colour. */
+async function inspectCard(modal: InventoryModal, key: string) {
+  const found = card(modal, key)!;
+  found.el.click();
+  await modal.updateComplete;
+  const swatch = modal.querySelector<HTMLButtonElement>(
+    `[data-variant-key="${key}"]`,
   );
+  if (swatch) {
+    swatch.click();
+    await modal.updateComplete;
+  }
+}
+
+/** What a tile click used to do: select the item and wear it (Equip in the panel). */
+async function activateCard(modal: InventoryModal, key: string) {
+  await inspectCard(modal, key);
+  button(modal, "equip").click();
   await modal.updateComplete;
 }
 
 async function activateVariant(modal: InventoryModal, key: string) {
-  const cosmeticCard = card(modal, key)!;
-  const variant = cosmeticCard.variants.find((item) => item.key === key)!;
-  cosmeticCard.onVariantActivate!(variant);
-  await modal.updateComplete;
+  await activateCard(modal, key);
 }
 
 async function showEffectSlot(
@@ -227,19 +265,20 @@ async function showEffectSlot(
   effectType: EffectType,
   nukeType?: NukeExplosionType,
 ) {
-  const grid = modal.querySelector("effects-grid") as EffectsGrid;
-  grid
-    .querySelectorAll<HTMLButtonElement>("button[class*='-mb-px']")
+  modal
+    .querySelectorAll<HTMLButtonElement>(
+      '[data-ui-tabs="inventory-effects"] button',
+    )
     [EFFECT_TYPES.indexOf(effectType)]!.click();
-  await grid.updateComplete;
-  if (nukeType) {
-    grid
-      .querySelectorAll<HTMLButtonElement>("button[class*='rounded-full']")
-      [NUKE_EXPLOSION_TYPES.indexOf(nukeType)]!.click();
-    await grid.updateComplete;
-  }
   await modal.updateComplete;
-  return grid;
+  if (nukeType) {
+    modal
+      .querySelectorAll<HTMLButtonElement>(
+        '[data-ui-segmented="nuke-type"] button',
+      )
+      [NUKE_EXPLOSION_TYPES.indexOf(nukeType)]!.click();
+    await modal.updateComplete;
+  }
 }
 
 async function showTab(
@@ -248,8 +287,6 @@ async function showTab(
 ) {
   modal.setActiveTab(tab);
   await modal.updateComplete;
-  const effects = modal.querySelector("effects-grid");
-  if (effects) await (effects as LitElement).updateComplete;
 }
 
 function loadoutMenu(modal: InventoryModal): LitElement {
@@ -391,7 +428,7 @@ describe("InventoryModal", () => {
 
     modal.close();
     await modal.updateComplete;
-    expect(modal.querySelector("cosmetic-card")).toBeNull();
+    expect(modal.querySelector("[data-ui-item]")).toBeNull();
 
     modal.open();
     await modal.updateComplete;
@@ -414,10 +451,7 @@ describe("InventoryModal", () => {
   });
 
   it("keeps the auth-aware action in the modal header", async () => {
-    let action = modal.querySelector<HTMLElement>(
-      "[data-inventory-header-action]",
-    )!;
-    await (action as LitElement).updateComplete;
+    let action = button(modal, "store");
     expect(action.closest('[slot="header"]')).toBeTruthy();
     expect(action.textContent?.trim()).toBe("Store");
 
@@ -428,10 +462,7 @@ describe("InventoryModal", () => {
     modal.requestUpdate();
     await modal.updateComplete;
 
-    action = modal.querySelector<HTMLElement>(
-      "[data-inventory-header-action]",
-    )!;
-    await (action as LitElement).updateComplete;
+    action = button(modal, "sign-in");
     expect(action.closest('[slot="header"]')).toBeTruthy();
     expect(action.textContent?.trim()).toBe("Not logged in");
   });
@@ -480,11 +511,7 @@ describe("InventoryModal", () => {
   it("deep-links to the store cosmetics tab from the header action", async () => {
     const originalHash = window.location.hash;
     try {
-      const action = modal.querySelector<HTMLElement>(
-        "[data-inventory-header-action]",
-      )!;
-      await (action as LitElement).updateComplete;
-      action.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      button(modal, "store").click();
       expect(window.location.hash).toBe("#modal=store&tab=cosmetics");
     } finally {
       window.location.hash = originalHash;
@@ -551,7 +578,7 @@ describe("InventoryModal", () => {
     expect(card(modal, "skin:locked_skin")).toBeUndefined();
     await activateCard(modal, "skin:owned_skin");
     expect(new UserSettings().getSelectedSkinName()).toBe("owned_skin");
-    modal.querySelector<HTMLButtonElement>("[data-inventory-unequip]")!.click();
+    button(modal, "unequip").click();
     expect(new UserSettings().getSelectedSkinName()).toBeNull();
     expect(modal.isConnected).toBe(true);
 
@@ -565,13 +592,13 @@ describe("InventoryModal", () => {
     expect(new UserSettings().getFlag()).toBe("flag:owned_flag");
     await activateCard(modal, "country:us");
     expect(new UserSettings().getFlag()).toBe("country:us");
-    modal.querySelector<HTMLButtonElement>("[data-inventory-unequip]")!.click();
+    button(modal, "unequip").click();
     expect(new UserSettings().getFlag()).toBeNull();
 
     await showTab(modal, "crowns");
     await activateCard(modal, "crown:owned_crown");
     expect(new UserSettings().getSelectedCrownName()).toBe("owned_crown");
-    modal.querySelector<HTMLButtonElement>("[data-inventory-unequip]")!.click();
+    button(modal, "unequip").click();
     expect(new UserSettings().getSelectedCrownName()).toBeNull();
   }, 30_000);
 
@@ -607,7 +634,7 @@ describe("InventoryModal", () => {
     for (const [effectType, slot, selectedName] of slots) {
       settings.setSelectedEffectName(slot, selectedName);
       await modal.updateComplete;
-      const grid = await showEffectSlot(
+      await showEffectSlot(
         modal,
         effectType,
         effectType === "nukeExplosion" ? slot : undefined,
@@ -616,7 +643,7 @@ describe("InventoryModal", () => {
         "equipped",
       );
       expect(card(modal, `effect:none:${effectType}`)).toBeUndefined();
-      grid.querySelector<HTMLButtonElement>("[data-effects-unequip]")!.click();
+      button(modal, "unequip").click();
       expect(settings.getSelectedEffectName(slot)).toBeNull();
     }
   });
@@ -736,9 +763,17 @@ describe("InventoryModal", () => {
     });
     modal.requestUpdate();
     await modal.updateComplete;
-    expect(loadout(modal).querySelector(".overflow-x-auto")).toBeTruthy();
+    // the slot cards reflow (two across, four from lg), the grid has two columns
+    // on a phone, the detail panel stacks under the content and the effect tabs
+    // scroll sideways
+    expect(loadout(modal).querySelector("section > div")?.classList).toContain(
+      "grid-cols-2",
+    );
     expect(modal.querySelector("[data-inventory-grid]")?.classList).toContain(
       "grid-cols-2",
+    );
+    expect(modal.querySelector('[data-ui="two-column"]')?.classList).toContain(
+      "lg:flex-row",
     );
   });
 
@@ -822,7 +857,7 @@ describe("InventoryModal", () => {
     await modal.updateComplete;
 
     expect(modal.querySelector('[data-inventory-state="error"]')).toBeTruthy();
-    expect(modal.querySelector("cosmetic-card")).toBeNull();
+    expect(modal.querySelector("[data-ui-item]")).toBeNull();
     expect(settings.getSelectedCrownName()).toBe("owned_crown");
   });
 
@@ -961,10 +996,10 @@ describe("InventoryModal", () => {
     await showTab(modal, "skins");
     expect(card(modal, "pattern:default")).toBeUndefined();
     expect(modal.querySelector('[data-inventory-empty="skins"]')).toBeTruthy();
-    expect(
-      modal.querySelector<HTMLButtonElement>("[data-inventory-unequip]")
-        ?.disabled,
-    ).toBe(true);
+    // nothing is worn, so the panel offers no Unequip (and no Equip: nothing to show)
+    expect(modal.querySelector('[data-ui-button="unequip"]')).toBeNull();
+    expect(modal.querySelector('[data-ui-button="equip"]')).toBeNull();
+    expect(button(modal, "unequip-all").disabled).toBe(true);
 
     // A catalog without crowns (DeltaFront's V1 one) has no crowns slot at
     // all, and a stale request for the tab shows the skins instead.
@@ -993,12 +1028,8 @@ describe("InventoryModal", () => {
 
     await showTab(modal, "effects");
     expect(card(modal, "effect:none:transportShipTrail")).toBeUndefined();
-    const unequip = modal.querySelector<HTMLButtonElement>(
-      "[data-effects-unequip]",
-    )!;
-    expect(unequip.disabled).toBe(true);
-    // The notice names the open sub-tab's type and sits below that tab bar and
-    // the Unequip control, matching the other categories.
+    expect(modal.querySelector('[data-ui-button="unequip"]')).toBeNull();
+    // The notice names the open sub-tab's type and sits below that tab bar.
     const empty = modal.querySelector<HTMLElement>(
       '[data-effects-empty="transportShipTrail"]',
     )!;
@@ -1007,7 +1038,9 @@ describe("InventoryModal", () => {
       "inventory.no_owned_effects_of_type",
     );
     expect(
-      unequip.compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING,
+      modal
+        .querySelector('[data-ui-tabs="inventory-effects"]')!
+        .compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(modal.querySelector('[data-inventory-empty="effects"]')).toBeNull();
 
@@ -1047,7 +1080,7 @@ describe("InventoryModal", () => {
     await showTab(modal, "skins");
     await activateCard(modal, "skin:owned_skin");
     await showTab(modal, "crowns");
-    modal.querySelector<HTMLButtonElement>("[data-inventory-unequip]")!.click();
+    button(modal, "unequip").click();
     await modal.updateComplete;
 
     const settings = new UserSettings();
@@ -1094,10 +1127,7 @@ describe("InventoryModal", () => {
 
   it("clears every category through Unequip all", async () => {
     await showTab(modal, "skins");
-    const unequipAll = () =>
-      loadoutMenu(modal).querySelector<HTMLButtonElement>(
-        "[data-inventory-unequip-all]",
-      )!;
+    const unequipAll = () => button(modal, "unequip-all");
     expect(unequipAll().disabled).toBe(true);
     await activateCard(modal, "skin:owned_skin");
     await showTab(modal, "crowns");
@@ -1106,7 +1136,7 @@ describe("InventoryModal", () => {
       "transportShipTrail",
       "owned_wake",
     );
-    await loadoutMenu(modal).updateComplete;
+    await modal.updateComplete;
     expect(unequipAll().disabled).toBe(false);
 
     unequipAll().click();

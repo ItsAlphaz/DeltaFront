@@ -146,7 +146,7 @@ export class LeaderboardClanTable extends LitElement {
           ${this.error ?? translateText("leaderboard_modal.error")}
         </p>
         <button
-          class="px-8 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-sm font-bold uppercase transition-all active:scale-95"
+          class="ui-focus min-h-11 cursor-pointer rounded-ui-card border border-ui-border-strong bg-ui-surface px-5 font-ui text-[13px] font-bold uppercase tracking-[0.06em] text-ui-text hover:border-ui-border-hover"
           @click=${() => this.loadClanLeaderboard()}
         >
           ${translateText("leaderboard_modal.try_again")}
@@ -212,9 +212,7 @@ export class LeaderboardClanTable extends LitElement {
                 <col style="width: 6rem" />
               </colgroup>
               <thead class="sticky top-0 z-10">
-                <tr
-                  class="text-white/40 text-[10px] uppercase tracking-wider border-b border-white/5 bg-df-panel"
-                >
+                <tr class="ui-label border-b border-ui-border bg-ui-panel">
                   <th class="py-4 px-4 text-center font-bold">
                     ${translateText("leaderboard_modal.rank")}
                   </th>
@@ -314,28 +312,17 @@ export class LeaderboardClanTable extends LitElement {
                   const displayRank = index + 1;
                   const rankColor =
                     displayRank === 1
-                      ? "text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/20"
-                      : displayRank === 2
-                        ? "text-slate-300 bg-slate-400/10 ring-1 ring-slate-400/20"
-                        : displayRank === 3
-                          ? "text-amber-600 bg-amber-600/10 ring-1 ring-amber-600/20"
-                          : "text-white/40 bg-white/5";
-                  const rankIcon =
-                    displayRank === 1
-                      ? "👑"
-                      : displayRank === 2
-                        ? "🥈"
-                        : displayRank === 3
-                          ? "🥉"
-                          : String(displayRank);
+                      ? "text-ui-gold bg-ui-gold/15"
+                      : "text-ui-muted bg-ui-surface";
+                  const rankIcon = String(displayRank);
 
                   return html`
                     <tr
-                      class="border-b border-white/5 hover:bg-white/[0.07] transition-colors group"
+                      class="border-b border-ui-border hover:bg-ui-surface transition-colors group"
                     >
                       <td class="py-3 px-4 text-center">
                         <div
-                          class="w-10 h-10 mx-auto flex items-center justify-center rounded-lg font-bold font-mono text-lg ${rankColor}"
+                          class="ui-mono mx-auto flex h-9 w-9 items-center justify-center rounded-ui-card text-[15px] font-bold ${rankColor}"
                         >
                           ${rankIcon}
                         </div>
@@ -356,7 +343,7 @@ export class LeaderboardClanTable extends LitElement {
                             class="w-24 h-1 bg-white/10 rounded-full overflow-hidden"
                           >
                             <div
-                              class="h-full bg-df-red/70 rounded-full"
+                              class="h-full bg-ui-accent rounded-full"
                               style="width: ${(clan.games / maxGames) * 100}%"
                             ></div>
                           </div>

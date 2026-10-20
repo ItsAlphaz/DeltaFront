@@ -77,38 +77,18 @@ export class FluentSlider extends LitElement {
         ? 0
         : ((this.value - this.min) / (this.max - this.min)) * 100;
     return html`
-      <div
-        class="flex flex-col items-center justify-center gap-1 w-full text-center"
-      >
-        <input
-          type="range"
-          .min=${this.min}
-          .max=${this.max}
-          .step=${this.step}
-          .valueAsNumber=${this.value}
-          style="background: linear-gradient(to right, var(--color-df-red) 0%, var(--color-df-red) ${percentage}%, rgba(255, 255, 255, 0.15) ${percentage}%, rgba(255, 255, 255, 0.15) 100%); background-size: 100% 6px; background-repeat: no-repeat; background-position: center; border-radius: 9999px;"
-          class="w-full h-6 p-0 m-0 bg-transparent appearance-none cursor-pointer focus:outline-none 
-                 [&::-webkit-slider-runnable-track]:w-full [&::-webkit-slider-runnable-track]:h-[6px] [&::-webkit-slider-runnable-track]:cursor-pointer [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:transition-colors
-                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-df-red [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:-mt-[6px] [&::-webkit-slider-thumb]:shadow-[var(--shadow-df-red-ring-sm)] [&::-webkit-slider-thumb]:transition-all active:[&::-webkit-slider-thumb]:scale-110 active:[&::-webkit-slider-thumb]:shadow-[var(--shadow-df-red-ring-lg)]
-                 [&::-moz-range-track]:w-full [&::-moz-range-track]:h-[6px] [&::-moz-range-track]:cursor-pointer [&::-moz-range-track]:bg-transparent [&::-moz-range-track]:rounded-full [&::-moz-range-track]:transition-colors
-                 [&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-df-red [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-[var(--shadow-df-red-ring-sm)] [&::-moz-range-thumb]:transition-all active:[&::-moz-range-thumb]:scale-110 active:[&::-moz-range-thumb]:shadow-[var(--shadow-df-red-ring-lg)]"
-          @input=${this.handleSliderInput}
-          @change=${this.handleSliderChange}
-        />
-        <div
-          class="text-xs uppercase font-bold tracking-wider text-center w-full leading-tight mb-1 flex flex-col items-center ${this
-            .value > 0
-            ? "text-white"
-            : "text-white/60"}"
-        >
-          <span>${this.labelKey ? translateText(this.labelKey) : ""}</span>
+      <div class="flex w-full flex-col gap-3">
+        <div class="flex items-baseline justify-between gap-3">
+          <span class="ui-body text-ui-text"
+            >${this.labelKey ? translateText(this.labelKey) : ""}</span
+          >
           ${this.isEditing
             ? html`<input
                 type="number"
                 .min=${this.min}
                 .max=${this.max}
                 .valueAsNumber=${this.value}
-                class="w-[60px] bg-black/60 text-white border border-white/20 text-center rounded text-sm p-1 leading-none font-bold font-inherit mt-1 focus:outline-none focus:border-df-red"
+                class="ui-focus ui-mono h-9 w-[72px] rounded-ui-card border border-ui-border-strong bg-ui-panel px-2 text-right text-[16px] font-bold text-ui-text"
                 @input=${this.handleNumberInput}
                 @blur=${() => {
                   this.isEditing = false;
@@ -117,10 +97,10 @@ export class FluentSlider extends LitElement {
                 @keydown=${this.handleNumberKeyDown}
               />`
             : html`<span
-                class="cursor-pointer min-w-[60px] inline-block text-center text-sm font-bold select-none hover:text-white transition-colors mt-1 ${this
+                class="ui-focus ui-mono inline-flex cursor-pointer select-none items-baseline gap-2 text-right text-[20px] font-bold transition-colors hover:text-ui-text ${this
                   .value > 0
-                  ? "text-white"
-                  : "text-white/60"}"
+                  ? "text-ui-text"
+                  : "text-ui-muted"}"
                 role="button"
                 tabindex="0"
                 @click=${this.enableEditing}
@@ -136,13 +116,27 @@ export class FluentSlider extends LitElement {
                   : this.defaultValue !== undefined &&
                       this.value === this.defaultValue &&
                       this.defaultLabelKey
-                    ? html`${this.value}
-                        <span class="text-white/40 uppercase"
-                          >(${translateText(this.defaultLabelKey)})</span
-                        >`
+                    ? html`<span class="ui-label"
+                          >${translateText(this.defaultLabelKey)}</span
+                        >${this.value}`
                     : this.value}
               </span>`}
         </div>
+        <input
+          type="range"
+          .min=${this.min}
+          .max=${this.max}
+          .step=${this.step}
+          .valueAsNumber=${this.value}
+          style="background: linear-gradient(to right, var(--color-ui-accent) 0%, var(--color-ui-accent) ${percentage}%, var(--color-ui-border-strong) ${percentage}%, var(--color-ui-border-strong) 100%); background-size: 100% 6px; background-repeat: no-repeat; background-position: center; border-radius: 9999px;"
+          class="ui-focus m-0 h-6 w-full cursor-pointer appearance-none bg-transparent p-0
+                 [&::-webkit-slider-runnable-track]:h-[6px] [&::-webkit-slider-runnable-track]:w-full [&::-webkit-slider-runnable-track]:cursor-pointer [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent
+                 [&::-webkit-slider-thumb]:-mt-[6px] [&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ui-accent [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_var(--color-ui-accent-tint)]
+                 [&::-moz-range-track]:h-[6px] [&::-moz-range-track]:w-full [&::-moz-range-track]:cursor-pointer [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent
+                 [&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:bg-ui-accent [&::-moz-range-thumb]:shadow-[0_0_0_3px_var(--color-ui-accent-tint)]"
+          @input=${this.handleSliderInput}
+          @change=${this.handleSliderChange}
+        />
       </div>
     `;
   }

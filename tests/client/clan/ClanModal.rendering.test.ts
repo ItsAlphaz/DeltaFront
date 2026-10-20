@@ -124,7 +124,7 @@ describe("ClanModal — rendering", () => {
       expect(text).not.toContain("clan_modal.open");
     });
 
-    it("shows amber role badge class for leader", async () => {
+    it("shows the gold role badge for a leader", async () => {
       setState(modal, "activeTab" as keyof ClanModal, "browse" as never);
       setState(
         modal,
@@ -149,10 +149,10 @@ describe("ClanModal — rendering", () => {
         s.textContent?.trim().includes("role_leader"),
       );
       expect(leaderSpan).toBeTruthy();
-      expect(leaderSpan!.className).toContain("amber");
+      expect(leaderSpan!.className).toContain("ui-gold");
     });
 
-    it("shows brand-red role badge class for officer/member", async () => {
+    it("shows the neutral role badge for an officer or member", async () => {
       (modal as unknown as { myClanRoles: Map<string, string> }).myClanRoles =
         new Map([["TST", "officer"]]);
       setState(modal, "myClans" as keyof ClanModal, [makeClan()] as never);
@@ -164,7 +164,7 @@ describe("ClanModal — rendering", () => {
         s.textContent?.trim().includes("role_officer"),
       );
       expect(officerSpan).toBeTruthy();
-      expect(officerSpan!.className).toContain("df-red");
+      expect(officerSpan!.className).toContain("bg-ui-border-strong");
     });
   });
 

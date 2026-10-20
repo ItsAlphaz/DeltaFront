@@ -112,10 +112,10 @@ export class MapDisplay extends LitElement {
       title=${translateText(
         this.favorite ? "map_component.unfavorite" : "map_component.favorite",
       )}
-      class="absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition-all duration-200 active:scale-90 ${this
+      class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-ui-ground/70 transition-all duration-200 active:scale-90 ${this
         .favorite
-        ? "opacity-100 text-cyber-yellow"
-        : "opacity-0 group-hover:opacity-100 text-white hover:text-cyber-yellow"}"
+        ? "opacity-100 text-ui-gold"
+        : "opacity-0 group-hover:opacity-100 text-ui-text hover:text-ui-gold"}"
     >
       ${starIcon(this.favorite, "w-4 h-4")}
     </button>`;
@@ -129,44 +129,63 @@ export class MapDisplay extends LitElement {
         aria-selected="${this.selected}"
         aria-label="${this.translation ?? this.mapName ?? this.mapKey}"
         @keydown="${this.handleKeydown}"
-        class="w-full h-full p-3 flex flex-col items-center justify-between rounded-xl border cursor-pointer transition-all duration-200 active:scale-95 gap-3 group ${this
+        class="ui-focus group relative flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-ui-card border bg-ui-surface transition-colors ${this
           .selected
-          ? "bg-df-red/20 border-df-red/50 shadow-[var(--shadow-df-red-strong)]"
-          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 hover:scale-105"}"
+          ? "border-ui-accent ring-1 ring-ui-accent"
+          : "border-ui-border hover:border-ui-border-hover"}"
       >
         ${this.isLoading
           ? html`<div
-              class="w-full aspect-[2/1] text-white/40 transition-transform duration-200 rounded-lg bg-black/20 text-xs font-bold uppercase tracking-wider flex items-center justify-center animate-pulse"
+              class="ui-label flex aspect-[2/1] w-full animate-pulse items-center justify-center bg-ui-ground"
             >
               ${translateText("common.loading")}
             </div>`
           : this.mapWebpPath
             ? html`<div
-                class="w-full aspect-[2/1] relative overflow-hidden rounded-lg bg-black/20"
+                class="relative aspect-[2/1] w-full overflow-hidden bg-ui-ground"
               >
                 <img
                   src="${this.mapWebpPath}"
                   alt="${this.translation || this.mapName}"
                   draggable="false"
                   @dragstart=${this.preventImageDrag}
-                  class="w-full h-full object-cover ${this.selected
+                  class="h-full w-full object-cover ${this.selected
                     ? "opacity-100"
-                    : "opacity-80"} group-hover:opacity-100 transition-opacity duration-200"
+                    : "opacity-80"} transition-opacity duration-200 group-hover:opacity-100"
                 />
+                ${this.selected
+                  ? html`<span
+                      data-map-selected
+                      aria-hidden="true"
+                      class="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-ui-accent text-white"
+                    >
+                      <svg
+                        class="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m5 12 5 5L20 7" />
+                      </svg>
+                    </span>`
+                  : null}
                 ${this.renderFavoriteButton()}
               </div>`
             : html`<div
-                class="w-full aspect-[2/1] text-red-400 transition-transform duration-200 rounded-lg bg-red-500/10 text-xs font-bold uppercase tracking-wider flex items-center justify-center"
+                class="ui-label flex aspect-[2/1] w-full items-center justify-center bg-ui-accent-tint text-ui-accent-soft"
               >
                 ${translateText("map_component.error")}
               </div>`}
         ${this.showMedals && this.hasNations
-          ? html`<div class="flex gap-1 justify-center w-full">
+          ? html`<div class="flex w-full justify-center gap-1 pt-2">
               ${this.renderMedals()}
             </div>`
           : null}
         <div
-          class="text-xs font-bold text-white uppercase tracking-wider text-center leading-tight break-words hyphens-auto"
+          class="px-4 py-3 text-left font-ui text-[13px] font-bold uppercase leading-tight tracking-[0.06em] text-ui-text"
         >
           ${this.translation || this.mapName}
         </div>

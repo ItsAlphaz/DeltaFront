@@ -19,35 +19,13 @@ import {
   DOOMSDAY_CLOCK_SPEEDS,
   DoomsdayClockSpeed,
 } from "@openfront/engine-lib/game/DoomsdayClock";
-import {
-  LitElement,
-  SVGTemplateResult,
-  TemplateResult,
-  html,
-  nothing,
-  svg,
-} from "lit";
+import { LitElement, TemplateResult, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { translateText } from "../Utils";
 import "./Difficulties";
-import "./DifficultyInfo";
 import "./FluentSlider";
 import "./map/MapPicker";
-
-const ACTIVE_CARD =
-  "bg-df-red/20 border-df-red/50 shadow-[var(--shadow-df-red)]";
-const INACTIVE_CARD =
-  "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20";
-
-const DISABLED_CARD =
-  "w-full rounded-xl border transition-all duration-200 opacity-30 grayscale cursor-not-allowed bg-white/5 border-white/5";
-
-function cardClass(active: boolean, extra = ""): string {
-  return `w-full rounded-xl border cursor-pointer transition-all duration-200 active:scale-95 ${extra} ${active ? ACTIVE_CARD : INACTIVE_CARD}`;
-}
-
-const CARD_LABEL_CLASS =
-  "text-xs uppercase font-bold tracking-wider leading-tight break-words hyphens-auto";
+import { uiChip, uiSearch, uiSwitchRow } from "./ui/PageUi";
 
 const DIFFICULTY_OPTIONS = Object.entries(Difficulty).filter(([key]) =>
   isNaN(Number(key)),
@@ -65,49 +43,31 @@ const TEAM_COUNT_OPTIONS: TeamCountConfig[] = [
   HumansVsNations,
 ];
 
-function stateTextClass(active: boolean): string {
-  return active ? "text-white" : "text-white/60";
+/** A button in a picker (difficulty, mode, team count): selected is the accent tint and border. */
+function pickerClass(active: boolean, extra = ""): string {
+  return `ui-focus cursor-pointer rounded-ui-card border transition-colors ${extra} ${
+    active
+      ? "border-ui-accent bg-ui-accent-tint text-ui-text"
+      : "border-transparent text-ui-muted hover:text-ui-text"
+  }`;
 }
 
-function renderTextCardButton(
-  label: string,
-  active: boolean,
-  onClick: () => void,
-  cardExtraClass: string,
-): TemplateResult {
-  return html`
-    <button
-      class="${cardClass(
-        active,
-        cardExtraClass,
-      )} flex items-center justify-center"
-      @click=${onClick}
-    >
-      <span class="${CARD_LABEL_CLASS} ${stateTextClass(active)}">
-        ${label}
-      </span>
-    </button>
-  `;
-}
+const PICKER_GROUP_CLASS =
+  "flex gap-1 rounded-ui-card border border-ui-border bg-ui-ground p-1";
 
+/** One section of the page: its heading (and an action beside it) and its content. */
 function renderSection(
-  iconSvg: SVGTemplateResult,
-  colorClass: string,
-  bgClass: string,
+  id: string,
   titleKey: string,
   content: TemplateResult | TemplateResult[],
-  sectionClass = "space-y-6",
   headerAction?: TemplateResult,
 ): TemplateResult {
   return html`
-    <section class=${sectionClass}>
-      ${renderSectionHeader(
-        iconSvg,
-        colorClass,
-        bgClass,
-        titleKey,
-        headerAction,
-      )}
+    <section data-config-section=${id} class="scroll-mt-24 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h3 class="ui-heading text-ui-text">${translateText(titleKey)}</h3>
+        ${headerAction ?? nothing}
+      </div>
       ${content}
     </section>
   `;
@@ -128,67 +88,6 @@ const unitOptions: { type: UnitType; translationKey: string }[] = [
   { type: UnitType.Airport, translationKey: "unit_type.airport" },
   { type: UnitType.Airstrike, translationKey: "unit_type.airstrike" },
 ];
-
-const MAP_ICON = svg`<path
-  d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z"
-/>`;
-
-const DIFFICULTY_ICON = svg`<path
-  fill-rule="evenodd"
-  d="M12.97 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06l6.22-6.22H3a.75.75 0 010-1.5h16.19l-6.22-6.22a.75.75 0 010-1.06z"
-  clip-rule="evenodd"
-/>`;
-
-const MODE_ICON = svg`<path
-  d="M11.25 4.533A9.707 9.707 0 006 3a9.735 9.735 0 00-3.25.555.75.75 0 00-.5.707v14.25a.75.75 0 001 .707A8.237 8.237 0 016 18.75c1.995 0 3.823.707 5.25 1.886V4.533zM12.75 20.636A8.214 8.214 0 0118 18.75c.966 0 1.89.166 2.75.47a.75.75 0 001-.708V4.262a.75.75 0 00-.5-.707A9.735 9.735 0 0018 3a9.707 9.707 0 00-5.25 1.533v16.103z"
-/>`;
-
-const OPTIONS_ICON = svg`<path
-  fill-rule="evenodd"
-  d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 00-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 00-2.282.819l-.922 1.597a1.875 1.875 0 00.432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 000 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 00-.432 2.385l.922 1.597a1.875 1.875 0 002.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 002.28-.819l.922-1.597a1.875 1.875 0 00-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 000-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 00-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 00-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 00-1.85-1.567h-1.843zM12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z"
-  clip-rule="evenodd"
-/>`;
-
-const HOST_CHEATS_ICON = svg`<path
-  fill-rule="evenodd"
-  d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z"
-  clip-rule="evenodd"
-/>`;
-
-const ENABLES_ICON = svg`<path
-  fill-rule="evenodd"
-  d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 8.625a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25zM15.375 12a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0zM7.5 10.875a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25z"
-  clip-rule="evenodd"
-/>`;
-
-function renderSectionHeader(
-  iconSvg: SVGTemplateResult,
-  colorClass: string,
-  bgClass: string,
-  titleKey: string,
-  headerAction?: TemplateResult,
-): TemplateResult {
-  return html`
-    <div class="flex items-center gap-4 pb-2 border-b border-white/10">
-      <div
-        class="w-8 h-8 rounded-lg flex items-center justify-center ${bgClass} ${colorClass}"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          class="w-5 h-5"
-        >
-          ${iconSvg}
-        </svg>
-      </div>
-      <h3 class="text-lg font-bold text-white uppercase tracking-wider">
-        ${translateText(titleKey)}
-      </h3>
-      ${headerAction ? html`<div class="ml-auto">${headerAction}</div>` : null}
-    </div>
-  `;
-}
 
 export interface ToggleOptionConfig {
   labelKey: string;
@@ -262,6 +161,7 @@ export class GameConfigSettings extends LitElement {
   @property({ attribute: false }) settings?: GameConfigSettingsData;
   @property({ attribute: false }) sectionGapClass = "space-y-6";
   @state() private mapSearchQuery = "";
+  @state() private activeSection = "map";
 
   createRenderRoot() {
     return this;
@@ -277,14 +177,28 @@ export class GameConfigSettings extends LitElement {
     );
   }
 
-  private handleMapSearchInput = (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    this.mapSearchQuery = input.value;
-  };
-
-  private clearMapSearch = () => {
-    this.mapSearchQuery = "";
-  };
+  private jumpTo(section: string) {
+    this.activeSection = section;
+    const target = this.querySelector<HTMLElement>(
+      `[data-config-section="${section}"]`,
+    );
+    if (!target) return;
+    // Scroll only the page's own content column (beside the detail panel): an
+    // element-level scrollIntoView would also move every scrollable ancestor.
+    const scroller = this.closest<HTMLElement>('[data-ui="content"]');
+    if (scroller && scroller.scrollHeight > scroller.clientHeight) {
+      const nav = this.querySelector<HTMLElement>("[data-config-nav]");
+      const top =
+        target.getBoundingClientRect().top -
+        scroller.getBoundingClientRect().top +
+        scroller.scrollTop -
+        (nav?.offsetHeight ?? 0) -
+        8;
+      scroller.scrollTo({ top, behavior: "smooth" });
+      return;
+    }
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   private handleSelectMap = (map: GameMapType) => {
     this.emit("map-selected", { map });
@@ -350,173 +264,172 @@ export class GameConfigSettings extends LitElement {
   private renderOptionToggle(toggle: ToggleOptionConfig): TemplateResult {
     if (toggle.hidden) return html``;
 
-    if (toggle.doomsdayClockSpeed !== undefined) {
-      return this.renderDoomsdayClockToggle(toggle);
+    // The doomsday clock and the Capital System each grow a dropdown while on.
+    // It sits outside the row's label, so choosing from it does not flip the switch.
+    let extra: TemplateResult | undefined;
+    let title: string | undefined;
+    if (toggle.doomsdayClockSpeed !== undefined && toggle.checked) {
+      extra = this.renderSelect(
+        html`${DOOMSDAY_CLOCK_SPEEDS.map(
+          (speed) => html`
+            <option
+              value=${speed}
+              ?selected=${toggle.doomsdayClockSpeed === speed}
+            >
+              ${translateText(`doomsday_clock_speed.${speed}`)}
+            </option>
+          `,
+        )}`,
+        this.handleDoomsdayClockSpeedChange,
+        translateText(toggle.labelKey),
+      );
     }
-
     if (toggle.crisisMinutes !== undefined) {
-      return this.renderCapitalSystemToggle(toggle);
+      title = translateText("game_settings.capital_system_hint", {
+        cost: renderNumber(CAPITAL_SPEC.cost),
+        grant: renderNumber(CAPITAL_SPEC.startingGold),
+      });
+      if (toggle.checked) {
+        extra = this.renderSelect(
+          html`${CRISIS_LENGTHS.map(
+            (minutes) => html`
+              <option
+                value=${minutes}
+                ?selected=${toggle.crisisMinutes === minutes}
+              >
+                ${translateText("game_settings.crisis_length_option", {
+                  minutes,
+                })}
+              </option>
+            `,
+          )}`,
+          this.handleCrisisMinutesChange,
+          translateText("game_settings.crisis_length"),
+          "data-crisis-minutes",
+        );
+      }
     }
-
-    return renderTextCardButton(
-      translateText(toggle.labelKey),
-      toggle.checked,
-      () => this.handleOptionToggle(toggle),
-      "p-4 text-center",
-    );
+    return uiSwitchRow({
+      label: translateText(toggle.labelKey),
+      checked: toggle.checked,
+      onChange: () => this.handleOptionToggle(toggle),
+      extra,
+      title,
+    });
   }
 
-  // Same toggle card as the others, but when on it grows to hold the pace
-  // dropdown. The card toggles on click; the dropdown stops propagation so
-  // changing the pace doesn't flip the toggle.
-  private renderDoomsdayClockToggle(
-    toggle: ToggleOptionConfig,
+  private renderSelect(
+    options: TemplateResult,
+    onChange: (e: Event) => void,
+    label: string,
+    hook?: string,
   ): TemplateResult {
-    const selected = toggle.doomsdayClockSpeed;
-    return html`
-      <div
-        class="${cardClass(
-          toggle.checked,
-          // Centered label; when checked the dropdown is added below it so the
-          // label shifts up and the dropdown is reachable.
-          "p-4 flex flex-col items-center justify-center gap-2 text-center",
-        )}"
-        @click=${() => this.handleOptionToggle(toggle)}
-      >
-        <span class="${CARD_LABEL_CLASS} ${stateTextClass(toggle.checked)}">
-          ${translateText(toggle.labelKey)}
-        </span>
-        ${toggle.checked
-          ? html`
-              <select
-                class="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs"
-                @click=${(e: Event) => e.stopPropagation()}
-                @change=${this.handleDoomsdayClockSpeedChange}
-              >
-                ${DOOMSDAY_CLOCK_SPEEDS.map(
-                  (speed) => html`
-                    <option value=${speed} ?selected=${selected === speed}>
-                      ${translateText(`doomsday_clock_speed.${speed}`)}
-                    </option>
-                  `,
-                )}
-              </select>
-            `
-          : nothing}
-      </div>
-    `;
-  }
-
-  // The Capital System's card, like the doomsday clock's: when on, it grows to
-  // hold how long a CRISIS lasts. The dropdown stops propagation so choosing a
-  // length doesn't flip the toggle.
-  private renderCapitalSystemToggle(
-    toggle: ToggleOptionConfig,
-  ): TemplateResult {
-    const selected = toggle.crisisMinutes;
-    return html`
-      <div
-        class="${cardClass(
-          toggle.checked,
-          "p-4 flex flex-col items-center justify-center gap-2 text-center",
-        )}"
-        title=${translateText("game_settings.capital_system_hint", {
-          cost: renderNumber(CAPITAL_SPEC.cost),
-          grant: renderNumber(CAPITAL_SPEC.startingGold),
-        })}
-        @click=${() => this.handleOptionToggle(toggle)}
-      >
-        <span class="${CARD_LABEL_CLASS} ${stateTextClass(toggle.checked)}">
-          ${translateText(toggle.labelKey)}
-        </span>
-        ${toggle.checked
-          ? html`
-              <select
-                data-crisis-minutes
-                aria-label=${translateText("game_settings.crisis_length")}
-                class="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs"
-                @click=${(e: Event) => e.stopPropagation()}
-                @change=${this.handleCrisisMinutesChange}
-              >
-                ${CRISIS_LENGTHS.map(
-                  (minutes) => html`
-                    <option value=${minutes} ?selected=${selected === minutes}>
-                      ${translateText("game_settings.crisis_length_option", {
-                        minutes,
-                      })}
-                    </option>
-                  `,
-                )}
-              </select>
-            `
-          : nothing}
-      </div>
-    `;
+    return html`<select
+      data-crisis-minutes=${hook === undefined ? nothing : ""}
+      aria-label=${label}
+      class="ui-focus ui-body h-11 w-full rounded-ui-card border border-ui-border-strong bg-ui-panel px-3 text-ui-text"
+      @change=${onChange}
+    >
+      ${options}
+    </select>`;
   }
 
   private renderUnitTypeOptions(disabledUnits: UnitType[]): TemplateResult[] {
     return unitOptions.map(({ type, translationKey }) => {
       const isEnabled = !disabledUnits.includes(type);
-      return html`
-        <button
-          class="${cardClass(isEnabled, "p-4 text-center")}"
-          aria-pressed=${isEnabled}
-          @click=${() => this.handleUnitToggle(type, isEnabled)}
-        >
-          <span class="${CARD_LABEL_CLASS} ${stateTextClass(isEnabled)}">
-            ${translateText(translationKey)}
-          </span>
-        </button>
-      `;
+      return uiChip({
+        label: translateText(translationKey),
+        selected: !isEnabled,
+        strike: true,
+        onToggle: () => this.handleUnitToggle(type, isEnabled),
+      });
     });
   }
 
   private renderMapSearchInput(): TemplateResult {
-    return html`<div class="relative">
-      <input
-        type="text"
-        placeholder="${translateText("map_component.search_maps")}"
-        .value=${this.mapSearchQuery}
-        @input=${this.handleMapSearchInput}
-        class="w-48 px-3 py-1.5 pl-8 pr-7 rounded-lg text-sm bg-transparent border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-df-red/50 transition-all"
-      />
-      <svg
-        class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-      >
-        <path
-          fill-rule="evenodd"
-          d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
-          clip-rule="evenodd"
-        />
-      </svg>
-      ${this.mapSearchQuery
-        ? html`<button
-            type="button"
-            @click=${this.clearMapSearch}
-            class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-all"
-          >
-            <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
-              />
-            </svg>
-          </button>`
-        : null}
+    return html`<div class="w-full sm:w-[260px]">
+      ${uiSearch({
+        value: this.mapSearchQuery,
+        placeholder: translateText("map_component.search_maps"),
+        ariaLabel: translateText("map_component.search_maps"),
+        onInput: (value) => (this.mapSearchQuery = value),
+      })}
     </div>`;
+  }
+
+  private renderNav(
+    sections: { key: string; label: string }[],
+  ): TemplateResult {
+    return html`<nav
+      data-config-nav
+      aria-label=${translateText("game_settings.sections")}
+      class="sticky top-0 z-10 -mx-6 flex gap-2 overflow-x-auto overflow-y-hidden border-b border-ui-border bg-ui-panel px-6 py-3"
+    >
+      ${sections.map(
+        (section) =>
+          html`<button
+            type="button"
+            data-config-jump=${section.key}
+            aria-current=${this.activeSection === section.key
+              ? "true"
+              : "false"}
+            class="ui-focus min-h-9 shrink-0 cursor-pointer whitespace-nowrap rounded-[8px] px-4 font-ui text-[14px] font-semibold transition-colors ${this
+              .activeSection === section.key
+              ? "bg-ui-border-strong text-ui-text"
+              : "text-ui-muted hover:text-ui-text"}"
+            @click=${() => this.jumpTo(section.key)}
+          >
+            ${section.label}
+          </button>`,
+      )}
+    </nav>`;
   }
 
   render() {
     if (!this.settings) return nothing;
     const settings = this.settings;
+    const sections = [
+      { key: "map", label: translateText("map.map") },
+      {
+        key: "difficulty",
+        label: translateText("game_settings.nav_difficulty_mode"),
+      },
+      { key: "population", label: translateText("game_settings.population") },
+      { key: "rules", label: translateText("game_settings.rules") },
+      { key: "limits", label: translateText("game_settings.limits") },
+      { key: "units", label: translateText("game_settings.nav_units") },
+    ];
+    const slider = (
+      slider: {
+        value: number;
+        defaultValue?: number;
+        labelKey: string;
+        disabledKey: string;
+      },
+      onChange: (event: Event) => void,
+      withDefault: boolean,
+    ) =>
+      html`<div
+        class="rounded-ui-card border border-ui-border bg-ui-surface p-5"
+      >
+        <fluent-slider
+          min="0"
+          max="400"
+          step="1"
+          .value=${slider.value}
+          .defaultValue=${withDefault ? slider.defaultValue : undefined}
+          defaultLabelKey=${withDefault ? "common.map_default" : ""}
+          labelKey=${slider.labelKey}
+          disabledKey=${slider.disabledKey}
+          @value-changed=${onChange}
+        ></fluent-slider>
+      </div>`;
 
     return html`
-      <div class=${this.sectionGapClass}>
+      ${this.renderNav(sections)}
+      <div class="${this.sectionGapClass} pt-8">
         ${renderSection(
-          MAP_ICON,
-          "text-df-red-bright",
-          "bg-df-red/20",
+          "map",
           "map.map",
           html`<map-picker
             .selectedMap=${settings.map.selected}
@@ -528,198 +441,144 @@ export class GameConfigSettings extends LitElement {
             .onSelectRandom=${this.handleSelectRandom}
             .searchQuery=${this.mapSearchQuery}
           ></map-picker>`,
-          undefined,
           this.renderMapSearchInput(),
         )}
-        ${renderSection(
-          DIFFICULTY_ICON,
-          "text-green-400",
-          "bg-green-500/20",
-          "difficulty.difficulty",
-          html`
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-              ${DIFFICULTY_OPTIONS.map(([key, value]) => {
-                const isSelected = settings.difficulty.selected === value;
-                const isDisabled = settings.difficulty.disabled;
-                return html`
-                  <div class="group/difficulty-card relative">
-                    <button
-                      ?disabled=${isDisabled}
-                      @click=${() =>
-                        !isDisabled &&
-                        this.handleDifficultySelect(value as Difficulty)}
-                      class="${isDisabled
-                        ? `${DISABLED_CARD} flex flex-col items-center p-4 gap-3 h-full`
-                        : cardClass(
-                            isSelected,
-                            "flex flex-col items-center p-4 gap-3 h-full",
-                          )}"
-                    >
-                      <difficulty-display
-                        .difficultyKey=${key}
-                        class="transform scale-125 origin-center ${isDisabled
-                          ? "pointer-events-none"
-                          : ""}"
-                      ></difficulty-display>
-                      <span
-                        class="${CARD_LABEL_CLASS} text-center mt-1 text-white"
-                      >
-                        ${translateText(`difficulty.${key.toLowerCase()}`)}
-                      </span>
-                    </button>
-                    <difficulty-info
+        <section data-config-section="difficulty" class="scroll-mt-24">
+          <div class="grid gap-8 lg:grid-cols-2">
+            <div class="space-y-4">
+              <h3 class="ui-heading text-ui-text">
+                ${translateText("difficulty.difficulty")}
+              </h3>
+              <div class="${PICKER_GROUP_CLASS}" role="group">
+                ${DIFFICULTY_OPTIONS.map(([key, value]) => {
+                  const isSelected = settings.difficulty.selected === value;
+                  const isDisabled = settings.difficulty.disabled;
+                  return html`<button
+                    ?disabled=${isDisabled}
+                    aria-pressed=${isSelected}
+                    @click=${() =>
+                      !isDisabled &&
+                      this.handleDifficultySelect(value as Difficulty)}
+                    class="${pickerClass(
+                      isSelected && !isDisabled,
+                      "flex min-h-[72px] flex-1 flex-col items-center justify-center gap-1.5 px-2",
+                    )} ${isDisabled ? "cursor-not-allowed opacity-40" : ""}"
+                  >
+                    <difficulty-display
                       .difficultyKey=${key}
-                      .disabled=${isDisabled}
-                    ></difficulty-info>
-                  </div>
-                `;
-              })}
+                      class=${isDisabled ? "pointer-events-none" : ""}
+                    ></difficulty-display>
+                    <span
+                      class="font-ui text-[12px] font-semibold uppercase tracking-[0.06em]"
+                    >
+                      ${translateText(`difficulty.${key.toLowerCase()}`)}
+                    </span>
+                  </button>`;
+                })}
+              </div>
             </div>
-          `,
-        )}
-        ${renderSection(
-          MODE_ICON,
-          "text-purple-400",
-          "bg-purple-500/20",
-          "host_modal.mode",
-          html`
-            <div class="grid grid-cols-2 gap-4">
-              ${[GameMode.FFA, GameMode.Team].map((mode) => {
-                const isSelected = settings.gameMode.selected === mode;
-                return html`
-                  <button
-                    class="${cardClass(isSelected, "py-6 text-center")}"
+            <div class="space-y-4">
+              <h3 class="ui-heading text-ui-text">
+                ${translateText("host_modal.mode")}
+              </h3>
+              <div class="${PICKER_GROUP_CLASS}" role="group">
+                ${[GameMode.FFA, GameMode.Team].map((mode) => {
+                  const isSelected = settings.gameMode.selected === mode;
+                  return html`<button
+                    aria-pressed=${isSelected}
+                    class="${pickerClass(
+                      isSelected,
+                      "flex min-h-[72px] flex-1 items-center justify-center px-3 font-ui text-[13px] font-semibold uppercase tracking-[0.08em]",
+                    )}"
                     @click=${() => this.handleGameModeSelect(mode)}
                   >
-                    <span
-                      class="text-sm font-bold text-white uppercase tracking-widest"
-                    >
-                      ${mode === GameMode.FFA
-                        ? translateText("game_mode.ffa")
-                        : translateText("game_mode.teams")}
-                    </span>
-                  </button>
-                `;
-              })}
+                    ${mode === GameMode.FFA
+                      ? translateText("game_mode.ffa")
+                      : translateText("game_mode.teams")}
+                  </button>`;
+                })}
+              </div>
             </div>
-          `,
-        )}
-        ${settings.gameMode.selected === GameMode.FFA
-          ? nothing
-          : html`
-              <section class="space-y-6">
-                <div
-                  class="text-xs font-bold text-white/40 uppercase tracking-widest mb-4 pl-2"
-                >
+          </div>
+          ${settings.gameMode.selected === GameMode.FFA
+            ? nothing
+            : html`<div class="mt-6 space-y-4">
+                <div class="ui-label">
                   ${translateText("host_modal.team_count")}
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div class="grid grid-cols-2 gap-2 md:grid-cols-5">
                   ${TEAM_COUNT_OPTIONS.map((o) => {
                     const isSelected = settings.teamCount.selected === o;
-                    return html`
-                      <button
-                        class="${cardClass(
-                          isSelected,
-                          "px-4 py-3 text-center",
-                        )}"
-                        @click=${() => this.handleTeamCountSelect(o)}
-                      >
-                        <span class="${CARD_LABEL_CLASS} text-white">
-                          ${typeof o === "string"
-                            ? o === HumansVsNations
-                              ? translateText("public_lobby.teams_hvn")
-                              : translateText(`host_modal.teams_${o}`)
-                            : translateText("public_lobby.teams", { num: o })}
-                        </span>
-                      </button>
-                    `;
+                    return html`<button
+                      aria-pressed=${isSelected}
+                      class="${pickerClass(
+                        isSelected,
+                        "min-h-11 border-ui-border px-4 font-ui text-[13px] font-semibold",
+                      )}"
+                      @click=${() => this.handleTeamCountSelect(o)}
+                    >
+                      ${typeof o === "string"
+                        ? o === HumansVsNations
+                          ? translateText("public_lobby.teams_hvn")
+                          : translateText(`host_modal.teams_${o}`)
+                        : translateText("public_lobby.teams", { num: o })}
+                    </button>`;
                   })}
                 </div>
-              </section>
-            `}
+              </div>`}
+        </section>
         ${renderSection(
-          OPTIONS_ICON,
-          "text-orange-400",
-          "bg-orange-500/20",
-          settings.options.titleKey,
-          html`
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div
-                class="col-span-2 rounded-xl p-4 flex flex-col justify-center border transition-all duration-200 ${settings
-                  .options.bots.value > 0
-                  ? ACTIVE_CARD
-                  : INACTIVE_CARD}"
-              >
-                <fluent-slider
-                  min="0"
-                  max="400"
-                  step="1"
-                  .value=${settings.options.bots.value}
-                  labelKey=${settings.options.bots.labelKey}
-                  disabledKey=${settings.options.bots.disabledKey}
-                  @value-changed=${this.handleBotsChanged}
-                ></fluent-slider>
-              </div>
-
-              ${settings.options.nations && !settings.options.nations.hidden
-                ? html`<div
-                    class="col-span-2 rounded-xl p-4 flex flex-col justify-center border transition-all duration-200 ${settings
-                      .options.nations.value > 0
-                      ? ACTIVE_CARD
-                      : INACTIVE_CARD}"
-                  >
-                    <fluent-slider
-                      min="0"
-                      max="400"
-                      step="1"
-                      .value=${settings.options.nations.value}
-                      .defaultValue=${settings.options.nations.defaultValue}
-                      defaultLabelKey="common.map_default"
-                      labelKey=${settings.options.nations.labelKey}
-                      disabledKey=${settings.options.nations.disabledKey}
-                      @value-changed=${this.handleNationsChanged}
-                    ></fluent-slider>
-                  </div>`
-                : nothing}
-              ${settings.options.toggles.map((toggle) =>
-                this.renderOptionToggle(toggle),
-              )}
-              ${settings.options.inputCards}
-            </div>
-          `,
+          "population",
+          "game_settings.population",
+          html`<div class="grid gap-3 md:grid-cols-2">
+            ${slider(settings.options.bots, this.handleBotsChanged, false)}
+            ${settings.options.nations && !settings.options.nations.hidden
+              ? slider(
+                  settings.options.nations,
+                  this.handleNationsChanged,
+                  true,
+                )
+              : nothing}
+          </div>`,
+        )}
+        ${renderSection(
+          "rules",
+          "game_settings.rules",
+          html`<div class="grid gap-3 md:grid-cols-2">
+            ${settings.options.toggles.map((toggle) =>
+              this.renderOptionToggle(toggle),
+            )}
+          </div>`,
+        )}
+        ${renderSection(
+          "limits",
+          "game_settings.limits",
+          html`<div class="grid gap-3 md:grid-cols-2">
+            ${settings.options.inputCards}
+          </div>`,
         )}
         ${settings.hostCheats?.visible
           ? renderSection(
-              HOST_CHEATS_ICON,
-              "text-yellow-400",
-              "bg-yellow-500/20",
+              "host-cheats",
               settings.hostCheats.titleKey,
-              html`
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  ${settings.hostCheats.toggles.map((toggle) =>
-                    renderTextCardButton(
-                      translateText(toggle.labelKey),
-                      toggle.checked,
-                      () => this.handleHostCheatToggle(toggle),
-                      "p-4 text-center",
-                    ),
-                  )}
-                  ${settings.hostCheats.inputCards}
-                </div>
-              `,
+              html`<div class="grid gap-3 md:grid-cols-2">
+                ${settings.hostCheats.toggles.map((toggle) =>
+                  uiSwitchRow({
+                    label: translateText(toggle.labelKey),
+                    checked: toggle.checked,
+                    onChange: () => this.handleHostCheatToggle(toggle),
+                  }),
+                )}
+                ${settings.hostCheats.inputCards}
+              </div>`,
             )
           : nothing}
         ${renderSection(
-          ENABLES_ICON,
-          "text-teal-400",
-          "bg-teal-500/20",
+          "units",
           settings.unitTypes.titleKey,
-          html`
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              ${this.renderUnitTypeOptions(settings.unitTypes.disabledUnits)}
-            </div>
-          `,
-          "space-y-6 pb-6",
+          html`<div class="flex flex-wrap gap-3 pb-6">
+            ${this.renderUnitTypeOptions(settings.unitTypes.disabledUnits)}
+          </div>`,
         )}
       </div>
     `;

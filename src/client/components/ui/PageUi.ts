@@ -32,6 +32,9 @@ const icon = (path: SVGTemplateResult, size = "h-5 w-5") =>
     ${path}
   </svg>`;
 
+export const uiIconButtonClasses =
+  "ui-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-card border border-ui-border-strong bg-ui-surface text-ui-muted transition-colors hover:border-ui-border-hover hover:text-ui-text cursor-pointer";
+
 export const uiIcons = {
   back: () => icon(svg`<path d="M19 12H5" /> <path d="m12 19-7-7 7-7" />`),
   search: () =>
@@ -86,18 +89,26 @@ const BUTTON_VARIANT: Record<UiButtonVariant, string> = {
     "border-ui-accent bg-ui-accent text-white hover:brightness-110 active:brightness-95",
   secondary:
     "border-ui-border-strong bg-ui-surface text-ui-text hover:border-ui-border-hover",
-  text: "border-transparent bg-transparent text-ui-muted hover:text-ui-text",
+  text: "border-transparent bg-transparent text-ui-muted hover:text-ui-text disabled:!border-transparent disabled:!bg-transparent disabled:opacity-50",
 };
+
+/** The classes of a button, for the few places that need their own attributes on it. */
+export function uiButtonClasses(
+  variant: UiButtonVariant = "secondary",
+  block = false,
+): string {
+  const size =
+    variant === "text"
+      ? "min-h-11 px-3 text-[12px]"
+      : block
+        ? "h-[52px] w-full px-4 text-[15px]"
+        : "min-h-11 px-5 text-[13px]";
+  return `${BUTTON_BASE} ${BUTTON_VARIANT[variant]} ${size}`;
+}
 
 /** primary (accent fill), secondary (surface and strong border) or a quiet text button. */
 export function uiButton(props: UiButtonProps): TemplateResult {
   const variant = props.variant ?? "secondary";
-  const size =
-    variant === "text"
-      ? "min-h-11 px-3 text-[12px]"
-      : props.block
-        ? "h-[52px] w-full px-4 text-[15px]"
-        : "min-h-11 px-5 text-[13px]";
   return html`<button
     type=${props.type ?? "button"}
     data-ui="button"
@@ -105,7 +116,7 @@ export function uiButton(props: UiButtonProps): TemplateResult {
     data-variant=${variant}
     aria-label=${props.ariaLabel ?? nothing}
     ?disabled=${props.disabled === true}
-    class="${BUTTON_BASE} ${BUTTON_VARIANT[variant]} ${size}"
+    class="${uiButtonClasses(variant, props.block)}"
     @click=${props.onClick ?? nothing}
   >
     ${props.label}
@@ -319,40 +330,52 @@ export function uiCheck(props: {
   </label>`;
 }
 
-/** A row with a label and a switch (the lobby's Rules). */
+/**
+ * A row with a label and a switch (the lobby's Rules). `extra` (a dropdown, for
+ * a rule with a setting) sits under the label, outside the clickable label so
+ * using it does not flip the switch.
+ */
 export function uiSwitchRow(props: {
   label: string;
   description?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  extra?: TemplateResult;
+  title?: string;
   name?: string;
 }): TemplateResult {
-  return html`<label
+  return html`<div
     data-ui="switch-row"
     data-ui-switch=${props.name ?? nothing}
-    class="ui-focus flex min-h-14 cursor-pointer items-center justify-between gap-4 rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3 hover:border-ui-border-hover"
+    title=${props.title ?? nothing}
+    class="rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3 hover:border-ui-border-hover"
   >
-    <span class="min-w-0">
-      <span class="ui-body block text-ui-text">${props.label}</span>
-      ${props.description
-        ? html`<span class="ui-body mt-0.5 block text-[12px] text-ui-muted"
-            >${props.description}</span
-          >`
-        : nothing}
-    </span>
-    <input
-      type="checkbox"
-      role="switch"
-      class="peer sr-only"
-      .checked=${props.checked}
-      @change=${(event: Event) =>
-        props.onChange((event.target as HTMLInputElement).checked)}
-    />
-    <span
-      aria-hidden="true"
-      class="relative h-6 w-11 shrink-0 rounded-full border border-ui-border-strong bg-ui-ground transition-colors peer-checked:border-ui-accent peer-checked:bg-ui-accent after:absolute after:left-0.5 after:top-0.5 after:h-[18px] after:w-[18px] after:rounded-full after:bg-ui-text after:transition-transform peer-checked:after:translate-x-5"
-    ></span>
-  </label>`;
+    <label
+      class="ui-focus flex min-h-8 cursor-pointer items-center justify-between gap-4"
+    >
+      <span class="min-w-0">
+        <span class="ui-body block text-ui-text">${props.label}</span>
+        ${props.description
+          ? html`<span class="ui-body mt-0.5 block text-[12px] text-ui-muted"
+              >${props.description}</span
+            >`
+          : nothing}
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        class="peer sr-only"
+        .checked=${props.checked}
+        @change=${(event: Event) =>
+          props.onChange((event.target as HTMLInputElement).checked)}
+      />
+      <span
+        aria-hidden="true"
+        class="relative h-6 w-11 shrink-0 rounded-full border border-ui-border-strong bg-ui-ground transition-colors peer-checked:border-ui-accent peer-checked:bg-ui-accent after:absolute after:left-0.5 after:top-0.5 after:h-[18px] after:w-[18px] after:rounded-full after:bg-ui-text after:transition-transform peer-checked:after:translate-x-5"
+      ></span>
+    </label>
+    ${props.extra ? html`<div class="pt-3">${props.extra}</div>` : nothing}
+  </div>`;
 }
 
 /** A checkbox with a label and, beside it, a number and its unit (the lobby's Limits). */

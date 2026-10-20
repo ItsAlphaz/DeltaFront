@@ -2,6 +2,7 @@ import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { type ClanBrowseResponse, fetchClans } from "../../ClanApi";
 import { translateText } from "../../Utils";
+import { uiButtonClasses, uiSearch } from "../ui/PageUi";
 import "./ClanCard";
 import "./ClanCreateForm";
 import { type ClanRole, renderLoadingSpinner } from "./ClanShared";
@@ -25,6 +26,8 @@ export class ClanBrowseView extends LitElement {
   @property({ type: Boolean }) canCreate = false;
   /** Open with the create form already showing. */
   @property({ type: Boolean }) openCreate = false;
+  /** The clan the page's panel is showing: its card is drawn selected. */
+  @property({ type: String }) selectedTag = "";
 
   @state() private creating = false;
 
@@ -71,15 +74,6 @@ export class ClanBrowseView extends LitElement {
     }
   }
 
-  private onSearchInput(e: Event) {
-    this.searchQuery = (e.target as HTMLInputElement).value;
-    if (this.searchDebounce) clearTimeout(this.searchDebounce);
-    this.searchDebounce = setTimeout(() => {
-      this.browsePage = 1;
-      this.loadBrowse();
-    }, 400);
-  }
-
   protected willUpdate(changed: Map<string, unknown>) {
     if (changed.has("openCreate") && this.openCreate) this.creating = true;
   }
@@ -120,43 +114,36 @@ export class ClanBrowseView extends LitElement {
                 @create-cancel=${() => (this.creating = false)}
               ></clan-create-form>`
             : html`<button
+                type="button"
                 data-create-clan-start
+                class=${uiButtonClasses("primary", true)}
                 @click=${() => (this.creating = true)}
-                class="w-full px-4 py-3 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright rounded-xl transition-all"
               >
                 ${translateText("clan_modal.create_button")}
               </button>`
           : ""}
-        <div class="relative">
-          <input
-            type="text"
-            .value=${this.searchQuery}
-            @input=${(e: Event) => this.onSearchInput(e)}
-            class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-df-red/50 focus:border-df-red/50 transition-all font-medium hover:bg-white/10 text-sm"
-            placeholder="${translateText("clan_modal.search_placeholder")}"
-          />
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-4 h-4 text-white/30 absolute left-3 top-1/2 -translate-y-1/2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-        </div>
-
+        ${uiSearch({
+          value: this.searchQuery,
+          placeholder: translateText("clan_modal.search_placeholder"),
+          ariaLabel: translateText("clan_modal.search_placeholder"),
+          onInput: (value) => {
+            this.searchQuery = value;
+            if (this.searchDebounce) clearTimeout(this.searchDebounce);
+            this.searchDebounce = setTimeout(() => {
+              this.browsePage = 1;
+              this.loadBrowse();
+            }, 400);
+          },
+        })}
         ${this.errorMsg
-          ? html`<p class="text-red-400 text-sm text-center py-4">
+          ? html`<p class="ui-body py-4 text-center text-ui-accent-soft">
               ${this.errorMsg}
             </p>`
           : ""}
 
         <div class="space-y-3">
           ${filtered.length === 0 && this.browseData
-            ? html`<p class="text-white/40 text-sm text-center py-8">
+            ? html`<p class="ui-body py-8 text-center text-ui-muted">
                 ${translateText("clan_modal.no_results")}
               </p>`
             : filtered.map(
@@ -164,6 +151,7 @@ export class ClanBrowseView extends LitElement {
                   html`<clan-card
                     .clan=${clan}
                     ?pending=${pendingTags.has(clan.tag)}
+                    ?selected=${clan.tag === this.selectedTag}
                   ></clan-card>`,
               )}
         </div>
@@ -177,14 +165,14 @@ export class ClanBrowseView extends LitElement {
                     this.loadBrowse();
                   }}
                   ?disabled=${this.browsePage <= 1}
-                  class="px-2 py-1 text-xs font-bold rounded-lg transition-all ${this
+                  class="ui-focus min-h-11 min-w-11 rounded-ui-card text-[13px] font-bold transition-colors ${this
                     .browsePage <= 1
-                    ? "text-white/20 cursor-not-allowed"
-                    : "text-white/60 hover:text-white hover:bg-white/10"}"
+                    ? "cursor-not-allowed text-ui-placeholder"
+                    : "cursor-pointer text-ui-muted hover:text-ui-text"}"
                 >
                   &lt;
                 </button>
-                <span class="text-xs text-white/50 font-medium">
+                <span class="ui-mono text-[13px] text-ui-muted">
                   ${this.browsePage} / ${totalPages}
                 </span>
                 <button
@@ -193,10 +181,10 @@ export class ClanBrowseView extends LitElement {
                     this.loadBrowse();
                   }}
                   ?disabled=${this.browsePage >= totalPages}
-                  class="px-2 py-1 text-xs font-bold rounded-lg transition-all ${this
+                  class="ui-focus min-h-11 min-w-11 rounded-ui-card text-[13px] font-bold transition-colors ${this
                     .browsePage >= totalPages
-                    ? "text-white/20 cursor-not-allowed"
-                    : "text-white/60 hover:text-white hover:bg-white/10"}"
+                    ? "cursor-not-allowed text-ui-placeholder"
+                    : "cursor-pointer text-ui-muted hover:text-ui-text"}"
                 >
                   &gt;
                 </button>

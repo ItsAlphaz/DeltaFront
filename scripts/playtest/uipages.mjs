@@ -82,14 +82,47 @@ g.b.onEvent(async (d) => {
       ],
       body: Buffer.from(JSON.stringify(catalog)).toString("base64"),
     });
-  } else {
+  } else if (!/\/leaderboard\//.test(request.url)) {
     await g.b.send("Fetch.continueRequest", { requestId });
   }
 });
 await g.b.send("Fetch.enable", {
-  patterns: [{ urlPattern: "*cosmetics.json*" }],
+  patterns: [
+    { urlPattern: "*cosmetics.json*" },
+    { urlPattern: "*leaderboard*" },
+  ],
 });
 
+const lb = (n) => ({
+  players: Array.from({ length: n }, (_, i) => ({
+    rank: i + 1,
+    playerId: i === 0 ? "p1" : "p" + (i + 10),
+    accountUsername:
+      i === 0 ? "Alphaz" : i === 1 ? "CptMendoYen" : "Player" + i,
+    verified: i < 2,
+    prestige: 0,
+    level: i === 0 ? 44 : Math.max(1, 30 - i),
+    legend: false,
+    xp: Math.max(25, 100557 - i * 7000),
+  })),
+  seasons: [{ number: 1, name: "Season 1" }],
+  season: { number: 1, name: "Season 1", archived: false },
+});
+g.b.onEvent(async (d) => {
+  if (d.method !== "Fetch.requestPaused") return;
+  const { requestId, request } = d.params;
+  if (/\/leaderboard\/(xp|season)/.test(request.url)) {
+    await g.b.send("Fetch.fulfillRequest", {
+      requestId,
+      responseCode: 200,
+      responseHeaders: [
+        { name: "content-type", value: "application/json" },
+        { name: "access-control-allow-origin", value: "*" },
+      ],
+      body: Buffer.from(JSON.stringify(lb(2))).toString("base64"),
+    });
+  }
+});
 const me = {
   user: { email: "a@b.c" },
   player: {
@@ -136,6 +169,47 @@ for (const page of pages.length ? pages : ["store"]) {
     );
     await sleep(1200);
     await shot(`ui-store-cosmetics${narrow ? "-narrow" : ""}`);
+  }
+}
+for (const page of pages) {
+  if (page === "leaderboard") {
+    await g.ev(`window.showPage('page-leaderboard'); 1`);
+    await sleep(1500);
+    await g.ev(
+      `document.querySelector('leaderboard-modal [data-ui-tabs="leaderboard-tabs"] [data-key="xp"]')?.click(); 1`,
+    );
+    await sleep(2500);
+    await shot(`ui-leaderboard${narrow ? "-narrow" : ""}`);
+  }
+  if (page === "lobby") {
+    await g.ev(`window.showPage('page-host-lobby'); 1`);
+    await sleep(3500);
+    await shot(`ui-lobby${narrow ? "-narrow" : ""}`);
+    await g.ev(
+      `document.querySelector('host-lobby-modal [data-config-jump="units"]')?.click(); 1`,
+    );
+    await sleep(1200);
+    await shot(`ui-lobby-units${narrow ? "-narrow" : ""}`);
+  }
+  if (page === "clans") {
+    await g.ev(`window.showPage('page-clan'); 1`);
+    await sleep(2500);
+    // no account API here: hand the page the clans it would have fetched
+    await g.ev(
+      `(()=>{ const m=document.querySelector('clan-modal'); m.signedOut=false; m.loading=false; m.myClans=[{tag:'STAFF',name:'DF Staff',description:'',isOpen:false,memberCount:2},{tag:'ALPHA',name:'Alpha Company',description:'',isOpen:true,memberCount:14}]; m.myClanRoles=new Map([['STAFF','leader'],['ALPHA','member']]); m.requestUpdate(); return 1 })()`,
+    );
+    await sleep(800);
+    await shot(`ui-clans${narrow ? "-narrow" : ""}`);
+  }
+  if (page === "inventory") {
+    await g.ev(`window.showPage('page-inventory'); 1`);
+    await sleep(2500);
+    await shot(`ui-inventory${narrow ? "-narrow" : ""}`);
+    await g.ev(
+      `document.querySelector('inventory-modal [data-loadout-category="effects"]')?.click(); 1`,
+    );
+    await sleep(1200);
+    await shot(`ui-inventory-effects${narrow ? "-narrow" : ""}`);
   }
 }
 console.log("out", OUT);

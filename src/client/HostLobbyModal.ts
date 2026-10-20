@@ -3,6 +3,7 @@ import {
   GameMapSize,
   GameMapType,
   GameMode,
+  maps,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@openfront/engine-lib/capital/CapitalRules";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
+import { assetUrl } from "@openfront/shared/AssetUrls";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import { EventBus } from "@openfront/shared/EventBus";
 import {
@@ -48,7 +50,14 @@ import "./components/LobbyPlayerView";
 import "./components/PlutoniumIcon";
 import "./components/ToggleInputCard";
 import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
-import { modalHeader } from "./components/ui/ModalHeader";
+import {
+  uiButton,
+  uiDetailPanel,
+  uiDetailRows,
+  uiPageHeader,
+  uiSegmented,
+  uiTwoColumn,
+} from "./components/ui/PageUi";
 import { fetchCosmetics, InsufficientCurrency } from "./Cosmetics";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
 import { JoinLobbyEvent } from "./Main";
@@ -258,28 +267,31 @@ export class HostLobbyModal extends BaseModal {
     this.eventBus?.off(LobbyInfoEvent, this.handleLobbyInfo);
   }
 
+  protected modalConfig() {
+    return { ui: true };
+  }
+
   protected renderHeaderSlot() {
-    return modalHeader({
-      titleContent: html`
-        <span
-          class="text-white text-xl lg:text-2xl font-bold uppercase tracking-widest break-words hyphens-auto"
-        >
-          ${translateText("host_modal.title")}
-        </span>
-        ${this.canOfferPublicListing() ? this.renderVisibilityToggle() : null}
-      `,
+    return uiPageHeader({
+      title: translateText("host_modal.title"),
+      controls: this.canOfferPublicListing()
+        ? html`<div class="flex flex-wrap items-center gap-3">
+            ${this.renderVisibilityToggle()}
+          </div>`
+        : undefined,
       onBack: () => {
         this.leaveLobbyOnClose = true;
         this.close();
       },
-      ariaLabel: translateText("common.back"),
+      backLabel: translateText("common.back"),
       // Both answer "get my friends into this lobby", so they sit together —
       // the host is the player holding the code and deciding who joins, and
       // was the one surface the invite button originally missed. Paired behind
       // a wrapper only when the invite is present, so a browser renders exactly
       // the markup it did before.
-      rightContent: (() => {
+      status: (() => {
         const copy = html`<copy-button
+          .heading=${translateText("host_modal.code")}
           .lobbyId=${this.lobbyId}
           .lobbySuffix=${this.lobbyUrlSuffix}
           include-lobby-query
@@ -311,26 +323,25 @@ export class HostLobbyModal extends BaseModal {
   // one-way (the server rejects unlisting), so the Private segment goes away
   // once the lobby is listed.
   private renderVisibilityToggle() {
-    const segment = (labelKey: string, isPublic: boolean) => html`
-      <button
-        class="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all ${this
-          .publiclyListed === isPublic
-          ? "bg-df-red text-white"
-          : "text-white/50 hover:text-white"}"
-        @click=${() => this.handleVisibilitySelect(isPublic)}
-      >
-        ${translateText(labelKey)}
-      </button>
-    `;
+    const options = [
+      ...(this.publiclyListed
+        ? []
+        : [
+            {
+              key: "private",
+              label: translateText("host_modal.visibility_private"),
+            },
+          ]),
+      { key: "public", label: translateText("host_modal.visibility_public") },
+    ];
     return html`
-      <div
-        class="flex items-center rounded-full border border-white/10 bg-white/5 p-0.5 shrink-0"
-      >
-        ${this.publiclyListed
-          ? nothing
-          : segment("host_modal.visibility_private", false)}
-        ${segment("host_modal.visibility_public", true)}
-      </div>
+      ${uiSegmented({
+        options,
+        value: this.publiclyListed ? "public" : "private",
+        onChange: (key) => this.handleVisibilitySelect(key === "public"),
+        ariaLabel: translateText("host_modal.title"),
+        name: "visibility",
+      })}
       ${this.renderAutoStartTimer()} ${this.renderQueueButton()}
     `;
   }
@@ -341,7 +352,7 @@ export class HostLobbyModal extends BaseModal {
     if (!this.publiclyListed) return nothing;
     if (this.queued) {
       return html`<span
-        class="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-green-500/15 text-green-400 border border-green-500/30 shrink-0"
+        class="rounded-full bg-ui-success/15 px-3 py-1.5 font-ui text-[10px] font-bold uppercase tracking-widest text-ui-success shrink-0"
         >${translateText("host_modal.queued")}</span
       >`;
     }
@@ -362,7 +373,7 @@ export class HostLobbyModal extends BaseModal {
       return nothing;
     }
     return html`<button
-      class="flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 transition-all shrink-0 disabled:opacity-50"
+      class="ui-focus flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-ui-success/15 px-3 font-ui text-[10px] font-bold uppercase tracking-widest text-ui-success transition-colors hover:bg-ui-success/25 disabled:opacity-50"
       title=${translateText("host_modal.queue_tooltip")}
       ?disabled=${this.queueRequestInFlight}
       @click=${() => (this.showQueueConfirm = true)}
@@ -411,7 +422,7 @@ export class HostLobbyModal extends BaseModal {
       this.serverTimeOffset,
     );
     return html`<span
-      class="text-amber-300 text-xs font-bold tabular-nums shrink-0"
+      class="ui-mono shrink-0 text-[13px] font-bold text-ui-gold"
       title=${translateText("host_modal.auto_start_timer")}
       >${renderDuration(seconds)}</span
     >`;
@@ -435,6 +446,98 @@ export class HostLobbyModal extends BaseModal {
       return;
     }
     void this.handlePublicListingToggle(isPublic);
+  }
+
+  /** The picked map, large, with its name: the panel's first block. */
+  private renderMapPreview() {
+    const info = this.useRandomMap
+      ? undefined
+      : maps.find((m) => m.type === this.selectedMap);
+    const name = this.useRandomMap
+      ? translateText("map.random")
+      : info
+        ? translateText(info.translationKey)
+        : String(this.selectedMap);
+    const src = this.useRandomMap
+      ? assetUrl("images/RandomMap.webp")
+      : this.mapLoader.getMapData(this.selectedMap).webpPath;
+    return html`<div data-host-map-preview>
+      <div
+        class="aspect-[2/1] overflow-hidden rounded-ui-card border border-ui-border bg-ui-ground"
+      >
+        <img
+          src=${src}
+          alt=${name}
+          draggable="false"
+          class="h-full w-full object-cover"
+        />
+      </div>
+      <div class="ui-label mt-4">${translateText("map.map")}</div>
+      <h2 data-host-map-name class="ui-title mt-1 text-ui-text">${name}</h2>
+    </div>`;
+  }
+
+  /** The settings in a few rows: what the lobby is, at a glance. */
+  private summaryRows() {
+    const difficulty = translateText(
+      `difficulty.${this.selectedDifficulty.toLowerCase()}`,
+    );
+    const rulesOn = [
+      this.instantBuild,
+      this.randomSpawn,
+      this.donateGold,
+      this.donateTroops,
+      this.infiniteGold,
+      this.infiniteTroops,
+      this.compactMap,
+      this.anonymizeNames,
+      this.waterNukes,
+      this.doomsdayClock,
+      this.capitalSystem,
+      this.hostCheatsEnabled && !this.publiclyListed,
+    ].filter(Boolean).length;
+    const limitsSet = [
+      this.maxTimer,
+      this.playerLimit,
+      this.spawnImmunity,
+      this.customAlliances,
+      this.overtime,
+      this.goldMultiplier,
+      this.startingGold,
+      this.whitelistEnabled && !this.publiclyListed,
+    ].filter(Boolean).length;
+    return [
+      {
+        label: translateText("difficulty.difficulty"),
+        value: this.nations === 0 ? "—" : difficulty,
+      },
+      {
+        label: translateText("host_modal.mode"),
+        value:
+          this.gameMode === GameMode.FFA
+            ? translateText("game_mode.ffa")
+            : translateText("game_mode.teams"),
+      },
+      {
+        label: translateText("host_modal.summary_population"),
+        value: `${this.bots} / ${this.nations}`,
+      },
+      {
+        label: translateText("host_modal.summary_rules"),
+        value: String(rulesOn),
+      },
+      {
+        label: translateText("host_modal.summary_limits"),
+        value: String(limitsSet),
+      },
+      {
+        label: translateText("host_modal.summary_units"),
+        value:
+          this.disabledUnits.length === 0
+            ? translateText("common.none")
+            : String(this.disabledUnits.length),
+      },
+    ];
   }
 
   protected renderBody() {
@@ -639,183 +742,203 @@ export class HostLobbyModal extends BaseModal {
       ></toggle-input-card>`,
     ];
 
-    return html`
-      <div class="flex flex-col h-full">
-        <div
-          class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 mr-1 mx-auto w-full max-w-5xl"
-        >
-          ${this.publiclyListed
-            ? html`<div
-                class="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-300"
-              >
-                ${translateText("host_modal.settings_locked_listed")}
-              </div>`
-            : nothing}
-          <!-- Players joined a listed lobby for its advertised settings, so
+    const content = html`
+      <div class="p-6">
+        ${this.publiclyListed
+          ? html`<div
+              class="ui-body mb-6 rounded-ui-card border border-ui-gold/40 bg-ui-gold/10 px-4 py-3 text-ui-gold"
+            >
+              ${translateText("host_modal.settings_locked_listed")}
+            </div>`
+          : nothing}
+        <!-- Players joined a listed lobby for its advertised settings, so
                they are frozen (the server rejects changes too). -->
-          <game-config-settings
-            class="block ${this.publiclyListed ? "opacity-60" : ""}"
-            ?inert=${this.publiclyListed}
-            .sectionGapClass=${"space-y-10"}
-            .settings=${{
-              map: {
-                selected: this.selectedMap,
-                useRandom: this.useRandomMap,
-                randomMapDivider: true,
+        <game-config-settings
+          class="block ${this.publiclyListed ? "opacity-60" : ""}"
+          ?inert=${this.publiclyListed}
+          .sectionGapClass=${"space-y-10"}
+          .settings=${{
+            map: {
+              selected: this.selectedMap,
+              useRandom: this.useRandomMap,
+              randomMapDivider: true,
+            },
+            difficulty: {
+              selected: this.selectedDifficulty,
+              disabled: this.nations === 0,
+            },
+            gameMode: {
+              selected: this.gameMode,
+            },
+            teamCount: {
+              selected: this.teamCount,
+            },
+            options: {
+              titleKey: "game_settings.options",
+              bots: {
+                value: this.bots,
+                labelKey: "game_settings.bots",
+                disabledKey: "common.disabled",
               },
-              difficulty: {
-                selected: this.selectedDifficulty,
-                disabled: this.nations === 0,
+              nations: {
+                value: this.nations,
+                defaultValue: this.defaultNationCount,
+                labelKey: "game_settings.nations",
+                disabledKey: "common.disabled",
               },
-              gameMode: {
-                selected: this.gameMode,
-              },
-              teamCount: {
-                selected: this.teamCount,
-              },
-              options: {
-                titleKey: "game_settings.options",
-                bots: {
-                  value: this.bots,
-                  labelKey: "game_settings.bots",
-                  disabledKey: "common.disabled",
+              toggles: [
+                {
+                  labelKey: "game_settings.instant_build",
+                  checked: this.instantBuild,
                 },
-                nations: {
-                  value: this.nations,
-                  defaultValue: this.defaultNationCount,
-                  labelKey: "game_settings.nations",
-                  disabledKey: "common.disabled",
+                {
+                  labelKey: "game_settings.random_spawn",
+                  checked: this.randomSpawn,
                 },
-                toggles: [
-                  {
-                    labelKey: "game_settings.instant_build",
-                    checked: this.instantBuild,
-                  },
-                  {
-                    labelKey: "game_settings.random_spawn",
-                    checked: this.randomSpawn,
-                  },
-                  {
-                    labelKey: "host_modal.donate_gold",
-                    checked: this.donateGold,
-                  },
-                  {
-                    labelKey: "host_modal.donate_troops",
-                    checked: this.donateTroops,
-                  },
-                  {
-                    labelKey: "game_settings.infinite_gold",
-                    checked: this.infiniteGold,
-                  },
-                  {
-                    labelKey: "game_settings.infinite_troops",
-                    checked: this.infiniteTroops,
-                  },
-                  {
-                    labelKey: "game_settings.compact_map",
-                    checked: this.compactMap,
-                  },
-                  {
-                    labelKey: "host_modal.anonymous_players",
-                    checked: this.anonymizeNames,
-                  },
-                  {
-                    labelKey: "game_settings.water_nukes",
-                    checked: this.waterNukes,
-                  },
-                  {
-                    labelKey: "game_settings.doomsday_clock",
-                    checked: this.doomsdayClock,
-                    doomsdayClockSpeed: this.doomsdayClockSpeed,
-                  },
-                  {
-                    labelKey: "game_settings.capital_system",
-                    checked: this.capitalSystem,
-                    crisisMinutes: this.crisisMinutes,
-                  },
-                  // Host cheats and public listing are mutually exclusive
-                  // (the server rejects both combinations), so the controls
-                  // disappear while the lobby is listed.
-                  ...(this.publiclyListed
-                    ? []
-                    : [
-                        {
-                          labelKey: "host_modal.host_cheats",
-                          checked: this.hostCheatsEnabled,
-                        },
-                      ]),
-                ],
-                inputCards,
-              },
-              hostCheats: {
-                titleKey: "host_modal.host_cheats",
-                visible: this.hostCheatsEnabled && !this.publiclyListed,
-                toggles: [
-                  {
-                    labelKey: "game_settings.infinite_gold",
-                    checked: this.hostCheatInfiniteGold,
-                  },
-                  {
-                    labelKey: "game_settings.infinite_troops",
-                    checked: this.hostCheatInfiniteTroops,
-                  },
-                ],
-                inputCards: hostCheatInputCards,
-              },
-              unitTypes: {
-                titleKey: "game_settings.disable_units",
-                disabledUnits: this.disabledUnits,
-              },
-            }}
-            @map-selected=${this.handleConfigMapSelected}
-            @random-map-selected=${this.handleConfigRandomMapSelected}
-            @difficulty-selected=${this.handleConfigDifficultySelected}
-            @doomsday-clock-speed-selected=${this
-              .handleConfigDoomsdayClockSpeedSelected}
-            @crisis-minutes-selected=${this.handleConfigCrisisMinutesSelected}
-            @game-mode-selected=${this.handleConfigGameModeSelected}
-            @team-count-selected=${this.handleConfigTeamCountSelected}
-            @bots-changed=${this.handleBotsChange}
-            @nations-changed=${this.handleNationsChange}
-            @option-toggle-changed=${this.handleConfigOptionToggleChanged}
-            @host-cheat-toggle-changed=${this
-              .handleConfigHostCheatToggleChanged}
-            @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
-          ></game-config-settings>
+                {
+                  labelKey: "host_modal.donate_gold",
+                  checked: this.donateGold,
+                },
+                {
+                  labelKey: "host_modal.donate_troops",
+                  checked: this.donateTroops,
+                },
+                {
+                  labelKey: "game_settings.infinite_gold",
+                  checked: this.infiniteGold,
+                },
+                {
+                  labelKey: "game_settings.infinite_troops",
+                  checked: this.infiniteTroops,
+                },
+                {
+                  labelKey: "game_settings.compact_map",
+                  checked: this.compactMap,
+                },
+                {
+                  labelKey: "host_modal.anonymous_players",
+                  checked: this.anonymizeNames,
+                },
+                {
+                  labelKey: "game_settings.water_nukes",
+                  checked: this.waterNukes,
+                },
+                {
+                  labelKey: "game_settings.doomsday_clock",
+                  checked: this.doomsdayClock,
+                  doomsdayClockSpeed: this.doomsdayClockSpeed,
+                },
+                {
+                  labelKey: "game_settings.capital_system",
+                  checked: this.capitalSystem,
+                  crisisMinutes: this.crisisMinutes,
+                },
+                // Host cheats and public listing are mutually exclusive
+                // (the server rejects both combinations), so the controls
+                // disappear while the lobby is listed.
+                ...(this.publiclyListed
+                  ? []
+                  : [
+                      {
+                        labelKey: "host_modal.host_cheats",
+                        checked: this.hostCheatsEnabled,
+                      },
+                    ]),
+              ],
+              inputCards,
+            },
+            hostCheats: {
+              titleKey: "host_modal.host_cheats",
+              visible: this.hostCheatsEnabled && !this.publiclyListed,
+              toggles: [
+                {
+                  labelKey: "game_settings.infinite_gold",
+                  checked: this.hostCheatInfiniteGold,
+                },
+                {
+                  labelKey: "game_settings.infinite_troops",
+                  checked: this.hostCheatInfiniteTroops,
+                },
+              ],
+              inputCards: hostCheatInputCards,
+            },
+            unitTypes: {
+              titleKey: "game_settings.disable_units",
+              disabledUnits: this.disabledUnits,
+            },
+          }}
+          @map-selected=${this.handleConfigMapSelected}
+          @random-map-selected=${this.handleConfigRandomMapSelected}
+          @difficulty-selected=${this.handleConfigDifficultySelected}
+          @doomsday-clock-speed-selected=${this
+            .handleConfigDoomsdayClockSpeedSelected}
+          @crisis-minutes-selected=${this.handleConfigCrisisMinutesSelected}
+          @game-mode-selected=${this.handleConfigGameModeSelected}
+          @team-count-selected=${this.handleConfigTeamCountSelected}
+          @bots-changed=${this.handleBotsChange}
+          @nations-changed=${this.handleNationsChange}
+          @option-toggle-changed=${this.handleConfigOptionToggleChanged}
+          @host-cheat-toggle-changed=${this.handleConfigHostCheatToggleChanged}
+          @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
+        ></game-config-settings>
 
-          <lobby-player-view
-            class="mt-10"
-            .gameMode=${this.gameMode}
-            .clients=${this.clients}
-            .lobbyCreatorClientID=${this.lobbyCreatorClientID}
-            .currentClientID=${this.lobbyCreatorClientID}
-            .teamCount=${this.teamCount}
-            .nationCount=${this.nations}
-            .onKickPlayer=${this.publiclyListed
-              ? undefined
-              : (clientID: string) => this.kickPlayer(clientID)}
-            .onToggleNameReveal=${this.publiclyListed
-              ? undefined
-              : (clientID: string) => this.toggleNameReveal(clientID)}
-            .nameReveals=${this.nameReveals}
-            .anonymizeNames=${this.anonymizeNames}
-          ></lobby-player-view>
-        </div>
+        <lobby-player-view
+          class="mt-10"
+          .gameMode=${this.gameMode}
+          .clients=${this.clients}
+          .lobbyCreatorClientID=${this.lobbyCreatorClientID}
+          .currentClientID=${this.lobbyCreatorClientID}
+          .teamCount=${this.teamCount}
+          .nationCount=${this.nations}
+          .onKickPlayer=${this.publiclyListed
+            ? undefined
+            : (clientID: string) => this.kickPlayer(clientID)}
+          .onToggleNameReveal=${this.publiclyListed
+            ? undefined
+            : (clientID: string) => this.toggleNameReveal(clientID)}
+          .nameReveals=${this.nameReveals}
+          .anonymizeNames=${this.anonymizeNames}
+        ></lobby-player-view>
+      </div>
+    `;
 
-        <!-- Player List / footer -->
-        <div class="p-6 pt-4 border-t border-white/10 bg-black/20 shrink-0">
-          <o-button
-            variant=${secondsRemaining !== null ? "warning" : "primary"}
-            width="block"
-            size="lg"
-            .title=${statusLabel}
-            .uppercase=${secondsRemaining === null}
-            ?disable=${this.queued ||
-            (this.lobbyStartAt === null && this.clients.length < 2)}
-            @click=${this.toggleGameStartTimer}
-          ></o-button>
-        </div>
+    const players = this.clients.length;
+    const panel = uiDetailPanel({
+      body: html`${this.renderMapPreview()} ${uiDetailRows(this.summaryRows())}`,
+      footer: html`<div
+        data-host-players
+        class="flex items-center gap-3 rounded-ui-card border border-ui-border bg-ui-panel p-4"
+      >
+        <span
+          aria-hidden="true"
+          class="h-3 w-3 shrink-0 rounded-full bg-ui-accent"
+        ></span>
+        <span class="min-w-0">
+          <span class="ui-body block font-bold text-ui-text"
+            >${translateText("host_modal.players_in_lobby", {
+              count: players,
+            })}</span
+          >
+          <span class="ui-body block text-[13px] text-ui-muted"
+            >${translateText("host_modal.share_code")}</span
+          >
+        </span>
+      </div>`,
+      action: uiButton({
+        label: statusLabel,
+        variant: secondsRemaining !== null ? "secondary" : "primary",
+        block: true,
+        name: "start",
+        disabled:
+          this.queued ||
+          (this.lobbyStartAt === null && this.clients.length < 2),
+        onClick: () => this.toggleGameStartTimer(),
+      }),
+    });
 
+    return html`
+      <div class="flex h-full min-h-0 flex-col">
+        ${uiTwoColumn({ content, detail: panel })}
         ${this.showListLobbyDialog
           ? html`<list-lobby-dialog
               .currentPlayers=${this.seatedPlayerCount()}

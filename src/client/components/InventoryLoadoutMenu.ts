@@ -3,9 +3,9 @@ import { customElement, property } from "lit/decorators.js";
 import { translateText } from "../Utils";
 
 /**
- * The loadout slot bar: one button per saved slot, a button to add another,
- * and the clear-everything action. The active slot mirrors whatever is
- * equipped, so there is nothing to save by hand.
+ * The loadout switcher in the page header: LOADOUT, one button per saved slot
+ * and a button to add another. The active slot mirrors whatever is equipped,
+ * so there is nothing to save by hand. (Unequip all is the page's own button.)
  */
 @customElement("inventory-loadout-menu")
 export class InventoryLoadoutMenu extends LitElement {
@@ -19,9 +19,6 @@ export class InventoryLoadoutMenu extends LitElement {
   @property({ type: Boolean })
   canAdd = false;
 
-  @property({ type: Boolean })
-  canUnequip = false;
-
   @property({ attribute: false })
   onSelect?: (name: string) => void;
 
@@ -31,28 +28,21 @@ export class InventoryLoadoutMenu extends LitElement {
   @property({ attribute: false })
   onDelete?: (name: string) => void;
 
-  @property({ attribute: false })
-  onUnequipAll?: () => void;
-
   createRenderRoot() {
     return this;
   }
 
   private renderSlot(name: string) {
     const isActive = name === this.active;
-    return html`<div
-      class="flex items-stretch overflow-hidden rounded-lg border ${isActive
-        ? "border-df-red bg-df-red/20"
-        : "border-white/15 bg-white/5"}"
-    >
+    return html`<div class="flex items-stretch">
       <button
         type="button"
         data-loadout-slot=${name}
         aria-pressed=${isActive ? "true" : "false"}
         aria-label=${translateText("inventory.loadout_slot", { name })}
-        class="px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-colors ${isActive
-          ? "text-white"
-          : "text-white/75 hover:bg-white/10"}"
+        class="ui-focus ui-mono flex min-h-9 min-w-9 items-center justify-center rounded-[8px] px-3 text-[13px] font-semibold transition-colors cursor-pointer ${isActive
+          ? "bg-ui-border-strong text-ui-text"
+          : "text-ui-muted hover:text-ui-text"}"
         @click=${() => this.onSelect?.(name)}
       >
         ${name}
@@ -64,7 +54,7 @@ export class InventoryLoadoutMenu extends LitElement {
             aria-label=${translateText("inventory.loadout_delete_target", {
               name,
             })}
-            class="border-l border-white/15 px-2 text-xs font-black text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            class="ui-focus flex min-h-9 w-7 items-center justify-center rounded-[8px] text-[12px] text-ui-muted transition-colors hover:text-ui-text cursor-pointer"
             @click=${() => this.onDelete?.(name)}
           >
             ✕
@@ -77,27 +67,21 @@ export class InventoryLoadoutMenu extends LitElement {
     return html`<section
       data-inventory-loadout-menu
       aria-label=${translateText("inventory.loadout_presets")}
-      class="flex flex-wrap items-center gap-2 px-3 pt-3"
+      class="inline-flex max-w-full items-center gap-1 overflow-x-auto overflow-y-hidden rounded-ui-card border border-ui-border bg-ui-ground p-1 pl-3"
     >
+      <span class="ui-label mr-2 shrink-0"
+        >${translateText("inventory.loadout_label")}</span
+      >
       ${this.names.map((name) => this.renderSlot(name))}
       <button
         type="button"
         data-loadout-add
         ?disabled=${!this.canAdd}
         aria-label=${translateText("inventory.loadout_add")}
-        class="rounded-lg border border-dashed border-white/25 px-3 py-1.5 text-xs font-black text-white/75 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        class="ui-focus flex min-h-9 w-9 shrink-0 items-center justify-center rounded-[8px] text-ui-muted transition-colors hover:text-ui-text disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
         @click=${() => this.onAdd?.()}
       >
         +
-      </button>
-      <button
-        type="button"
-        data-inventory-unequip-all
-        ?disabled=${!this.canUnequip}
-        class="ml-auto rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-        @click=${() => this.onUnequipAll?.()}
-      >
-        ${translateText("inventory.unequip_all")}
       </button>
     </section>`;
   }

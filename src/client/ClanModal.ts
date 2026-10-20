@@ -1,6 +1,6 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { GameEnv } from "@openfront/shared/configuration/Env";
-import { html } from "lit";
+import { html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getUserMe, invalidateUserMe } from "./Api";
 import { type ClanInfo, type ClanMember } from "./ClanApi";
@@ -23,12 +23,23 @@ import {
 } from "./components/clan/ClanMapView";
 import "./components/clan/ClanMyRequestsView";
 import "./components/clan/ClanRequestsView";
-import type { ClanRole } from "./components/clan/ClanShared";
+import { translateClanRole, type ClanRole } from "./components/clan/ClanShared";
 import "./components/clan/ClanTransferView";
 import "./components/ConfirmDialog";
 import "./components/CopyButton";
 import "./components/CurrencyDisplay";
-import { modalHeader } from "./components/ui/ModalHeader";
+import {
+  uiBadge,
+  uiButton,
+  uiButtonClasses,
+  uiDetailPanel,
+  uiDetailRows,
+  uiIconButtonClasses,
+  uiIcons,
+  uiPageHeader,
+  uiTabs,
+  uiTwoColumn,
+} from "./components/ui/PageUi";
 import { signedOutNotice } from "./components/ui/SignedOutNotice";
 import "./GameStatsModal";
 import { modalRouter } from "./ModalRouter";
@@ -90,6 +101,10 @@ export class ClanModal extends BaseModal {
   @state() private myRole: ClanRole | null = null;
   private myPublicId: string | null = null;
   @state() private myClanRoles = new Map<string, ClanRole>();
+  // The clan the list's detail panel is showing (picked, not yet opened).
+  @state() private previewClan: ClanInfo | null = null;
+  @state() private previewRole: string | null = null;
+  @state() private previewPending = false;
 
   // Lifted browse state — survives tab switches
   private browseCache: BrowseState | null = null;
@@ -142,6 +157,8 @@ export class ClanModal extends BaseModal {
 
   protected modalConfig() {
     return {
+      ui: true,
+      hideTabs: true,
       tabs: this.onListView
         ? [
             // The Map tab only exists with a map service (see clanMapEnabled).
@@ -180,31 +197,136 @@ export class ClanModal extends BaseModal {
   }
 
   protected renderHeaderSlot() {
-    return this.onListView
-      ? modalHeader({
-          title: translateText("clan_modal.title"),
-          onBack: () => this.close(),
-          ariaLabel: translateText("common.back"),
-          rightContent:
-            this.activeTab === "map" && !this.mapComingSoon
-              ? this.fullscreenButton()
-              : undefined,
-        })
-      : this.renderSubViewHeader();
+    const back = translateText("common.back");
+    if (this.onListView) {
+      return uiPageHeader({
+        title: translateText("clan_modal.title"),
+        backLabel: back,
+        onBack: () => this.close(),
+        status:
+          this.activeTab === "map" && !this.mapComingSoon
+            ? this.fullscreenButton()
+            : undefined,
+      });
+    }
+    return this.renderSubViewHeader();
   }
 
   protected renderBody() {
-    // The map fills the content box edge to edge and exactly to its height
-    // (the modal is an inline page, so the scroll area has a fixed height and
-    // anything taller scrolls); everything else is padded.
+    const tabs = this.modalConfig().tabs ?? [];
+    const tabRow =
+      tabs.length > 0
+        ? uiTabs({
+            tabs,
+            value: this.activeTab,
+            onChange: (key) => this.setActiveTab(key),
+            ariaLabel: translateText("clan_modal.title"),
+            name: "clan-tabs",
+          })
+        : nothing;
     const onMap = this.onListView && this.activeTab === "map";
-    return html`<div class=${onMap ? "h-full" : "p-4 lg:p-[1.4rem]"}>
-      ${this.renderInner()}
+    // My Clans and Browse: a list on the left and the picked clan on the right.
+    if (this.onListView && !onMap) {
+      return uiTwoColumn({
+        content: html`${tabRow}
+          <div class="p-6">${this.renderInner()}</div>`,
+        detail: this.renderClanPanel(),
+      });
+    }
+    // The map, a clan's own pages and their sub-views fill the whole width.
+    return html`<div class="flex h-full min-h-0 flex-col">
+      ${tabRow}
+      <div class=${onMap ? "min-h-0 flex-1" : "p-4 lg:p-6"}>
+        ${this.renderInner()}
+      </div>
     </div>`;
+  }
+
+  /** The panel beside My Clans and Browse: the picked clan, and the way into it. */
+  private renderClanPanel() {
+    const clan =
+      this.previewClan ??
+      (this.activeTab === "my-clans" ? (this.myClans[0] ?? null) : null);
+    if (clan === null) {
+      return uiDetailPanel({
+        body: html`<p data-clan-panel-empty class="ui-body text-ui-muted">
+          ${translateText("clan_modal.select_clan")}
+        </p>`,
+      });
+    }
+    const role =
+      this.previewClan !== null
+        ? this.previewRole
+        : (this.myClanRoles.get(clan.tag) ?? null);
+    const rows: { label: string; value: string | ReturnType<typeof html> }[] = [
+      {
+        label: translateText("clan_modal.members"),
+        value: String(clan.memberCount ?? 0),
+      },
+    ];
+    if (role) {
+      rows.push({
+        label: translateText("clan_modal.your_role"),
+        value:
+          role === "leader"
+            ? html`<span class="text-ui-gold">${translateClanRole(role)}</span>`
+            : translateClanRole(role),
+      });
+    } else {
+      rows.push({
+        label: translateText("clan_modal.status"),
+        value: clan.isOpen
+          ? translateText("clan_modal.open")
+          : translateText("clan_modal.invite_only"),
+      });
+    }
+    return uiDetailPanel({
+      body: html`<div class="ui-label">
+          ${translateText("clan_modal.selected_clan")}
+        </div>
+        <div class="flex items-center gap-4">
+          <span
+            class="ui-mono flex h-14 w-14 shrink-0 items-center justify-center rounded-ui-card bg-ui-gold/10 px-1 text-[13px] font-bold text-ui-gold"
+            >${clan.tag}</span
+          >
+          <div class="min-w-0">
+            <h2
+              class="ui-title truncate normal-case tracking-normal text-ui-text"
+            >
+              ${clan.name}
+            </h2>
+            <div class="ui-mono mt-1 text-[13px] text-ui-muted">
+              [${clan.tag}]
+            </div>
+          </div>
+        </div>
+        ${uiDetailRows(rows)}`,
+      action: uiButton({
+        label: translateText("clan_modal.go_to_clan"),
+        variant: "primary",
+        block: true,
+        name: "open-clan",
+        onClick: () => this.openDetail(clan.tag),
+      }),
+    });
+  }
+
+  private selectClan(
+    e: CustomEvent<{
+      tag: string;
+      clan: ClanInfo;
+      role: string | null;
+      pending: boolean;
+    }>,
+  ) {
+    this.previewClan = e.detail.clan;
+    this.previewRole = e.detail.role;
+    this.previewPending = e.detail.pending;
   }
 
   protected onTabEnter(tab: string): void {
     if (isListTab(tab)) {
+      this.previewClan = null;
       this.view = "list";
       this.selectedClan = null;
       this.selectedClanTag = "";
@@ -226,13 +348,13 @@ export class ClanModal extends BaseModal {
       data-testid="map-fullscreen"
       title=${label}
       aria-label=${label}
-      class="flex items-center justify-center w-10 h-10 rounded-full shrink-0 bg-white/5 hover:bg-white/10 transition-all border border-white/10 text-white/70 hover:text-white"
+      class=${uiIconButtonClasses}
       @click=${() =>
         this.querySelector<ClanMapView>("clan-map-view")?.enterFullscreen()}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        class="w-5 h-5"
+        class="h-5 w-5"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -248,10 +370,7 @@ export class ClanModal extends BaseModal {
   }
 
   private tagPill(tag: string) {
-    return html`<span
-      class="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 text-white/50 border border-white/10"
-      >[${tag}]</span
-    >`;
+    return uiBadge(`[${tag}]`, "neutral");
   }
 
   // The clan treasury, sitting in the header the way the store shows the
@@ -290,45 +409,45 @@ export class ClanModal extends BaseModal {
 
   private renderSubViewHeader() {
     const clan = this.selectedClan;
-    const ariaLabel = translateText("common.back");
+    const backLabel = translateText("common.back");
     if (this.view === "my-requests") {
-      return modalHeader({
+      return uiPageHeader({
         title: translateText("clan_modal.pending_applications"),
         onBack: () => (this.view = "list"),
-        ariaLabel,
+        backLabel,
       });
     }
     if (this.view === "manage") {
-      return modalHeader({
+      return uiPageHeader({
         title: translateText("clan_modal.manage_clan"),
         onBack: () => (this.view = "detail"),
-        ariaLabel,
-        rightContent: clan ? this.tagPill(clan.tag) : undefined,
+        backLabel,
+        status: clan ? this.tagPill(clan.tag) : undefined,
       });
     }
     if (this.view === "transfer") {
-      return modalHeader({
+      return uiPageHeader({
         title: translateText("clan_modal.transfer_leadership"),
         onBack: () => (this.view = "manage"),
-        ariaLabel,
+        backLabel,
       });
     }
     if (this.view === "requests") {
-      return modalHeader({
+      return uiPageHeader({
         title: translateText("clan_modal.join_requests"),
         onBack: () => (this.view = "detail"),
-        ariaLabel,
+        backLabel,
       });
     }
     if (this.view === "bans") {
-      return modalHeader({
+      return uiPageHeader({
         title: translateText("clan_modal.banned_players"),
         onBack: () => (this.view = "manage"),
-        ariaLabel,
+        backLabel,
       });
     }
     // Default: detail
-    return modalHeader({
+    return uiPageHeader({
       title: clan?.name ?? translateText("clan_modal.title"),
       onBack: () => {
         if (this.backToProfile()) return;
@@ -341,8 +460,8 @@ export class ClanModal extends BaseModal {
         this.gameHistoryCache = null;
         this.setActiveTab(this.previousListTab);
       },
-      ariaLabel,
-      rightContent: clan ? this.clanBalances(clan) : undefined,
+      backLabel,
+      status: clan ? this.clanBalances(clan) : undefined,
     });
   }
 
@@ -372,6 +491,7 @@ export class ClanModal extends BaseModal {
     this.openedFromProfileOrigin = null;
     this.activeTab = "my-clans";
     this.previousListTab = "my-clans";
+    this.previewClan = null;
     this.view = "list";
     this.selectedClan = null;
     this.selectedClanTag = "";
@@ -674,8 +794,15 @@ export class ClanModal extends BaseModal {
             @browse-updated=${(e: CustomEvent<BrowseState>) => {
               this.browseCache = e.detail;
             }}
-            @clan-select=${(e: CustomEvent<{ tag: string }>) =>
-              this.openDetail(e.detail.tag)}
+            .selectedTag=${this.previewClan?.tag ?? ""}
+            @clan-select=${(
+              e: CustomEvent<{
+                tag: string;
+                clan: ClanInfo;
+                role: string | null;
+                pending: boolean;
+              }>,
+            ) => this.selectClan(e)}
           ></clan-browse-view>`}
     `;
   }
@@ -837,23 +964,24 @@ export class ClanModal extends BaseModal {
     if (!hasClans && !hasRequests) {
       return html`
         <div class="flex flex-col items-center justify-center p-12 text-center">
-          <p class="text-white/40 text-sm mb-4">
+          <p class="ui-body mb-4 text-ui-muted">
             ${translateText("clan_modal.no_clans")}
           </p>
           <div class="flex flex-wrap items-center justify-center gap-3">
+            ${uiButton({
+              label: translateText("clan_modal.browse"),
+              variant: "primary",
+              name: "browse-clans",
+              onClick: () => this.setActiveTab("browse"),
+            })}
             <button
-              @click=${() => this.setActiveTab("browse")}
-              class="px-6 py-2 text-sm font-bold text-white uppercase tracking-wider bg-df-red hover:bg-df-red-bright active:bg-df-red/80 rounded-lg transition-all"
-            >
-              ${translateText("clan_modal.browse")}
-            </button>
-            <button
+              type="button"
               data-create-clan-start
+              class=${uiButtonClasses("secondary")}
               @click=${() => {
                 this.createRequested = true;
                 this.setActiveTab("browse");
               }}
-              class="px-6 py-2 text-sm font-bold text-white uppercase tracking-wider bg-white/10 hover:bg-white/15 rounded-lg border border-white/10 transition-all"
             >
               ${translateText("clan_modal.create_button")}
             </button>
@@ -870,8 +998,16 @@ export class ClanModal extends BaseModal {
             <clan-card
               .clan=${clan}
               .clanRole=${this.myClanRoles.get(clan.tag)}
-              @clan-select=${(e: CustomEvent<{ tag: string }>) =>
-                this.openDetail(e.detail.tag)}
+              ?selected=${clan.tag ===
+              (this.previewClan?.tag ?? this.myClans[0]?.tag)}
+              @clan-select=${(
+                e: CustomEvent<{
+                  tag: string;
+                  clan: ClanInfo;
+                  role: string | null;
+                  pending: boolean;
+                }>,
+              ) => this.selectClan(e)}
             ></clan-card>
           `,
         )}
@@ -883,60 +1019,25 @@ export class ClanModal extends BaseModal {
     const count = this.myPendingRequests.length;
     return html`
       <button
+        type="button"
+        data-pending-requests
         @click=${() => (this.view = "my-requests")}
-        class="w-full flex items-center justify-between bg-amber-500/10 hover:bg-amber-500/15 rounded-xl border border-amber-500/20 p-4 transition-all cursor-pointer group"
+        class="ui-focus group flex w-full cursor-pointer items-center justify-between gap-4 rounded-ui-card border border-ui-border bg-ui-surface p-4 text-left transition-colors hover:border-ui-border-hover"
       >
-        <div class="flex items-center gap-3">
-          <div
-            class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-5 h-5 text-amber-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <div class="text-left">
-            <span class="text-amber-400 text-sm font-bold">
-              ${translateText("clan_modal.pending_applications")}
-            </span>
-            <span class="text-amber-400/60 text-xs block">
-              ${translateText("clan_modal.pending_requests_count", {
-                count,
-              })}
-            </span>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <span
-            class="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30"
-          >
-            ${count}
+        <span class="min-w-0">
+          <span class="ui-body block font-bold text-ui-text">
+            ${translateText("clan_modal.pending_applications")}
           </span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-5 h-5 text-amber-400/40 group-hover:text-amber-400/70 transition-colors"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
+          <span class="ui-body block text-[13px] text-ui-muted">
+            ${translateText("clan_modal.pending_requests_count", { count })}
+          </span>
+        </span>
+        <span class="flex items-center gap-3">
+          ${uiBadge(String(count), "gold")}
+          <span class="text-ui-muted transition-colors group-hover:text-ui-text"
+            >${uiIcons.chevronRight()}</span
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </div>
+        </span>
       </button>
     `;
   }

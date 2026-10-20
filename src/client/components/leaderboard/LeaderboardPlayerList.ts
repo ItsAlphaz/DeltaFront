@@ -89,6 +89,19 @@ export class LeaderboardPlayerList extends LitElement {
     return this.ladders[this.shownLadder].entries;
   }
 
+  /** The signed-in player's rank on the board now shown, or null. */
+  public myRank(): number | null {
+    return this.currentUserEntry?.rank ?? null;
+  }
+
+  /** Scroll the signed-in player's row into view; false when it is not loaded. */
+  public jumpToMe(): boolean {
+    const row = this.querySelector<HTMLElement>('[data-current-user="true"]');
+    if (!row) return false;
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
+    return true;
+  }
+
   private get currentUserEntry(): PlayerLeaderboardEntry | null {
     return this.ladders[this.shownLadder].userEntry;
   }
@@ -219,6 +232,9 @@ export class LeaderboardPlayerList extends LitElement {
       }
 
       this.hasLoadedPlayers = true;
+      this.dispatchEvent(
+        new CustomEvent("board-updated", { bubbles: true, composed: true }),
+      );
       this.scheduleStickyVisibilityCheck();
       this.schedulePlayerFillCheck();
     } catch (err) {
@@ -359,18 +375,17 @@ export class LeaderboardPlayerList extends LitElement {
 
     return html`
       <tfoot class="sticky bottom-0 z-20">
-        <tr class="bg-df-red-dark border-t border-df-red/30 shadow-2xl">
+        <tr class="bg-ui-accent-tint border-t border-ui-accent/40">
           <td class="py-3 px-4 text-center">
             <div
-              class="w-10 h-10 mx-auto flex items-center justify-center rounded-lg font-bold font-mono text-lg bg-white/20 text-white"
+              class="ui-mono mx-auto flex h-9 w-9 items-center justify-center rounded-ui-card bg-ui-surface text-[15px] font-bold text-ui-text"
             >
               ${entry.rank}
             </div>
           </td>
           <td class="py-3 px-4">
             <div class="flex flex-col">
-              <span
-                class="text-[10px] uppercase font-bold text-df-text-secondary leading-tight"
+              <span class="ui-label leading-tight"
                 >${translateText("leaderboard_modal.your_ranking")}</span
               >
               <player-name
@@ -420,28 +435,21 @@ export class LeaderboardPlayerList extends LitElement {
 
     const rankColor =
       {
-        1: "text-yellow-400 bg-yellow-400/10 ring-1 ring-yellow-400/20",
-        2: "text-slate-300 bg-slate-400/10 ring-1 ring-slate-400/20",
-        3: "text-amber-600 bg-amber-600/10 ring-1 ring-amber-600/20",
-      }?.[displayRank] ?? "text-white/40 bg-white/5";
+        1: "text-ui-gold bg-ui-gold/15",
+      }?.[displayRank] ?? "text-ui-muted bg-ui-surface";
 
-    const rankIcon =
-      {
-        1: "👑",
-        2: "🥈",
-        3: "🥉",
-      }?.[displayRank] ?? String(displayRank);
+    const rankIcon = String(displayRank);
 
     return html`
       <tr
         data-current-user=${isCurrentUser ? "true" : "false"}
-        class="border-b border-white/5 hover:bg-white/[0.07] transition-colors group ${isCurrentUser
-          ? "bg-df-red/15"
-          : ""}"
+        class="border-b border-ui-border transition-colors group ${isCurrentUser
+          ? "bg-ui-accent-tint"
+          : "hover:bg-ui-surface"}"
       >
         <td class="py-3 px-4 text-center">
           <div
-            class="w-10 h-10 mx-auto flex items-center justify-center rounded-lg font-bold font-mono text-lg ${rankColor}"
+            class="ui-mono mx-auto flex h-9 w-9 items-center justify-center rounded-ui-card text-[15px] font-bold ${rankColor}"
           >
             ${rankIcon}
           </div>
@@ -485,7 +493,7 @@ export class LeaderboardPlayerList extends LitElement {
               >${(player.winRate * 100).toFixed(1)}%</span
             >
             <span
-              class="text-[10px] uppercase text-white/30 font-bold tracking-wider"
+              class="text-[10px] uppercase text-ui-placeholder font-semibold tracking-wider"
               >${translateText("leaderboard_modal.ratio")}</span
             >
           </div>
@@ -512,7 +520,7 @@ export class LeaderboardPlayerList extends LitElement {
       return html`
         <div class="flex items-center justify-center py-4">
           <button
-            class="px-6 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-xs font-bold uppercase transition-all active:scale-95"
+            class="ui-focus min-h-11 cursor-pointer rounded-ui-card border border-ui-border-strong bg-ui-surface px-5 font-ui text-[13px] font-bold uppercase tracking-[0.06em] text-ui-text hover:border-ui-border-hover"
             @click=${() => this.loadPlayerLeaderboard()}
           >
             ${translateText("leaderboard_modal.try_again")}
@@ -568,7 +576,7 @@ export class LeaderboardPlayerList extends LitElement {
           ${this.error ?? translateText("leaderboard_modal.error")}
         </p>
         <button
-          class="px-8 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-sm font-bold uppercase transition-all active:scale-95"
+          class="ui-focus min-h-11 cursor-pointer rounded-ui-card border border-ui-border-strong bg-ui-surface px-5 font-ui text-[13px] font-bold uppercase tracking-[0.06em] text-ui-text hover:border-ui-border-hover"
           @click=${() => this.loadPlayerLeaderboard(true)}
         >
           ${translateText("leaderboard_modal.try_again")}
@@ -623,17 +631,19 @@ export class LeaderboardPlayerList extends LitElement {
         type="button"
         data-period=${period}
         aria-pressed=${this.period === period ? "true" : "false"}
-        class="px-4 py-1.5 text-xs font-bold uppercase tracking-wider border transition-colors ${this
+        class="ui-focus min-h-9 cursor-pointer rounded-[8px] px-4 font-ui text-[13px] font-semibold uppercase tracking-[0.06em] transition-colors ${this
           .period === period
-          ? "bg-df-red border-df-red text-white"
-          : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"}"
+          ? "bg-ui-border-strong text-ui-text"
+          : "text-ui-muted hover:text-ui-text"}"
         @click=${() => this.setPeriod(period)}
       >
         ${label}
       </button>
     `;
     return html`
-      <div class="flex gap-2 pb-3">
+      <div
+        class="inline-flex gap-1 rounded-ui-card border border-ui-border bg-ui-ground p-1 m-6 mb-3"
+      >
         ${button("all", translateText("leaderboard_modal.period_all"))}
         ${button("30d", translateText("leaderboard_modal.period_30d"))}
       </div>
@@ -664,7 +674,7 @@ export class LeaderboardPlayerList extends LitElement {
           stray outline. The rows above it end on their own border-b.
         -->
         <div
-          class="h-full border-x border-t border-white/5 bg-black/20 relative"
+          class="h-full border-x border-t border-ui-border bg-ui-panel relative"
         >
           <div
             class="scroll-container h-full overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-white/20"
@@ -680,9 +690,7 @@ export class LeaderboardPlayerList extends LitElement {
                 <col style="width: 6rem" />
               </colgroup>
               <thead class="sticky top-0 z-10">
-                <tr
-                  class="text-white/40 text-[10px] uppercase tracking-wider border-b border-white/5 bg-df-panel"
-                >
+                <tr class="ui-label border-b border-ui-border bg-ui-panel">
                   <th class="py-4 px-4 text-center font-bold">
                     ${translateText("leaderboard_modal.rank")}
                   </th>

@@ -4,8 +4,12 @@ import { assetUrl } from "@openfront/shared/AssetUrls";
 import {
   Cosmetics,
   Effect,
+  EFFECT_TYPES,
+  EffectType,
   Flag,
   isNukeExplosionEffect,
+  NUKE_EXPLOSION_TYPES,
+  NukeExplosionType,
   Skin,
 } from "@openfront/shared/CosmeticSchemas";
 import { PlayerPattern } from "@openfront/shared/WireSchemas";
@@ -15,16 +19,19 @@ import { customElement, state } from "lit/decorators.js";
 import Countries from "resources/countries.json" with { type: "json" };
 import { getUserMe } from "./Api";
 import { userAuth } from "./Auth";
-import "./components/baseComponents/Button";
 import { BaseModal } from "./components/BaseModal";
 import "./components/CosmeticCard";
 import {
   cosmeticDisplayName,
+  cosmeticRarity,
+  cosmeticRarityLabel,
   cosmeticSelectionLabel,
+  cosmeticTypeLabel,
 } from "./components/CosmeticPresentation";
+import { isPreviewableCosmetic } from "./components/CosmeticPreviewBubble";
 import "./components/CosmeticPreviewModal";
-import "./components/CurrencyDisplay";
-import "./components/EffectsGrid";
+import "./components/CreditsIcon";
+import { formatCurrencyAmount } from "./components/CurrencyDisplay";
 import "./components/InventoryLoadoutBar";
 import type {
   InventoryCategory,
@@ -32,7 +39,23 @@ import type {
 } from "./components/InventoryLoadoutBar";
 import "./components/InventoryLoadoutMenu";
 import { ProgressiveList } from "./components/ProgressiveList";
-import { modalHeader } from "./components/ui/ModalHeader";
+import {
+  tierForRarity,
+  uiBadge,
+  uiButton,
+  uiDetailHeading,
+  uiDetailPanel,
+  uiDetailRows,
+  uiIcons,
+  uiItemCard,
+  uiPageHeader,
+  uiSearch,
+  uiSegmented,
+  uiStatusChip,
+  uiSwatches,
+  uiTabs,
+  uiTwoColumn,
+} from "./components/ui/PageUi";
 import { signedOutNotice } from "./components/ui/SignedOutNotice";
 import {
   fetchCosmetics,
@@ -40,6 +63,7 @@ import {
   resolveCosmetics,
   ResolvedCosmetic,
   resolvedToPlayerPattern,
+  translateCosmetic,
 } from "./Cosmetics";
 import {
   CROWN_KEY,
@@ -76,6 +100,13 @@ export class InventoryModal extends BaseModal {
   @state() private loadFailed = false;
   @state() private ownershipState: OwnershipState = "loading";
   @state() private previewingCosmetic: ResolvedCosmetic | null = null;
+  // The item the detail panel shows (selecting a card inspects it; the panel's
+  // Equip / Unequip button is what changes what is worn).
+  @state() private inspectedKey: string | null = null;
+  // The Effects category's own sub-tabs (Boat trail, Nuke trail, ...) and, for
+  // nuke explosions, the bomb the explosion is for.
+  @state() private effectType: EffectType = EFFECT_TYPES[0];
+  @state() private nukeType: NukeExplosionType = NUKE_EXPLOSION_TYPES[0];
 
   private cosmetics: Cosmetics | null = null;
   private userSettings: UserSettings = new UserSettings();
@@ -101,6 +132,7 @@ export class InventoryModal extends BaseModal {
   }));
   protected modalConfig() {
     return {
+      ui: true,
       hideTabs: true,
       tabs: [
         { key: "skins", label: translateText("store.patterns") },
@@ -430,11 +462,9 @@ export class InventoryModal extends BaseModal {
       .names=${names}
       .active=${this.userSettings.getActiveLoadout() ?? ""}
       .canAdd=${names.length < MAX_LOADOUTS}
-      .canUnequip=${this.hasEquippedCosmetic()}
       .onSelect=${(name: string) => this.applyLoadout(name)}
       .onAdd=${() => this.addLoadout()}
       .onDelete=${(name: string) => this.deleteLoadout(name)}
-      .onUnequipAll=${() => this.unequipAll()}
     ></inventory-loadout-menu>`;
   }
 
@@ -472,96 +502,33 @@ export class InventoryModal extends BaseModal {
     this.updateFromSettings();
   }
 
-  private renderEmptyState(category: "skins" | "crowns") {
-    return html`<p
-      data-inventory-empty=${category}
-      class="px-4 pt-4 text-center text-sm font-medium text-white/60"
-    >
-      ${translateText(`inventory.no_owned_${category}`)}
-    </p>`;
+  // ---- The groups each category lists (one card per group of colour variants)
+
+  private skinGroups(): readonly (readonly ResolvedCosmetic[])[] {
+    return groupCosmeticVariants(
+      this.resolvedItems().filter(
+        (r) =>
+          (r.type === "pattern" || r.type === "skin") &&
+          r.relationship === "owned" &&
+          r.cosmetic !== null &&
+          this.includedInSearch(r.cosmetic.name),
+      ),
+    );
   }
 
-  /** Combined patterns + skins grid. To the user they're the same: "skins". */
-  private renderSkinGrid(): TemplateResult {
-    const items = this.resolvedItems().filter(
-      (r) =>
-        (r.type === "pattern" || r.type === "skin") &&
-        r.relationship === "owned" &&
-        r.cosmetic !== null &&
-        this.includedInSearch(r.cosmetic.name),
-    );
-
-    const page = this.pages.page(
-      "inventory-skins",
-      this.search,
-      groupCosmeticVariants(items),
-    );
-    const equippedKey = this.equippedSkin()?.key;
-    return html`
-      ${this.hasOwnedCatalogItem(["pattern", "skin"])
-        ? null
-        : this.renderEmptyState("skins")}
-      <div
-        data-inventory-grid="skins"
-        class="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      >
-        ${page.items.map((group) => {
-          const equippedVariant = group.find((r) => r.key === equippedKey);
-          const active = equippedVariant ?? group[0];
-          return html`
-            <cosmetic-card
-              .resolved=${active}
-              .variants=${group}
-              .activeVariantKey=${active.key}
-              state=${equippedVariant ? "equipped" : "idle"}
-              .onActivate=${(variant: ResolvedCosmetic) =>
-                this.selectCosmetic(variant)}
-              .onVariantActivate=${(variant: ResolvedCosmetic) =>
-                this.selectCosmetic(variant)}
-            ></cosmetic-card>
-          `;
-        })}
-        ${page.more}
-      </div>
-    `;
+  private crownGroups(): readonly (readonly ResolvedCosmetic[])[] {
+    return this.resolvedItems()
+      .filter(
+        (r) =>
+          r.type === "crown" &&
+          r.relationship === "owned" &&
+          r.cosmetic !== null &&
+          this.includedInSearch(r.cosmetic.name),
+      )
+      .map((r) => [r]);
   }
 
-  /** Owned crowns; selecting persists to UserSettings. */
-  private renderCrownGrid(): TemplateResult {
-    const items = this.resolvedItems().filter(
-      (r) =>
-        r.type === "crown" &&
-        r.relationship === "owned" &&
-        r.cosmetic !== null &&
-        this.includedInSearch(r.cosmetic.name),
-    );
-
-    const page = this.pages.page("inventory-crowns", this.search, items);
-    const equippedKey = this.equippedCrown()?.key;
-    return html`
-      ${this.hasOwnedCatalogItem(["crown"])
-        ? null
-        : this.renderEmptyState("crowns")}
-      <div
-        data-inventory-grid="crowns"
-        class="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      >
-        ${page.items.map((r) => {
-          return html`
-            <cosmetic-card
-              .resolved=${r}
-              state=${r.key === equippedKey ? "equipped" : "idle"}
-              .onActivate=${() => this.selectCrown(r)}
-            ></cosmetic-card>
-          `;
-        })}
-        ${page.more}
-      </div>
-    `;
-  }
-
-  private renderFlagGrid(): TemplateResult {
-    const equippedKey = this.equippedFlag()?.key;
+  private flagGroups(): readonly (readonly ResolvedCosmetic[])[] {
     const cosmeticFlags = this.resolvedItems().filter(
       (r) =>
         r.type === "flag" &&
@@ -569,64 +536,266 @@ export class InventoryModal extends BaseModal {
         r.cosmetic !== null &&
         this.includedInSearch(r.cosmetic.name),
     );
-
     const countryFlags = this.countryFlagTiles.filter(
       (resolved) =>
         this.includedInSearch(resolved.cosmetic!.name) ||
         this.includedInSearch(resolved.key.slice("country:".length)),
     );
-
-    const page = this.pages.page("inventory-flags", this.search, [
-      ...cosmeticFlags,
-      ...countryFlags,
-    ]);
-    return html`
-      <div
-        data-inventory-grid="flags"
-        class="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      >
-        ${page.items.map(
-          (resolved) => html`
-            <cosmetic-card
-              .resolved=${resolved}
-              state=${equippedKey === resolved.key ? "equipped" : "idle"}
-              .onActivate=${() => this.selectFlag(resolved)}
-            ></cosmetic-card>
-          `,
-        )}
-        ${page.more}
-      </div>
-    `;
+    return [...cosmeticFlags, ...countryFlags].map((r) => [r]);
   }
 
-  private renderUnequip(
-    category: Exclude<InventoryCategory, "effects">,
-  ): TemplateResult {
-    const equipped =
-      category === "skins"
-        ? this.equippedSkin()
-        : category === "flags"
-          ? this.equippedFlag()
-          : this.equippedCrown();
-    return html`<div class="flex justify-end px-3 pt-3">
-      <button
-        type="button"
-        data-inventory-unequip
-        ?disabled=${equipped === null}
-        class="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-        @click=${() => {
-          if (category === "skins") {
-            this.userSettings.setSelectedPatternName(undefined);
-          } else if (category === "flags") {
-            this.userSettings.clearFlag(true);
-          } else {
-            this.userSettings.setSelectedCrownName(undefined);
-          }
-        }}
+  private nukeTypeOf(item: ResolvedCosmetic): string | null {
+    const effect = item.cosmetic as Effect | null;
+    return effect && isNukeExplosionEffect(effect)
+      ? effect.attributes.nukeType
+      : null;
+  }
+
+  private effectGroups(): readonly (readonly ResolvedCosmetic[])[] {
+    return this.resolvedItems()
+      .filter(
+        (r) =>
+          r.type === "effect" &&
+          r.cosmetic !== null &&
+          r.relationship === "owned" &&
+          r.effectType === this.effectType &&
+          (this.effectType !== "nukeExplosion" ||
+            this.nukeTypeOf(r) === this.nukeType) &&
+          this.includedInSearch(r.cosmetic.name),
+      )
+      .map((r) => [r]);
+  }
+
+  private groupsFor(tab: string): readonly (readonly ResolvedCosmetic[])[] {
+    if (tab === "flags") return this.flagGroups();
+    if (tab === "crowns" && this.catalogHasCrowns()) return this.crownGroups();
+    if (tab === "effects") return this.effectGroups();
+    return this.skinGroups();
+  }
+
+  /** Whether an item is what the player is wearing now. */
+  private isEquipped(item: ResolvedCosmetic): boolean {
+    switch (item.type) {
+      case "pattern":
+      case "skin":
+        return this.equippedSkin()?.key === item.key;
+      case "flag":
+        return this.equippedFlag()?.key === item.key;
+      case "crown":
+        return this.equippedCrown()?.key === item.key;
+      case "effect": {
+        const slot = this.effectSlotFor(item);
+        return (
+          slot !== null &&
+          this.userSettings.getSelectedEffects()[slot] === item.cosmetic?.name
+        );
+      }
+      default:
+        return false;
+    }
+  }
+
+  private selectEffect(item: ResolvedCosmetic, equip: boolean): void {
+    const slot = this.effectSlotFor(item);
+    if (slot === null) return;
+    this.userSettings.setSelectedEffectName(
+      slot,
+      equip ? (item.cosmetic?.name ?? undefined) : undefined,
+    );
+    if (equip) this.showSelectedPopup(item);
+    this.requestUpdate();
+  }
+
+  private equip(item: ResolvedCosmetic): void {
+    if (item.type === "pattern" || item.type === "skin") {
+      this.selectCosmetic(item);
+    } else if (item.type === "crown") {
+      this.selectCrown(item);
+    } else if (item.type === "flag") {
+      this.selectFlag(item);
+    } else if (item.type === "effect") {
+      this.selectEffect(item, true);
+    }
+  }
+
+  private unequip(item: ResolvedCosmetic): void {
+    if (item.type === "pattern" || item.type === "skin") {
+      this.userSettings.setSelectedPatternName(undefined);
+    } else if (item.type === "crown") {
+      this.userSettings.setSelectedCrownName(undefined);
+    } else if (item.type === "flag") {
+      this.userSettings.clearFlag(true);
+    } else if (item.type === "effect") {
+      this.selectEffect(item, false);
+    }
+  }
+
+  private inspect(item: ResolvedCosmetic): void {
+    this.inspectedKey = item.key;
+  }
+
+  /** The group the panel shows: the inspected one, else the worn one, else the first. */
+  private panelGroup(
+    groups: readonly (readonly ResolvedCosmetic[])[],
+  ): readonly ResolvedCosmetic[] | null {
+    return (
+      groups.find((g) => g.some((i) => i.key === this.inspectedKey)) ??
+      groups.find((g) => g.some((i) => this.isEquipped(i))) ??
+      groups[0] ??
+      null
+    );
+  }
+
+  private panelItem(group: readonly ResolvedCosmetic[]): ResolvedCosmetic {
+    return (
+      group.find((i) => i.key === this.inspectedKey) ??
+      group.find((i) => this.isEquipped(i)) ??
+      group[0]
+    );
+  }
+
+  private renderEmptyState(tab: string): TemplateResult {
+    if (tab === "flags") return html``;
+    if (tab === "effects") {
+      return html`<p
+        data-effects-empty=${this.effectType}
+        class="ui-body py-10 text-center text-ui-muted"
       >
-        ${translateText("inventory.unequip")}
-      </button>
-    </div>`;
+        ${translateText("inventory.no_owned_effects_of_type", {
+          type: translateText(`effects.type.${this.effectType}`),
+        })}
+      </p>`;
+    }
+    const key = tab === "crowns" ? "crowns" : "skins";
+    return html`<p
+      data-inventory-empty=${key}
+      class="ui-body py-10 text-center text-ui-muted"
+    >
+      ${translateText(`inventory.no_owned_${key}`)}
+    </p>`;
+  }
+
+  private renderItemCard(group: readonly ResolvedCosmetic[]): TemplateResult {
+    const worn = group.find((i) => this.isEquipped(i));
+    const inspected = group.find((i) => i.key === this.inspectedKey);
+    const active = inspected ?? worn ?? group[0];
+    const colours = group.filter((i) => i.colorPalette !== null).length;
+    return uiItemCard({
+      hook: "inventory-item",
+      dataKey: group[0].key,
+      preview: html`<cosmetic-preview
+        .resolved=${active}
+        size="card"
+      ></cosmetic-preview>`,
+      name: cosmeticDisplayName(active),
+      meta:
+        colours > 1
+          ? translateText("inventory.colors_count", { count: colours })
+          : undefined,
+      tier: tierForRarity(cosmeticRarity(active)),
+      selected: inspected !== undefined,
+      badge: worn
+        ? uiBadge(
+            html`${uiIcons.check("h-3 w-3")}${translateText(
+              "inventory.equipped",
+            )}`,
+            "success",
+          )
+        : undefined,
+      onSelect: () => this.inspect(inspected ?? worn ?? group[0]),
+    });
+  }
+
+  private renderDetailPanel(
+    groups: readonly (readonly ResolvedCosmetic[])[],
+  ): TemplateResult {
+    const group = this.panelGroup(groups);
+    if (group === null) {
+      return uiDetailPanel({
+        body: html`<p data-inventory-detail-empty class="ui-body text-ui-muted">
+          ${translateText("inventory.select_item")}
+        </p>`,
+      });
+    }
+    const active = this.panelItem(group);
+    const worn = this.isEquipped(active);
+    const swatches = group
+      .filter(
+        (variant) =>
+          variant.colorPalette !== null ||
+          (variant.type === "pattern" && variant.cosmetic !== null),
+      )
+      .map((variant) => ({
+        key: variant.key,
+        label: variant.colorPalette
+          ? translateCosmetic(
+              "territory_patterns.color_palette",
+              variant.colorPalette.name,
+            )
+          : translateText("territory_patterns.pattern.default"),
+        primary: variant.colorPalette?.primaryColor ?? "var(--color-ui-text)",
+        secondary:
+          variant.colorPalette?.secondaryColor ?? "var(--color-ui-ground)",
+      }));
+    const eyebrow =
+      cosmeticTypeLabel(active) +
+      (this.nukeTypeOf(active) !== null
+        ? ` · ${translateText(`effects.nukeType.${this.nukeTypeOf(active)}`)}`
+        : "");
+    return uiDetailPanel({
+      body: html`<div
+          data-inventory-detail-preview
+          class="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-ui-card border border-ui-border bg-ui-ground p-4"
+        >
+          <cosmetic-preview
+            .resolved=${active}
+            size="detail"
+          ></cosmetic-preview>
+          ${isPreviewableCosmetic(active)
+            ? html`<span class="absolute bottom-3 right-3">
+                ${uiButton({
+                  label: html`${uiIcons.play()}${translateText("store.preview")}`,
+                  onClick: () => (this.previewingCosmetic = active),
+                  name: "preview",
+                })}
+              </span>`
+            : nothing}
+        </div>
+        ${uiDetailHeading({ eyebrow, title: cosmeticDisplayName(active) })}
+        ${swatches.length > 1
+          ? html`<div>
+              <div class="ui-label mb-3">${translateText("store.color")}</div>
+              ${uiSwatches({
+                swatches,
+                value: active.key,
+                onChange: (key) => {
+                  const variant = group.find((item) => item.key === key);
+                  if (variant) this.inspect(variant);
+                },
+              })}
+            </div>`
+          : nothing}
+        ${uiDetailRows([
+          {
+            label: translateText("store.rarity"),
+            value: cosmeticRarityLabel(active),
+          },
+        ])}`,
+      action: worn
+        ? uiButton({
+            label: translateText("inventory.unequip"),
+            block: true,
+            name: "unequip",
+            onClick: () => this.unequip(active),
+          })
+        : uiButton({
+            label: translateText("inventory.equip"),
+            variant: "primary",
+            block: true,
+            name: "equip",
+            onClick: () => this.equip(active),
+          }),
+    });
   }
 
   /**
@@ -641,70 +810,86 @@ export class InventoryModal extends BaseModal {
         : (this.userMeResponse.player.currency?.soft ?? null);
     const showStore = isLoggedIn && ACCOUNT_FEATURES.store;
     const showSignIn = !isLoggedIn && ACCOUNT_FEATURES.accounts;
-    return html`<div class="flex items-center gap-4">
-      ${isLoggedIn && credits !== null
-        ? html`<currency-display
-            data-inventory-credits
-            .soft=${credits}
-          ></currency-display>`
-        : nothing}
-      ${showStore || showSignIn
-        ? html`<o-button
-            data-inventory-header-action
-            class="no-crazygames"
-            variant=${isLoggedIn ? "primary" : "danger"}
-            size="sm"
-            .translationKey=${isLoggedIn
-              ? "main.store"
-              : "common.not_logged_in"}
-            @click=${() => {
+    return html`${isLoggedIn && credits !== null
+      ? html`<span data-inventory-credits
+          >${uiStatusChip(
+            html`<credits-icon .size=${18}></credits-icon
+              >${formatCurrencyAmount(credits)}`,
+          )}</span
+        >`
+      : nothing}
+    ${showStore || showSignIn
+      ? html`<span class="no-crazygames">
+          ${uiButton({
+            label: isLoggedIn
+              ? html`${translateText("main.store")}${uiIcons.arrowRight()}`
+              : translateText("common.not_logged_in"),
+            name: isLoggedIn ? "store" : "sign-in",
+            onClick: () => {
               if (isLoggedIn) {
                 this.close();
                 window.location.hash = "modal=store&tab=cosmetics";
               } else {
                 window.showPage?.("page-account");
               }
-            }}
-          ></o-button>`
-        : nothing}
-    </div>`;
+            },
+          })}
+        </span>`
+      : nothing}`;
   }
 
   protected renderHeaderSlot() {
     const isLoggedIn = this.userMeResponse !== false;
-    return html`
-      <div
-        class="relative flex flex-col border-b border-white/10 pb-4 shrink-0"
-      >
-        ${modalHeader({
-          title: translateText("inventory.title"),
-          onBack: () => this.close(),
-          ariaLabel: translateText("common.back"),
-          rightContent: this.renderHeaderActions(isLoggedIn),
-        })}
+    return html`${uiPageHeader({
+      title: translateText("inventory.title"),
+      backLabel: translateText("common.back"),
+      onBack: () => this.close(),
+      controls: this.isModalOpen ? this.renderLoadoutMenu() : undefined,
+      status: this.renderHeaderActions(isLoggedIn),
+    })}
+    ${this.previewingCosmetic
+      ? html`<cosmetic-preview-modal
+          .resolved=${this.previewingCosmetic}
+          @close-preview=${() => {
+            this.previewingCosmetic = null;
+          }}
+        ></cosmetic-preview-modal>`
+      : nothing}`;
+  }
 
-        <div class="md:flex items-center gap-2 justify-center mt-4">
-          <input
-            class="h-12 w-full max-w-md border border-white/10 bg-black/60
-              rounded-xl shadow-inner text-xl text-center focus:outline-none
-              focus:ring-2 focus:ring-df-red/50 focus:border-df-red text-white placeholder-white/30 transition-all"
-            type="text"
-            placeholder=${translateText("cosmetics.search")}
-            .value=${this.search}
-            @change=${this.handleSearch}
-            @keyup=${this.handleSearch}
-          />
-        </div>
-      </div>
-      ${this.previewingCosmetic
-        ? html`<cosmetic-preview-modal
-            .resolved=${this.previewingCosmetic}
-            @close-preview=${() => {
-              this.previewingCosmetic = null;
-            }}
-          ></cosmetic-preview-modal>`
-        : nothing}
-    `;
+  private effectTabs() {
+    const tabs = uiTabs({
+      tabs: EFFECT_TYPES.map((type) => ({
+        key: type,
+        label: translateText(`effects.type.${type}`),
+      })),
+      value: this.effectType,
+      onChange: (key) => {
+        this.effectType = key as EffectType;
+        this.pages.reset();
+      },
+      ariaLabel: translateText("store.effects"),
+      name: "inventory-effects",
+    });
+    const nuke =
+      this.effectType === "nukeExplosion"
+        ? html`<div class="px-6 pt-4">
+            ${uiSegmented({
+              options: NUKE_EXPLOSION_TYPES.map((type) => ({
+                key: type,
+                label: translateText(`effects.nukeType.${type}`),
+              })),
+              value: this.nukeType,
+              onChange: (key) => {
+                this.nukeType = key;
+                this.pages.reset();
+              },
+              ariaLabel: translateText("store.effects"),
+              name: "nuke-type",
+            })}
+          </div>`
+        : nothing;
+    return html`${tabs}${nuke}`;
   }
 
   protected renderBody(tab: string) {
@@ -712,21 +897,25 @@ export class InventoryModal extends BaseModal {
     // mounted: skip building a grid no one can see from the main menu.
     if (!this.isModalOpen) return html``;
     if (this.isLoading || this.ownershipState === "loading") {
-      return html`<div data-inventory-state="loading" aria-busy="true">
+      return html`<div
+        data-inventory-state="loading"
+        aria-busy="true"
+        class="p-6"
+      >
         <span class="sr-only">${translateText("inventory.loading")}</span>
         <div
           data-inventory-skeleton="loadout"
-          class="mx-3 my-2 h-28 animate-pulse rounded-xl bg-white/5"
+          class="my-2 h-28 animate-pulse rounded-ui-card bg-ui-surface"
         ></div>
         <div
           data-inventory-skeleton="grid"
-          class="mx-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3"
         >
           ${Array.from(
             { length: 6 },
             () =>
               html`<div
-                class="aspect-square animate-pulse rounded-xl bg-white/5"
+                class="aspect-square animate-pulse rounded-ui-card bg-ui-surface"
               ></div>`,
           )}
         </div>
@@ -735,14 +924,14 @@ export class InventoryModal extends BaseModal {
     if (this.loadFailed || this.ownershipState === "error") {
       return html`<div
         data-inventory-state="error"
-        class="flex flex-col items-center gap-4 p-8 text-center text-red-300"
+        class="flex flex-col items-center gap-4 p-8 text-center text-ui-accent-soft"
       >
         <p>${translateText("inventory.load_failed")}</p>
         <button
           type="button"
           data-inventory-retry
           ?disabled=${this.isLoading}
-          class="rounded-lg bg-df-red px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          class="ui-focus min-h-11 rounded-ui-card bg-ui-accent px-5 font-ui text-[13px] font-bold uppercase tracking-[0.06em] text-white disabled:cursor-not-allowed disabled:opacity-50"
           @click=${(event: Event) => {
             if (this.isLoading) return;
             (event.currentTarget as HTMLButtonElement).disabled = true;
@@ -753,45 +942,84 @@ export class InventoryModal extends BaseModal {
         </button>
       </div>`;
     }
-    let grid: TemplateResult;
-    if (tab === "flags") {
-      grid = html`${this.renderUnequip("flags")}${this.renderFlagGrid()}`;
-    } else if (tab === "crowns" && this.catalogHasCrowns()) {
-      grid = html`${this.renderUnequip("crowns")}${this.renderCrownGrid()}`;
-    } else if (tab === "effects") {
-      // effects-grid raises its own per-type empty notice below its tab bar,
-      // so there is nothing to say above it here.
-      grid = html`<div data-inventory-grid="effects" class="min-w-0">
-        <effects-grid
-          mode="select"
-          tabbed
-          .cosmetics=${this.cosmetics}
-          .userMeResponse=${this.userMeResponse}
-          .search=${this.search}
-        ></effects-grid>
-      </div>`;
-    } else {
-      grid = html`${this.renderUnequip("skins")}${this.renderSkinGrid()}`;
-    }
+    const activeTab =
+      tab === "crowns" && !this.catalogHasCrowns() ? "skins" : tab;
+    const groups = this.groupsFor(activeTab);
+    const page = this.pages.page(
+      `inventory-${activeTab}`,
+      `${this.search}:${this.effectType}:${this.nukeType}`,
+      groups,
+    );
     const category = tab as InventoryCategory;
-    return html`
-      ${this.ownershipState === "guest"
-        ? html`<div data-inventory-sign-in>
+    const owned = groups.length;
+    const content = html`${this.ownershipState === "guest"
+        ? html`<div data-inventory-sign-in class="px-6 pt-6">
             ${signedOutNotice(
               () => window.showPage?.("page-account"),
               translateText("inventory.sign_in_for_cosmetics"),
             )}
           </div>`
         : nothing}
-      ${this.renderLoadoutMenu()}
-      <inventory-loadout-bar
-        .entries=${this.loadoutEntries()}
-        .activeCategory=${category}
-        .onCategorySelect=${(selected: InventoryCategory) =>
-          this.setActiveTab(selected)}
-      ></inventory-loadout-bar>
-      <div class="px-3 pb-3">${grid}</div>
-    `;
+      <div class="flex items-center justify-between px-6 pb-3 pt-6">
+        <h2 class="ui-label">${translateText("inventory.equipped_heading")}</h2>
+        <span data-inventory-unequip-all-wrap>
+          ${uiButton({
+            label: translateText("inventory.unequip_all"),
+            variant: "text",
+            disabled: !this.hasEquippedCosmetic(),
+            name: "unequip-all",
+            onClick: () => this.unequipAll(),
+          })}
+        </span>
+      </div>
+      <div class="px-6">
+        <inventory-loadout-bar
+          .entries=${this.loadoutEntries()}
+          .activeCategory=${category}
+          .onCategorySelect=${(selected: InventoryCategory) =>
+            this.setActiveTab(selected)}
+        ></inventory-loadout-bar>
+      </div>
+      <div class="mt-6 border-t border-ui-border"></div>
+      ${activeTab === "effects" ? this.effectTabs() : nothing}
+      <div class="flex flex-wrap items-center justify-between gap-3 px-6 pt-5">
+        <div class="flex items-baseline gap-3">
+          <h2 class="ui-heading text-ui-text">
+            ${translateText(
+              activeTab === "effects"
+                ? "store.effects"
+                : activeTab === "flags"
+                  ? "store.flags"
+                  : activeTab === "crowns"
+                    ? "store.crowns"
+                    : "store.patterns",
+            )}
+          </h2>
+          <span
+            data-inventory-count
+            class="ui-label normal-case tracking-normal"
+            >${translateText("inventory.owned_count", { count: owned })}</span
+          >
+        </div>
+        <div class="w-full sm:w-[280px]">
+          ${uiSearch({
+            value: this.search,
+            placeholder: translateText("cosmetics.search"),
+            ariaLabel: translateText("cosmetics.search"),
+            onInput: (value) => (this.search = value),
+          })}
+        </div>
+      </div>
+      <div class="p-6">
+        ${owned === 0 ? this.renderEmptyState(activeTab) : nothing}
+        <div
+          data-inventory-grid=${activeTab}
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
+        >
+          ${page.items.map((group) => this.renderItemCard(group))}${page.more}
+        </div>
+      </div>`;
+    return uiTwoColumn({ content, detail: this.renderDetailPanel(groups) });
   }
 
   public open(args?: Record<string, unknown>): void {
@@ -823,8 +1051,13 @@ export class InventoryModal extends BaseModal {
 
   // A query typed for skins rarely matches anything in flags, so a stale
   // search reads as an empty tab. Reset it whenever the category changes.
-  protected onTabEnter(_key: string): void {
+  protected onTabEnter(key: string): void {
     this.search = "";
+    // Effects open on their first category, as they always have.
+    if (key === "effects") {
+      this.effectType = EFFECT_TYPES[0];
+      this.nukeType = NUKE_EXPLOSION_TYPES[0];
+    }
   }
 
   private selectCosmetic(resolved: ResolvedCosmetic) {

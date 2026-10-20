@@ -165,10 +165,10 @@ describe("Clan Games stats navigation", () => {
     window.showPage?.("page-clan");
     modal.open({ clan: "TST" });
     await waitForClanModal(modal, () => {
-      const shell = modal.querySelector("o-modal") as ModalShell;
-      expect(shell.shadowRoot?.textContent).toContain(
-        "clan_modal.tab_game_history",
-      );
+      // the detail tabs are the page's own underline tabs (light DOM)
+      expect(
+        modal.querySelector('[data-ui-tabs="clan-tabs"]')?.textContent,
+      ).toContain("clan_modal.tab_game_history");
     });
     modal.setActiveTab("game-history");
     await waitForClanModal(modal, () => {

@@ -177,7 +177,7 @@ describe("the Capital System card's CRISIS length choice", () => {
     const settings = document.createElement("game-config-settings") as any;
     const container = document.createElement("div");
     document.body.append(container);
-    render(settings.renderCapitalSystemToggle(toggle), container);
+    render(settings.renderOptionToggle(toggle), container);
     return { settings, container };
   }
 

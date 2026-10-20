@@ -37,16 +37,21 @@ export class InventoryLoadoutBar extends LitElement {
 
     return html`<div
       data-loadout-previews
-      class="flex h-10 items-center justify-center ${entry.category ===
+      class="flex h-12 w-12 shrink-0 items-center justify-center ${entry.category ===
       "effects"
         ? "-space-x-3"
         : ""}"
     >
+      ${items.length === 0
+        ? html`<div
+            class="h-12 w-12 rounded-ui-card border border-ui-border bg-ui-ground"
+          ></div>`
+        : nothing}
       ${items.map(
         (item, index) =>
           html`<div
             data-loadout-preview
-            class="h-10 w-10 overflow-hidden rounded-lg border border-white/20 bg-black/30 p-1 ${entry.category ===
+            class="h-12 w-12 shrink-0 overflow-hidden rounded-ui-card border border-ui-border-strong bg-ui-ground p-1 ${entry.category ===
             "effects"
               ? "relative"
               : ""}"
@@ -60,7 +65,7 @@ export class InventoryLoadoutBar extends LitElement {
       ${hiddenCount > 0
         ? html`<span
             data-loadout-more
-            class="relative z-10 flex h-7 min-w-7 items-center justify-center rounded-full border border-white/20 bg-slate-800 px-1 text-xs font-black text-white"
+            class="ui-mono relative z-10 flex h-6 min-w-6 items-center justify-center rounded-full border border-ui-border-strong bg-ui-surface px-1 text-[11px] font-bold text-ui-text"
             >+${hiddenCount}</span
           >`
         : nothing}
@@ -73,35 +78,39 @@ export class InventoryLoadoutBar extends LitElement {
       aria-label=${translateText("inventory.loadout")}
     >
       <h2 class="sr-only">${translateText("inventory.loadout")}</h2>
-      <div class="overflow-x-auto overflow-y-visible px-3 py-2">
-        <div class="mx-auto flex w-max min-w-max gap-3">
-          ${this.entries.map((entry) => {
-            const isActive = entry.category === this.activeCategory;
-            const ariaSummary =
-              entry.category === "effects"
-                ? translateText("inventory.showing_effects", {
-                    count: entry.items.length,
-                  })
-                : entry.summary;
-            return html`<button
-              type="button"
-              data-loadout-category=${entry.category}
-              aria-pressed=${isActive ? "true" : "false"}
-              aria-label=${translateText("inventory.loadout_category_label", {
-                category: entry.label,
-                summary: ariaSummary,
-              })}
-              class="flex min-h-24 min-w-36 flex-col items-center justify-center gap-1 rounded-xl border p-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-df-red focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${isActive
-                ? "border-df-red bg-df-red/20 text-white"
-                : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10"}"
-              @click=${() => this.onCategorySelect?.(entry.category)}
-            >
-              ${this.renderPreviews(entry)}
-              <span class="text-sm font-bold">${entry.label}</span>
-              <span class="text-xs text-white/60">${entry.summary}</span>
-            </button>`;
-          })}
-        </div>
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        ${this.entries.map((entry) => {
+          const isActive = entry.category === this.activeCategory;
+          const ariaSummary =
+            entry.category === "effects"
+              ? translateText("inventory.showing_effects", {
+                  count: entry.items.length,
+                })
+              : entry.summary;
+          return html`<button
+            type="button"
+            data-loadout-category=${entry.category}
+            aria-pressed=${isActive ? "true" : "false"}
+            aria-label=${translateText("inventory.loadout_category_label", {
+              category: entry.label,
+              summary: ariaSummary,
+            })}
+            class="ui-focus flex min-h-[72px] min-w-0 items-center gap-3 rounded-ui-card border bg-ui-surface p-3 text-left transition-colors cursor-pointer ${isActive
+              ? "border-ui-accent bg-ui-accent-tint ring-1 ring-ui-accent"
+              : "border-ui-border hover:border-ui-border-hover"}"
+            @click=${() => this.onCategorySelect?.(entry.category)}
+          >
+            ${this.renderPreviews(entry)}
+            <span class="flex min-w-0 flex-col gap-0.5">
+              <span class="ui-body truncate font-bold text-ui-text"
+                >${entry.label}</span
+              >
+              <span class="ui-body truncate text-[12px] text-ui-muted"
+                >${entry.summary}</span
+              >
+            </span>
+          </button>`;
+        })}
       </div>
     </section>`;
   }

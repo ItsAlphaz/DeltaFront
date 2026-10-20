@@ -3,7 +3,10 @@ import type { Cosmetics } from "@openfront/shared/CosmeticSchemas";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getUserMe } from "../../src/client/Api";
 import { userAuth } from "../../src/client/Auth";
-import { fetchCosmetics } from "../../src/client/Cosmetics";
+import {
+  fetchCosmetics,
+  type ResolvedCosmetic,
+} from "../../src/client/Cosmetics";
 import "../../src/client/InventoryModal";
 import type { InventoryModal } from "../../src/client/InventoryModal";
 import { modalRouter } from "../../src/client/ModalRouter";
@@ -14,7 +17,6 @@ import {
   USER_SETTINGS_CHANGED_EVENT,
   UserSettings,
 } from "../../src/client/UserSettings";
-import type { CosmeticCard } from "../../src/client/components/CosmeticCard";
 
 vi.mock("../../src/client/Api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/client/Api")>()),
@@ -104,22 +106,47 @@ const redKey = "pattern:stripes:red";
 const blueKey = "pattern:stripes:blue";
 const greenKey = "pattern:stripes:green";
 
-function cardFor(
-  root: InventoryModal | StoreModal,
-  key: string,
-): CosmeticCard | undefined {
-  return [...root.querySelectorAll<CosmeticCard>("cosmetic-card")].find(
-    (candidate) =>
-      candidate.resolved.key === key ||
-      candidate.variants.some((variant) => variant.key === key),
-  );
-}
-
 // The Store's selection (the item its panel shows), and a colour swatch in that panel.
 const storeInspected = (store: StoreModal): string | undefined =>
   (store as unknown as { inspected: { key: string } | null }).inspected?.key;
 const storeSwatch = (store: StoreModal, key: string) =>
   store.querySelector<HTMLButtonElement>(`[data-variant-key="${key}"]`)!;
+
+type InventoryInternals = {
+  resolvedItems(): ResolvedCosmetic[];
+  groupsFor(tab: string): readonly (readonly ResolvedCosmetic[])[];
+  isEquipped(item: ResolvedCosmetic): boolean;
+  activeTab: string;
+};
+
+/** The Inventory's card for a key, with the state a tile used to carry ("equipped" when worn). */
+function cardFor(root: InventoryModal, key: string) {
+  const m = root as unknown as InventoryInternals;
+  const group = m
+    .groupsFor(m.activeTab)
+    .find((candidate) => candidate.some((variant) => variant.key === key));
+  const el = [
+    ...root.querySelectorAll<HTMLElement>('[data-ui-item="inventory-item"]'),
+  ].find((candidate) => candidate.dataset.key === group?.[0].key);
+  const item = group?.find((variant) => variant.key === key);
+  if (!el || !item) return undefined;
+  return {
+    el,
+    get state() {
+      return m.isEquipped(item) ? "equipped" : "idle";
+    },
+  };
+}
+
+/** Select the colour in the panel, then wear it with Equip. */
+async function equipVariant(root: InventoryModal, key: string) {
+  cardFor(root, key)!.el.click();
+  await root.updateComplete;
+  root.querySelector<HTMLButtonElement>(`[data-variant-key="${key}"]`)!.click();
+  await root.updateComplete;
+  root.querySelector<HTMLButtonElement>('[data-ui-button="equip"]')!.click();
+  await root.updateComplete;
+}
 
 function expectNoNestedInteractiveControls(root: ParentNode): void {
   const interactive = "button, a, input, select, textarea, [role='button']";
@@ -221,10 +248,7 @@ describe("Cosmetic locker integration", () => {
     inventory.open({ tab: "skins" });
     await inventory.updateComplete;
 
-    cardFor(inventory, blueKey)!
-      .querySelector<HTMLButtonElement>(`[data-variant-key="${blueKey}"]`)!
-      .click();
-    await inventory.updateComplete;
+    await equipVariant(inventory, blueKey);
 
     expect(settingsChangeCount).toBe(1);
     expect(
@@ -273,12 +297,9 @@ describe("Cosmetic locker integration", () => {
     expectNoNestedInteractiveControls(inventory);
     expectNoNestedInteractiveControls(store);
 
-    const inventoryCard = cardFor(inventory, blueKey)!;
-    const inventoryMain = inventoryCard.querySelector<HTMLButtonElement>(
-      "button[data-cosmetic-main]",
-    );
-    expect(inventoryMain?.tagName).toBe("BUTTON");
-    expect(inventoryMain?.type).toBe("button");
+    const inventoryMain = cardFor(inventory, blueKey)!.el as HTMLButtonElement;
+    expect(inventoryMain.tagName).toBe("BUTTON");
+    expect(inventoryMain.type).toBe("button");
     // the Store's card is itself one button, and its colours are buttons in the panel
     const storeCard = store.querySelector<HTMLButtonElement>(
       '[data-ui-item="store-product"]',
@@ -290,22 +311,26 @@ describe("Cosmetic locker integration", () => {
     )) {
       expect(swatch.type).toBe("button");
     }
+    // the colours of the selected skin are buttons in the Inventory's panel too
+    cardFor(inventory, blueKey)!.el.click();
+    await inventory.updateComplete;
     const inventorySwatches = [
-      ...inventoryCard.querySelectorAll<HTMLButtonElement>(
+      ...inventory.querySelectorAll<HTMLButtonElement>(
         "button[data-variant-key]",
       ),
     ];
-    expect(inventorySwatches).toHaveLength(2);
+    expect(inventorySwatches.length).toBeGreaterThanOrEqual(2);
     for (const swatch of inventorySwatches) {
       expect(swatch.tagName).toBe("BUTTON");
       expect(swatch.type).toBe("button");
     }
 
+    // the slot cards reflow instead of scrolling: two across, four from lg
     expect(
       inventory
         .querySelector("inventory-loadout-bar")
-        ?.querySelector(".overflow-x-auto"),
-    ).toBeTruthy();
+        ?.querySelector("section > div")?.classList,
+    ).toContain("grid-cols-2");
     expect(
       inventory.querySelector("[data-inventory-grid]")?.classList,
     ).toContain("grid-cols-2");

@@ -23,6 +23,8 @@ export class CopyButton extends LitElement {
   @property({ type: Boolean, attribute: "show-copy-icon" })
   showCopyIcon = true;
   @property({ type: Boolean }) compact = false;
+  /** A small label before the code ("CODE"). */
+  @property({ type: String }) heading = "";
 
   @state() private lobbyIdVisible = true;
 
@@ -117,7 +119,7 @@ export class CopyButton extends LitElement {
       return html`
         <button
           @click=${this.handleCopy}
-          class="text-xs text-white/60 font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5 hover:bg-white/10 hover:text-white transition-colors ${disabledClass}"
+          class="ui-focus ui-mono rounded-[6px] border border-ui-border bg-ui-surface px-2 py-0.5 text-[12px] text-ui-muted transition-colors hover:border-ui-border-hover hover:text-ui-text ${disabledClass}"
           title="${translateText("common.click_to_copy")}"
           aria-label="${translateText("common.click_to_copy")}"
           ?disabled=${!canCopy}
@@ -130,12 +132,27 @@ export class CopyButton extends LitElement {
 
     return html`
       <div
-        class="flex items-center gap-0.5 bg-white/5 rounded-lg px-2 py-1 border border-white/10 max-w-[220px] flex-nowrap"
+        class="flex h-11 max-w-[320px] flex-nowrap items-center gap-1 rounded-ui-card border border-ui-border-strong bg-ui-surface px-3"
       >
+        ${this.heading
+          ? html`<span class="ui-label mr-1 shrink-0">${this.heading}</span>`
+          : ""}
+        <button
+          @click=${this.handleCopy}
+          @dblclick=${this.enableSelectAll}
+          @mouseleave=${this.clearSelectAll}
+          class="ui-focus ui-mono min-w-[80px] cursor-pointer select-none truncate border-0 bg-transparent px-2 text-center text-[14px] font-semibold tracking-wider text-ui-text ${disabledClass}"
+          title="${translateText("common.click_to_copy")}"
+          aria-label="${translateText("common.click_to_copy")}"
+          ?disabled=${!canCopy}
+          type="button"
+        >
+          ${label}
+        </button>
         ${this.showVisibilityToggle
           ? html`<button
               @click=${this.toggleVisibility}
-              class="p-1.5 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors ${toggleClass}"
+              class="ui-focus flex h-9 w-9 items-center justify-center rounded-[8px] text-ui-muted transition-colors hover:text-ui-text cursor-pointer ${toggleClass}"
               title="${translateText("user_setting.toggle_visibility")}"
               ?disabled=${toggleDisabled}
               type="button"
@@ -173,22 +190,10 @@ export class CopyButton extends LitElement {
                   </svg>`}
             </button>`
           : ""}
-        <button
-          @click=${this.handleCopy}
-          @dblclick=${this.enableSelectAll}
-          @mouseleave=${this.clearSelectAll}
-          class="font-mono text-xs font-bold text-white px-2 cursor-pointer select-none min-w-[80px] text-center truncate tracking-wider bg-transparent border-0 ${disabledClass}"
-          title="${translateText("common.click_to_copy")}"
-          aria-label="${translateText("common.click_to_copy")}"
-          ?disabled=${!canCopy}
-          type="button"
-        >
-          ${label}
-        </button>
         ${this.showCopyIcon
           ? html`<button
               @click=${this.handleCopy}
-              class="p-1.5 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors ${disabledClass}"
+              class="ui-focus flex h-9 items-center gap-1.5 rounded-[8px] px-2 text-[13px] font-semibold text-ui-muted transition-colors hover:text-ui-text cursor-pointer ${disabledClass}"
               title="${translateText("common.click_to_copy")}"
               aria-label="${translateText("common.click_to_copy")}"
               ?disabled=${!canCopy}
@@ -205,6 +210,9 @@ export class CopyButton extends LitElement {
                   d="M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
                 />
               </svg>
+              <span class="hidden sm:inline"
+                >${translateText("common.copy")}</span
+              >
             </button>`
           : ""}
       </div>

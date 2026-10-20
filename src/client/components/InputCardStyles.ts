@@ -1,12 +1,9 @@
-export const ACTIVE_CARD =
-  "bg-df-red/20 border-df-red/50 shadow-[var(--shadow-df-red)]";
-export const INACTIVE_CARD =
-  "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20";
+// Shared look of the lobby's value rows (a checkbox and its label on the left, a
+// number on the right): the account pages' design system (components/ui/PageUi.ts).
 export const INPUT_CLASS =
-  "w-full text-center rounded bg-black/60 text-white text-sm font-bold border border-white/20 focus:outline-none focus:border-df-red p-1 my-1";
-export const CARD_LABEL_CLASS =
-  "text-xs uppercase font-bold tracking-wider leading-tight break-words hyphens-auto";
+  "ui-focus ui-mono h-11 w-28 rounded-ui-card border border-ui-border-strong bg-ui-panel px-3 text-right text-[14px] text-ui-text placeholder:text-ui-placeholder";
 
-export function cardClass(active: boolean, extra = ""): string {
-  return `w-full h-full rounded-xl border cursor-pointer transition-all duration-200 active:scale-95 relative overflow-hidden ${extra} ${active ? ACTIVE_CARD : INACTIVE_CARD}`;
-}
+export const VALUE_ROW_CLASS =
+  "flex min-h-14 w-full items-center gap-3 rounded-ui-card border border-ui-border bg-ui-surface px-4 py-2";
+
+export const ROW_LABEL_CLASS = "ui-body min-w-0 truncate text-ui-text";

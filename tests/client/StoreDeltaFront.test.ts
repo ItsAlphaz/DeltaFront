@@ -19,7 +19,6 @@ import "../../src/client/InventoryModal";
 import type { InventoryModal } from "../../src/client/InventoryModal";
 import "../../src/client/Store";
 import type { StoreModal } from "../../src/client/Store";
-import type { CosmeticCard } from "../../src/client/components/CosmeticCard";
 import "../../src/client/components/DesktopNavBar";
 import "../../src/client/components/MobileNavBar";
 import type { PurchaseButton } from "../../src/client/components/PurchaseButton";
@@ -413,9 +412,14 @@ describe("buying", () => {
     await inventory.updateComplete;
     inventory.setActiveTab("skins");
     await inventory.updateComplete;
-    const keys = [
-      ...inventory.querySelectorAll<CosmeticCard>("cosmetic-card"),
-    ].flatMap((c) => [c.resolved.key, ...c.variants.map((v) => v.key)]);
+    const keys = (
+      inventory as unknown as {
+        groupsFor(tab: string): readonly (readonly { key: string }[])[];
+      }
+    )
+      .groupsFor("skins")
+      .flat()
+      .map((item) => item.key);
     expect(keys).toContain("pattern:grid_check:ember");
     expect(keys).toContain("pattern:delta_stripes:ash");
     expect(keys).not.toContain("pattern:delta_stripes:ember");

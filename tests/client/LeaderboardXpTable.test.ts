@@ -69,14 +69,18 @@ describe("<leaderboard-xp-table>", () => {
       .mockResolvedValueOnce({ players: [row(2, "bob", 500)] })
       .mockResolvedValueOnce("reached_limit");
     await mount("lifetime");
-    (table.querySelector("[data-xp-more]") as HTMLButtonElement).click();
+    (
+      table.querySelector('[data-ui-button="load-more"]') as HTMLButtonElement
+    ).click();
     await vi.waitFor(() =>
       expect(table.querySelectorAll("[data-xp-row]")).toHaveLength(2),
     );
     expect(fetchXpLeaderboard).toHaveBeenLastCalledWith(2);
-    (table.querySelector("[data-xp-more]") as HTMLButtonElement).click();
+    (
+      table.querySelector('[data-ui-button="load-more"]') as HTMLButtonElement
+    ).click();
     await vi.waitFor(() =>
-      expect(table.querySelector("[data-xp-more]")).toBeNull(),
+      expect(table.querySelector('[data-ui-button="load-more"]')).toBeNull(),
     );
     expect(table.querySelectorAll("[data-xp-row]")).toHaveLength(2);
   });
@@ -130,5 +134,44 @@ describe("<leaderboard-xp-table>", () => {
     fetchXpLeaderboard.mockResolvedValue(false);
     await mount("lifetime");
     expect(table.querySelector("[data-xp-error]")).not.toBeNull();
+  });
+
+  it("highlights the signed-in player's row with a You tag, and gives rank 1 the gold badge", async () => {
+    fetchXpLeaderboard.mockResolvedValue({
+      players: [row(1, "ann", 9000, 40), row(2, "bob", 500)],
+    });
+    table = document.createElement(
+      "leaderboard-xp-table",
+    ) as LeaderboardXpTable;
+    table.mode = "lifetime";
+    table.currentPublicId = "id2";
+    document.body.appendChild(table);
+    await table.updateComplete;
+    await table.ensureLoaded();
+    await table.updateComplete;
+    const [first, second] = [...table.querySelectorAll("[data-xp-row]")];
+    expect(first.getAttribute("data-current-user")).toBe("false");
+    expect(second.getAttribute("data-current-user")).toBe("true");
+    expect(second.className).toContain("bg-ui-accent-tint");
+    expect(second.textContent).toContain("leaderboard_modal.you");
+    expect(first.textContent).not.toContain("leaderboard_modal.you");
+    expect(
+      first.querySelector("[data-rank-badge]")?.getAttribute("data-rank-badge"),
+    ).toBe("gold");
+    expect(
+      second
+        .querySelector("[data-rank-badge]")
+        ?.getAttribute("data-rank-badge"),
+    ).toBe("plain");
+    // what "Your standing" reads
+    expect(table.myRank()).toBe(2);
+  });
+
+  it("has no rank for a player who is not on the loaded rows", async () => {
+    fetchXpLeaderboard.mockResolvedValue({ players: [row(1, "ann", 9000)] });
+    await mount("lifetime");
+    table.currentPublicId = "someone-else";
+    expect(table.myRank()).toBeNull();
+    expect(table.jumpToMe()).toBe(false);
   });
 });

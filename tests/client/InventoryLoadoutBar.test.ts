@@ -79,7 +79,10 @@ describe("InventoryLoadoutBar", () => {
     await bar.updateComplete;
 
     expect(bar.querySelectorAll("[data-loadout-category]")).toHaveLength(4);
-    expect(bar.querySelector(".mx-auto.w-max.min-w-max")).toBeTruthy();
+    // four slot cards in a grid: two across below lg, four from lg up
+    const grid = bar.querySelector("section > div")!;
+    expect(grid.classList).toContain("grid-cols-2");
+    expect(grid.classList).toContain("lg:grid-cols-4");
     expect(
       bar
         .querySelector('[data-loadout-category="skins"]')
