@@ -205,6 +205,17 @@ describe("inputs", () => {
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
+  it("a switch row positions its hidden input inside its own label, so clicking it never scrolls the page away", () => {
+    // The input is visually hidden (sr-only is position:absolute with no offsets).
+    // Unless its label is the positioned parent it sits wherever the browser
+    // puts it, and a real click, which focuses it, scrolls the page's
+    // overflow-hidden shell out from under the modal: a blank screen.
+    mount(uiSwitchRow({ label: "Bots", checked: false, onChange: vi.fn() }));
+    const input = q<HTMLInputElement>("input");
+    expect(input.className).toContain("sr-only");
+    expect(input.closest("label")!.className).toMatch(/(^|\s)relative(\s|$)/);
+  });
+
   it("a value row is a checkbox with a number beside it, disabled until checked", () => {
     const onValue = vi.fn();
     mount(

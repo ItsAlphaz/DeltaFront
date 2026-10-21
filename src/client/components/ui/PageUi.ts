@@ -361,7 +361,7 @@ export function uiSwitchRow(props: {
     class="rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3 hover:border-ui-border-hover"
   >
     <label
-      class="ui-focus flex min-h-8 cursor-pointer items-center justify-between gap-4"
+      class="ui-focus relative flex min-h-8 cursor-pointer items-center justify-between gap-4"
     >
       <span class="min-w-0">
         <span class="ui-body block text-ui-text">${props.label}</span>

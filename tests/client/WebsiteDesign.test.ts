@@ -150,6 +150,10 @@ describe("the settings rows", () => {
     const input = el.querySelector<HTMLInputElement>("input")!;
     expect(input.getAttribute("role")).toBe("switch");
     expect(el.querySelector("label")!.className).toContain("rounded-ui-card");
+    // its hidden input is positioned inside the row (see the switch row test in PageUi.test.ts)
+    expect(el.querySelector("label")!.className).toMatch(
+      /(^|\s)relative(\s|$)/,
+    );
     expect(el.textContent).toContain("Alert Frame");
     expect(el.textContent).toContain("Show the frame");
   });

@@ -28,7 +28,7 @@ export class SettingToggle extends LitElement {
   render() {
     return html`
       <label
-        class="${ROW} ${this.disabled
+        class="relative ${ROW} ${this.disabled
           ? "cursor-not-allowed opacity-50"
           : "cursor-pointer"} ${this.easter ? RAINBOW : ""}"
       >

@@ -283,6 +283,102 @@ const shot = async (name) => {
   await g.b.shot(name);
   console.log("shot", name);
 };
+// toggles: flip every switch on the Create Lobby and Solo pages and report what breaks (blank page, errors)
+for (const page of pages) {
+  if (page === "toggles") {
+    for (const id of ["page-host-lobby", "page-single-player"].filter(
+      (x) => !process.env.ONLY || x === process.env.ONLY,
+    )) {
+      await g.ev(
+        `window.__errs=[]; window.addEventListener('error',e=>window.__errs.push('error: '+(e.message||'')+' '+(e.error&&e.error.stack||'').split('\\n').slice(0,4).join(' | '))); window.addEventListener('unhandledrejection',e=>window.__errs.push('rejection: '+(e.reason&&e.reason.stack||e.reason))); window.showPage('${id}'); 1`,
+      );
+      await sleep(3000);
+      const jump = await g.ev(
+        `(()=>{ const j=[...document.querySelectorAll('[data-config-jump]')].map(e=>e.dataset.configJump); return j })()`,
+      );
+      console.log(id, "sections", JSON.stringify(jump));
+      for (const section of jump ?? []) {
+        await g.ev(
+          `document.querySelector('[data-config-jump="${section}"]')?.click(); 1`,
+        );
+        await sleep(500);
+        const n = await g.ev(
+          `document.querySelectorAll('[role="switch"]').length`,
+        );
+        for (let i = 0; i < n; i++) {
+          await g.ev(
+            `document.querySelectorAll('[role="switch"]')[${i}]?.click(); 1`,
+          );
+          await sleep(400);
+          const state = await g.ev(
+            `(()=>{ const m=document.querySelector('${id === "page-host-lobby" ? "host-lobby-modal" : "single-player-modal"}'); return {errs: window.__errs.slice(-3), len: m ? m.innerText.length : -1, switches: document.querySelectorAll('[role="switch"]').length, hidden: m ? m.className : null} })()`,
+          );
+          if (state.errs.length || state.len < 50) {
+            console.log(
+              "BREAK",
+              id,
+              section,
+              "switch",
+              i,
+              JSON.stringify(state),
+            );
+            await shot(`ui-toggle-break-${id}-${section}-${i}`);
+          }
+        }
+      }
+      console.log(id, "done");
+    }
+  }
+}
+// mouse: the same, with real mouse clicks on the visible switch (what a player does)
+for (const page of pages) {
+  if (page === "mouse") {
+    for (const id of ["page-single-player", "page-host-lobby"]) {
+      await g.ev(
+        `window.__errs=[]; window.addEventListener('error',e=>window.__errs.push('error: '+e.message+' '+((e.error&&e.error.stack)||'').split('\\n').slice(0,5).join(' | '))); window.addEventListener('unhandledrejection',e=>window.__errs.push('rejection: '+((e.reason&&e.reason.stack)||e.reason))); window.showPage('${id}'); 1`,
+      );
+      await sleep(3000);
+      await g.ev(
+        `document.querySelector('${id === "page-host-lobby" ? "host-lobby-modal" : "single-player-modal"} [data-config-jump="rules"]')?.click(); 1`,
+      );
+      await sleep(900);
+      for (let i = 0; i < 4; i++) {
+        const r = await g.ev(
+          `(()=>{ const t=[...document.querySelectorAll('${id === "page-host-lobby" ? "host-lobby-modal" : "single-player-modal"} [role="switch"]')][${i}]?.parentElement?.querySelector('span[aria-hidden]'); if(!t) return null; const b=t.getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2} })()`,
+        );
+        if (!r) break;
+        await sleep(300);
+        const r2 = await g.ev(
+          `(()=>{ const t=[...document.querySelectorAll('${id === "page-host-lobby" ? "host-lobby-modal" : "single-player-modal"} [role="switch"]')][${i}]?.parentElement?.querySelector('span[aria-hidden]'); const b=t.getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2} })()`,
+        );
+        await g.b.clickAt(r2.x, r2.y);
+        await sleep(900);
+        const st = await g.ev(
+          `(()=>{ const m=document.querySelector('${id === "page-host-lobby" ? "host-lobby-modal" : "single-player-modal"}'); return {errs:window.__errs.slice(-3), len: m? m.innerText.length : -1, url: location.href.slice(0,80)} })()`,
+        );
+        console.log(id, "click", i, JSON.stringify(st).slice(0, 700));
+        await shot(`ui-mouse-${id}-${i}`);
+      }
+    }
+  }
+}
+// metrics: the heights of the Solo page's layout chain before and after one switch is flipped
+for (const page of pages) {
+  if (page === "metrics") {
+    const chain = `(()=>{ const out=[]; let e=document.querySelector('single-player-modal [data-ui="two-column"]'); while(e && e!==document.body){ const r=e.getBoundingClientRect(); const cs=getComputedStyle(e); out.push(e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+'.'+String(e.className).split(' ').slice(0,3).join('.')+' h='+Math.round(r.height)+' ov='+cs.overflowY+' disp='+cs.display+' hgt='+cs.height); e=e.parentElement } return out })()`;
+    await g.ev(`window.showPage('page-single-player'); 1`);
+    await sleep(3000);
+    console.log("BEFORE", JSON.stringify(await g.ev(chain), null, 1));
+    await g.ev(
+      `document.querySelector('[data-config-jump="rules"]')?.click(); 1`,
+    );
+    await sleep(700);
+    await g.ev(`document.querySelectorAll('[role="switch"]')[2]?.click(); 1`);
+    await sleep(900);
+    console.log("AFTER", JSON.stringify(await g.ev(chain), null, 1));
+    await shot("ui-metrics-after");
+  }
+}
 for (const page of pages) {
   if (page === "bundles") {
     await g.ev(`window.showPage('page-item-store'); 1`);
