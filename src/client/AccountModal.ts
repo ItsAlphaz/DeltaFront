@@ -12,7 +12,7 @@ import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { ClientEnv } from "src/client/ClientEnv";
-import { hasLinkedIdentity } from "./AccountIdentity";
+import { hasLinkedIdentity, identityAvatarUrl } from "./AccountIdentity";
 import { fetchPlayerById, getUserMe, invalidateUserMe } from "./Api";
 import {
   discordLogin,
@@ -24,7 +24,6 @@ import {
   steamLogin,
 } from "./Auth";
 import "./components/AccountProfileHeader";
-import { identityAvatarUrl } from "./components/AccountProfileHeader";
 import "./components/baseComponents/stats/PlayerGameHistoryView";
 import type { PlayerGameHistoryCache } from "./components/baseComponents/stats/PlayerGameHistoryView";
 import "./components/baseComponents/stats/PlayerStatsTable";

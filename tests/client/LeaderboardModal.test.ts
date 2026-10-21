@@ -218,6 +218,38 @@ describe("LeaderboardModal", () => {
     vi.clearAllMocks();
   });
 
+  describe("Your standing", () => {
+    const signIn = async (user: Record<string, unknown>) => {
+      document.dispatchEvent(
+        new CustomEvent("userMeResponse", {
+          detail: { user, player: { publicId: "me", username: "Alphaz" } },
+        }),
+      );
+      await modal.updateComplete;
+    };
+
+    it("shows the account's own picture, with the initial underneath", async () => {
+      await signIn({
+        google: {
+          email: "a@b.c",
+          avatarUrl: "https://lh3.googleusercontent.com/a/pic",
+        },
+      });
+      const avatar = modal.querySelector("[data-standing-avatar]")!;
+      expect(avatar.textContent?.trim()).toBe("A");
+      expect(avatar.querySelector("img")?.getAttribute("src")).toBe(
+        "https://lh3.googleusercontent.com/a/pic",
+      );
+    });
+
+    it("shows only the initial when the account has no picture", async () => {
+      await signIn({ google: { email: "a@b.c" } });
+      const avatar = modal.querySelector("[data-standing-avatar]")!;
+      expect(avatar.textContent?.trim()).toBe("A");
+      expect(avatar.querySelector("img")).toBeNull();
+    });
+  });
+
   describe("Tooltip Implementation - Issue #2508", () => {
     it("should render Win Score and Loss Score columns with title attributes", async () => {
       // Mock fetch to return sample clan leaderboard data

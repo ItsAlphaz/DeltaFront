@@ -1,4 +1,5 @@
 import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
+import { getDiscordAvatarUrl } from "./Utils";
 
 // Steam is the primary (and, in v1, only) identity: true only when a steam
 // identity is present AND no other identity is linked. Guards the account-
@@ -43,4 +44,12 @@ export function responseHasLinkedIdentity(
   userMeResponse: UserMeResponse | false,
 ): boolean {
   return userMeResponse !== false && hasLinkedIdentity(userMeResponse.user);
+}
+
+/** The picture of the account's sign-in: Discord's avatar, else Steam's, else Google's. */
+export function identityAvatarUrl(
+  identity: UserMeResponse["user"] | null | undefined,
+): string | null {
+  if (identity?.discord) return getDiscordAvatarUrl(identity.discord);
+  return identity?.steam?.avatarUrl ?? identity?.google?.avatarUrl ?? null;
 }

@@ -4,8 +4,9 @@ import type {
 } from "@openfront/shared/ApiSchemas";
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { identityAvatarUrl } from "../AccountIdentity";
 import { titleText } from "../Progression";
-import { getDiscordAvatarUrl, translateText } from "../Utils";
+import { translateText } from "../Utils";
 import "./CurrencyDisplay";
 import { ProfileHeaderBase } from "./ProfileHeaderBase";
 import {
@@ -66,14 +67,6 @@ export function linkedHandle(
     };
   }
   return null;
-}
-
-/** The picture of the account's sign-in: Discord's avatar, else Steam's, else Google's. */
-export function identityAvatarUrl(
-  identity: UserMeResponse["user"] | null | undefined,
-): string | null {
-  if (identity?.discord) return getDiscordAvatarUrl(identity.discord);
-  return identity?.steam?.avatarUrl ?? identity?.google?.avatarUrl ?? null;
 }
 
 @customElement("account-profile-header")

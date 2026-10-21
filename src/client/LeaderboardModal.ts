@@ -3,6 +3,7 @@ import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { html, nothing } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
+import { identityAvatarUrl } from "./AccountIdentity";
 import { BaseModal } from "./components/BaseModal";
 import "./components/leaderboard/LeaderboardClanTable";
 import type { LeaderboardClanTable } from "./components/leaderboard/LeaderboardClanTable";
@@ -229,6 +230,8 @@ export class LeaderboardModal extends BaseModal {
     const progress = player.progress;
     const name = player.username ?? translateText("main.account");
     const rank = this.activeBoard()?.myRank?.() ?? null;
+    // The same picture the account page shows; the initial stays under it.
+    const avatar = identityAvatarUrl(this.me.user);
     const tile = (label: string, value: string) =>
       html`<div
         class="min-w-0 flex-1 rounded-ui-card border border-ui-border bg-ui-panel p-3.5"
@@ -244,9 +247,19 @@ export class LeaderboardModal extends BaseModal {
         </div>
         <div class="flex items-center gap-4">
           <span
+            data-standing-avatar
             aria-hidden="true"
-            class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-ui-accent bg-ui-panel text-[20px] font-bold text-ui-accent-soft"
-            >${name.charAt(0).toUpperCase()}</span
+            class="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-ui-accent bg-ui-panel text-[20px] font-bold text-ui-accent-soft"
+            >${name.charAt(0).toUpperCase()}${avatar === null
+              ? nothing
+              : html`<img
+                  class="absolute inset-0 h-full w-full object-cover"
+                  src=${avatar}
+                  alt=""
+                  @error=${(e: Event) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />`}</span
           >
           <div class="min-w-0">
             <div
