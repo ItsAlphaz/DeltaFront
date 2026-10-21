@@ -1271,6 +1271,7 @@ export class UserSettingModal extends BaseModal {
 
       <setting-keybind
         action="altKey"
+        .allowModifiers=${true}
         label=${translateText("user_setting.graphics_refresh_modifier")}
         description=${translateText(
           "user_setting.graphics_refresh_modifier_desc",
@@ -1426,6 +1427,7 @@ export class UserSettingModal extends BaseModal {
 
       <setting-keybind
         action="buildMenuModifier"
+        .allowModifiers=${true}
         label=${translateText("user_setting.build_menu_modifier")}
         description=${translateText("user_setting.build_menu_modifier_desc")}
         .defaultKey=${this.defaultKeybinds.buildMenuModifier}
@@ -1436,6 +1438,7 @@ export class UserSettingModal extends BaseModal {
 
       <setting-keybind
         action="emojiMenuModifier"
+        .allowModifiers=${true}
         label=${translateText("user_setting.emoji_menu_modifier")}
         description=${translateText("user_setting.emoji_menu_modifier_desc")}
         .defaultKey=${this.defaultKeybinds.emojiMenuModifier}
@@ -1446,6 +1449,7 @@ export class UserSettingModal extends BaseModal {
 
       <setting-keybind
         action="boxSelectWarships"
+        .allowModifiers=${true}
         label=${translateText("user_setting.box_select_warships")}
         description=${translateText("user_setting.box_select_warships_desc")}
         .defaultKey=${this.defaultKeybinds.boxSelectWarships}
