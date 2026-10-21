@@ -25,7 +25,7 @@ import "./GameStatsModal";
 import "./LeaderboardModal";
 import { fetchPublicPlayerProgress } from "./ProgressionApi";
 import { playerProfileUrl } from "./utilities/PlayerProfileUrl";
-import { currentPagePath, translateText } from "./Utils";
+import { currentPagePath, getDiscordAvatarUrl, translateText } from "./Utils";
 
 export { playerProfileUrl };
 
@@ -42,6 +42,8 @@ export class PlayerProfileModal extends BaseModal {
   @state() private verified: boolean | undefined = undefined;
   // Server-decided staff role, drawn as its own badge beside the name.
   @state() private staffRole: StaffRoleWire | undefined = undefined;
+  // The linked Discord avatar the profile carries (the account page shows the same one).
+  @state() private avatarUrl: string | null = null;
   @state() private statsTree: PlayerStatsTree | null = null;
   @state() private clans: NonNullable<PlayerProfile["clans"]> = [];
   // Level / XP, when progression is on and the player has any.
@@ -245,6 +247,7 @@ export class PlayerProfileModal extends BaseModal {
             .progress=${this.progress}
             .verified=${this.verified ?? isVerifiedUsername(this.username)}
             .staffRole=${this.staffRole}
+            .avatarUrl=${this.avatarUrl}
             .openKey=${`profile-${this.openCount}`}
           ></profile-card>`}
       <player-stats-tree-view
@@ -313,6 +316,7 @@ export class PlayerProfileModal extends BaseModal {
     this.username = null;
     this.verified = undefined;
     this.staffRole = undefined;
+    this.avatarUrl = null;
     this.statsTree = null;
     this.clans = [];
     this.progress = null;
@@ -345,6 +349,10 @@ export class PlayerProfileModal extends BaseModal {
     this.username = profile === false ? null : (profile.username ?? null);
     this.verified = profile === false ? undefined : profile.verified;
     this.staffRole = profile === false ? undefined : profile.staffRole;
+    this.avatarUrl =
+      profile === false || profile.user === undefined
+        ? null
+        : getDiscordAvatarUrl(profile.user);
     this.clans = profile === false ? [] : (profile.clans ?? []);
   }
 

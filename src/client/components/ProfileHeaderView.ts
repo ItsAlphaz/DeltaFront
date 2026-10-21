@@ -66,16 +66,18 @@ export function phAvatar(opts: {
   return html`<div data-ph-avatar-wrap class="relative shrink-0">
     <div
       data-ph-avatar
-      class="grid h-20 w-20 place-items-center overflow-hidden rounded-ui-card border border-ui-border-strong bg-ui-ground sm:h-24 sm:w-24"
+      class="relative grid h-20 w-20 place-items-center overflow-hidden rounded-ui-card border border-ui-border-strong bg-ui-ground sm:h-24 sm:w-24"
     >
+      <!-- The initial is always there: it is what shows when there is no image or it fails to load. -->
+      <span
+        class="text-4xl font-bold text-ui-text sm:text-5xl"
+        aria-hidden="true"
+        >${initial}</span
+      >
       ${url === null
-        ? html`<span
-            class="text-4xl font-bold text-ui-text sm:text-5xl"
-            aria-hidden="true"
-            >${initial}</span
-          >`
+        ? nothing
         : html`<img
-            class="h-full w-full object-cover"
+            class="absolute inset-0 h-full w-full object-cover"
             src=${url}
             alt=${translateText("discord_user_header.avatar_alt")}
             @error=${(e: Event) => {

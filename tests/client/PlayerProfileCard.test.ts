@@ -143,6 +143,34 @@ describe("another player's profile page", () => {
     ).toBeTruthy();
   });
 
+  it("shows the player's linked Discord avatar, as the account page does, and the initial when there is none", async () => {
+    const { getDiscordAvatarUrl } = await import("../../src/client/Utils");
+    vi.mocked(getDiscordAvatarUrl).mockImplementation(
+      (d: { id: string; avatar: string | null }) =>
+        `https://cdn.example/${d.id}/${d.avatar}.png`,
+    );
+    await open({
+      user: {
+        id: "123",
+        avatar: "abc",
+        username: "alphaz",
+        global_name: null,
+        discriminator: "0",
+      },
+    });
+    const img = q("profile-card [data-ph-avatar] img") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe("https://cdn.example/123/abc.png");
+    // the initial stays underneath for an image that fails to load
+    expect(q("profile-card [data-ph-avatar] span")?.textContent).toBe("C");
+    vi.mocked(getDiscordAvatarUrl).mockImplementation(() => null);
+  });
+
+  it("shows the initial when the player has no linked avatar", async () => {
+    await open();
+    expect(q("profile-card [data-ph-avatar] img")).toBeNull();
+    expect(q("profile-card [data-ph-avatar]")?.textContent?.trim()).toBe("C");
+  });
+
   it("shows the name, discriminator, verified check and staff badge in the card", async () => {
     await open();
     const card = q("profile-card")!;

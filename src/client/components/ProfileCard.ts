@@ -62,6 +62,8 @@ export class ProfileCard extends ProfileHeaderBase {
   @property({ type: String }) variant: "full" | "compact" = "full";
   @property({ type: String }) username = "";
   @property({ attribute: false }) clanTag: string | null = null;
+  // The account's avatar image; the initial shows when there is none (or it fails to load).
+  @property({ attribute: false }) avatarUrl: string | null = null;
   // Null when progression is off: nothing renders.
   @property({ attribute: false }) progress: ProfileCardProgress | null = null;
   // The account's own standing: a verified check and a staff role are shown
@@ -126,7 +128,7 @@ export class ProfileCard extends ProfileHeaderBase {
       ${this.renderBackdrop()}
       ${phIdentityBand({
         avatar: phAvatar({
-          url: null,
+          url: this.avatarUrl,
           initial: initialOf(this.username),
           level,
         }),
