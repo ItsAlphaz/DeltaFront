@@ -5,6 +5,7 @@ import {
 } from "@openfront/shared/AccountFeatures";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
+import { normalizeJoinCode } from "@openfront/shared/JoinCode";
 import type { StaffRole } from "@openfront/shared/Permissions";
 import { generateID, replacer } from "@openfront/shared/SharedUtil";
 import {
@@ -266,6 +267,7 @@ export async function startWorker() {
         previousGame.setSuccessorLobby(existingId); // re-broadcast for late joiners
         return res.json({
           ...existing.gameInfo(),
+          joinCode: gm.mintJoinCode(existingId, workerId),
           workerIndex: workerId,
           workerPath: ServerEnv.workerPath(existingId),
         });
@@ -298,6 +300,7 @@ export async function startWorker() {
     );
     res.json({
       ...game.gameInfo(),
+      joinCode: gm.mintJoinCode(id, workerId),
       workerIndex: workerId,
       workerPath: ServerEnv.workerPath(id),
     });
@@ -496,8 +499,24 @@ export async function startWorker() {
       log.info(`lobby ${req.params.id} not found`);
       return res.status(404).json({ error: "Game not found" });
     }
-    res.json(game.gameInfo());
+    res.json({ ...game.gameInfo(), joinCode: gm.joinCodeOf(req.params.id) });
   });
+
+  // A join code's lobby id. The code's first character names this worker, so
+  // clients ask /wN/ directly. Throttled harder than the rest of the API: the
+  // code space is small (JoinCode.ts), so guessing has to be slow.
+  app.get(
+    "/api/code/:code",
+    rateLimit({ windowMs: 60 * 1000, max: 30 }),
+    (req, res) => {
+      const code = normalizeJoinCode(String(req.params.code));
+      const game = code === null ? null : gm.gameByJoinCode(code);
+      if (game === null) {
+        return res.status(404).json({ error: "Code not found" });
+      }
+      res.json({ gameID: game.gameInfo().gameID });
+    },
+  );
 
   registerGamePreviewRoute({
     app,

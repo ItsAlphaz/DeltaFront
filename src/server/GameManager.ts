@@ -6,6 +6,7 @@ import {
   GameType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameConfig, GameID } from "@openfront/engine-api/Schemas";
+import { generateJoinCode } from "@openfront/shared/JoinCode";
 import {
   ClientPlatformSchema,
   PublicGameType,
@@ -32,6 +33,43 @@ export class GameManager {
 
   public game(id: GameID): GameServer | null {
     return this.games.get(id) ?? null;
+  }
+
+  // Join codes (JoinCode.ts) of this worker's private lobbies. An entry whose
+  // game is gone is stale and is dropped when it is looked up or reused.
+  private joinCodes: Map<string, GameID> = new Map();
+
+  /** The lobby's join code, or null if it has none. */
+  public joinCodeOf(id: GameID): string | null {
+    for (const [code, gameID] of this.joinCodes) {
+      if (gameID === id) return code;
+    }
+    return null;
+  }
+
+  /** The lobby's join code, minting one on first use; null if the worker has none to give. */
+  public mintJoinCode(id: GameID, workerId: number): string | null {
+    const existing = this.joinCodeOf(id);
+    if (existing !== null) return existing;
+    if (!this.games.has(id)) return null;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const code = generateJoinCode(workerId);
+      if (code === null) return null;
+      const holder = this.joinCodes.get(code);
+      if (holder !== undefined && this.games.has(holder)) continue;
+      this.joinCodes.set(code, id);
+      return code;
+    }
+    return null;
+  }
+
+  /** The live lobby a join code names, or null. */
+  public gameByJoinCode(code: string): GameServer | null {
+    const id = this.joinCodes.get(code);
+    if (id === undefined) return null;
+    const game = this.games.get(id) ?? null;
+    if (game === null) this.joinCodes.delete(code);
+    return game;
   }
 
   public publicLobbies(): GameServer[] {

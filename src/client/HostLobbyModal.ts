@@ -33,7 +33,13 @@ import {
   showToast,
   translateText,
 } from "../client/Utils";
-import { createLobby, getUserMe, queueLobby, setLobbyListed } from "./Api";
+import {
+  createLobby,
+  fetchJoinCode,
+  getUserMe,
+  queueLobby,
+  setLobbyListed,
+} from "./Api";
 import "./components/baseComponents/Modal";
 import { BaseModal } from "./components/BaseModal";
 import "./components/ConfirmDialog";
@@ -121,6 +127,8 @@ export class HostLobbyModal extends BaseModal {
   @state() private allowedPublicIds: string = "";
   @state() private waterNukes: boolean = false;
   @state() private lobbyId = "";
+  // The lobby's four-character join code, shown instead of the long id.
+  @state() private joinCode = "";
   @state() private lobbyUrlSuffix = "";
   @state() private clients: ClientInfo[] = [];
   @state() private useRandomMap: boolean = false;
@@ -292,6 +300,7 @@ export class HostLobbyModal extends BaseModal {
         const copy = html`<copy-button
           .heading=${translateText("host_modal.code")}
           .lobbyId=${this.lobbyId}
+          .joinCode=${this.joinCode}
           .lobbySuffix=${this.lobbyUrlSuffix}
           include-lobby-query
         ></copy-button>`;
@@ -989,6 +998,7 @@ export class HostLobbyModal extends BaseModal {
           throw new Error(`Invalid lobby ID format: ${this.lobbyId}`);
         }
         crazyGamesSDK.showInviteButton(this.lobbyId);
+        this.loadJoinCode(this.lobbyId);
 
         // Now that we have the id, build and copy the share link. If lobby
         // creation fails, the catch below clears the clipboard.
@@ -1029,6 +1039,7 @@ export class HostLobbyModal extends BaseModal {
     }
     this.lobbyId = lobbyId;
     crazyGamesSDK.showInviteButton(this.lobbyId);
+    this.loadJoinCode(lobbyId);
 
     const url = await this.constructUrl();
     this.updateLobbyHistory(url);
@@ -1045,6 +1056,12 @@ export class HostLobbyModal extends BaseModal {
         composed: true,
       }),
     );
+  }
+
+  private loadJoinCode(lobbyId: string): void {
+    void fetchJoinCode(lobbyId).then((code) => {
+      if (code !== null && this.lobbyId === lobbyId) this.joinCode = code;
+    });
   }
 
   private leaveLobby() {
@@ -1124,6 +1141,7 @@ export class HostLobbyModal extends BaseModal {
     this.useRandomMap = false;
     this.disabledUnits = [];
     this.lobbyId = "";
+    this.joinCode = "";
     this.clients = [];
     this.lobbyCreatorClientID = "";
     this.goldMultiplier = false;

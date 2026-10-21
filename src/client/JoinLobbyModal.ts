@@ -2,6 +2,7 @@ import { GAME_ID_REGEX, GameConfig } from "@openfront/engine-api/Schemas";
 import { GameMode, GameType } from "@openfront/engine-api/game/GameTypes";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
+import { normalizeJoinCode } from "@openfront/shared/JoinCode";
 import {
   ClientInfo,
   GameInfo,
@@ -21,7 +22,7 @@ import {
   renderDuration,
   translateText,
 } from "../client/Utils";
-import { getApiBase } from "./Api";
+import { fetchJoinCode, getApiBase, resolveJoinCode } from "./Api";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
 import { SendSpectateEvent } from "./LobbyEvents";
 import { PublicLobbySocket } from "./LobbySocket";
@@ -70,6 +71,8 @@ export class JoinLobbyModal extends BaseModal {
   @state() private playerCount: number = 0;
   @state() private gameConfig: GameConfig | null = null;
   @state() private currentLobbyId: string = "";
+  // The tracked lobby's four-character join code, when it has one.
+  @state() private joinCode = "";
   @state() private currentClientID: string = "";
   @state() private nationCount: number = 0;
   @state() private lobbyStartAt: number | null = null;
@@ -144,7 +147,10 @@ export class JoinLobbyModal extends BaseModal {
     // shadow lobby for any joined game.
     const copy =
       this.currentLobbyId && this.isPrivateLobby()
-        ? html`<copy-button .lobbyId=${this.currentLobbyId}></copy-button>`
+        ? html`<copy-button
+            .lobbyId=${this.currentLobbyId}
+            .joinCode=${this.joinCode}
+          ></copy-button>`
         : undefined;
     // Except public FFA: inviting Steam friends into an every-man-for-himself
     // public match encourages teaming, so the button stays off there. Public
@@ -551,6 +557,11 @@ export class JoinLobbyModal extends BaseModal {
     lobbyInfo?: GameInfo | PublicGameInfo,
   ) {
     this.currentLobbyId = lobbyId;
+    this.joinCode = "";
+    void fetchJoinCode(lobbyId).then((code) => {
+      if (code !== null && this.currentLobbyId === lobbyId)
+        this.joinCode = code;
+    });
     // clientID will be assigned by server via lobby_info message
     this.currentClientID = "";
     this.gameConfig = null;
@@ -990,7 +1001,12 @@ export class JoinLobbyModal extends BaseModal {
   }
 
   private async enterLobbyFromInput(spectator: boolean): Promise<void> {
-    const lobbyId = this.normalizeLobbyId(this.lobbyIdInput.value);
+    // A four-character join code stands for a live lobby's long id.
+    const code = normalizeJoinCode(this.lobbyIdInput.value);
+    const lobbyId =
+      code !== null
+        ? await resolveJoinCode(code)
+        : this.normalizeLobbyId(this.lobbyIdInput.value);
     if (!lobbyId) {
       this.showMessage(translateText("private_lobby.not_found"), "red");
       return;

@@ -23,6 +23,8 @@ export class CopyButton extends LitElement {
   @property({ type: Boolean, attribute: "show-copy-icon" })
   showCopyIcon = true;
   @property({ type: Boolean }) compact = false;
+  /** The lobby's short join code: shown in place of the long id, which the copy still carries. */
+  @property({ type: String, attribute: "join-code" }) joinCode = "";
   /** A small label before the code ("CODE"). */
   @property({ type: String }) heading = "";
 
@@ -109,7 +111,7 @@ export class CopyButton extends LitElement {
     const allowMask = this.showVisibilityToggle && !this.compact;
     const rawLabel =
       this.displayContent ??
-      (this.displayText || this.lobbyId || this.copyText);
+      (this.displayText || this.joinCode || this.lobbyId || this.copyText);
     const label = allowMask && !this.lobbyIdVisible ? this.maskLabel : rawLabel;
     const disabledClass = canCopy ? "" : "opacity-60 cursor-not-allowed";
     const toggleDisabled = !this.lobbyId;

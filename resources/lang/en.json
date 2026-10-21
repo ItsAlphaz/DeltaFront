@@ -2361,7 +2361,7 @@
   },
   "private_lobby": {
     "disabled_units": "Disabled Units",
-    "enter_id": "Enter Lobby ID",
+    "enter_id": "Enter Join Code or Lobby ID",
     "error": "An error occurred. Please try again or contact support.",
     "game_length": "Game length",
     "host_cheats": "Host Cheats",
@@ -2375,7 +2375,7 @@
     "listing_requires_subscription": "A Warlord or Sovereign subscription is required to list a lobby publicly.",
     "listing_whitelist_enabled": "Disable the join whitelist to list your lobby publicly.",
     "no_open_lobbies": "No open lobbies right now",
-    "not_found": "Lobby not found. Please check the ID and try again.",
+    "not_found": "Lobby not found. Please check the code and try again.",
     "open_lobbies": "Open Lobbies",
     "play": "Play",
     "pvp_immunity": "PVP immunity duration",

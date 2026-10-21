@@ -1,3 +1,4 @@
+import { isValidGameID } from "@openfront/engine-api/Schemas";
 import { usesAccountApi } from "@openfront/shared/AccountFeatures";
 import type { NewsItem, StreamsFeed } from "@openfront/shared/ApiSchemas";
 import {
@@ -47,6 +48,7 @@ import {
   UserMeResponse,
   UserMeResponseSchema,
 } from "@openfront/shared/ApiSchemas";
+import { joinCodeWorker } from "@openfront/shared/JoinCode";
 import {
   AnalyticsRecord,
   ArchivedAnalyticsRecordSchema,
@@ -1974,6 +1976,47 @@ export async function fetchLobbyListed(gameID: string): Promise<boolean> {
   } catch (e) {
     console.warn("fetchLobbyListed: request failed", e);
     return false;
+  }
+}
+
+// GET /api/game/:id on the game server (worker) — the lobby's four-character
+// join code (JoinCode.ts), or null when it has none or the request fails; the
+// caller then shows the long id.
+export async function fetchJoinCode(gameID: string): Promise<string | null> {
+  try {
+    await ensureServerList();
+    const res = await fetch(
+      `${ClientEnv.gameHttpBase(gameID)}/${ClientEnv.gameWorkerPath(gameID)}/api/game/${gameID}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    return typeof json?.joinCode === "string" ? json.joinCode : null;
+  } catch (e) {
+    console.warn("fetchJoinCode: request failed", e);
+    return null;
+  }
+}
+
+// GET /api/code/:code on the worker the code names — the id of the live lobby
+// the join code stands for, or null when no lobby has it.
+export async function resolveJoinCode(code: string): Promise<string | null> {
+  const worker = joinCodeWorker(code);
+  if (worker < 0 || worker >= ClientEnv.numWorkers()) return null;
+  try {
+    await ensureServerList();
+    const res = await fetch(
+      `${ClientEnv.serverHttpBase()}/w${worker}/api/code/${code}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    return typeof json?.gameID === "string" && isValidGameID(json.gameID)
+      ? json.gameID
+      : null;
+  } catch (e) {
+    console.warn("resolveJoinCode: request failed", e);
+    return null;
   }
 }
 
