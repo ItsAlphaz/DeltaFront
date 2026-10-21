@@ -306,7 +306,7 @@ describe("milestones and titles", () => {
 });
 
 describe("allTitles (what the owner role holds)", () => {
-  it("is the five simple titles, prestige 1 to 10 and both titles of every season", () => {
+  it("is the five simple titles, Supreme Leader, prestige 1 to 10 and both titles of every season", () => {
     const all = allTitles([1, 2]);
     expect(all).toEqual([
       "veteran",
@@ -314,6 +314,7 @@ describe("allTitles (what the owner role holds)", () => {
       "supreme_commander",
       "conqueror",
       "legend",
+      "supreme_leader",
       ...Array.from({ length: 10 }, (_, i) => `prestige:${i + 1}`),
       "season_veteran:1",
       "season_elite:1",
@@ -321,6 +322,15 @@ describe("allTitles (what the owner role holds)", () => {
       "season_elite:2",
     ]);
     expect(all.every(isTitleId)).toBe(true);
-    expect(allTitles([])).toHaveLength(15);
+    expect(allTitles([])).toHaveLength(16);
+    // nobody earns Supreme Leader: only allTitles (the owner) has it
+    expect(
+      earnedTitles({
+        prestige: MAX_PRESTIGE,
+        level: 100,
+        countedWins: 10_000,
+        seasons: [{ number: 1, xp: 999_999 }],
+      }),
+    ).not.toContain("supreme_leader");
   });
 });

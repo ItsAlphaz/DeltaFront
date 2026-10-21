@@ -269,6 +269,12 @@ export const SIMPLE_TITLES = [
   "legend",
 ] as const;
 
+/**
+ * Titles nobody earns: only a role with `progression.titles.all` (the owner)
+ * holds them, through `allTitles`.
+ */
+export const OWNER_TITLES = ["supreme_leader"] as const;
+
 /** Counted public wins that earn "Conqueror". */
 export const CONQUEROR_WINS = 100;
 
@@ -286,7 +292,7 @@ export const WIN_MILESTONES: readonly number[] = [
 ];
 
 const TITLE_PATTERN =
-  /^(?:veteran|elite|supreme_commander|conqueror|legend|prestige:(?:[1-9]|10)|season_(?:veteran|elite):[1-9]\d{0,5})$/;
+  /^(?:veteran|elite|supreme_commander|conqueror|legend|supreme_leader|prestige:(?:[1-9]|10)|season_(?:veteran|elite):[1-9]\d{0,5})$/;
 
 export function isTitleId(value: unknown): value is string {
   return typeof value === "string" && TITLE_PATTERN.test(value);
@@ -322,12 +328,12 @@ export function earnedTitles(input: {
 }
 
 /**
- * Every display title there is: the five simple ones, all ten prestige titles
+ * Every display title there is: the five simple ones, the owner-only ones ("Supreme Leader"), all ten prestige titles
  * and both season titles of each season in `seasonNumbers`. The owner role holds
  * all of them (a display right only: nothing about XP, prestige or stats).
  */
 export function allTitles(seasonNumbers: readonly number[]): string[] {
-  const out: string[] = [...SIMPLE_TITLES];
+  const out: string[] = [...SIMPLE_TITLES, ...OWNER_TITLES];
   for (let p = 1; p <= MAX_PRESTIGE; p++) out.push(`prestige:${p}`);
   for (const number of seasonNumbers) {
     out.push(`season_veteran:${number}`, `season_elite:${number}`);

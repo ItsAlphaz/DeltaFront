@@ -452,6 +452,7 @@ const TITLE_KEYS: Record<string, string> = {
   supreme_commander: "progression.title_supreme_commander",
   conqueror: "progression.title_conqueror",
   legend: "progression.title_legend",
+  supreme_leader: "progression.title_supreme_leader",
 };
 
 /** A title id as text: "Veteran", "Prestige III", "Season 2 Elite". Unknown ids read as their raw name. */

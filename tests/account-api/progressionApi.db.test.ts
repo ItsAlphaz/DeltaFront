@@ -677,6 +677,7 @@ describeDb("titles", () => {
         "supreme_commander",
         "conqueror",
         "legend",
+        "supreme_leader",
         "prestige:1",
         "prestige:10",
         "season_veteran:1",
@@ -702,6 +703,7 @@ describeDb("titles", () => {
           "supreme_commander",
           "conqueror",
           "legend",
+          "supreme_leader",
           "prestige:1",
           "prestige:10",
           "season_veteran:1",
@@ -710,7 +712,7 @@ describeDb("titles", () => {
           "season_elite:2",
         ]),
       );
-      expect(me.titles).toHaveLength(5 + 10 + 4);
+      expect(me.titles).toHaveLength(5 + 1 + 10 + 4);
       // nothing about progress changed
       expect(
         await q(
@@ -737,7 +739,12 @@ describeDb("titles", () => {
       const user = await makeUser(h);
       await seed(h, user, 1_000);
       await q(h, "UPDATE users SET role = $2 WHERE id = $1", [user.id, role]);
-      for (const title of ["veteran", "prestige:1", "legend"]) {
+      for (const title of [
+        "veteran",
+        "prestige:1",
+        "legend",
+        "supreme_leader",
+      ]) {
         expect(
           (await send(h, user, "PUT", "/users/@me/title", { title })).status,
           `${role} ${title}`,
