@@ -855,10 +855,6 @@ export class StoreModal extends BaseModal {
       });
     }
     const group = this.inspectedGroup();
-    const priced = active.cosmetic as {
-      priceHard?: number;
-      priceSoft?: number;
-    } | null;
     const effect =
       active.type === "effect" ? (active.cosmetic as Effect) : null;
     const eyebrow =
