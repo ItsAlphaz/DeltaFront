@@ -24,6 +24,7 @@ import {
   steamLogin,
 } from "./Auth";
 import "./components/AccountProfileHeader";
+import { identityAvatarUrl } from "./components/AccountProfileHeader";
 import "./components/baseComponents/stats/PlayerGameHistoryView";
 import type { PlayerGameHistoryCache } from "./components/baseComponents/stats/PlayerGameHistoryView";
 import "./components/baseComponents/stats/PlayerStatsTable";
@@ -582,6 +583,7 @@ export class AccountModal extends BaseModal {
       .variant=${variant}
       .username=${player.username ?? player.publicId}
       .clanTag=${player.clans?.[0]?.tag ?? null}
+      .avatarUrl=${identityAvatarUrl(this.userMeResponse?.user)}
       .progress=${player.progress}
       .verified=${player.verified === true}
       .staffRole=${player.staffRole}

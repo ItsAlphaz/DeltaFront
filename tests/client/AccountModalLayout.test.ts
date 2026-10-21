@@ -589,6 +589,26 @@ describe("AccountModal — the redesigned Account page", () => {
       expect(q("profile-card")).toBeNull();
     });
 
+    it("gives the Stats card the same avatar as the Account header: a Google picture, or none", async () => {
+      await show(
+        userMe({
+          google: {
+            email: "me@example.com",
+            avatarUrl: "https://lh3.googleusercontent.com/a/pic",
+          },
+        }),
+      );
+      modal.setActiveTab("stats");
+      await modal.updateComplete;
+      expect(q("profile-card [data-ph-avatar] img")?.getAttribute("src")).toBe(
+        "https://lh3.googleusercontent.com/a/pic",
+      );
+      await show(userMe({ google: { email: "me@example.com" } }));
+      modal.setActiveTab("stats");
+      await modal.updateComplete;
+      expect(q("profile-card [data-ph-avatar] img")).toBeNull();
+    });
+
     it("puts Progression between Games and Friends", async () => {
       await show(userMe({ google: { email: "me@example.com" } }));
       const order = tabs()!;

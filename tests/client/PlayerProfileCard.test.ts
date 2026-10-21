@@ -165,6 +165,13 @@ describe("another player's profile page", () => {
     vi.mocked(getDiscordAvatarUrl).mockImplementation(() => null);
   });
 
+  it("shows a Google picture the profile carries when there is no Discord avatar", async () => {
+    await open({ avatarUrl: "https://lh3.googleusercontent.com/a/pic" });
+    expect(q("profile-card [data-ph-avatar] img")?.getAttribute("src")).toBe(
+      "https://lh3.googleusercontent.com/a/pic",
+    );
+  });
+
   it("shows the initial when the player has no linked avatar", async () => {
     await open();
     expect(q("profile-card [data-ph-avatar] img")).toBeNull();

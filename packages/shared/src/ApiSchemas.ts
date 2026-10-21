@@ -71,6 +71,8 @@ export type DiscordUser = z.infer<typeof DiscordUserSchema>;
 
 export const GoogleUserSchema = z.object({
   email: z.string(),
+  // The Google profile picture (https, on googleusercontent.com), when Google gave one.
+  avatarUrl: z.string().nullable().optional(),
 });
 export type GoogleUser = z.infer<typeof GoogleUserSchema>;
 
@@ -1307,6 +1309,9 @@ export type PlayerStatsTree = z.infer<typeof PlayerStatsTreeSchema>;
 export const PlayerProfileSchema = z.object({
   createdAt: z.iso.datetime(),
   user: DiscordUserSchema.optional(),
+  // The picture of a Google or Steam sign-in, when the account has one and no
+  // Discord avatar (the client builds that from `user`). An https URL.
+  avatarUrl: z.string().optional(),
   // Account username, pre-rendered by the server (bare base or "base.suffix").
   // null = the player never set one. Render `username ?? publicId`; never
   // parse it — compare players by publicId only. Optional so responses from

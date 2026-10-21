@@ -117,6 +117,7 @@ export function buildContentSecurityPolicy(options: CspOptions): string {
         "data:",
         "blob:",
         "https://cdn.discordapp.com",
+        "https://*.googleusercontent.com",
         options.apiOrigin,
         ...analyticsConnect.slice(0, 1),
         ...cdn,

@@ -108,6 +108,7 @@ describe("the app shell's Content-Security-Policy", () => {
         "data:",
         "blob:",
         "https://cdn.discordapp.com",
+        "https://*.googleusercontent.com",
         "https://api.example.com",
       ]),
     );

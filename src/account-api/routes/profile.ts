@@ -84,7 +84,10 @@ export function profileRouter(deps: AppDeps): Router {
       aggregatesOf(pool, user.id),
       recentRowsOf(pool, user.id),
     ]);
-    const discord = linkedIdentities(identities).discord;
+    const linked = linkedIdentities(identities);
+    const discord = linked.discord;
+    // Without a Discord avatar, a Google picture (or a Steam one) stands in.
+    const avatarUrl = linked.google?.avatarUrl ?? linked.steam?.avatarUrl;
     const clans = deps.config.features.clans
       ? (await clansOfUser(pool, user.id)).clans
       : undefined;
@@ -92,6 +95,7 @@ export function profileRouter(deps: AppDeps): Router {
       ...(clans === undefined ? {} : { clans }),
       createdAt: user.createdAt.toISOString(),
       ...(discord === undefined ? {} : { user: discord }),
+      ...(discord !== undefined || !avatarUrl ? {} : { avatarUrl }),
       username: displayUsername(user.usernameBase, user.usernameDiscriminator),
       verified: user.verified,
       ...(staffRoleOf(user.role) === null

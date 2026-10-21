@@ -362,6 +362,60 @@ describeDb("player profiles", () => {
     expect(text).not.toContain(users[0].id);
   });
 
+  it("shows a Google sign-in's picture when there is no Discord avatar, and only a googleusercontent https one", async () => {
+    const { h, users } = await setup(3);
+    const google = (userId: string, avatar: string | null) =>
+      h.db.pool.query(
+        `INSERT INTO auth_identities (user_id, provider, provider_user_id, email, display_name, avatar, profile)
+         VALUES ($1, 'google', $2, 'private@gmail.com', 'G', $3, '{}')`,
+        [userId, `g-${userId}`, avatar],
+      );
+    await google(users[0].id, "https://lh3.googleusercontent.com/a/pic=s96-c");
+    await google(users[1].id, "https://evil.example.com/pic.png");
+    await google(users[2].id, "http://lh3.googleusercontent.com/a/pic");
+    const shown = PlayerProfileSchema.parse(
+      await (await publicProfile(h, users[0].publicId)).json(),
+    );
+    expect(shown.avatarUrl).toBe(
+      "https://lh3.googleusercontent.com/a/pic=s96-c",
+    );
+    for (const other of [users[1], users[2]]) {
+      const text = await (await publicProfile(h, other.publicId)).text();
+      expect(PlayerProfileSchema.parse(JSON.parse(text)).avatarUrl).toBe(
+        undefined,
+      );
+      expect(text).not.toContain("evil.example.com");
+    }
+  });
+
+  it("leaves the picture to the Discord avatar when one is linked", async () => {
+    const { h, users } = await setup(1);
+    await h.db.pool.query(
+      `INSERT INTO auth_identities (user_id, provider, provider_user_id, email, display_name, profile)
+       VALUES ($1, 'discord', 'd-9', 'x@example.com', 'Dee', $2)`,
+      [
+        users[0].id,
+        JSON.stringify({
+          id: "d-9",
+          username: "dee",
+          global_name: null,
+          avatar: "abc",
+          discriminator: "0",
+        }),
+      ],
+    );
+    await h.db.pool.query(
+      `INSERT INTO auth_identities (user_id, provider, provider_user_id, email, avatar, profile)
+       VALUES ($1, 'google', 'g-9', 'x@gmail.com', 'https://lh3.googleusercontent.com/a/p', '{}')`,
+      [users[0].id],
+    );
+    const profile = PlayerProfileSchema.parse(
+      await (await publicProfile(h, users[0].publicId)).json(),
+    );
+    expect(profile.user?.avatar).toBe("abc");
+    expect(profile.avatarUrl).toBeUndefined();
+  });
+
   it("a deleted account has no public page either", async () => {
     const { h, users } = await setup(1);
     await h.db.pool.query("UPDATE users SET deleted_at = now() WHERE id = $1", [

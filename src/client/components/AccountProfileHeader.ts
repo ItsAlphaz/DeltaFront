@@ -68,11 +68,12 @@ export function linkedHandle(
   return null;
 }
 
-function avatarUrl(
+/** The picture of the account's sign-in: Discord's avatar, else Steam's, else Google's. */
+export function identityAvatarUrl(
   identity: UserMeResponse["user"] | null | undefined,
 ): string | null {
   if (identity?.discord) return getDiscordAvatarUrl(identity.discord);
-  return identity?.steam?.avatarUrl ?? null;
+  return identity?.steam?.avatarUrl ?? identity?.google?.avatarUrl ?? null;
 }
 
 @customElement("account-profile-header")
@@ -185,7 +186,7 @@ export class AccountProfileHeader extends ProfileHeaderBase {
       ${this.renderBackdrop()}
       ${phIdentityBand({
         avatar: phAvatar({
-          url: avatarUrl(this.identity),
+          url: identityAvatarUrl(this.identity),
           initial: initialOf(username ?? handle?.text.replace(/^@/, "")),
           level,
         }),

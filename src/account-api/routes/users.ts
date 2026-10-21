@@ -36,6 +36,25 @@ import {
 } from "../repo/users";
 import { authenticate, cookieSecure, type AppDeps } from "./common";
 
+/**
+ * A Google profile picture the browser may be pointed at: an https URL on
+ * googleusercontent.com (what Google's `picture` is), nothing else. The stored
+ * value came from Google's own userinfo, but it is checked again on the way out
+ * because it ends up in an image tag.
+ */
+export function googleAvatarUrl(stored: string | null): string | null {
+  if (stored === null) return null;
+  try {
+    const url = new URL(stored);
+    return url.protocol === "https:" &&
+      /^[a-z0-9-]+\.googleusercontent\.com$/.test(url.hostname)
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The linked sign-in identities in the shape `/users/@me` and profiles share. */
 export function linkedIdentities(
   identities: IdentityRow[],
@@ -58,7 +77,12 @@ export function linkedIdentities(
         discriminator: p.discriminator ?? "0",
       };
     } else if (identity.provider === "google") {
-      linked.google = { email: identity.email ?? "" };
+      linked.google = {
+        email: identity.email ?? "",
+        ...(googleAvatarUrl(identity.avatar) === null
+          ? {}
+          : { avatarUrl: googleAvatarUrl(identity.avatar) }),
+      };
     } else if (identity.provider === "email") {
       linked.email = identity.email ?? identity.providerUserId;
     }

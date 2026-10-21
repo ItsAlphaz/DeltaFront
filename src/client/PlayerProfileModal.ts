@@ -42,7 +42,7 @@ export class PlayerProfileModal extends BaseModal {
   @state() private verified: boolean | undefined = undefined;
   // Server-decided staff role, drawn as its own badge beside the name.
   @state() private staffRole: StaffRoleWire | undefined = undefined;
-  // The linked Discord avatar the profile carries (the account page shows the same one).
+  // The avatar the profile carries: the linked Discord one, else a Google or Steam picture.
   @state() private avatarUrl: string | null = null;
   @state() private statsTree: PlayerStatsTree | null = null;
   @state() private clans: NonNullable<PlayerProfile["clans"]> = [];
@@ -350,9 +350,11 @@ export class PlayerProfileModal extends BaseModal {
     this.verified = profile === false ? undefined : profile.verified;
     this.staffRole = profile === false ? undefined : profile.staffRole;
     this.avatarUrl =
-      profile === false || profile.user === undefined
+      profile === false
         ? null
-        : getDiscordAvatarUrl(profile.user);
+        : profile.user !== undefined
+          ? getDiscordAvatarUrl(profile.user)
+          : (profile.avatarUrl ?? null);
     this.clans = profile === false ? [] : (profile.clans ?? []);
   }
 
