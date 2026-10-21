@@ -652,6 +652,115 @@ describeDb("titles", () => {
     ).toBeNull();
   });
 
+  it.each(["owner", "root"])(
+    "gives the %s role every title, level, prestige and season, without touching XP, prestige or stats",
+    async (role) => {
+      const h = await harness();
+      const user = await makeUser(h);
+      await seed(h, user, 1_000, 0, 1_000); // level 2, no prestige
+      await q(h, "UPDATE users SET role = $2 WHERE id = $1", [user.id, role]);
+      await q(
+        h,
+        "INSERT INTO seasons (number, name, starts_at, ends_at) VALUES (1, 'Old', now() - interval '60 days', now() - interval '30 days'), (2, 'Now', now() - interval '1 day', now() + interval '29 days')",
+      );
+      const before = await q(
+        h,
+        "SELECT run_xp::int AS run, lifetime_xp::int AS life, prestige FROM user_progress WHERE user_id = $1",
+        [user.id],
+      );
+      const put = (title: unknown) =>
+        send(h, user, "PUT", "/users/@me/title", { title });
+      // the server check, not only the page's list
+      for (const title of [
+        "veteran",
+        "elite",
+        "supreme_commander",
+        "conqueror",
+        "legend",
+        "prestige:1",
+        "prestige:10",
+        "season_veteran:1",
+        "season_elite:2",
+      ]) {
+        expect((await put(title)).status, title).toBe(200);
+        expect(
+          (await (await get(h, user, "/users/@me")).json()).player.progress
+            .title,
+          title,
+        ).toBe(title);
+      }
+      // still only real titles: not a prestige past 10, a season that does not exist, or junk
+      expect((await put("prestige:11")).status).toBe(400);
+      expect((await put("season_elite:3")).status).toBe(400);
+      expect((await put("<script>")).status).toBe(400);
+      // the page's list holds them all
+      const me = await (await get(h, user, "/progression/me")).json();
+      expect(me.titles).toEqual(
+        expect.arrayContaining([
+          "veteran",
+          "elite",
+          "supreme_commander",
+          "conqueror",
+          "legend",
+          "prestige:1",
+          "prestige:10",
+          "season_veteran:1",
+          "season_elite:1",
+          "season_veteran:2",
+          "season_elite:2",
+        ]),
+      );
+      expect(me.titles).toHaveLength(5 + 10 + 4);
+      // nothing about progress changed
+      expect(
+        await q(
+          h,
+          "SELECT run_xp::int AS run, lifetime_xp::int AS life, prestige FROM user_progress WHERE user_id = $1",
+          [user.id],
+        ),
+      ).toEqual(before);
+      expect(
+        await q(
+          h,
+          "SELECT count(*)::int AS n FROM xp_ledger WHERE user_id = $1",
+          [user.id],
+        ),
+      ).toEqual([{ n: 0 }]);
+      expect(me.progress.level).toBe(2);
+      expect(me.progress.prestige).toBe(0);
+    },
+  );
+
+  it("does not give titles to an admin or a moderator, only the owner role", async () => {
+    const h = await harness();
+    for (const role of ["admin", "mod", "flagged"]) {
+      const user = await makeUser(h);
+      await seed(h, user, 1_000);
+      await q(h, "UPDATE users SET role = $2 WHERE id = $1", [user.id, role]);
+      for (const title of ["veteran", "prestige:1", "legend"]) {
+        expect(
+          (await send(h, user, "PUT", "/users/@me/title", { title })).status,
+          `${role} ${title}`,
+        ).toBe(400);
+      }
+    }
+  });
+
+  it("stops showing the titles once the role is taken away", async () => {
+    const h = await harness();
+    const user = await makeUser(h);
+    await seed(h, user, 1_000);
+    await q(h, "UPDATE users SET role = 'owner' WHERE id = $1", [user.id]);
+    expect(
+      (await send(h, user, "PUT", "/users/@me/title", { title: "legend" }))
+        .status,
+    ).toBe(200);
+    await q(h, "UPDATE users SET role = NULL WHERE id = $1", [user.id]);
+    expect(
+      (await (await get(h, user, "/users/@me")).json()).player.progress.title,
+    ).toBeNull();
+  });
+
   it("needs a signed-in account", async () => {
     const h = await harness();
     expect(

@@ -23,22 +23,23 @@ role name.
 
 ### The matrix
 
-| Permission                                                                                            | mod | admin | owner |
-| ----------------------------------------------------------------------------------------------------- | :-: | :---: | :---: |
-| `admin.panel.view`, `admin.dashboard.view`, `admin.users.view`, `admin.users.ban`, `admin.clans.view` |  x  |   x   |   x   |
-| `admin.audit.view_moderation` (moderation actions only)                                               |  x  |   x   |   x   |
-| `game.admin.panel`, `.spectate`, `.kick`, `.nations`                                                  |  x  |   x   |   x   |
-| `admin.users.view_email`, `.sessions`, `.verify`, `.bare_name`, `.role`                               |     |   x   |   x   |
-| `admin.wallet.grant`, `admin.inventory.grant`, `admin.clans.manage`, `admin.clans.official`           |     |   x   |   x   |
-| `admin.audit.view` (everything), `admin.server.view`                                                  |     |   x   |   x   |
-| `admin.xp.view` (an account's progression)                                                            |  x  |   x   |   x   |
-| `admin.xp.history`, `admin.xp.grant`, `admin.xp.revoke`                                               |     |   x   |   x   |
-| `admin.xp.set`, `admin.seasons.manage`                                                                |     |       |   x   |
-| `game.admin.pause`, `.kill`, `.debug`                                                                 |     |   x   |   x   |
-| `admin.roles.manage_admins`, `admin.clans.delete`, `admin.server.manage`                              |     |       |   x   |
-| `game.admin.resources`, `.force_end`, `.impersonate_ai` (arbitrary game state)                        |     |       |   x   |
-| `game.admin.public` (state-changing commands in public or listed games)                               |     |       |   x   |
-| `game.admin.public.counted` (...and the game still counts)                                            |     |       |   x   |
+| Permission                                                                                              | mod | admin | owner |
+| ------------------------------------------------------------------------------------------------------- | :-: | :---: | :---: |
+| `admin.panel.view`, `admin.dashboard.view`, `admin.users.view`, `admin.users.ban`, `admin.clans.view`   |  x  |   x   |   x   |
+| `admin.audit.view_moderation` (moderation actions only)                                                 |  x  |   x   |   x   |
+| `game.admin.panel`, `.spectate`, `.kick`, `.nations`                                                    |  x  |   x   |   x   |
+| `admin.users.view_email`, `.sessions`, `.verify`, `.bare_name`, `.role`                                 |     |   x   |   x   |
+| `admin.wallet.grant`, `admin.inventory.grant`, `admin.clans.manage`, `admin.clans.official`             |     |   x   |   x   |
+| `admin.audit.view` (everything), `admin.server.view`                                                    |     |   x   |   x   |
+| `admin.xp.view` (an account's progression)                                                              |  x  |   x   |   x   |
+| `admin.xp.history`, `admin.xp.grant`, `admin.xp.revoke`                                                 |     |   x   |   x   |
+| `admin.xp.set`, `admin.seasons.manage`                                                                  |     |       |   x   |
+| `progression.titles.all` (every display title unlocked and selectable; no XP, prestige or stats change) |     |       |   x   |
+| `game.admin.pause`, `.kill`, `.debug`                                                                   |     |   x   |   x   |
+| `admin.roles.manage_admins`, `admin.clans.delete`, `admin.server.manage`                                |     |       |   x   |
+| `game.admin.resources`, `.force_end`, `.impersonate_ai` (arbitrary game state)                          |     |       |   x   |
+| `game.admin.public` (state-changing commands in public or listed games)                                 |     |       |   x   |
+| `game.admin.public.counted` (...and the game still counts)                                              |     |       |   x   |
 
 `tests/Permissions.test.ts` spells the whole table out; moving a permission between
 roles means changing that test, on purpose.

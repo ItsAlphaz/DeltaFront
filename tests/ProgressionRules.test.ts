@@ -1,4 +1,5 @@
 import {
+  allTitles,
   canPrestige,
   CONQUEROR_WINS,
   earnedTitles,
@@ -301,5 +302,25 @@ describe("milestones and titles", () => {
     ]) {
       expect(isTitleId(bad), String(bad)).toBe(false);
     }
+  });
+});
+
+describe("allTitles (what the owner role holds)", () => {
+  it("is the five simple titles, prestige 1 to 10 and both titles of every season", () => {
+    const all = allTitles([1, 2]);
+    expect(all).toEqual([
+      "veteran",
+      "elite",
+      "supreme_commander",
+      "conqueror",
+      "legend",
+      ...Array.from({ length: 10 }, (_, i) => `prestige:${i + 1}`),
+      "season_veteran:1",
+      "season_elite:1",
+      "season_veteran:2",
+      "season_elite:2",
+    ]);
+    expect(all.every(isTitleId)).toBe(true);
+    expect(allTitles([])).toHaveLength(15);
   });
 });

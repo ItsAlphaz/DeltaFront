@@ -56,6 +56,7 @@ const MATRIX: Record<Permission, "mod" | "admin" | "owner"> = {
   "admin.server.manage": "owner",
   "admin.xp.set": "owner",
   "admin.seasons.manage": "owner",
+  "progression.titles.all": "owner",
   "game.admin.resources": "owner",
   "game.admin.force_end": "owner",
   "game.admin.impersonate_ai": "owner",
@@ -100,6 +101,7 @@ describe("the role and permission matrix", () => {
       "game.admin.impersonate_ai",
       "game.admin.public",
       "game.admin.public.counted",
+      "progression.titles.all",
     ] as const) {
       expect(hasPermission("admin", owner), owner).toBe(false);
     }

@@ -320,3 +320,17 @@ export function earnedTitles(input: {
   }
   return out;
 }
+
+/**
+ * Every display title there is: the five simple ones, all ten prestige titles
+ * and both season titles of each season in `seasonNumbers`. The owner role holds
+ * all of them (a display right only: nothing about XP, prestige or stats).
+ */
+export function allTitles(seasonNumbers: readonly number[]): string[] {
+  const out: string[] = [...SIMPLE_TITLES];
+  for (let p = 1; p <= MAX_PRESTIGE; p++) out.push(`prestige:${p}`);
+  for (const number of seasonNumbers) {
+    out.push(`season_veteran:${number}`, `season_elite:${number}`);
+  }
+  return out;
+}

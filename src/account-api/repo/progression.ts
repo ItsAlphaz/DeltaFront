@@ -3,8 +3,13 @@ import type {
   Progress,
   Reward,
 } from "@openfront/shared/ApiSchemas";
-import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import {
+  hasPermission,
+  staffRoleOf,
+  type StaffRole,
+} from "@openfront/shared/Permissions";
+import {
+  allTitles,
   earnedTitles,
   LEVEL_MILESTONES,
   progressState,
@@ -153,6 +158,19 @@ export async function earnedTitlesOf(
   row: ProgressRow,
 ): Promise<string[]> {
   const state = progressState(row);
+  // A role with progression.titles.all (the owner) holds every title, for every season there is. This is the
+  // one place titles are decided, so choosing one (PUT /users/@me/title), the
+  // list the page offers and the title shown all agree. It changes no XP.
+  const role = await db.query<{ role: string | null }>(
+    "SELECT role FROM users WHERE id = $1",
+    [userId],
+  );
+  if (hasPermission(role.rows[0]?.role, "progression.titles.all")) {
+    const all = await db.query<{ number: number }>(
+      "SELECT number FROM seasons ORDER BY number",
+    );
+    return allTitles(all.rows.map((r) => r.number));
+  }
   const [wins, seasons] = await Promise.all([
     countedWinsOf(db, userId),
     db.query<{ number: number; xp: string }>(

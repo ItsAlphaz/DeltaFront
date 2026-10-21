@@ -81,6 +81,9 @@ export const PERMISSIONS = [
   "admin.xp.revoke",
   "admin.xp.set",
   "admin.seasons.manage",
+  // Display only: every title (level, prestige, season) is unlocked and can be
+  // chosen. Changes no XP, prestige or stats. Owner only.
+  "progression.titles.all",
   // In-game admin
   "game.admin.panel",
   "game.admin.spectate",
