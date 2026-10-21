@@ -737,22 +737,36 @@ async function purchasePack(
   pack: CosmeticPack,
   method: PaymentMethod,
 ): Promise<PurchaseResult> {
-  if (method !== "hard") {
-    console.error("purchaseCosmetic: packs are only sold for hard currency");
+  if (method !== "hard" && method !== "soft") {
+    console.error("purchaseCosmetic: packs are only sold for currency");
     return;
   }
+  const price = (method === "hard" ? pack.priceHard : pack.priceSoft) ?? 0;
   const userMe = await getUserMe();
   if (userMe === false) {
     await showInGameAlert(translateText("store.login_required"));
     return;
   }
+  // A guest account has Credits but no identity to keep what it buys; the
+  // server refuses it too (403 LOGIN_REQUIRED), so say so before asking.
+  if (method === "soft" && !responseHasLinkedIdentity(userMe)) {
+    await showInGameAlert(translateText("store.login_required"));
+    return;
+  }
   const insufficient = (balance: number): InsufficientCurrency => ({
-    currency: translateText("cosmetics.hard"),
-    shortfall: pack.priceHard - balance,
+    currency: translateText(
+      method === "hard" ? "cosmetics.hard" : "cosmetics.soft",
+    ),
+    shortfall: Math.max(1, price - balance),
     item: pack.displayName,
-    canTopUp: true,
+    // Only plutonium can be topped up; Credits are earned in games.
+    canTopUp: method === "hard",
   });
-  const balance = userMe.player.currency?.hard ?? 0;
+  const currencyOf = (me: UserMeResponse) =>
+    method === "hard"
+      ? (me.player.currency?.hard ?? 0)
+      : (me.player.currency?.soft ?? 0);
+  const balance = currencyOf(userMe);
   // Same as the single-cosmetic path: a charged-back wallet arrives here as a
   // negative balance, and without this it reads as a very large shortfall
   // with a top-up button that cannot clear a debt.
@@ -760,7 +774,7 @@ async function purchasePack(
     await showInGameAlert(debtMessage(-balance));
     return;
   }
-  if (balance < pack.priceHard) {
+  if (balance < price) {
     return insufficient(balance);
   }
 
@@ -783,8 +797,8 @@ async function purchasePack(
         await showInGameAlert(translateText("store.purchase_failed"));
         return;
       }
-      const available = fresh.player.currency?.hard ?? 0;
-      const outcome = balanceOutcome(available, pack.priceHard);
+      const available = currencyOf(fresh);
+      const outcome = balanceOutcome(available, price);
       if (outcome === "debt") {
         await showInGameAlert(debtMessage(-available));
         return;
@@ -1150,7 +1164,35 @@ export function cosmeticPackRelationship(
   if (affiliateCode !== null) return "blocked";
   // Partially owned packs can't be bought (see ownedPackItems).
   if (owned > 0) return "blocked";
-  return pack.priceHard > 0 ? "purchasable" : "blocked";
+  return (pack.priceSoft ?? 0) > 0 || (pack.priceHard ?? 0) > 0
+    ? "purchasable"
+    : "blocked";
+}
+
+/**
+ * What a bundle is worth against buying its items one by one: the sum of their
+ * Credits prices, the bundle's own price and the whole-number percentage saved.
+ * Null when the bundle has no Credits price, or an item of it is missing from
+ * the catalog or not sold for Credits (then there is no honest sum to quote).
+ */
+export function bundleSavings(
+  resolved: ResolvedCosmetic,
+): { value: number; price: number; savePct: number } | null {
+  if (resolved.type !== "cosmeticPack") return null;
+  const pack = resolved.cosmetic as CosmeticPack;
+  const price = pack.priceSoft ?? 0;
+  const items = resolved.packItems ?? [];
+  if (price <= 0 || items.length === 0 || items.length !== pack.items.length) {
+    return null;
+  }
+  let value = 0;
+  for (const item of items) {
+    const each = (item.cosmetic as { priceSoft?: number } | null)?.priceSoft;
+    if (each === undefined || each <= 0) return null;
+    value += each;
+  }
+  if (value <= price) return { value, price, savePct: 0 };
+  return { value, price, savePct: Math.round((1 - price / value) * 100) };
 }
 
 export type ResolvedCosmetic = {

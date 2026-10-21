@@ -31,10 +31,10 @@ production catalog is **All Rights Reserved** (the private repository's
 
 ## Environment variables (account API and admin CLI)
 
-| Variable               | Meaning                                                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `DF_CATALOG_DIR`       | Absolute path of the directory holding `cosmetics.json` (and optionally `effects.json`). Unset: the public sample. |
-| `DF_CATALOG_ASSET_DIR` | Absolute path of the images folder. Unset: `<DF_CATALOG_DIR>/assets`. Needs `DF_CATALOG_DIR`.                      |
+| Variable               | Meaning                                                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `DF_CATALOG_DIR`       | Absolute path of the directory holding `cosmetics.json` (and optionally `effects.json`, `bundles.json`). Unset: the public sample. |
+| `DF_CATALOG_ASSET_DIR` | Absolute path of the images folder. Unset: `<DF_CATALOG_DIR>/assets`. Needs `DF_CATALOG_DIR`.                                      |
 
 Both go in `/etc/deltafront/api.env` (the admin CLI runs with that file loaded,
 so it checks items against the same catalog; see Deployment.md §14). Nothing is
@@ -57,7 +57,30 @@ the files and validates them with the same rules as the sample:
 4. `effects.json`, if present, is merged into the effects of `cosmetics.json`;
    an effect defined in both files, a duplicate key, an unknown top-level key,
    or invalid JSON is an error. The catalog `version` (recorded on purchases)
-   covers both files.
+   covers every file.
+5. `bundles.json`, if present (`{ "packs": { "<name>": { ... } } }`), adds the
+   store's **Bundles**: themed sets sold together for one Credits price (see
+   below). `cosmetics.json` may carry a `packs` section instead; a bundle in both
+   files, a duplicate key or a bad bundle is an error, and the API will not start.
+
+## Bundles
+
+A bundle is `name` (the key), `displayName` (up to 40 characters), `description`,
+an optional one-line `tagline`, `priceSoft` (a positive whole number of Credits),
+a `rarity` (`common` to `legendary`, which colours its card) and `items`: 2 to 12
+of `{ "type": "pattern" | "flag" | "crown" | "effect", "name": "...", "colorPalette": "..." }`
+(`colorPalette` is required for a pattern that has palettes, forbidden otherwise).
+
+The loader refuses a bundle when an item does not exist or is not sold for Credits
+(no price: level rewards and admin grants cannot be bought), a pattern names a
+palette it does not have or has archived, an item is in the bundle twice, an item
+is a free default (no account could ever buy it), or the bundle costs more than
+its items do separately. The card shows the saving.
+
+`POST /shop/purchase/pack` buys one in a single transaction (the price is debited
+once, every item granted, one `pack` purchase row and one ledger row). It answers
+409 with the items already held when an account owns any of them, so a bundle is
+only for an account that holds none of its items.
 
 Everything else the sample is held to applies: no premium price, no Stripe
 product, valid flares, effects the client can render, patterns the game can

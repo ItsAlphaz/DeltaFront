@@ -1439,10 +1439,21 @@ describe("Cosmetic pack schemas", () => {
     expect(Object.keys(parsed.packs ?? {})).toEqual(["starter"]);
   });
 
-  it("requires the pack's own hard price and display name", () => {
+  it("takes a Credits price, a plutonium price or both, and a one-line tagline; the display name is required", () => {
     expect(
       CosmeticPackSchema.safeParse({ ...starter, priceHard: undefined })
         .success,
+    ).toBe(true);
+    expect(
+      CosmeticPackSchema.safeParse({
+        ...starter,
+        priceHard: undefined,
+        priceSoft: 950,
+        tagline: "Dress for the front",
+      }).success,
+    ).toBe(true);
+    expect(
+      CosmeticPackSchema.safeParse({ ...starter, priceSoft: "950" }).success,
     ).toBe(false);
     expect(
       CosmeticPackSchema.safeParse({ ...starter, displayName: undefined })

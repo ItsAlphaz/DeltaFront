@@ -477,15 +477,18 @@ export const CosmeticPackItemSchema = z.object({
   colorPalette: z.string().optional(),
 });
 
-// A bundle of cosmetics bought in one hard-currency transaction
-// (POST /shop/purchase/pack). `name` is the slug sent to that endpoint. Only
-// packs that are for sale are listed. The price is the pack's own, not the
-// sum of its items; packs never have a soft-currency price.
+// A bundle of cosmetics bought in one transaction (POST /shop/purchase/pack).
+// `name` is the slug sent to that endpoint. Only packs that are for sale are
+// listed. The price is the pack's own, not the sum of its items: DeltaFront
+// sells a bundle for Credits (`priceSoft`), a pack from an API with a premium
+// currency for `priceHard`. `tagline` is one line of flavour for the card.
 export const CosmeticPackSchema = z.object({
   name: CosmeticNameSchema,
   displayName: z.string(),
   description: z.string(),
-  priceHard: z.number(),
+  tagline: z.string().optional(),
+  priceHard: z.number().optional(),
+  priceSoft: z.number().optional(),
   rarity: z
     .enum(["common", "uncommon", "rare", "epic", "legendary"])
     .or(z.string()),

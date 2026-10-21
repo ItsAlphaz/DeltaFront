@@ -14,6 +14,7 @@ import {
   PATTERN_KEY,
   UserSettings,
 } from "../../src/client/UserSettings";
+import type { BundleCard } from "../../src/client/components/BundleCard";
 import type { CosmeticCard } from "../../src/client/components/CosmeticCard";
 import type { PurchaseButton } from "../../src/client/components/PurchaseButton";
 
@@ -230,6 +231,13 @@ function legacyCard(modal: StoreModal, key: string): CosmeticCard | undefined {
   );
 }
 
+/** The bundle card for a bundle key (bundles have their own card, not the cosmetic one). */
+function bundleCard(modal: StoreModal, key: string): BundleCard | undefined {
+  return [...modal.querySelectorAll<BundleCard>("bundle-card")].find(
+    (candidate) => candidate.resolved.key === key,
+  );
+}
+
 function legacyProduct(
   modal: StoreModal,
   key: string,
@@ -381,7 +389,7 @@ async function openStoreOnTab(tab: "packs" | "subscriptions" | "bundles") {
   await store.updateComplete;
   store.open({ tab });
   await vi.waitFor(() =>
-    expect(store!.querySelector("cosmetic-card")).toBeTruthy(),
+    expect(store!.querySelector("cosmetic-card, bundle-card")).toBeTruthy(),
   );
   return store;
 }
@@ -692,7 +700,7 @@ describe("StoreModal cosmetic browser", () => {
   it("previews a bundle item from the contents dialog, then restores the dialog", async () => {
     resolvedCatalog = [starterBundle];
     const modal = await openStoreOnTab("bundles");
-    legacyCard(modal, starterBundle.key)!.onActivate!(starterBundle);
+    bundleCard(modal, starterBundle.key)!.onActivate!(starterBundle);
     await modal.updateComplete;
     await (modal.querySelector("pack-contents-dialog") as LitElement)
       .updateComplete;
@@ -908,17 +916,22 @@ describe("StoreModal cosmetic browser", () => {
     resolvedCatalog = [starterBundle];
     const modal = await openStoreOnTab("bundles");
 
-    expect(legacyCard(modal, starterBundle.key)?.state).toBe("focused");
-    const button = legacyPurchaseButton(modal, starterBundle.key);
+    expect(bundleCard(modal, starterBundle.key)?.state).toBe("focused");
+    const button = bundleCard(modal, starterBundle.key)!.querySelector(
+      "purchase-button",
+    ) as PurchaseButton;
     expect(button.priceHard).toBe(250);
     expect(button.priceSoft).toBeNull();
     expect(button.product).toBeNull();
     expect(button.itemName).toBe("Starter Pack");
+    // The card lays the bundle's items out as a loadout.
     expect(
-      legacyCard(modal, starterBundle.key)?.querySelector(
-        "[data-cosmetic-info-items]",
-      )?.textContent,
-    ).toContain("inventory.selected_cosmetic_variant, Aurora");
+      [
+        ...bundleCard(modal, starterBundle.key)!.querySelectorAll(
+          "[data-bundle-item]",
+        ),
+      ].map((tile) => tile.getAttribute("data-bundle-item")),
+    ).toEqual(expect.arrayContaining(["pattern:stripes:red", "flag:aurora"]));
 
     await clickHardPurchase(modal);
     expect(purchaseCosmetic).toHaveBeenCalledWith(starterBundle, "hard");
@@ -929,7 +942,7 @@ describe("StoreModal cosmetic browser", () => {
     const modal = await openStoreOnTab("bundles");
     expect(document.querySelector("[data-pack-contents]")).toBeNull();
 
-    legacyCard(modal, starterBundle.key)!.onActivate!(starterBundle);
+    bundleCard(modal, starterBundle.key)!.onActivate!(starterBundle);
     await modal.updateComplete;
     const dialogHost = modal.querySelector(
       "pack-contents-dialog",
@@ -976,7 +989,7 @@ describe("StoreModal cosmetic browser", () => {
     await modal.updateComplete;
     expect(document.querySelector("[data-pack-contents]")).toBeNull();
     // The card stays inspected after closing.
-    expect(legacyCard(modal, starterBundle.key)?.state).toBe("focused");
+    expect(bundleCard(modal, starterBundle.key)?.state).toBe("focused");
   });
 
   it("shows owned and partially owned bundles as a status, not a sale", async () => {
@@ -993,7 +1006,7 @@ describe("StoreModal cosmetic browser", () => {
 
     expect(modal.querySelector("purchase-button")).toBeNull();
     // The dialog shows the same status instead of a buy button.
-    legacyCard(modal, owned.key)!.onActivate!(owned);
+    bundleCard(modal, owned.key)!.onActivate!(owned);
     await modal.updateComplete;
     await (modal.querySelector("pack-contents-dialog") as LitElement)
       .updateComplete;
@@ -1004,12 +1017,12 @@ describe("StoreModal cosmetic browser", () => {
         ?.textContent,
     ).toContain("store.pack_owned");
     expect(
-      legacyProduct(modal, owned.key)?.querySelector("[data-store-status]")
+      bundleCard(modal, owned.key)?.querySelector("[data-store-status]")
         ?.textContent,
     ).toContain("store.pack_owned");
     // The partially owned bundle names the item that blocks it.
     expect(
-      legacyProduct(modal, partial.key)?.querySelector("[data-store-status]")
+      bundleCard(modal, partial.key)?.querySelector("[data-store-status]")
         ?.textContent,
     ).toContain("store.pack_partially_owned");
   });
@@ -1023,7 +1036,7 @@ describe("StoreModal cosmetic browser", () => {
     store.open({ tab: "bundles" });
     await store.updateComplete;
 
-    expect(store.querySelector("cosmetic-card")).toBeNull();
+    expect(store.querySelector("cosmetic-card, bundle-card")).toBeNull();
     expect(store.textContent).toContain("store.no_bundles");
   });
 

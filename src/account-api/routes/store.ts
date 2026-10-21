@@ -1,8 +1,8 @@
 import express, { type Router } from "express";
 import { z } from "zod";
 import { ASSET_ROUTE, type Catalog } from "../catalog/load";
-import { findOffer } from "../catalog/offer";
-import { purchaseOffer } from "../domain/economy";
+import { findBundleOffer, findOffer } from "../catalog/offer";
+import { purchaseBundle, purchaseOffer } from "../domain/economy";
 import { activeBan, getUser } from "../repo/users";
 import { authenticate, jsonBody, type AppDeps } from "./common";
 
@@ -72,6 +72,8 @@ const PurchaseBody = z.object({
   colorPaletteName: z.string().regex(NAME).optional(),
 });
 
+const PackBody = z.object({ packName: z.string().regex(NAME) });
+
 /**
  * `POST /shop/purchase`: spend Credits on a catalog item (plan section 9.4).
  *
@@ -86,8 +88,16 @@ const PurchaseBody = z.object({
  *   400 { reason: "Item not for sale" }      unknown, unpriced or invalid palette
  *   409 { reason: "Already owned" }          held already, or a free default
  *
- * The premium currency, bundles (`/shop/purchase/pack`), subscriptions and
- * checkout do not exist in V1: those paths are not routed (404).
+ * `POST /shop/purchase/pack` buys a bundle (a themed set of catalog items for
+ * one Credits price) the same way, granting every item in one transaction:
+ *
+ *   200 { packName, currencyType: "soft", amount, flareNames }   bought
+ *   400 { reason: "Insufficient balance" }   too few Credits, nothing charged
+ *   400 { reason: "Pack not found" }         unknown, or no longer sellable
+ *   409 { ownedFlareNames }                  it holds some of the items already
+ *
+ * The premium currency, subscriptions and checkout do not exist in V1: those
+ * paths are not routed (404).
  */
 export function shopRouter(deps: AppDeps & { catalog: Catalog }): Router {
   const { pool, limiters, catalog } = deps;
@@ -144,6 +154,60 @@ export function shopRouter(deps: AppDeps & { catalog: Catalog }): Router {
         res.json({
           currency: { soft: outcome.balance, hard: 0 },
           flares: [offer.flare],
+        });
+        return;
+    }
+  });
+
+  router.post("/shop/purchase/pack", jsonBody("2kb"), async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const claims = await authenticate(req, deps);
+    const user = claims === null ? null : await getUser(pool, claims.userId);
+    if (user === null || user.deletedAt !== null) {
+      res.status(401).json({ error: "unauthorized" });
+      return;
+    }
+    const verdict = limiters.purchase.hit(user.id);
+    if (!verdict.allowed) {
+      res.setHeader("Retry-After", String(verdict.retryAfterSeconds));
+      res.status(429).json({ reason: "Too many requests" });
+      return;
+    }
+    if (user.kind === "guest") {
+      res.status(403).json({ code: "LOGIN_REQUIRED" });
+      return;
+    }
+    if ((await activeBan(pool, user.id)) !== null) {
+      res.status(403).json({ code: "BANNED" });
+      return;
+    }
+    const body = PackBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ reason: "Invalid request" });
+      return;
+    }
+    const bundle = findBundleOffer(catalog, body.data.packName);
+    if (bundle === null) {
+      res.status(400).json({ reason: "Pack not found" });
+      return;
+    }
+    const outcome = await purchaseBundle(pool, user.id, bundle, {
+      catalogVersion: catalog.version,
+      defaultFlares: catalog.defaultFlares,
+    });
+    switch (outcome.kind) {
+      case "owned":
+        res.status(409).json({ ownedFlareNames: outcome.ownedFlares });
+        return;
+      case "insufficient":
+        res.status(400).json({ reason: "Insufficient balance" });
+        return;
+      case "purchased":
+        res.json({
+          packName: bundle.name,
+          currencyType: "soft",
+          amount: String(bundle.price),
+          flareNames: bundle.flares,
         });
         return;
     }

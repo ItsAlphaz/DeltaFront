@@ -18,6 +18,7 @@ import type { PropertyValues, TemplateResult } from "lit";
 import { html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { BaseModal } from "./components/BaseModal";
+import "./components/BundleCard";
 import "./components/CosmeticCard";
 import {
   cosmeticDisplayName,
@@ -151,21 +152,25 @@ export class StoreModal extends BaseModal {
   /**
    * Only the tabs whose feature exists (docs/DeltaFrontAccountsPlan.md 17.1):
    * currency packs and subscriptions are real-money and need `payments`, custom
-   * tribe names need `tribes`, and bundles (priced in the premium currency, so
-   * `payments` too) appear only when the loaded catalog has some (DeltaFront's
-   * V1 catalog has none). That leaves Cosmetics and
-   * Effects, the two tabs that spend Credits.
+   * tribe names need `tribes`, and bundles appear when the loaded catalog sells
+   * some for Credits (or, with `payments`, for the premium currency). That
+   * leaves Bundles, Cosmetics and Effects, the tabs that spend Credits.
    */
   private visibleTabs(): Array<{ key: string; label: string }> {
     // Until the catalog has loaded the tab is kept (a deep link to it must
     // survive the load); once loaded, a catalog without bundles drops it.
     const hasBundles =
-      this.cosmetics === null ||
-      Object.keys(this.cosmetics.packs ?? {}).length > 0;
+      this.cosmetics === null
+        ? ACCOUNT_FEATURES.payments
+        : Object.values(this.cosmetics.packs ?? {}).some(
+            (pack) =>
+              (pack.priceSoft ?? 0) > 0 ||
+              (ACCOUNT_FEATURES.payments && (pack.priceHard ?? 0) > 0),
+          );
     const tabs: Array<[boolean, string, string]> = [
       [ACCOUNT_FEATURES.payments, "packs", "store.packs"],
       [ACCOUNT_FEATURES.payments, "subscriptions", "store.subscriptions"],
-      [ACCOUNT_FEATURES.payments && hasBundles, "bundles", "store.bundles"],
+      [hasBundles, "bundles", "store.bundles"],
       [true, "cosmetics", "store.cosmetics"],
       [true, "effects", "store.effects"],
       [ACCOUNT_FEATURES.tribes, "tribes", "store.tribes"],
@@ -555,9 +560,19 @@ export class StoreModal extends BaseModal {
     userHasSubscription = false,
     cardClass = "block h-full min-w-0",
   ): TemplateResult {
-    return html`${groups.map((group) => {
+    return html`${groups.map((group, index) => {
       const focused = group.find((item) => item.key === this.inspected?.key);
       const active = focused ?? group[0];
+      if (active.type === "cosmeticPack") {
+        return html`<bundle-card
+          class=${cardClass}
+          .resolved=${active}
+          .lot=${index + 1}
+          .actionContent=${this.renderCardAction(active, false, true)}
+          state=${focused ? "focused" : "idle"}
+          .onActivate=${(resolved: ResolvedCosmetic) => this.activate(resolved)}
+        ></bundle-card>`;
+      }
       const action = this.renderCardAction(active, userHasSubscription);
       return html`<cosmetic-card
         data-store-product
@@ -997,18 +1012,32 @@ export class StoreModal extends BaseModal {
   }
 
   private renderBundleGrid(): TemplateResult {
-    return html`${this.renderBrowser(this.visibleGroups, {
-      emptyTranslationKey: "store.no_bundles",
-    })}${this.openedPack && !this.previewingCosmetic
-      ? // The dialog is portaled above the modal's stacking context, so a
-        // preview opened from one of its items would render underneath it.
-        // Yield to the preview; the dialog comes back when it closes.
-        html`<pack-contents-dialog
-          .pack=${this.openedPack}
-          .actionContent=${this.renderCardAction(this.openedPack, false)}
-          @close=${() => this.closePack()}
-        ></pack-contents-dialog>`
-      : ""}`;
+    return html`<div
+        class="mx-3 mt-3 flex items-center gap-3 rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3"
+      >
+        <span
+          aria-hidden="true"
+          class="h-3 w-12 shrink-0 rounded-sm"
+          style="background:repeating-linear-gradient(-45deg,var(--color-ui-accent) 0 6px,var(--color-ui-ground) 6px 12px)"
+        ></span>
+        <span
+          class="font-pixel text-[11px] uppercase tracking-[0.18em] text-ui-muted"
+          >${translateText("store.bundles_tagline")}</span
+        >
+      </div>
+      ${this.renderBrowser(this.visibleGroups, {
+        emptyTranslationKey: "store.no_bundles",
+        gridClass: "grid grid-cols-1 gap-5 p-1 sm:grid-cols-2 xl:grid-cols-3",
+      })}${this.openedPack && !this.previewingCosmetic
+        ? // The dialog is portaled above the modal's stacking context, so a
+          // preview opened from one of its items would render underneath it.
+          // Yield to the preview; the dialog comes back when it closes.
+          html`<pack-contents-dialog
+            .pack=${this.openedPack}
+            .actionContent=${this.renderCardAction(this.openedPack, false)}
+            @close=${() => this.closePack()}
+          ></pack-contents-dialog>`
+        : ""}`;
   }
 
   private renderSubscriptionGrid(): TemplateResult {

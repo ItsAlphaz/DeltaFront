@@ -104,6 +104,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0007",
       "0008",
       "0009",
+      "0010",
     ]);
 
     expect(await tablesOf(pool)).toEqual(
@@ -153,6 +154,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         name: "solo_submissions",
         checksum: files[8].checksum,
       },
+      { version: "0010", name: "bundles", checksum: files[9].checksum },
     ]);
   });
 
@@ -164,7 +166,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(9);
+    ).toBe(10);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -186,6 +188,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0007",
         "0008",
         "0009",
+        "0010",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -213,6 +216,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0007",
       "0008",
       "0009",
+      "0010",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -228,6 +232,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0007",
       "0008",
       "0009",
+      "0010",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -450,11 +455,12 @@ describeDb("migration safety", () => {
       "0007",
       "0008",
       "0009",
+      "0010",
     ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(9);
+    ).toBe(10);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -483,6 +489,7 @@ describeDb("migration safety", () => {
       "0007",
       "0008",
       "0009",
+      "0010",
     ]);
   });
 });

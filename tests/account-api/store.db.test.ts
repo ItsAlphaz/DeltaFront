@@ -376,6 +376,137 @@ describeDb("POST /shop/purchase", () => {
     });
   });
 
+  describe("a bundle purchase", () => {
+    const KIT = [
+      "pattern:delta_stripes:ember",
+      "flag:delta_mark",
+      "effect:red_wake",
+    ];
+    const buyPack = (s: { jwt: string }, packName: unknown) =>
+      call(h, "/shop/purchase/pack", {
+        method: "POST",
+        bearer: s.jwt,
+        json: { packName },
+        origin: null,
+      });
+
+    it("debits the one bundle price, grants every item and writes one purchase and one ledger row", async () => {
+      const s = await shopper(1000);
+      const res = await buyPack(s, "recruit_kit");
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        packName: "recruit_kit",
+        currencyType: "soft",
+        amount: "950",
+        flareNames: KIT,
+      });
+      expect(await credits(s)).toBe(50);
+      expect(await owned(s)).toEqual([...KIT].sort());
+      const purchases = await rows(
+        h,
+        "SELECT * FROM purchases WHERE user_id = $1",
+        [s.userId],
+      );
+      expect(purchases).toHaveLength(1);
+      expect(purchases[0]).toMatchObject({
+        kind: "pack",
+        item_key: "pack:recruit_kit",
+        flares: KIT,
+        catalog_version: catalog.version,
+      });
+      expect(Number(purchases[0].price_credits)).toBe(950);
+      expect(await counts(s)).toEqual({ purchases: 1, ledger: 1, flares: 3 });
+      // The granted items are reported to the game server like any purchase.
+      const me = await meOf(s.jwt);
+      for (const flare of KIT) expect(me.player.flares).toContain(flare);
+    });
+
+    it("too few Credits: 400 Insufficient balance, nothing charged or granted", async () => {
+      const s = await shopper(949);
+      const res = await buyPack(s, "recruit_kit");
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ reason: "Insufficient balance" });
+      expect(await credits(s)).toBe(949);
+      expect(await counts(s)).toEqual({ purchases: 0, ledger: 0, flares: 0 });
+    });
+
+    it("an item already held: 409 naming it, nothing charged, nothing else granted", async () => {
+      const s = await shopper(2000);
+      expect((await buy(s, BODY["flag:delta_mark"])).status).toBe(200);
+      const before = { credits: await credits(s), counts: await counts(s) };
+      const res = await buyPack(s, "recruit_kit");
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({
+        ownedFlareNames: ["flag:delta_mark"],
+      });
+      expect(await credits(s)).toBe(before.credits);
+      expect(await counts(s)).toEqual(before.counts);
+    });
+
+    it("the same bundle twice: the second is a 409 and is not charged", async () => {
+      const s = await shopper(2000);
+      expect((await buyPack(s, "recruit_kit")).status).toBe(200);
+      expect((await buyPack(s, "recruit_kit")).status).toBe(409);
+      expect(await credits(s)).toBe(1050);
+      expect((await counts(s)).purchases).toBe(1);
+    });
+
+    it("ten simultaneous requests: bought once, charged once", async () => {
+      const s = await shopper(1000);
+      const results = await Promise.all(
+        Array.from({ length: 10 }, () => buyPack(s, "recruit_kit")),
+      );
+      expect(results.map((r) => r.status).sort()).toEqual([
+        200, 409, 409, 409, 409, 409, 409, 409, 409, 409,
+      ]);
+      expect(await credits(s)).toBe(50);
+      expect(await counts(s)).toEqual({ purchases: 1, ledger: 1, flares: 3 });
+    });
+
+    it.each([["nope"], ["constructor"], ["Recruit_Kit"], [""], [5], [null]])(
+      "an unknown or malformed bundle name %j is refused",
+      async (name) => {
+        const s = await shopper(5000);
+        const res = await buyPack(s, name);
+        expect(res.status).toBe(400);
+        expect(await credits(s)).toBe(5000);
+        expect(await owned(s)).toEqual([]);
+      },
+    );
+
+    it("a guest cannot (403 LOGIN_REQUIRED), and no token is a 401", async () => {
+      const g = await newGuest(h);
+      expect((await buyPack(g, "recruit_kit")).status).toBe(403);
+      expect(
+        (
+          await call(h, "/shop/purchase/pack", {
+            method: "POST",
+            json: { packName: "recruit_kit" },
+            origin: null,
+          })
+        ).status,
+      ).toBe(401);
+    });
+
+    it("ignores a price, a currency or a flare list the client adds", async () => {
+      const s = await shopper(1000);
+      const res = await call(h, "/shop/purchase/pack", {
+        method: "POST",
+        bearer: s.jwt,
+        json: {
+          packName: "recruit_kit",
+          priceSoft: 1,
+          currencyType: "hard",
+          flares: ["crown:sample_crown"],
+        },
+        origin: null,
+      });
+      expect(res.status).toBe(200);
+      expect(await credits(s)).toBe(50);
+      expect(await owned(s)).toEqual([...KIT].sort());
+    });
+  });
+
   describe("refusals change nothing", () => {
     async function expectUntouched(
       s: Shopper,
@@ -794,7 +925,6 @@ describeDb("POST /shop/purchase", () => {
         ["POST", "/shop/grant", { flare: "flag:delta_mark" }],
         ["POST", "/shop/refund", { purchaseId: 1 }],
         ["POST", "/rewards/claim-all", {}],
-        ["POST", "/shop/purchase/pack", { packName: "starter" }],
         [
           "POST",
           "/payments/checkout",

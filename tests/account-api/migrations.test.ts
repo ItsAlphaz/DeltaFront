@@ -207,6 +207,16 @@ describe("the shipped migrations", () => {
     expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
   });
 
+  it("0010 lets a purchase be a bundle ('pack') and rewrites no data", () => {
+    expect(files[9].fileName).toBe("0010_bundles.sql");
+    const sql = files[9].sql.replace(/^\s*--.*$/gm, "");
+    expect(sql).toMatch(
+      /ALTER TABLE purchases DROP CONSTRAINT purchases_kind_check/,
+    );
+    expect(sql).toMatch(/CHECK \(kind IN \('cosmetic', 'pack'\)\)/);
+    expect(sql).not.toMatch(/\bUPDATE\b|DELETE FROM|DROP TABLE|DROP COLUMN/i);
+  });
+
   it("0001 encodes the owner's one-clan rule and the single-currency wallet", () => {
     const sql = files[0].sql;
     expect(sql).toMatch(/UNIQUE \(user_id\)/); // clan_members: one clan at a time

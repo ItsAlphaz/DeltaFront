@@ -33,7 +33,10 @@ import {
   parseCatalog,
   type Catalog,
 } from "../../src/account-api/catalog/load";
-import { findOffer } from "../../src/account-api/catalog/offer";
+import {
+  findBundleOffer,
+  findOffer,
+} from "../../src/account-api/catalog/offer";
 import { ECONOMY } from "../../src/account-api/domain/constants";
 import { reportedFlares } from "../../src/account-api/repo/inventory";
 
@@ -231,10 +234,10 @@ describe("the shipped DeltaFront catalog", () => {
         "defaultFlares",
         "effects",
         "flags",
+        "packs",
         "patterns",
       ]);
       for (const forbidden of [
-        "packs",
         "currencyPacks",
         "subscriptions",
         "tribeNames",
@@ -504,7 +507,6 @@ describe("catalog validation rejects a bad catalog", () => {
       "skins",
       { s: { name: "s", url: "x.svg", product: null, rarity: "common" } },
     ],
-    ["packs", {}],
     ["currencyPacks", {}],
     ["subscriptions", {}],
     ["tribeNames", { priceHard: 1, boostPriceHard: 1, boostDurationDays: 1 }],
@@ -1022,6 +1024,7 @@ describe("catalog prices (milestone M5)", () => {
     expect(priced(250).cosmetics.flags.delta_mark.priceSoft).toBe(250);
     const noPrice = catalogWith((c) => {
       delete c.flags.delta_mark.priceSoft;
+      delete c.packs;
     });
     expect(
       findOffer(noPrice, { cosmeticType: "flag", cosmeticName: "delta_mark" }),
@@ -1142,5 +1145,105 @@ describe("the public sample catalog", () => {
         );
       }
     }
+  });
+});
+
+describe("bundles", () => {
+  const catalog = catalogWith(() => {});
+
+  it("ship in the sample, are served with the catalog and parse in the client's own schema", () => {
+    expect(Object.keys(catalog.cosmetics.packs ?? {}).sort()).toEqual([
+      "doomsday_cache",
+      "recruit_kit",
+      "war_machine",
+    ]);
+    expect(CosmeticsSchema.safeParse(JSON.parse(catalog.body)).success).toBe(
+      true,
+    );
+  });
+
+  it("each cost less than their items do separately, and grant only items the catalog sells", () => {
+    for (const pack of Object.values(catalog.cosmetics.packs ?? {})) {
+      const offer = findBundleOffer(catalog, pack.name)!;
+      expect(offer.price).toBe(pack.priceSoft);
+      let sum = 0;
+      for (const item of pack.items) {
+        const single = findOffer(catalog, {
+          cosmeticType: item.type,
+          cosmeticName: item.name,
+          colorPaletteName: item.colorPalette,
+        })!;
+        expect(catalog.validFlares.has(single.flare)).toBe(true);
+        sum += single.price;
+      }
+      expect(offer.price).toBeLessThan(sum);
+    }
+  });
+
+  it("resolve to the flares of their items, in order", () => {
+    expect(findBundleOffer(catalog, "recruit_kit")).toEqual({
+      name: "recruit_kit",
+      flares: [
+        "pattern:delta_stripes:ember",
+        "flag:delta_mark",
+        "effect:red_wake",
+      ],
+      price: 950,
+    });
+  });
+
+  it.each(["nope", "constructor", "__proto__", ""])(
+    "sell nothing under the name %j",
+    (name) => {
+      expect(findBundleOffer(catalog, name)).toBeNull();
+    },
+  );
+
+  it("are refused by the loader for a bad item, a missing palette, a repeat, a price above the sum or an unpriced item", () => {
+    const bad = (edit: (pack: Record<string, any>) => void) =>
+      issuesOf(() => catalogWith((c) => edit(c.packs.recruit_kit)));
+    expect(bad((p) => (p.items[1].name = "no_such_flag"))).toMatch(
+      /there is no flag no_such_flag/,
+    );
+    expect(bad((p) => delete p.items[0].colorPalette)).toMatch(
+      /needs one of its live palettes/,
+    );
+    expect(
+      bad((p) => p.items.push({ type: "flag", name: "delta_mark" })),
+    ).toMatch(/in the bundle twice/);
+    expect(bad((p) => (p.priceSoft = 5000))).toMatch(/more than its items/);
+    expect(bad((p) => (p.priceSoft = 0))).toMatch(/positive whole number/);
+    expect(bad((p) => (p.name = "other"))).toMatch(/key and the bundle name/);
+    expect(bad((p) => (p.items = p.items.slice(0, 1)))).toMatch(
+      /expected array to have >=2 items/,
+    );
+    expect(
+      issuesOf(() =>
+        catalogWith((c) => {
+          delete c.flags.split_field.priceSoft;
+          c.packs.recruit_kit.items[1] = { type: "flag", name: "split_field" };
+        }),
+      ),
+    ).toMatch(/not sold for Credits/);
+  });
+
+  it("are refused when they hold a free default item, which no account could ever buy", () => {
+    expect(
+      issuesOf(() =>
+        catalogWith((c) => {
+          c.packs.recruit_kit.items[0].colorPalette = "ash";
+        }),
+      ),
+    ).toMatch(/pattern:delta_stripes:ash is a free default item/);
+  });
+
+  it("an item that stops being sold after load takes its bundle off sale", () => {
+    const flags = { ...catalog.cosmetics.flags };
+    delete flags.delta_mark;
+    const broken: Catalog = {
+      ...catalog,
+      cosmetics: { ...catalog.cosmetics, flags },
+    };
+    expect(findBundleOffer(broken, "recruit_kit")).toBeNull();
   });
 });

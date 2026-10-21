@@ -12,7 +12,10 @@ import {
   CatalogError,
   loadCatalog,
 } from "../../src/account-api/catalog/load";
-import { findOffer } from "../../src/account-api/catalog/offer";
+import {
+  findBundleOffer,
+  findOffer,
+} from "../../src/account-api/catalog/offer";
 import { ConfigError, loadConfig } from "../../src/account-api/config";
 import {
   makePrivateCatalog,
@@ -331,13 +334,13 @@ describe("a configured catalog that is missing or broken never falls back to the
     const f = fixture();
     edit(path.join(f.dir, "cosmetics.json"), (j) => {
       j.flags[PRIVATE_ITEMS.flag].priceHard = 5;
-      j.packs = {};
+      j.currencyPacks = {};
     });
     expect(
       issuesOf(() =>
         loadCatalog({ publicOrigin: ORIGIN, dir: f.dir, assetDir: f.assetDir }),
       ),
-    ).toMatch(/packs|Unrecognized key/);
+    ).toMatch(/currencyPacks|Unrecognized key/);
     const g = fixture();
     edit(path.join(g.dir, "effects.json"), (j) => {
       j.effects.nukeTrail[PRIVATE_ITEMS.effects.nukeTrail].attributes = {
@@ -514,5 +517,77 @@ describe("npm run catalog:check (the validator the private repository uses)", ()
       /prod_crown\.svg does not exist/,
     );
     expect(() => checkCatalog(path.join(f.root, "nope"))).toThrow(CatalogError);
+  });
+});
+
+describe("bundles.json in a private catalog", () => {
+  const bundle = (name: string) => ({
+    name,
+    displayName: "Prod Set",
+    description: "A set.",
+    priceSoft: 1700,
+    rarity: "rare",
+    items: [
+      { type: "flag", name: PRIVATE_ITEMS.flag },
+      { type: "crown", name: PRIVATE_ITEMS.crown },
+      { type: "effect", name: PRIVATE_ITEMS.effects.warship },
+    ],
+  });
+  const load = (f: PrivateCatalog) =>
+    loadCatalog({ publicOrigin: ORIGIN, dir: f.dir, assetDir: f.assetDir });
+
+  it("adds its bundles to the catalog, sells them, and changes the catalog version", () => {
+    const f = fixture();
+    const before = load(f);
+    expect(before.cosmetics.packs).toBeUndefined();
+    fs.writeFileSync(
+      path.join(f.dir, "bundles.json"),
+      JSON.stringify({ packs: { prod_set: bundle("prod_set") } }),
+    );
+    const after = load(f);
+    expect(Object.keys(after.cosmetics.packs ?? {})).toEqual(["prod_set"]);
+    expect(findBundleOffer(after, "prod_set")).toMatchObject({
+      price: 1700,
+      flares: [
+        `flag:${PRIVATE_ITEMS.flag}`,
+        `crown:${PRIVATE_ITEMS.crown}`,
+        `effect:${PRIVATE_ITEMS.effects.warship}`,
+      ],
+    });
+    expect(after.version).not.toBe(before.version);
+  });
+
+  it("is optional: without it the catalog has no bundles", () => {
+    expect(load(fixture()).cosmetics.packs).toBeUndefined();
+  });
+
+  it("is refused for invalid JSON, the wrong shape, a duplicate, a bundle in both files, or a bad bundle", () => {
+    const f = fixture();
+    const file = path.join(f.dir, "bundles.json");
+    fs.writeFileSync(file, "{");
+    expect(issuesOf(() => load(f))).toMatch(/bundles\.json is not valid JSON/);
+    fs.writeFileSync(file, JSON.stringify({ packs: {}, effects: {} }));
+    expect(issuesOf(() => load(f))).toMatch(/bundles\.json/);
+    const twice = JSON.stringify({ packs: { a_set: bundle("a_set") } });
+    fs.writeFileSync(file, twice.replace('"a_set":', '"a_set":{},"a_set":'));
+    expect(issuesOf(() => load(f))).toMatch(/defined twice/);
+    edit(path.join(f.dir, "cosmetics.json"), (j) => {
+      j.packs = { prod_set: bundle("prod_set") };
+    });
+    fs.writeFileSync(
+      file,
+      JSON.stringify({ packs: { prod_set: bundle("prod_set") } }),
+    );
+    expect(issuesOf(() => load(f))).toMatch(
+      /packs\.prod_set: defined in both cosmetics\.json and bundles\.json/,
+    );
+    const g = fixture();
+    fs.writeFileSync(
+      path.join(g.dir, "bundles.json"),
+      JSON.stringify({
+        packs: { bad: { ...bundle("bad"), priceSoft: 999999 } },
+      }),
+    );
+    expect(issuesOf(() => load(g))).toMatch(/more than its items/);
   });
 });

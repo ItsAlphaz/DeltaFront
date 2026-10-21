@@ -284,14 +284,14 @@ describe("the Store page", () => {
     expect(buttons().length).toBe(0);
   });
 
-  it("offers only the Cosmetics and Effects tabs (no packs, subscriptions, bundles or tribes)", async () => {
+  it("offers Bundles (the catalog sells some for Credits), Cosmetics and Effects, and no packs, subscriptions or tribes", async () => {
     await openStore(user([FREE], 1000));
     const tabs = (
       store as unknown as { modalConfig(): { tabs: Array<{ key: string }> } }
     )
       .modalConfig()
       .tabs.map((t) => t.key);
-    expect(tabs).toEqual(["cosmetics", "effects"]);
+    expect(tabs).toEqual(["bundles", "cosmetics", "effects"]);
     expect(store.querySelector("custom-currency-card")).toBeNull();
     expect(store.querySelector("tribes-panel")).toBeNull();
   });
@@ -303,11 +303,16 @@ describe("the Store page", () => {
       (store as unknown as { modalConfig(): { tabs: Array<{ key: string }> } })
         .modalConfig()
         .tabs.map((t) => t.key);
-    // the catalog has no bundles, so even with payments there is no Bundles tab
-    expect(keys()).toEqual(["packs", "subscriptions", "cosmetics", "effects"]);
+    expect(keys()).toEqual([
+      "packs",
+      "subscriptions",
+      "bundles",
+      "cosmetics",
+      "effects",
+    ]);
     Object.assign(ACCOUNT_FEATURES, { payments: false, tribes: true });
     store.requestUpdate();
-    expect(keys()).toEqual(["cosmetics", "effects", "tribes"]);
+    expect(keys()).toEqual(["bundles", "cosmetics", "effects", "tribes"]);
   });
 
   it("has no Crowns sub-tab when the catalog has no crowns", async () => {

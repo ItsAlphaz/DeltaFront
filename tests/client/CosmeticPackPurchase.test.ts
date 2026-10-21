@@ -22,6 +22,7 @@ const { showInGameAlert } = await import("../../src/client/InGameModal");
 
 const translations = {
   "cosmetics.hard": "plutonium",
+  "cosmetics.soft": "Credits",
   "flags.pirate": "Jolly Roger",
   "inventory.selected_cosmetic_variant": "{name} ({variant})",
   "territory_patterns.color_palette.red": "Crimson",
@@ -269,5 +270,124 @@ describe("purchaseCosmetic for a cosmetic pack", () => {
     vi.mocked(getUserMe).mockResolvedValue(userWithHard(300));
     await purchaseCosmetic(starter, "soft");
     expect(purchaseCosmeticPack).not.toHaveBeenCalled();
+  });
+});
+
+// DeltaFront sells a bundle for Credits.
+describe("purchaseCosmetic for a Credits bundle", () => {
+  let languageFixture: HTMLElement;
+  let reloadMock: ReturnType<typeof vi.fn>;
+  const originalLocation = window.location;
+  const kit: ResolvedCosmetic = {
+    ...starter,
+    cosmetic: {
+      ...(starter.cosmetic as object),
+      priceHard: undefined,
+      priceSoft: 950,
+    } as never,
+  };
+  const signedIn = (soft: number, linked = true) =>
+    ({
+      user: linked ? { discord: { id: "1", username: "a" } } : {},
+      player: { currency: { hard: 0, soft }, flares: [] },
+    }) as never;
+
+  beforeEach(() => {
+    languageFixture = document.createElement("lang-selector");
+    Object.assign(languageFixture, {
+      translations,
+      defaultTranslations: translations,
+      currentLang: "en",
+    });
+    document.body.appendChild(languageFixture);
+    reloadMock = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload: reloadMock },
+    });
+  });
+
+  afterEach(() => {
+    languageFixture.remove();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
+    vi.mocked(getUserMe).mockReset();
+    vi.mocked(invalidateUserMe).mockReset();
+    vi.mocked(purchaseCosmeticPack).mockReset();
+    vi.mocked(showInGameAlert).mockClear();
+  });
+
+  it("buys it with Credits and reloads to show the grants", async () => {
+    vi.mocked(getUserMe).mockResolvedValue(signedIn(1000));
+    vi.mocked(purchaseCosmeticPack).mockResolvedValue({
+      ok: true,
+      data: {
+        packName: "starter",
+        currencyType: "soft",
+        amount: "950",
+        flareNames: ["pattern:camo", "flag:pirate"],
+      },
+    });
+
+    await expect(purchaseCosmetic(kit, "soft")).resolves.toBeUndefined();
+
+    expect(purchaseCosmeticPack).toHaveBeenCalledWith("starter");
+    expect(showInGameAlert).toHaveBeenCalledWith("bought Starter Pack");
+    expect(reloadMock).toHaveBeenCalled();
+  });
+
+  it("reports the Credits shortfall, with no top-up, before any request", async () => {
+    vi.mocked(getUserMe).mockResolvedValue(signedIn(900));
+
+    expect(await purchaseCosmetic(kit, "soft")).toEqual({
+      currency: "Credits",
+      shortfall: 50,
+      item: "Starter Pack",
+      canTopUp: false,
+    });
+    expect(purchaseCosmeticPack).not.toHaveBeenCalled();
+  });
+
+  it("re-reads the Credits balance when the server says it is short", async () => {
+    vi.mocked(getUserMe)
+      .mockResolvedValueOnce(signedIn(1000))
+      .mockResolvedValueOnce(signedIn(400));
+    vi.mocked(purchaseCosmeticPack).mockResolvedValue({
+      ok: false,
+      code: "insufficient_balance",
+    });
+
+    expect(await purchaseCosmetic(kit, "soft")).toMatchObject({
+      currency: "Credits",
+      shortfall: 550,
+      canTopUp: false,
+    });
+    expect(reloadMock).not.toHaveBeenCalled();
+  });
+
+  it("asks a guest to sign in instead of sending a request the server would refuse", async () => {
+    vi.mocked(getUserMe).mockResolvedValue(signedIn(5000, false));
+
+    await purchaseCosmetic(kit, "soft");
+
+    expect(showInGameAlert).toHaveBeenCalledWith("log in");
+    expect(purchaseCosmeticPack).not.toHaveBeenCalled();
+  });
+
+  it("names what is already owned on a 409 and refetches", async () => {
+    vi.mocked(getUserMe).mockResolvedValue(signedIn(5000));
+    vi.mocked(purchaseCosmeticPack).mockResolvedValue({
+      ok: false,
+      code: "already_owned",
+      ownedFlareNames: ["flag:pirate"],
+    });
+
+    await purchaseCosmetic(kit, "soft");
+
+    expect(showInGameAlert).toHaveBeenCalledWith("already own Jolly Roger");
+    expect(invalidateUserMe).toHaveBeenCalled();
+    expect(reloadMock).toHaveBeenCalled();
   });
 });

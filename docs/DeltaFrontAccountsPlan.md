@@ -874,7 +874,7 @@ Client changes (small):
 
   No store, inventory or server code changes.
 
-- **V1 omits** `currencyPacks`, `subscriptions`, `tribeNames`, `lobbyQueue`, `skins` (the image-based kind; the Store's "Skins" tab is the `patterns`) and `packs` (bundles are hard-currency-only in the contract). Every item has `product: null` and only `priceSoft`. **Crowns** (`crown:<name>` flares, 128 x 128 images) are supported, so the Store's Crowns tab and the Inventory's Crowns slot are live.
+- **V1 omits** `currencyPacks`, `subscriptions`, `tribeNames`, `lobbyQueue`, `skins` (the image-based kind; the Store's "Skins" tab is the `patterns`) and, until v0.10.0, `packs` (bundles were hard-currency-only in the contract; they are now sold for Credits). Every item has `product: null` and only `priceSoft`. **Crowns** (`crown:<name>` flares, 128 x 128 images) are supported, so the Store's Crowns tab and the Inventory's Crowns slot are live.
 - **Two catalogs: a public sample and a private production one.** The file in the repository is a deliberately small sample (the original eight items and a few plain ones, enough to run and test the store). The real catalog is a private repository the API loads from `DF_CATALOG_DIR` / `DF_CATALOG_ASSET_DIR`; it replaces the sample, a configured catalog that cannot be read stops the boot, and the admin item tools validate against the same one. See [PrivateStore.md](PrivateStore.md).
 
 **Content rules** (enforced by review and by the catalog test in section 19):
@@ -909,7 +909,7 @@ Client changes (small):
    - debit, insert `currency_ledger(-price, reason 'purchase')`, `purchases` and `user_flares`.
 6. Return 200 `{}`. The client then re-fetches `/users/@me` (existing behaviour).
 
-`POST /shop/purchase/pack` is **not implemented** in V1. The bundles tab is hidden because the catalog has no `packs` (section 17.1).
+`POST /shop/purchase/pack` (v0.10.0) buys a **bundle** for Credits: the catalog's `packs` carry `priceSoft`, the purchase is one transaction with one `pack` purchase row (migration 0010) and one ledger row, and the Store's Bundles tab shows whenever the catalog sells one (see [PrivateStore.md](PrivateStore.md)).
 
 ### 9.5 Earning Credits (D1)
 

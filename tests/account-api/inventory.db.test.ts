@@ -88,7 +88,6 @@ describeDb("the catalog routes (inventory feature on)", () => {
     expect(parsed.success).toBe(true);
     expect(body).not.toHaveProperty("defaultFlares");
     for (const forbidden of [
-      "packs",
       "currencyPacks",
       "subscriptions",
       "tribeNames",

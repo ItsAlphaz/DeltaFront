@@ -240,5 +240,82 @@
         "rarity": "common"
       }
     }
+  },
+  "packs": {
+    "recruit_kit": {
+      "name": "recruit_kit",
+      "displayName": "Recruit Kit",
+      "description": "Everything a new commander needs to look the part: a striped skin, a banner and a wake.",
+      "tagline": "Dress for the front",
+      "priceSoft": 950,
+      "rarity": "common",
+      "items": [
+        {
+          "type": "pattern",
+          "name": "delta_stripes",
+          "colorPalette": "ember"
+        },
+        {
+          "type": "flag",
+          "name": "delta_mark"
+        },
+        {
+          "type": "effect",
+          "name": "red_wake"
+        }
+      ]
+    },
+    "war_machine": {
+      "name": "war_machine",
+      "displayName": "War Machine",
+      "description": "The whole industrial war effort in one crate: structures, warships, trains and rails.",
+      "tagline": "Industrial might",
+      "priceSoft": 1800,
+      "rarity": "uncommon",
+      "items": [
+        {
+          "type": "effect",
+          "name": "sample_structures"
+        },
+        {
+          "type": "effect",
+          "name": "sample_warship"
+        },
+        {
+          "type": "effect",
+          "name": "sample_train"
+        },
+        {
+          "type": "effect",
+          "name": "sample_railroad"
+        }
+      ]
+    },
+    "doomsday_cache": {
+      "name": "doomsday_cache",
+      "displayName": "Doomsday Cache",
+      "description": "A nuke trail and all three blast rings, so every strike lands with a signature.",
+      "tagline": "Leave a mark",
+      "priceSoft": 1990,
+      "rarity": "rare",
+      "items": [
+        {
+          "type": "effect",
+          "name": "sample_nuke_trail"
+        },
+        {
+          "type": "effect",
+          "name": "sample_atom_ring"
+        },
+        {
+          "type": "effect",
+          "name": "sample_hydro_ring"
+        },
+        {
+          "type": "effect",
+          "name": "sample_mirv_ring"
+        }
+      ]
+    }
   }
 }

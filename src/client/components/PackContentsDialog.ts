@@ -7,8 +7,9 @@ import {
   TemplateResult,
 } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { ResolvedCosmetic } from "../Cosmetics";
+import { bundleSavings, ResolvedCosmetic } from "../Cosmetics";
 import { translateText } from "../Utils";
+import { TIER_COLOR } from "./BundleCard";
 import "./CosmeticCard";
 import { cosmeticTypeLabel } from "./CosmeticPresentation";
 import { isPreviewableCosmetic } from "./CosmeticPreviewBubble";
@@ -89,6 +90,7 @@ export class PackContentsDialog extends LitElement {
   private renderOverlay(resolved: ResolvedCosmetic) {
     const pack = resolved.cosmetic as CosmeticPack;
     const items = resolved.packItems ?? [];
+    const savings = bundleSavings(resolved);
     return html`<div
       class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/80"
       @click=${(e: Event) => {
@@ -100,52 +102,95 @@ export class PackContentsDialog extends LitElement {
         data-pack-contents
         role="dialog"
         aria-label=${pack.displayName}
-        class="relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-ui-border bg-surface p-6 shadow-2xl"
+        class="relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-surface shadow-2xl"
+        style="--tier: ${TIER_COLOR[String(pack.rarity)] ??
+        TIER_COLOR.common}; border-color: color-mix(in srgb, var(--tier) 45%, var(--color-ui-border))"
       >
+        <div
+          aria-hidden="true"
+          class="h-3 w-full"
+          style="background:repeating-linear-gradient(-45deg,var(--tier) 0 8px,var(--color-ui-ground) 8px 16px)"
+        ></div>
         <button
           type="button"
           aria-label=${translateText("common.close")}
           @click=${() => this.close()}
-          class="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-ui-muted transition-all hover:bg-white/10 hover:text-ui-text"
+          class="absolute right-3 top-5 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-ui-muted transition-all hover:bg-white/10 hover:text-ui-text"
         >
           ×
         </button>
-        <h2 class="mb-1 pr-8 text-lg font-bold text-ui-text">
-          ${pack.displayName}
-        </h2>
-        ${pack.description
-          ? html`<p class="mb-4 text-sm text-ui-muted">${pack.description}</p>`
-          : html`<div class="mb-4"></div>`}
-        ${items.length === 0
-          ? html`<p class="py-6 text-center text-sm text-ui-muted">
-              ${translateText("store.pack_no_items")}
-            </p>`
-          : html`<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              ${items.map(
-                (item) =>
-                  html`<div
-                    data-pack-contents-item=${item.key}
-                    class="flex min-w-0 flex-col items-center gap-1"
-                  >
-                    <cosmetic-card
-                      class="block w-full"
-                      .resolved=${item}
-                      .onActivate=${(r: ResolvedCosmetic) =>
-                        this.openPreview(r)}
-                    ></cosmetic-card>
-                    <span
-                      data-pack-contents-type
-                      class="text-[10px] font-bold uppercase tracking-wider text-ui-muted"
-                      >${cosmeticTypeLabel(item)}</span
+        <div class="p-6 pt-5">
+          <h2
+            class="mb-1 pr-8 font-pixel text-2xl uppercase tracking-wide text-ui-text"
+          >
+            ${pack.displayName}
+          </h2>
+          ${pack.tagline
+            ? html`<p
+                class="mb-1 font-pixel text-[11px] uppercase tracking-[0.18em]"
+                style="color:var(--tier)"
+              >
+                ${pack.tagline}
+              </p>`
+            : nothing}
+          ${pack.description
+            ? html`<p class="mb-4 text-sm text-ui-muted">
+                ${pack.description}
+              </p>`
+            : html`<div class="mb-4"></div>`}
+          ${savings !== null && savings.savePct > 0
+            ? html`<div
+                data-pack-contents-savings
+                class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-ui-card border border-ui-border bg-ui-ground px-4 py-3 text-xs uppercase tracking-wider text-ui-muted"
+              >
+                <span
+                  >${translateText("store.bundle_value")}
+                  <s class="text-ui-placeholder"
+                    >${savings.value.toLocaleString()}</s
+                  ></span
+                >
+                <span class="font-bold" style="color:var(--tier)"
+                  >${translateText("store.bundle_you_save", {
+                    amount: (savings.value - savings.price).toLocaleString(),
+                  })}
+                  ·
+                  ${translateText("store.bundle_save", {
+                    percent: savings.savePct,
+                  })}</span
+                >
+              </div>`
+            : nothing}
+          ${items.length === 0
+            ? html`<p class="py-6 text-center text-sm text-ui-muted">
+                ${translateText("store.pack_no_items")}
+              </p>`
+            : html`<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                ${items.map(
+                  (item) =>
+                    html`<div
+                      data-pack-contents-item=${item.key}
+                      class="flex min-w-0 flex-col items-center gap-1"
                     >
-                  </div>`,
-              )}
-            </div>`}
-        ${this.actionContent !== nothing
-          ? html`<div data-pack-contents-action class="mx-auto mt-4 max-w-xs">
-              ${this.actionContent}
-            </div>`
-          : nothing}
+                      <cosmetic-card
+                        class="block w-full"
+                        .resolved=${item}
+                        .onActivate=${(r: ResolvedCosmetic) =>
+                          this.openPreview(r)}
+                      ></cosmetic-card>
+                      <span
+                        data-pack-contents-type
+                        class="text-[10px] font-bold uppercase tracking-wider text-ui-muted"
+                        >${cosmeticTypeLabel(item)}</span
+                      >
+                    </div>`,
+                )}
+              </div>`}
+          ${this.actionContent !== nothing
+            ? html`<div data-pack-contents-action class="mx-auto mt-4 max-w-xs">
+                ${this.actionContent}
+              </div>`
+            : nothing}
+        </div>
       </div>
     </div>`;
   }

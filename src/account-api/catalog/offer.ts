@@ -89,3 +89,38 @@ export function findOffer(
   if (!isPrice(price) || !catalog.validFlares.has(flare)) return null;
   return { flare, price };
 }
+
+export interface BundleOffer {
+  name: string;
+  /** Every flare the bundle grants, in the bundle's order. */
+  flares: string[];
+  /** Price in Credits: a positive whole number from the catalog. */
+  price: number;
+}
+
+/**
+ * The flares and price for a bundle name, or null when the catalog has no such
+ * bundle. Each item is resolved through `findOffer`, so a bundle can only ever
+ * grant what the catalog sells on its own; a bundle that no longer resolves
+ * (an item was removed from the catalog after it was written) is not sold at
+ * all rather than sold short.
+ */
+export function findBundleOffer(
+  catalog: Catalog,
+  packName: string,
+): BundleOffer | null {
+  const pack = own(catalog.cosmetics.packs, packName);
+  if (pack === undefined || !isPrice(pack.priceSoft)) return null;
+  const flares: string[] = [];
+  for (const item of pack.items) {
+    const offer = findOffer(catalog, {
+      cosmeticType: item.type,
+      cosmeticName: item.name,
+      colorPaletteName: item.colorPalette,
+    });
+    if (offer === null) return null;
+    flares.push(offer.flare);
+  }
+  if (flares.length === 0) return null;
+  return { name: pack.name, flares, price: pack.priceSoft };
+}

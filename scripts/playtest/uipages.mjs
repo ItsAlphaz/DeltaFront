@@ -63,6 +63,56 @@ names.forEach((label, i) => {
     },
   };
 });
+// bundles: every tier, plus one the player is part-way through owning
+const pack = (name, displayName, tagline, rarity, items, priceSoft) => ({
+  name,
+  displayName,
+  description: `${displayName}: a themed set.`,
+  tagline,
+  rarity,
+  priceSoft,
+  items: items.map((n) => ({ type: "effect", name: n })),
+});
+catalog.packs = {
+  ...catalog.packs,
+  galaxy_loadout: pack(
+    "galaxy_loadout",
+    "Galaxy Loadout",
+    "Every strike, lit like a nebula",
+    "epic",
+    [
+      "aurora_ring",
+      "copper_sparks",
+      "royal_cinders",
+      "venom_ring",
+      "mono_sparks",
+    ],
+    3300,
+  ),
+  midnight_vault: pack(
+    "midnight_vault",
+    "Midnight Vault",
+    "Sealed. Bonded. Yours.",
+    "legendary",
+    [
+      "ice_fire_cinders",
+      "deep_sea_ring",
+      "signal_sparks",
+      "forest_cinders",
+      "galaxy_ring",
+      "rose_gold_sparks",
+    ],
+    4800,
+  ),
+  half_done: pack(
+    "half_done",
+    "Half Done",
+    "You own one of these",
+    "rare",
+    ["prism_cinders", "signal_sparks"],
+    1300,
+  ),
+};
 const ownedEffects = ["prism_cinders", "red_wake"];
 const flares = [
   ...ownedEffects.map((n) => `effect:${n}`),
@@ -233,6 +283,25 @@ const shot = async (name) => {
   await g.b.shot(name);
   console.log("shot", name);
 };
+for (const page of pages) {
+  if (page === "bundles") {
+    await g.ev(`window.showPage('page-item-store'); 1`);
+    await sleep(3000);
+    await g.ev(
+      `document.querySelector('store-modal [data-ui-segmented="store-tabs"] [data-key="bundles"]')?.click(); 1`,
+    );
+    await sleep(2500);
+    await shot(`ui-bundles${narrow ? "-narrow" : ""}`);
+    await g.ev(
+      `(()=>{ const c=document.querySelector('store-modal [data-bundle-card]'); c?.scrollIntoView(); c?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); return !!c })()`,
+    );
+    await g.ev(
+      `document.querySelector('store-modal [data-bundle-card]')?.click(); 1`,
+    );
+    await sleep(1200);
+    await shot(`ui-bundles-dialog${narrow ? "-narrow" : ""}`);
+  }
+}
 for (const page of pages.length ? pages : ["store"]) {
   if (page === "store") {
     await g.ev(`window.showPage('page-item-store'); 1`);

@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import type { Offer } from "../catalog/offer";
+import type { BundleOffer, Offer } from "../catalog/offer";
 import { withTransaction } from "../db/tx";
 import { grantFlare } from "../repo/inventory";
 import { ACCOUNT_RULES, ECONOMY } from "./constants";
@@ -157,6 +157,79 @@ export async function purchaseOffer(
       source: "purchase",
       purchaseId,
     });
+    return { kind: "purchased", balance: after, purchaseId };
+  });
+}
+
+export type BundlePurchaseOutcome =
+  | { kind: "purchased"; balance: number; purchaseId: string }
+  /** The account already holds some of the bundle's items (or they are free defaults). Nothing changed. */
+  | { kind: "owned"; ownedFlares: string[] }
+  /** Not enough Credits. Nothing changed. */
+  | { kind: "insufficient"; balance: number };
+
+/**
+ * Buys a bundle, in one transaction, the way `purchaseOffer` buys an item: the
+ * wallet is locked, a bundle with any item already held is refused (nothing is
+ * charged and nothing granted: the player would pay for what they own), a
+ * short wallet is refused, and otherwise the one price is debited, one
+ * purchase and one ledger row are written and every flare is granted. A
+ * failure at any step rolls all of it back.
+ */
+export async function purchaseBundle(
+  pool: Pick<Pool, "connect">,
+  userId: string,
+  bundle: BundleOffer,
+  options: { catalogVersion: string; defaultFlares: readonly string[] },
+): Promise<BundlePurchaseOutcome> {
+  return withTransaction(pool, async (tx) => {
+    await tx.query(
+      "INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+      [userId],
+    );
+    const wallet = await tx.query<{ credits: string }>(
+      "SELECT credits::text AS credits FROM wallets WHERE user_id = $1 FOR UPDATE",
+      [userId],
+    );
+    const balance = Number(wallet.rows[0].credits);
+
+    const held = await tx.query<{ flare: string }>(
+      "SELECT flare FROM user_flares WHERE user_id = $1 AND flare = ANY($2::text[]) AND revoked_at IS NULL",
+      [userId, bundle.flares],
+    );
+    const ownedFlares = bundle.flares.filter(
+      (flare) =>
+        options.defaultFlares.includes(flare) ||
+        held.rows.some((row) => row.flare === flare),
+    );
+    if (ownedFlares.length > 0) return { kind: "owned", ownedFlares };
+    if (balance < bundle.price) return { kind: "insufficient", balance };
+
+    const after = balance - bundle.price;
+    await tx.query(
+      "UPDATE wallets SET credits = $2, updated_at = now() WHERE user_id = $1",
+      [userId, after],
+    );
+    const purchase = await tx.query<{ id: string }>(
+      `INSERT INTO purchases (user_id, kind, item_key, flares, price_credits, catalog_version)
+       VALUES ($1, 'pack', $2, $3::text[], $4, $5) RETURNING id::text AS id`,
+      [
+        userId,
+        `pack:${bundle.name}`,
+        bundle.flares,
+        bundle.price,
+        options.catalogVersion,
+      ],
+    );
+    const purchaseId = purchase.rows[0].id;
+    await tx.query(
+      `INSERT INTO currency_ledger (user_id, delta, balance_after, reason, ref_type, ref_id)
+       VALUES ($1, $2, $3, 'purchase', 'purchase', $4)`,
+      [userId, -bundle.price, after, purchaseId],
+    );
+    for (const flare of bundle.flares) {
+      await grantFlare(tx, userId, flare, { source: "purchase", purchaseId });
+    }
     return { kind: "purchased", balance: after, purchaseId };
   });
 }

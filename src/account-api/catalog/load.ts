@@ -35,7 +35,9 @@ import {
  *
  * A catalog directory holds `cosmetics.json` (the client's own `CosmeticsSchema`
  * shape plus `defaultFlares`, the free items every account owns) and,
- * optionally, `effects.json` (`{ "effects": { ... } }`, merged in). It is
+ * optionally, `effects.json` (`{ "effects": { ... } }`, merged in) and
+ * `bundles.json` (`{ "packs": { ... } }`, merged in: themed bundles of items
+ * the catalog sells, for one Credits price). It is
  * checked here, strictly, before the API will start: a catalog with a mistake
  * in it is a boot failure, never a half-working store, and a configured catalog
  * that cannot be read never falls back to the sample (owned items would vanish).
@@ -105,10 +107,34 @@ export class CatalogError extends Error {
   }
 }
 
-// z.strictObject: a key the V1 catalog does not allow (skins, packs,
+const BUNDLE_NAME = /^[a-z0-9_]{1,32}$/;
+const BUNDLE_MAX_ITEMS = 12;
+
+/** One bundle: a Credits price for several items the catalog sells on their own. */
+const BundleSourceSchema = z.strictObject({
+  name: z.string(),
+  displayName: z.string().min(1).max(40),
+  description: z.string().max(240),
+  tagline: z.string().max(60).optional(),
+  priceSoft: z.number(),
+  rarity: z.enum(["common", "uncommon", "rare", "epic", "legendary"]),
+  items: z
+    .array(
+      z.strictObject({
+        type: z.enum(["pattern", "flag", "crown", "effect"]),
+        name: z.string(),
+        colorPalette: z.string().optional(),
+      }),
+    )
+    .min(2)
+    .max(BUNDLE_MAX_ITEMS),
+});
+
+// z.strictObject: a key the V1 catalog does not allow (skins,
 // currencyPacks, subscriptions, tribeNames, lobbyQueue) is an error, not
 // something quietly dropped.
 const SourceSchema = z.strictObject({
+  packs: z.record(z.string(), BundleSourceSchema).optional(),
   defaultFlares: z.array(z.string()),
   colorPalettes: z.record(z.string(), ColorPaletteSchema),
   patterns: z.record(z.string(), PatternSchema),
@@ -392,6 +418,122 @@ export function parseCatalog(
     }
   }
 
+  // Bundles: every item is one the catalog sells for Credits on its own, and
+  // the bundle costs no more than buying them one by one.
+  const packs: Record<string, z.infer<typeof BundleSourceSchema>> = {};
+  const packFlares = new Map<string, string[]>();
+  const priceOf = (
+    where: string,
+    item: { type: string; name: string; colorPalette?: string | undefined },
+  ): { flare: string; price: number } | null => {
+    let price: number | undefined;
+    let flare: string;
+    switch (item.type) {
+      case "pattern": {
+        const pattern = source.patterns[item.name];
+        if (pattern === undefined) {
+          issues.push(`${where}: there is no pattern ${item.name}`);
+          return null;
+        }
+        const palettes = pattern.colorPalettes ?? [];
+        if (palettes.length === 0) {
+          if (item.colorPalette !== undefined) {
+            issues.push(`${where}: pattern ${item.name} has no palettes`);
+            return null;
+          }
+          flare = patternFlare(pattern.name, null);
+        } else {
+          const chosen = palettes.find((p) => p.name === item.colorPalette);
+          if (chosen === undefined || chosen.isArchived) {
+            issues.push(
+              `${where}: pattern ${item.name} needs one of its live palettes (got ${JSON.stringify(item.colorPalette ?? null)})`,
+            );
+            return null;
+          }
+          flare = patternFlare(pattern.name, chosen.name);
+        }
+        price = pattern.priceSoft;
+        break;
+      }
+      case "flag": {
+        const flag = source.flags[item.name];
+        if (flag === undefined || item.colorPalette !== undefined) {
+          issues.push(
+            `${where}: there is no flag ${item.name} (or it has a palette)`,
+          );
+          return null;
+        }
+        flare = flagFlare(flag.name);
+        price = flag.priceSoft;
+        break;
+      }
+      case "crown": {
+        const crown = source.crowns?.[item.name];
+        if (crown === undefined || item.colorPalette !== undefined) {
+          issues.push(
+            `${where}: there is no crown ${item.name} (or it has a palette)`,
+          );
+          return null;
+        }
+        flare = crownFlare(crown.name);
+        price = crown.priceSoft;
+        break;
+      }
+      default: {
+        const effect = Object.values(source.effects)
+          .flatMap((byName) => Object.values(byName ?? {}))
+          .find((e) => e.name === item.name);
+        if (effect === undefined || item.colorPalette !== undefined) {
+          issues.push(
+            `${where}: there is no effect ${item.name} (or it has a palette)`,
+          );
+          return null;
+        }
+        flare = effectFlare(effect.name);
+        price = effect.priceSoft;
+      }
+    }
+    if (price === undefined) {
+      issues.push(
+        `${where}: ${item.type} ${item.name} is not sold for Credits`,
+      );
+      return null;
+    }
+    return { flare, price };
+  };
+  for (const [key, pack] of Object.entries(source.packs ?? {})) {
+    const where = `packs.${key}`;
+    if (pack.name !== key || !BUNDLE_NAME.test(key)) {
+      issues.push(
+        `${where}: the key and the bundle name must match, in lowercase letters, digits and underscores`,
+      );
+    }
+    if (!(Number.isInteger(pack.priceSoft) && pack.priceSoft > 0)) {
+      issues.push(
+        `${where}: priceSoft must be a positive whole number of Credits`,
+      );
+    }
+    const inPack = new Set<string>();
+    packFlares.set(key, []);
+    let sum = 0;
+    for (const [index, item] of pack.items.entries()) {
+      const found = priceOf(`${where}.items.${index}`, item);
+      if (found === null) continue;
+      if (inPack.has(found.flare)) {
+        issues.push(`${where}: ${found.flare} is in the bundle twice`);
+      }
+      inPack.add(found.flare);
+      packFlares.get(key)!.push(found.flare);
+      sum += found.price;
+    }
+    if (pack.priceSoft > sum && inPack.size === pack.items.length) {
+      issues.push(
+        `${where}: costs ${pack.priceSoft}, more than its items do separately (${sum})`,
+      );
+    }
+    packs[key] = pack;
+  }
+
   if (flares.size === 0) issues.push("the catalog has no items");
   if (flares.size > MAX_ITEMS)
     issues.push(`the catalog has more than ${MAX_ITEMS} items`);
@@ -409,6 +551,18 @@ export function parseCatalog(
     defaults.add(flare);
   }
 
+  // An account owns the free items already, so a bundle holding one could
+  // never be bought (the purchase answers "already owned" every time).
+  for (const [key, flaresOfPack] of packFlares) {
+    for (const flare of flaresOfPack) {
+      if (defaults.has(flare)) {
+        issues.push(
+          `packs.${key}: ${flare} is a free default item every account owns`,
+        );
+      }
+    }
+  }
+
   if (issues.length > 0) throw new CatalogError(issues);
 
   // What the client downloads is checked against its own schema, so the API
@@ -419,6 +573,7 @@ export function parseCatalog(
     flags,
     ...(source.crowns === undefined ? {} : { crowns }),
     effects,
+    ...(Object.keys(packs).length === 0 ? {} : { packs }),
   });
   if (!served.success) {
     throw new CatalogError(
@@ -631,6 +786,44 @@ export function loadCatalog(options: {
     if (issues.length > 0) throw new CatalogError(issues);
     text = JSON.stringify(merged);
     versionOf = `${cosmeticsText}\n${effectsText}`;
+  }
+
+  const bundlesText = catalogFile(dir, "bundles.json", false);
+  if (bundlesText !== null) {
+    let extra: unknown;
+    try {
+      extra = JSON.parse(bundlesText);
+    } catch (error) {
+      throw new CatalogError([
+        `bundles.json is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      ]);
+    }
+    const parsed = z
+      .strictObject({ packs: z.record(z.string(), z.unknown()) })
+      .safeParse(extra);
+    if (!parsed.success) {
+      throw new CatalogError(
+        parsed.error.issues.map(
+          (i) => `bundles.json ${i.path.join(".") || "(file)"}: ${i.message}`,
+        ),
+      );
+    }
+    for (const key of findDuplicateKeys(bundlesText)) {
+      issues.push(`bundles.json ${key}: defined twice (duplicate bundle)`);
+    }
+    const merged = JSON.parse(text) as { packs?: Record<string, unknown> };
+    merged.packs ??= {};
+    for (const [name, pack] of Object.entries(parsed.data.packs)) {
+      if (name in merged.packs) {
+        issues.push(
+          `packs.${name}: defined in both cosmetics.json and bundles.json`,
+        );
+      }
+      merged.packs[name] = pack;
+    }
+    if (issues.length > 0) throw new CatalogError(issues);
+    text = JSON.stringify(merged);
+    versionOf = `${versionOf}\n${bundlesText}`;
   }
 
   const files = new Map<string, Buffer>();
