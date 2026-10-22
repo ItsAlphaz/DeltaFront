@@ -76,7 +76,7 @@ describe("the Solo button's effects", () => {
     );
     // a rest shadow of the same shape as the hover one, so it interpolates
     expect(css).toMatch(
-      /\.solo-btn \{[^}]*box-shadow: 0 10px 34px -8px[^}]*0%/,
+      /\.solo-btn \{[^}]*box-shadow: 0 10px 34px -16px[^}]*0%/,
     );
     expect(css).toMatch(/\.solo-btn \{[^}]*text-shadow: 0 0 14px[^}]*0%/);
     // an animation on the box-shadow would override the transition

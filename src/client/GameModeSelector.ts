@@ -68,11 +68,11 @@ const SOLO_CSS = `
   /* The glow and the label's shadow ease in and out together, from a rest state
      of the same shape (a transparent shadow), so nothing jumps. */
   transition: box-shadow 550ms ease, text-shadow 550ms ease, background-color 150ms ease;
-  box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--color-df-red) 0%, transparent);
+  box-shadow: 0 10px 34px -16px color-mix(in srgb, var(--color-df-red) 0%, transparent);
   text-shadow: 0 0 14px color-mix(in srgb, white 0%, transparent);
 }
 .solo-btn:hover {
-  box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--color-df-red) 75%, transparent);
+  box-shadow: 0 10px 34px -16px color-mix(in srgb, var(--color-df-red) 75%, transparent);
   text-shadow: 0 0 14px color-mix(in srgb, white 45%, transparent);
 }
 .solo-btn .solo-sheen {
