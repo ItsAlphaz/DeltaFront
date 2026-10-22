@@ -57,35 +57,30 @@ import { isReplayShellHost } from "./VersionedReplay";
 /** Solo: the one red call to action. */
 const PRIMARY_ACTION =
   "bg-df-red hover:bg-[#e5383bb0] active:bg-df-red-dark text-xl lg:text-[1.625rem] tracking-[0.3em]";
-// Solo's effects: a dotted border that marches round the inside edge (dark red
-// at rest, white and faster on hover), a sheen that sweeps across, a glow and
-// a wider tracking on the label. All of it sits behind the label and none of it
-// takes a click; reduced motion keeps the dots and drops the movement.
+// Solo's effects: a few thick dashes that march round the inside edge in dark
+// red (quicker on hover), a sheen that sweeps across on hover, a glow and a
+// shadow on the label. The button never changes size. It all sits behind the
+// label and takes no clicks; reduced motion keeps the dashes and drops the
+// movement.
 const SOLO_STYLE_ID = "solo-button-styles";
 const SOLO_CSS = `
 .solo-btn {
   overflow: hidden;
   isolation: isolate;
-  transition: transform 160ms ease, box-shadow 220ms ease, letter-spacing 220ms ease, background-color 150ms ease;
+  transition: box-shadow 220ms ease, background-color 150ms ease;
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-df-red) 0%, transparent);
   animation: solo-breathe 3.2s ease-in-out infinite;
 }
 .solo-btn:hover {
-  letter-spacing: 0.38em;
-  transform: translateY(-2px) scale(1.012);
-  box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--color-df-red) 75%, transparent), 0 0 0 1px color-mix(in srgb, white 14%, transparent);
+  box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--color-df-red) 75%, transparent);
   animation: none;
   text-shadow: 0 0 14px color-mix(in srgb, white 45%, transparent);
-}
-.solo-btn:active {
-  transform: translateY(0) scale(0.985);
-  letter-spacing: 0.34em;
 }
 @keyframes solo-breathe {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-df-red) 0%, transparent); }
   50% { box-shadow: 0 0 22px -2px color-mix(in srgb, var(--color-df-red) 45%, transparent); }
 }
-.solo-btn .solo-dots {
+.solo-btn .solo-dashes {
   position: absolute;
   inset: 6px;
   width: calc(100% - 12px);
@@ -94,22 +89,19 @@ const SOLO_CSS = `
   pointer-events: none;
   z-index: -1;
 }
-.solo-btn .solo-dots rect {
+.solo-btn .solo-dashes rect {
   fill: none;
-  stroke: color-mix(in srgb, var(--color-df-red) 60%, black);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-dasharray: 0.1 8;
-  animation: solo-march 1.6s linear infinite;
-  transition: stroke 200ms ease, stroke-width 200ms ease;
+  stroke: color-mix(in srgb, var(--color-df-red) 55%, black);
+  stroke-width: 4;
+  stroke-linecap: butt;
+  stroke-dasharray: 34 66;
+  animation: solo-march 5s linear infinite;
 }
-.solo-btn:hover .solo-dots rect {
-  stroke: white;
-  stroke-width: 3;
-  animation-duration: 0.55s;
+.solo-btn:hover .solo-dashes rect {
+  animation-duration: 2.2s;
 }
 @keyframes solo-march {
-  to { stroke-dashoffset: -8.1; }
+  to { stroke-dashoffset: -100; }
 }
 .solo-btn .solo-sheen {
   position: absolute;
@@ -132,8 +124,8 @@ const SOLO_CSS = `
   100% { left: 125%; opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .solo-btn, .solo-btn:hover { animation: none; transform: none; transition: none; }
-  .solo-btn .solo-dots rect, .solo-btn:hover .solo-dots rect { animation: none; }
+  .solo-btn, .solo-btn:hover { animation: none; transition: none; }
+  .solo-btn .solo-dashes rect, .solo-btn:hover .solo-dashes rect { animation: none; }
   .solo-btn:hover .solo-sheen { animation: none; }
 }
 `;
@@ -146,10 +138,17 @@ function ensureSoloStyles(): void {
   document.head.appendChild(style);
 }
 
-/** The Solo button's moving parts: the dotted border and the sheen. */
+/** The Solo button's moving parts: the dashed border and the sheen. */
 function soloEffects(): TemplateResult {
-  return html`<svg class="solo-dots" aria-hidden="true">
-      <rect x="0" y="0" width="100%" height="100%" rx="2"></rect>
+  return html`<svg class="solo-dashes" aria-hidden="true">
+      <rect
+        x="0"
+        y="0"
+        width="100%"
+        height="100%"
+        rx="2"
+        pathLength="1000"
+      ></rect>
     </svg>
     <span class="solo-sheen" aria-hidden="true"></span>`;
 }

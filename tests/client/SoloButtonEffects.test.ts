@@ -42,14 +42,14 @@ async function mount() {
 }
 
 describe("the Solo button's effects", () => {
-  it("has a dotted border and a sheen, behind the label and out of the way of clicks", async () => {
+  it("has a dashed border and a sheen, behind the label and out of the way of clicks", async () => {
     const solo = (await mount()).querySelector<HTMLElement>(".solo-btn")!;
     expect(solo.textContent).toContain("main.solo");
-    expect(solo.querySelector("svg.solo-dots rect")).not.toBeNull();
+    expect(solo.querySelector("svg.solo-dashes rect")).not.toBeNull();
     expect(solo.querySelector(".solo-sheen")).not.toBeNull();
     // decorative: hidden from assistive tech
     expect(
-      solo.querySelector("svg.solo-dots")!.getAttribute("aria-hidden"),
+      solo.querySelector("svg.solo-dashes")!.getAttribute("aria-hidden"),
     ).toBe("true");
     expect(solo.querySelector(".solo-sheen")!.getAttribute("aria-hidden")).toBe(
       "true",
@@ -65,16 +65,33 @@ describe("the Solo button's effects", () => {
     expect(document.querySelectorAll(".solo-btn")).toHaveLength(1);
   });
 
-  it("styles the dots dark red at rest and white on hover, and stills them for reduced motion", async () => {
+  it("draws a few thick dashes in dark red that stay dark red on hover, and stills them for reduced motion", async () => {
     await mount();
     const css = document.getElementById("solo-button-styles")!.textContent!;
     expect(css).toMatch(
-      /\.solo-btn \.solo-dots rect \{[^}]*stroke: color-mix\([^}]*var\(--color-df-red\)[^}]*black/,
+      /\.solo-btn \.solo-dashes rect \{[^}]*stroke: color-mix\([^}]*var\(--color-df-red\)[^}]*black/,
     );
+    // ten dashes of a tenth of the edge each: long, thick and few
+    expect(css).toMatch(/stroke-dasharray: 34 66/);
+    expect(css).toMatch(/stroke-width: 4/);
+    expect(css).toMatch(/stroke-linecap: butt/);
+    // hovering only speeds them up: no white
     expect(css).toMatch(
-      /\.solo-btn:hover \.solo-dots rect \{[^}]*stroke: white/,
+      /\.solo-btn:hover \.solo-dashes rect \{\s*animation-duration/,
+    );
+    expect(css).not.toMatch(
+      /\.solo-btn:hover \.solo-dashes rect \{[^}]*stroke:/,
     );
     expect(css).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation: none/);
+  });
+
+  it("never changes the button's size", async () => {
+    await mount();
+    const css = document.getElementById("solo-button-styles")!.textContent!;
+    expect(css).not.toMatch(
+      /scale\(|translateY\(|letter-spacing|padding|width: calc\(100%[^)]*\)\s*;\s*height: calc\(100% [^;]*\+/,
+    );
+    expect(css).not.toMatch(/\.solo-btn(:hover|:active)\s*\{[^}]*transform/);
   });
 
   it("adds its styles once however many selectors mount", async () => {
