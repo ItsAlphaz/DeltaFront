@@ -57,6 +57,103 @@ import { isReplayShellHost } from "./VersionedReplay";
 /** Solo: the one red call to action. */
 const PRIMARY_ACTION =
   "bg-df-red hover:bg-[#e5383bb0] active:bg-df-red-dark text-xl lg:text-[1.625rem] tracking-[0.3em]";
+// Solo's effects: a dotted border that marches round the inside edge (dark red
+// at rest, white and faster on hover), a sheen that sweeps across, a glow and
+// a wider tracking on the label. All of it sits behind the label and none of it
+// takes a click; reduced motion keeps the dots and drops the movement.
+const SOLO_STYLE_ID = "solo-button-styles";
+const SOLO_CSS = `
+.solo-btn {
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 160ms ease, box-shadow 220ms ease, letter-spacing 220ms ease, background-color 150ms ease;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-df-red) 0%, transparent);
+  animation: solo-breathe 3.2s ease-in-out infinite;
+}
+.solo-btn:hover {
+  letter-spacing: 0.38em;
+  transform: translateY(-2px) scale(1.012);
+  box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--color-df-red) 75%, transparent), 0 0 0 1px color-mix(in srgb, white 14%, transparent);
+  animation: none;
+  text-shadow: 0 0 14px color-mix(in srgb, white 45%, transparent);
+}
+.solo-btn:active {
+  transform: translateY(0) scale(0.985);
+  letter-spacing: 0.34em;
+}
+@keyframes solo-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-df-red) 0%, transparent); }
+  50% { box-shadow: 0 0 22px -2px color-mix(in srgb, var(--color-df-red) 45%, transparent); }
+}
+.solo-btn .solo-dots {
+  position: absolute;
+  inset: 6px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+  overflow: visible;
+  pointer-events: none;
+  z-index: -1;
+}
+.solo-btn .solo-dots rect {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-df-red) 60%, black);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 8;
+  animation: solo-march 1.6s linear infinite;
+  transition: stroke 200ms ease, stroke-width 200ms ease;
+}
+.solo-btn:hover .solo-dots rect {
+  stroke: white;
+  stroke-width: 3;
+  animation-duration: 0.55s;
+}
+@keyframes solo-march {
+  to { stroke-dashoffset: -8.1; }
+}
+.solo-btn .solo-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 35%;
+  pointer-events: none;
+  z-index: -1;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, white 38%, transparent), transparent);
+  transform: skewX(-18deg);
+  opacity: 0;
+}
+.solo-btn:hover .solo-sheen {
+  animation: solo-sweep 0.85s ease-out;
+}
+@keyframes solo-sweep {
+  0% { left: -45%; opacity: 0; }
+  15% { opacity: 1; }
+  100% { left: 125%; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solo-btn, .solo-btn:hover { animation: none; transform: none; transition: none; }
+  .solo-btn .solo-dots rect, .solo-btn:hover .solo-dots rect { animation: none; }
+  .solo-btn:hover .solo-sheen { animation: none; }
+}
+`;
+
+function ensureSoloStyles(): void {
+  if (document.getElementById(SOLO_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = SOLO_STYLE_ID;
+  style.textContent = SOLO_CSS;
+  document.head.appendChild(style);
+}
+
+/** The Solo button's moving parts: the dotted border and the sheen. */
+function soloEffects(): TemplateResult {
+  return html`<svg class="solo-dots" aria-hidden="true">
+      <rect x="0" y="0" width="100%" height="100%" rx="2"></rect>
+    </svg>
+    <span class="solo-sheen" aria-hidden="true"></span>`;
+}
+
 /** Create / Join (and Ranked when on): dark, with a red edge on hover/focus. */
 const SECONDARY_ACTION =
   "bg-df-panel border border-df-border hover:border-df-red active:bg-df-bg-secondary text-sm lg:text-base tracking-[0.2em]";
@@ -390,6 +487,7 @@ export class GameModeSelector extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    ensureSoloStyles();
     this.defaultLobbyTime = ClientEnv.gameCreationRate() / 1000;
     window.addEventListener(
       "username-validity-change",
@@ -661,7 +759,10 @@ export class GameModeSelector extends LitElement {
             ${this.renderSmallActionCard(
               translateText("main.solo"),
               this.openSinglePlayerModal,
-              PRIMARY_ACTION,
+              `${PRIMARY_ACTION} solo-btn`,
+              undefined,
+              false,
+              soloEffects(),
             )}
           </div>
           <div

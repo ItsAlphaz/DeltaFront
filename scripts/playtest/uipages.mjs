@@ -379,6 +379,69 @@ for (const page of pages) {
     await shot("ui-metrics-after");
   }
 }
+// solo-fx: the homepage Solo button at rest and hovered (mid-sheen)
+for (const page of pages) {
+  if (page === "solo-fx") {
+    await sleep(2500);
+    await shot("ui-solo-rest");
+    const at = await g.ev(
+      `(()=>{ const b=document.querySelector('.solo-btn'); const r=b.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2} })()`,
+    );
+    // hold the :hover state with the DevTools protocol (a moving mouse is flaky), then zoom in on the button
+    await g.b.send("DOM.enable");
+    await g.b.send("CSS.enable");
+    const doc = await g.b.send("DOM.getDocument", { depth: 0 });
+    const node = await g.b.send("DOM.querySelector", {
+      nodeId: doc.result.root.nodeId,
+      selector: ".solo-btn",
+    });
+    await g.b.send("CSS.forcePseudoState", {
+      nodeId: node.result.nodeId,
+      forcedPseudoClasses: ["hover"],
+    });
+    for (const [name, wait] of [
+      ["a", 450],
+      ["b", 350],
+    ]) {
+      await sleep(wait);
+      const clip = {
+        x: at.x - 260,
+        y: at.y - 60,
+        width: 520,
+        height: 120,
+        scale: 3,
+      };
+      const png = await g.b.send("Page.captureScreenshot", {
+        format: "png",
+        clip,
+      });
+      (await import("node:fs")).writeFileSync(
+        `${OUT}/ui-solo-hover-${name}.png`,
+        Buffer.from(png.result.data, "base64"),
+      );
+    }
+    await g.b.send("CSS.forcePseudoState", {
+      nodeId: node.result.nodeId,
+      forcedPseudoClasses: [],
+    });
+    {
+      const png = await g.b.send("Page.captureScreenshot", {
+        format: "png",
+        clip: {
+          x: at.x - 260,
+          y: at.y - 60,
+          width: 520,
+          height: 120,
+          scale: 3,
+        },
+      });
+      (await import("node:fs")).writeFileSync(
+        `${OUT}/ui-solo-rest-zoom.png`,
+        Buffer.from(png.result.data, "base64"),
+      );
+    }
+  }
+}
 for (const page of pages) {
   if (page === "bundles") {
     await g.ev(`window.showPage('page-item-store'); 1`);
