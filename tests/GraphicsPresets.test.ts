@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   BUILTIN_PRESETS,
@@ -61,6 +63,89 @@ describe("built-in graphics presets", () => {
 
     // The palette swap rides on the palette enum.
     expect(settings.theme).toEqual(createThemeSettings("colorblind"));
+  });
+});
+
+describe("DeltaFront's own presets", () => {
+  const OWN = [
+    "delta_noir",
+    "blood_moon",
+    "ember_front",
+    "obsidian",
+    "red_alert",
+  ].map((n) => `graphics_setting.preset_${n}`);
+  const lang = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "../resources/lang/en.json"), "utf8"),
+  ) as { graphics_setting: Record<string, string> };
+  const own = () => builtinPresets.filter((p) => OWN.includes(p.nameKey));
+
+  it("are all there, once each, after the standard ones", () => {
+    expect(own().map((p) => p.nameKey)).toEqual(OWN);
+    const keys = builtinPresets.map((p) => p.nameKey);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys.slice(0, 4)).toEqual([
+      "graphics_setting.preset_default",
+      "graphics_setting.preset_night",
+      "graphics_setting.preset_evans_pick",
+      "graphics_setting.preset_colorblind",
+    ]);
+  });
+
+  it("have a name and a description in English", () => {
+    for (const preset of own()) {
+      const name = preset.nameKey.replace("graphics_setting.", "");
+      const desc = preset.descKey.replace("graphics_setting.", "");
+      expect(lang.graphics_setting[name], name).toBeTruthy();
+      expect(lang.graphics_setting[desc], desc).toBeTruthy();
+      expect(preset.descKey).toBe(`${preset.nameKey}_desc`);
+    }
+  });
+
+  it("are dark: a near-black sea and a dimmed scene, with valid colours", () => {
+    const hex = /^#[0-9a-f]{6}$/i;
+    const luma = (c: string) => {
+      const n = parseInt(c.slice(1), 16);
+      return (
+        (0.2126 * ((n >> 16) & 255) +
+          0.7152 * ((n >> 8) & 255) +
+          0.0722 * (n & 255)) /
+        255
+      );
+    };
+    for (const preset of own()) {
+      const o = GraphicsOverridesSchema.parse(preset.overrides);
+      for (const color of Object.values(o.terrain ?? {})) {
+        expect(color, preset.nameKey).toMatch(hex);
+      }
+      expect(luma(o.terrain!.oceanColor!), preset.nameKey).toBeLessThan(0.12);
+      expect(luma(o.terrain!.backgroundColor!), preset.nameKey).toBeLessThan(
+        0.06,
+      );
+      expect(o.lighting!.ambient!, preset.nameKey).toBeLessThan(0.9);
+      expect(o.lighting!.ambient!, preset.nameKey).toBeGreaterThan(0.3);
+    }
+  });
+
+  it("each has a look of its own, and none is the default or the Night preset", () => {
+    const seen = new Set(
+      builtinPresets.map((p) => JSON.stringify(p.overrides)),
+    );
+    expect(seen.size).toBe(builtinPresets.length);
+    for (const preset of own()) {
+      expect(Object.keys(preset.overrides).length).toBeGreaterThan(1);
+    }
+  });
+
+  it("apply to the render settings (the ocean and the ambient light change)", () => {
+    for (const preset of own()) {
+      const settings = createRenderSettings();
+      const before = settings.lighting.ambient;
+      applyGraphicsOverrides(
+        settings,
+        GraphicsOverridesSchema.parse(preset.overrides),
+      );
+      expect(settings.lighting.ambient, preset.nameKey).not.toBe(before);
+    }
   });
 });
 
