@@ -120,8 +120,10 @@ try {
     cap && cap.gold === "250000" && cap.troops > 0,
     `${cap && cap.gold} gold, ${cap && cap.troops} troops`,
   );
-  const T0 = cap.tick,
-    END = cap.crisisEnd;
+  const T0 = cap.tick;
+  // `let`: winning an area back shortens the CRISIS (v0.8.0, 300 ticks each), so it is read
+  // again from the engine once the reclaims are done, below.
+  let END = cap.crisisEnd;
   await callOffRaider(g, inject);
   await sleep(1500);
   const m1 = await me(g);
@@ -611,6 +613,14 @@ try {
   });
 
   // ------------------------------------------------------------------ run out the CRISIS: warnings, sounds, the end
+  // The end the engine holds now: the capture said 1,800 ticks, and each area won back took 300 off.
+  const liveEnd = (await me(g)).crisisEnd;
+  check(
+    "12z the CRISIS ends sooner by a whole number of reclaims (300 ticks each), never later",
+    liveEnd <= END && (END - liveEnd) % 300 === 0,
+    `captured end ${END}, live end ${liveEnd}`,
+  );
+  END = liveEnd;
   note(`now tick ${await tick(g)}; the CRISIS ends at ${END}`);
   const nowT = await tick(g);
   if (nowT < END + 50) {
@@ -624,9 +634,23 @@ try {
     const [m, x] = s.split(":");
     return +m * 60 + +x;
   };
-  const secsLeft = (t) => Math.max(0, Math.ceil((END - t) / 10));
+  // The end the countdown should show at tick t: the captured end, less 300 ticks for each
+  // "crisis shortened" message already seen (an area won back).
+  const shorts = (await g.J(`window.__msgs || []`))
+    .filter((m) => /crisis_shortened/.test(m.m))
+    .map((m) => m.tick);
+  const endAt = (t) =>
+    cap.crisisEnd - 300 * shorts.filter((x) => x <= t).length;
+  note(`areas won back (CRISIS shortened) at ticks ${JSON.stringify(shorts)}`);
+  const secsLeft = (t) => Math.max(0, Math.ceil((endAt(t) - t) / 10));
   const act = T.filter(
-    (r) => r.ph === "active" && r.time && r.tick >= T0 && r.tick < END,
+    (r) =>
+      r.ph === "active" &&
+      r.time &&
+      r.tick >= T0 &&
+      r.tick < END &&
+      // a sample taken on the tick of a shortening can show either end
+      !shorts.some((x) => Math.abs(r.tick - x) <= 3),
   );
   const dev = act.map((r) => secs(r.time) - secsLeft(r.tick));
   check(

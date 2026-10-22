@@ -379,6 +379,27 @@ for (const page of pages) {
     await shot("ui-metrics-after");
   }
 }
+// preview: the Store's cards and its WebGL preview, which are drawn on the default look
+for (const page of pages) {
+  if (page === "preview") {
+    await g.ev(`window.showPage('page-item-store'); 1`);
+    await sleep(3000);
+    await g.ev(
+      `document.querySelector('store-modal [data-ui-segmented="store-tabs"] [data-key="effects"]')?.click(); 1`,
+    );
+    await sleep(1500);
+    await g.ev(
+      `(()=>{ const c=[...document.querySelectorAll('store-modal [data-store-product]')]; (c[2]||c[0])?.click(); return c.length })()`,
+    );
+    await sleep(900);
+    await shot("ui-preview-cards");
+    await g.ev(
+      `document.querySelector('store-modal [data-ui-button="preview"], store-modal [data-name="preview"], store-modal button[name="preview"]')?.click(); 1`,
+    );
+    await sleep(5000);
+    await shot("ui-preview-modal");
+  }
+}
 // solo-fx: the homepage Solo button at rest and hovered (mid-sheen)
 for (const page of pages) {
   if (page === "solo-fx") {

@@ -5,6 +5,7 @@ import type {
   EffectScene,
   SceneEffect,
 } from "../../src/client/components/EffectPreview";
+import { DEFAULT_LOOK } from "../../src/client/render/gl/DefaultLook";
 
 const base = { name: "fx", product: null, rarity: "rare" } as const;
 
@@ -43,6 +44,16 @@ describe("EffectScene", () => {
     await scene.updateComplete;
     return scene;
   }
+
+  it("is drawn on the default look's sea and land (Blood Moon), not the standard blue and green", async () => {
+    const el = await render(effect("transportShipTrail", gradient));
+    const fills = [...el.querySelectorAll("rect")].map((r) =>
+      r.getAttribute("fill"),
+    );
+    expect(fills).toContain(DEFAULT_LOOK.terrain!.oceanColor);
+    expect(fills).not.toContain("#4785b5");
+    expect(fills).not.toContain("#bedc8a");
+  });
 
   it("draws the transport ship trail as stamped tiles behind the ship", async () => {
     const el = await render(effect("transportShipTrail", gradient));

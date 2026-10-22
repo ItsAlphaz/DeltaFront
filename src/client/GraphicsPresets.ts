@@ -1,3 +1,4 @@
+import { DEFAULT_LOOK, DEFAULT_LOOK_VERSION } from "./render/gl/DefaultLook";
 import builtinPresets from "./render/gl/graphics-presets.json";
 import {
   GraphicsOverridesSchema,
@@ -105,4 +106,21 @@ export function migrateLegacyGraphicsSettings(
       ? { [translateText("graphics_setting.preset_migrated_name")]: current }
       : {},
   );
+}
+
+/**
+ * Moves this browser to the default look (Blood Moon) once per default-look
+ * version: a new player starts on it, and an existing player is switched to it
+ * the next time they open the site, whatever they had before. What they had is
+ * not lost: their custom settings are first saved as a preset (the same
+ * snapshot the preset selector takes), so picking it again brings them back.
+ * After that the choice is theirs: nothing re-applies it until the version
+ * changes. Returns true when it changed anything.
+ */
+export function applyDefaultLookOnce(userSettings: UserSettings): boolean {
+  if (userSettings.graphicsLookVersion() === DEFAULT_LOOK_VERSION) return false;
+  migrateLegacyGraphicsSettings(userSettings);
+  userSettings.setGraphicsOverrides(DEFAULT_LOOK);
+  userSettings.setGraphicsLookVersion(DEFAULT_LOOK_VERSION);
+  return true;
 }

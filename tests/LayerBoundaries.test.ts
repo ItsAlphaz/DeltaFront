@@ -91,6 +91,7 @@ const LAZY_MODALS = "src/client/LazyModals.ts";
 
 /** Renderer settings the homepage's settings screens read too. */
 const HOMEPAGE_RENDER_SETTINGS = new Set([
+  "src/client/render/gl/DefaultLook.ts",
   "src/client/render/gl/GraphicsOverrides.ts",
   "src/client/render/gl/RenderSettings.ts",
 ]);

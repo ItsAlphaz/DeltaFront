@@ -393,7 +393,8 @@ try {
     now = await same("after the base");
     check(
       "8 B founds a base with real clicks (50,000)",
-      /Found a base/.test(form ?? "") && now.bases.length === 1,
+      /Found a base|Set up a hideout/.test(form ?? "") &&
+        now.bases.length === 1,
       `${form} ${JSON.stringify(now.bases)}`,
     );
     // a recruit (needs a place to gather: the base)

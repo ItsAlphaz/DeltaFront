@@ -139,6 +139,7 @@ import {
 } from "./TurnstileToken";
 // Before the first userMeResponse, for the modals that load after it.
 import "./UserMeBroadcast";
+import { applyDefaultLookOnce } from "./GraphicsPresets";
 import { UserSettings } from "./UserSettings";
 import "./UsernameInput";
 import { UsernameInput } from "./UsernameInput";
@@ -365,6 +366,8 @@ class Client {
   private turnstileTokenPromise: Promise<TurnstileToken> | null = null;
 
   async initialize(): Promise<void> {
+    // Everyone is on the default look (Blood Moon) until they pick another.
+    applyDefaultLookOnce(this.userSettings);
     // FIRST, ahead of consumeCreatorCodePath() and of handleUrl() below --
     // ahead of every history write this client performs. A page served under
     // `/v/<commit>/` is pinned to that build, and three guards depend on

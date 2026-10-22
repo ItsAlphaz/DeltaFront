@@ -11,12 +11,26 @@ const presets = JSON.parse(
   readFileSync("src/client/render/gl/graphics-presets.json", "utf8"),
 ).filter((p) => only.length === 0 || only.some((o) => p.nameKey.includes(o)));
 
-const g = await openGame({ viewport: { width: 1440, height: 900 }, dpr: 1 });
+const demo = process.env.DEMO === "1";
+// DEMO=1 leaves a real window open in a running match, for picking presets by hand (gear > Graphics).
+const g = await openGame(
+  demo
+    ? { width: 1440, height: 1000 }
+    : { viewport: { width: 1440, height: 900 }, dpr: 1 },
+);
 const start = () =>
   g.ev(`(()=>{ const cid='mepresets'; const gid='gpresets1';
   document.dispatchEvent(new CustomEvent('join-lobby',{bubbles:true,composed:true,detail:{gameID:gid,source:'singleplayer',gameStartInfo:{gameID:gid,lobbyCreatedAt:1,
    players:[{clientID:cid,username:'Delta',clanTag:null,cosmetics:{}}],
    config:{gameMap:${JSON.stringify(map)},gameMapSize:'Compact',gameType:'Singleplayer',gameMode:'Free For All',playerTeams:2,difficulty:'Medium',maxTimerValue:undefined,bots:150,infiniteGold:false,donateGold:false,donateTroops:false,infiniteTroops:false,instantBuild:false,randomSpawn:true,disabledUnits:[],nations:'default',startingGold:0,capitalSystem:{enabled:false}}}}}));return 1})()`);
+
+if (demo) {
+  await start();
+  console.log("demo window open: close it (or wait for the timeout) to stop");
+  for (let i = 0; i < 1800 && !g.b.isClosed(); i++) await sleep(1000);
+  await g.close();
+  process.exit(0);
+}
 
 // One match; the camera is set once (zoomed in on the middle of the map) and every preset is then applied live in
 // turn, so each shot shows the same ground at the same zoom (a later preset keeps the camera).

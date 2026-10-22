@@ -14,6 +14,7 @@ import {
   TemplateResult,
 } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { DEFAULT_LOOK } from "../render/gl/DefaultLook";
 
 // ---------------------------------------------------------------------------
 // Scene previews — a tiny slice of the map, in tile units, drawn the way the
@@ -32,9 +33,10 @@ export type SceneEffect = Exclude<Effect, { effectType: "nukeExplosion" }>;
 const PLAYER = colord("#4ade80");
 const PLAYER_COLOR = PLAYER.toHex();
 const BORDER_COLOR = PLAYER.darken(0.125).toHex();
-// Terrain (render-settings.json): deep water and plains.
-const WATER = "#4785b5";
-const PLAINS = "#bedc8a";
+// Terrain: deep water and plains of the default look (Blood Moon), which the
+// Store's previews are drawn on.
+const WATER = DEFAULT_LOOK.terrain!.oceanColor!;
+const PLAINS = DEFAULT_LOOK.terrain!.plainsColor!;
 // Territory and trails paint over terrain at mapOverlay.territoryAlpha /
 // trailAlpha.
 const TERRITORY_ALPHA = 0.588;

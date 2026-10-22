@@ -183,6 +183,8 @@ export const PERFORMANCE_OVERLAY_KEY = "settings.performanceOverlay";
 export const KEYBINDS_KEY = "settings.keybinds";
 export const GRAPHICS_KEY = "settings.graphics";
 export const GRAPHICS_PRESETS_KEY = "settings.graphicsPresets";
+// Which default look this browser was last moved to (see applyDefaultLookOnce).
+export const GRAPHICS_LOOK_KEY = "settings.graphicsLook";
 export const EFFECTS_KEY = "settings.effects";
 /** Saved cosmetic loadouts — see {@link CosmeticLoadout}. */
 export const LOADOUTS_KEY = "settings.cosmeticLoadouts";
@@ -1094,6 +1096,15 @@ export class UserSettings {
 
   setGraphicsPresets(value: GraphicsPresets): void {
     this.setString(GRAPHICS_PRESETS_KEY, JSON.stringify(value));
+  }
+
+  /** The default-look version this browser was last moved to, or "" if never. */
+  graphicsLookVersion(): string {
+    return this.getString(GRAPHICS_LOOK_KEY, "");
+  }
+
+  setGraphicsLookVersion(version: string): void {
+    this.setString(GRAPHICS_LOOK_KEY, version);
   }
 
   // Whether the presets key has ever been written. Distinguishes a player who

@@ -5,6 +5,7 @@
 import type { Config } from "@openfront/engine-lib/configuration/Config";
 import type { SpiralParams } from "../frame/SpiralTrails";
 import { Camera } from "../gl/Camera";
+import { DEFAULT_LOOK } from "../gl/DefaultLook";
 import { initGL } from "../gl/initGL";
 import { calculateExplosionDurationMs, FxPass } from "../gl/passes/fx-pass";
 import { RailroadPass } from "../gl/passes/RailroadPass";
@@ -165,7 +166,9 @@ export class CosmeticPreviewRenderer {
     }
     this.gl = glRes.gl;
     this.settings = createRenderSettings();
-    applyGraphicsOverrides(this.settings, {});
+    // The Store previews cosmetics on the default look (Blood Moon), whatever the
+    // viewer has chosen for their games.
+    applyGraphicsOverrides(this.settings, DEFAULT_LOOK);
     this.camera = new Camera(PREVIEW_MAP_W, PREVIEW_MAP_H);
 
     this.paletteTex = this.createPaletteTexture();
@@ -178,6 +181,17 @@ export class CosmeticPreviewRenderer {
       map.terrainBytes,
       map.mapW,
       map.mapH,
+      {
+        backgroundColor:
+          hexToRgb(this.settings.terrain.backgroundColor) ?? undefined,
+        oceanColor: hexToRgb(this.settings.terrain.oceanColor) ?? undefined,
+        sandColor: hexToRgb(this.settings.terrain.sandColor) ?? undefined,
+        plainsColor: hexToRgb(this.settings.terrain.plainsColor) ?? undefined,
+        highlandColor:
+          hexToRgb(this.settings.terrain.highlandColor) ?? undefined,
+        mountainColor:
+          hexToRgb(this.settings.terrain.mountainColor) ?? undefined,
+      },
     );
 
     this.territoryPass = new PreviewTerritoryPass(

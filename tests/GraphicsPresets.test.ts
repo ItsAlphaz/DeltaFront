@@ -2,10 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  applyDefaultLookOnce,
   BUILTIN_PRESETS,
   migrateLegacyGraphicsSettings,
   parseGraphicsOverridesJson,
 } from "../src/client/GraphicsPresets";
+import {
+  DEFAULT_LOOK,
+  DEFAULT_LOOK_KEY,
+  DEFAULT_LOOK_VERSION,
+} from "../src/client/render/gl/DefaultLook";
 import builtinPresets from "../src/client/render/gl/graphics-presets.json";
 import { GraphicsOverridesSchema } from "../src/client/render/gl/GraphicsOverrides";
 import { applyGraphicsOverrides } from "../src/client/render/gl/RenderOverrides";
@@ -15,6 +21,7 @@ import {
 } from "../src/client/render/gl/RenderSettings";
 import {
   GRAPHICS_KEY,
+  GRAPHICS_LOOK_KEY,
   GRAPHICS_PRESETS_KEY,
   UserSettings,
 } from "../src/client/UserSettings";
@@ -258,5 +265,70 @@ describe("parseGraphicsOverridesJson", () => {
     expect(
       parseGraphicsOverridesJson('{"accessibility":{"colorblind":true}}'),
     ).toBe(null);
+  });
+});
+
+describe("the default look (Blood Moon)", () => {
+  const userSettings = new UserSettings();
+  const blood = BUILTIN_PRESETS.find((p) => p.nameKey === DEFAULT_LOOK_KEY)!;
+
+  beforeEach(() => {
+    userSettings.removeCached(GRAPHICS_KEY);
+    userSettings.removeCached(GRAPHICS_PRESETS_KEY);
+    userSettings.removeCached(GRAPHICS_LOOK_KEY);
+  });
+
+  it("is the Blood Moon preset, and the Store previews and everyone share that one object", () => {
+    expect(DEFAULT_LOOK_KEY).toBe("graphics_setting.preset_blood_moon");
+    expect(DEFAULT_LOOK).toEqual(blood.overrides);
+  });
+
+  it("starts a new player on it", () => {
+    expect(userSettings.graphicsOverrides()).toEqual({});
+    expect(applyDefaultLookOnce(userSettings)).toBe(true);
+    expect(userSettings.graphicsOverrides()).toEqual(DEFAULT_LOOK);
+    expect(userSettings.graphicsLookVersion()).toBe(DEFAULT_LOOK_VERSION);
+    // nothing of theirs to keep
+    expect(userSettings.graphicsPresets()).toEqual({});
+  });
+
+  it("switches an existing player to it, keeping what they had as a preset", () => {
+    userSettings.setGraphicsOverrides({ name: { nameScaleFactor: 2 } });
+    expect(applyDefaultLookOnce(userSettings)).toBe(true);
+    expect(userSettings.graphicsOverrides()).toEqual(DEFAULT_LOOK);
+    expect(Object.values(userSettings.graphicsPresets())).toEqual([
+      { name: { nameScaleFactor: 2 } },
+    ]);
+  });
+
+  it("also moves a player who chose another built-in preset, such as Night", () => {
+    const night = BUILTIN_PRESETS.find(
+      (p) => p.nameKey === "graphics_setting.preset_night",
+    )!;
+    userSettings.setGraphicsOverrides(night.overrides);
+    applyDefaultLookOnce(userSettings);
+    expect(userSettings.graphicsOverrides()).toEqual(DEFAULT_LOOK);
+    expect(userSettings.graphicsPresets()).toEqual({});
+  });
+
+  it("happens once: a later choice, even Default, is left alone", () => {
+    applyDefaultLookOnce(userSettings);
+    userSettings.setGraphicsOverrides({});
+    expect(applyDefaultLookOnce(userSettings)).toBe(false);
+    expect(userSettings.graphicsOverrides()).toEqual({});
+    const night = BUILTIN_PRESETS.find(
+      (p) => p.nameKey === "graphics_setting.preset_night",
+    )!;
+    userSettings.setGraphicsOverrides(night.overrides);
+    expect(applyDefaultLookOnce(userSettings)).toBe(false);
+    expect(userSettings.graphicsOverrides()).toEqual(night.overrides);
+  });
+
+  it("moves everyone again when the default look's version changes", () => {
+    applyDefaultLookOnce(userSettings);
+    userSettings.setGraphicsOverrides({});
+    userSettings.setGraphicsLookVersion("an-older-look");
+    expect(applyDefaultLookOnce(userSettings)).toBe(true);
+    expect(userSettings.graphicsOverrides()).toEqual(DEFAULT_LOOK);
   });
 });
