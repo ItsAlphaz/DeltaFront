@@ -42,18 +42,14 @@ async function mount() {
 }
 
 describe("the Solo button's effects", () => {
-  it("has a dashed border and a sheen, behind the label and out of the way of clicks", async () => {
+  it("has a sheen behind the label, out of the way of clicks, and no border lines", async () => {
     const solo = (await mount()).querySelector<HTMLElement>(".solo-btn")!;
     expect(solo.textContent).toContain("main.solo");
-    expect(solo.querySelector("svg.solo-dashes rect")).not.toBeNull();
     expect(solo.querySelector(".solo-sheen")).not.toBeNull();
-    // decorative: hidden from assistive tech
-    expect(
-      solo.querySelector("svg.solo-dashes")!.getAttribute("aria-hidden"),
-    ).toBe("true");
     expect(solo.querySelector(".solo-sheen")!.getAttribute("aria-hidden")).toBe(
       "true",
     );
+    expect(solo.querySelector("svg")).toBeNull();
   });
 
   it("keeps the hover colour #e5383bb0 and stays the one red call to action", async () => {
@@ -65,24 +61,27 @@ describe("the Solo button's effects", () => {
     expect(document.querySelectorAll(".solo-btn")).toHaveLength(1);
   });
 
-  it("draws a few thick dashes in dark red that stay dark red on hover, and stills them for reduced motion", async () => {
+  it("has no border lines in its styles, and stills the sheen for reduced motion", async () => {
+    await mount();
+    const css = document.getElementById("solo-button-styles")!.textContent!;
+    expect(css).not.toMatch(/solo-dashes|solo-dots|stroke/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation: none/);
+  });
+
+  it("eases the glow and the label shadow in and out instead of snapping", async () => {
     await mount();
     const css = document.getElementById("solo-button-styles")!.textContent!;
     expect(css).toMatch(
-      /\.solo-btn \.solo-dashes rect \{[^}]*stroke: color-mix\([^}]*var\(--color-df-red\)[^}]*black/,
+      /\.solo-btn \{[^}]*transition: box-shadow 550ms[^}]*text-shadow 550ms/,
     );
-    // ten dashes of a tenth of the edge each: long, thick and few
-    expect(css).toMatch(/stroke-dasharray: 34 66/);
-    expect(css).toMatch(/stroke-width: 4/);
-    expect(css).toMatch(/stroke-linecap: butt/);
-    // hovering only speeds them up: no white
+    // a rest shadow of the same shape as the hover one, so it interpolates
     expect(css).toMatch(
-      /\.solo-btn:hover \.solo-dashes rect \{\s*animation-duration/,
+      /\.solo-btn \{[^}]*box-shadow: 0 10px 34px -8px[^}]*0%/,
     );
-    expect(css).not.toMatch(
-      /\.solo-btn:hover \.solo-dashes rect \{[^}]*stroke:/,
-    );
-    expect(css).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation: none/);
+    expect(css).toMatch(/\.solo-btn \{[^}]*text-shadow: 0 0 14px[^}]*0%/);
+    // an animation on the box-shadow would override the transition
+    expect(css).not.toMatch(/solo-breathe/);
+    expect(css).not.toMatch(/\.solo-btn(:hover)?\s*\{[^}]*animation:/);
   });
 
   it("never changes the button's size", async () => {
