@@ -132,7 +132,7 @@ describe("<featured-bundle-strip>", () => {
   it("shows the featured bundle's name and price, and opens the Store's Bundles tab", async () => {
     const showPage = vi.fn();
     window.showPage = showPage;
-    const store = document.createElement("div") as HTMLElement & {
+    const store = document.createElement("div") as unknown as HTMLElement & {
       setActiveTab: (key: string) => void;
     };
     store.id = "page-item-store";

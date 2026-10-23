@@ -198,7 +198,7 @@ describe("the reward track", () => {
       expect(node.dataset.rewardState).toBeUndefined();
       expect(node.querySelector("button")).toBeNull();
     }
-    expect(qa("credits-icon")).toHaveLength(6);
+    expect(qa("credits-icon")).toHaveLength(LEVEL_MILESTONES.length);
   });
 
   it("marks a claimed reward, a ready one and a locked one apart", async () => {

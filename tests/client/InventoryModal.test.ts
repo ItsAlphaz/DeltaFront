@@ -339,6 +339,10 @@ function activeSlot(modal: InventoryModal): string | null {
   return active?.dataset.loadoutSlot ?? null;
 }
 
+// These mount the whole inventory (a large import graph) and take over the
+// default 5 s when the full suite runs in parallel; alone they take well under 1 s.
+vi.setConfig({ testTimeout: 30_000 });
+
 describe("InventoryModal", () => {
   let modal: InventoryModal;
   let languageFixture: HTMLElement;
