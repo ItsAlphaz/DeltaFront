@@ -826,8 +826,6 @@
     "preset_default": "Стандартно",
     "preset_default_desc": "Стандартният лик DeltaFront",
     "preset_delete_confirm": "Искаш ли да изтриеш предварителната настройка „{name}“?",
-    "preset_evans_pick": "Избор на създателя",
-    "preset_evans_pick_desc": "Настройките, с които играе създателя",
     "preset_migrated_name": "Моите настройки",
     "preset_name_placeholder": "Име на предварителната настройка",
     "preset_night": "Нощно",

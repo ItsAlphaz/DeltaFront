@@ -904,8 +904,6 @@
     "preset_default": "Podrazumevano",
     "preset_default_desc": "Standardni DeltaFront izgled",
     "preset_delete_confirm": "Izbrisati podešavanje \"{name}\"?",
-    "preset_evans_pick": "Evan-ov izbor",
-    "preset_evans_pick_desc": "Podešavanja sa kojim Evan igra",
     "preset_migrated_name": "Moja podešavanja",
     "preset_name_placeholder": "Naziv podešavanja",
     "preset_night": "Noć",

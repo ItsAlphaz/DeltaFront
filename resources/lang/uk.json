@@ -973,8 +973,6 @@
     "preset_default": "Типовий",
     "preset_default_desc": "Типовий вигляд DeltaFront",
     "preset_delete_confirm": "Видалити пресет «{name}»?",
-    "preset_evans_pick": "Вибір Евана",
-    "preset_evans_pick_desc": "Налаштування, з якими грає Еван",
     "preset_migrated_name": "Мої налаштування",
     "preset_name_placeholder": "Назва шаблона",
     "preset_night": "Ніч",

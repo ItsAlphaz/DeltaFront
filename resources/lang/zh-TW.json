@@ -973,8 +973,6 @@
     "preset_default": "預設",
     "preset_default_desc": "標準 DeltaFront 外觀",
     "preset_delete_confirm": "刪除設定檔 \"{name}\"？",
-    "preset_evans_pick": "Evan 的精選設定",
-    "preset_evans_pick_desc": "Evan 實際會遊玩的設定檔",
     "preset_migrated_name": "我的設定",
     "preset_name_placeholder": "設定檔名稱",
     "preset_night": "夜間模式",

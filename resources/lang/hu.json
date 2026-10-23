@@ -904,8 +904,6 @@
     "preset_default": "Alapértelmezett",
     "preset_default_desc": "A szokásos DeltaFront-megjelenés",
     "preset_delete_confirm": "Törli a(z) \"{name}\" előbeállítást?",
-    "preset_evans_pick": "Evan választása",
-    "preset_evans_pick_desc": "Azok a beállítások, amelyekkel Evan ténylegesen játszik",
     "preset_migrated_name": "Beállításaim",
     "preset_name_placeholder": "Előbeállítás neve",
     "preset_night": "Éjszaka",

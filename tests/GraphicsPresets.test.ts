@@ -90,10 +90,9 @@ describe("DeltaFront's own presets", () => {
     expect(own().map((p) => p.nameKey)).toEqual(OWN);
     const keys = builtinPresets.map((p) => p.nameKey);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(keys.slice(0, 4)).toEqual([
+    expect(keys.slice(0, 3)).toEqual([
       "graphics_setting.preset_default",
       "graphics_setting.preset_night",
-      "graphics_setting.preset_evans_pick",
       "graphics_setting.preset_colorblind",
     ]);
   });

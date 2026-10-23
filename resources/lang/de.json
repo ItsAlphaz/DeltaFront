@@ -973,8 +973,6 @@
     "preset_default": "Standard",
     "preset_default_desc": "Der Standard DeltaFront-Look",
     "preset_delete_confirm": "Voreingestellten \"{name} \"löschen?",
-    "preset_evans_pick": "Evan's Auswahl",
-    "preset_evans_pick_desc": "Die Einstellungen, welche Evan tatsächlich nutzt",
     "preset_migrated_name": "Meine Einstellungen",
     "preset_name_placeholder": "Voreinstellungs-Name",
     "preset_night": "Nacht",

@@ -973,8 +973,6 @@
     "preset_default": "Default",
     "preset_default_desc": "Aspectul standard DeltaFront",
     "preset_delete_confirm": "Setare prestabilită ștearsă \"{name}\"?",
-    "preset_evans_pick": "Alegerea lui Evan",
-    "preset_evans_pick_desc": "Decorurile cu care Evan se joacă de fapt",
     "preset_migrated_name": "Setările mele",
     "preset_name_placeholder": "Nume presetat",
     "preset_night": "Noapte",

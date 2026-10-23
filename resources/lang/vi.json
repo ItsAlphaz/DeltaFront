@@ -973,8 +973,6 @@
     "preset_default": "Mặc định",
     "preset_default_desc": "Giao diện DeltaFront tiêu chuẩn",
     "preset_delete_confirm": "Xóa thiết lập \"{name}\"?",
-    "preset_evans_pick": "Evan chọn",
-    "preset_evans_pick_desc": "Cấu hình mà Evan thực sự dùng để chơi",
     "preset_migrated_name": "Cài đặt của tôi",
     "preset_name_placeholder": "Tên thiết lập",
     "preset_night": "Ban đêm",

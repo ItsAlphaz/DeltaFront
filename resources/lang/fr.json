@@ -973,8 +973,6 @@
     "preset_default": "Par défaut",
     "preset_default_desc": "L’apparence standard d’DeltaFront",
     "preset_delete_confirm": "Supprimer le préréglage « {name} » ?",
-    "preset_evans_pick": "Choix d'Evan",
-    "preset_evans_pick_desc": "Les paramètres avec lesquels Evan joue à DeltaFront",
     "preset_migrated_name": "Mes paramètres",
     "preset_name_placeholder": "Nom du préréglage",
     "preset_night": "Nuit",

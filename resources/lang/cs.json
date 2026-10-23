@@ -973,8 +973,6 @@
     "preset_default": "Výchozí",
     "preset_default_desc": "Standardní vzhled DeltaFront",
     "preset_delete_confirm": "Odstranit předvolbu \"{name}\"?",
-    "preset_evans_pick": "Evanova volba",
-    "preset_evans_pick_desc": "Nastavení, se kterým Evan skutečně hraje",
     "preset_migrated_name": "Moje nastavení",
     "preset_name_placeholder": "Název předvolby",
     "preset_night": "Noční",

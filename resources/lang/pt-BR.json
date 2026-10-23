@@ -973,8 +973,6 @@
     "preset_default": "Padrão",
     "preset_default_desc": "A aparência padrão do DeltaFront",
     "preset_delete_confirm": "Excluir predefinição \"{name}\"?",
-    "preset_evans_pick": "Escolha de Evan",
-    "preset_evans_pick_desc": "As configurações com que Evan realmente joga com",
     "preset_migrated_name": "Minhas configurações",
     "preset_name_placeholder": "Nome da predefinição",
     "preset_night": "Noite",

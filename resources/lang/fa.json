@@ -973,8 +973,6 @@
     "preset_default": "پیش فرض",
     "preset_default_desc": "ظاهر استاندارد DeltaFront",
     "preset_delete_confirm": "پیش‌تنظیم \"{name}\" حذف شود؟",
-    "preset_evans_pick": "انتخاب Evan",
-    "preset_evans_pick_desc": "تنظیماتی که Evan واقعاً با آن‌ها بازی می‌کند",
     "preset_migrated_name": "تنظیمات من",
     "preset_name_placeholder": "نام از پیش تعیین شده",
     "preset_night": "شب",

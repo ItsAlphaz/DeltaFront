@@ -973,8 +973,6 @@
     "preset_default": "デフォルト",
     "preset_default_desc": "標準的なDeltaFrontの見た目",
     "preset_delete_confirm": "プリセット「{name}」を削除しますか？",
-    "preset_evans_pick": "Evanのおすすめ",
-    "preset_evans_pick_desc": "Evanが実際のゲームで使用している設定",
     "preset_migrated_name": "自分の設定",
     "preset_name_placeholder": "プリセット名",
     "preset_night": "ダークモード",

@@ -973,8 +973,6 @@
     "preset_default": "Standaard",
     "preset_default_desc": "De standaard DeltaFront look",
     "preset_delete_confirm": "Verwijder preset \"{name}\"?",
-    "preset_evans_pick": "Evan's Keuze",
-    "preset_evans_pick_desc": "De instellingen waarmee Evan daadwerkelijk speelt",
     "preset_migrated_name": "Mijn instellingen",
     "preset_name_placeholder": "Preset naam",
     "preset_night": "Nacht",
