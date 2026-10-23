@@ -99,3 +99,32 @@ describe("the Solo button's effects", () => {
     expect(document.querySelectorAll("#solo-button-styles")).toHaveLength(1);
   });
 });
+
+describe("the Create and Join buttons' hover effects", () => {
+  it("have a sheen and an easing red edge glow, and never change size or clip their badge", async () => {
+    const selector = await mount();
+    const buttons = [...selector.querySelectorAll<HTMLElement>(".action-btn")];
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    for (const button of buttons) {
+      expect(button.querySelector(".action-fx .action-sheen")).not.toBeNull();
+    }
+    const css = document.getElementById("solo-button-styles")!.textContent!;
+    expect(css).toMatch(
+      /\.action-btn \{[^}]*transition: border-color 220ms[^}]*box-shadow 450ms/,
+    );
+    // the sheen is clipped in its own layer, so the Join badge can overhang the button
+    expect(css).not.toMatch(/\.action-btn \{[^}]*overflow: hidden/);
+    expect(css).toMatch(/\.action-btn \.action-fx \{[^}]*overflow: hidden/);
+    expect(css).not.toMatch(
+      /\.action-btn(:hover)?[^{]*\{[^}]*(transform: (translate|scale)|letter-spacing)/,
+    );
+    expect(css).toMatch(/prefers-reduced-motion: reduce[\s\S]*\.action-btn/);
+  });
+
+  it("leave Solo's own look alone: it is not an action-btn", async () => {
+    const selector = await mount();
+    expect(
+      selector.querySelector(".solo-btn")!.classList.contains("action-btn"),
+    ).toBe(false);
+  });
+});

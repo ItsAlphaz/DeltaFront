@@ -6,6 +6,7 @@ import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { ClientEnv } from "src/client/ClientEnv";
 import { getDesktopSessionState } from "./Auth";
+import "./components/FeaturedBundleStrip";
 import "./components/IOSAddToHomeScreenBanner";
 import {
   canJoinTrustedLobby,
@@ -95,7 +96,42 @@ const SOLO_CSS = `
   15% { opacity: 1; }
   100% { left: 125%; opacity: 0; }
 }
+/* Create / Join (and Ranked): a red edge glow that eases in and a sheen that
+   sweeps across on hover; nothing moves or changes size. */
+.action-btn {
+  position: relative;
+  isolation: isolate;
+  transition: border-color 220ms ease, box-shadow 450ms ease, background-color 220ms ease;
+  box-shadow: inset 0 0 18px -8px color-mix(in srgb, var(--color-df-red) 0%, transparent);
+}
+.action-btn:hover:not([aria-disabled="true"]) {
+  background-color: color-mix(in srgb, var(--color-df-red) 7%, var(--color-df-panel));
+  box-shadow: inset 0 0 18px -8px color-mix(in srgb, var(--color-df-red) 70%, transparent);
+}
+.action-btn .action-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+}
+.action-btn .action-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 30%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--color-df-red) 32%, transparent), transparent);
+  transform: skewX(-18deg);
+  opacity: 0;
+}
+.action-btn:hover:not([aria-disabled="true"]) .action-sheen {
+  animation: solo-sweep 0.85s ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
+  .action-btn, .action-btn:hover .action-sheen { transition: none; animation: none; }
   .solo-btn, .solo-btn:hover { transition: none; }
   .solo-btn:hover .solo-sheen { animation: none; }
 }
@@ -116,7 +152,7 @@ function soloEffects(): TemplateResult {
 
 /** Create / Join (and Ranked when on): dark, with a red edge on hover/focus. */
 const SECONDARY_ACTION =
-  "bg-df-panel border border-df-border hover:border-df-red active:bg-df-bg-secondary text-sm lg:text-base tracking-[0.2em]";
+  "action-btn bg-df-panel border border-df-border hover:border-df-red active:bg-df-bg-secondary text-sm lg:text-base tracking-[0.2em]";
 const DISABLED = "opacity-50 cursor-not-allowed pointer-events-none";
 
 /**
@@ -767,6 +803,7 @@ export class GameModeSelector extends LitElement {
               true,
             )}
           </div>
+          <featured-bundle-strip class="block"></featured-bundle-strip>
         </div>
 
         <!-- Upcoming: heading row, then the scheduled public lobbies in one
@@ -1009,6 +1046,11 @@ export class GameModeSelector extends LitElement {
             ? "opacity-50 cursor-not-allowed"
             : ""}"
       >
+        ${bgClass.includes("action-btn")
+          ? html`<span class="action-fx" aria-hidden="true"
+              ><span class="action-sheen"></span
+            ></span>`
+          : nothing}
         ${title}
         ${badge
           ? html`<span
