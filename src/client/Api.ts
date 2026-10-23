@@ -1234,6 +1234,8 @@ export type PurchaseWithCurrencyResult =
   // and refetch. Nothing charged. No payload: unlike the pack's 409 the body
   // carries no item list, only {error, message}.
   | { ok: false; code: "already_owned" }
+  // 400 "Level too low": the item is level-locked and the account is below it.
+  | { ok: false; code: "level_too_low"; minLevel: number }
   | { ok: false; code: "failed" };
 
 // POST /shop/purchase — buy a single cosmetic for hard or soft currency. The
@@ -1271,6 +1273,9 @@ export async function purchaseWithCurrency(
       if (reason === "Insufficient balance") {
         return { ok: false, code: "insufficient_balance" };
       }
+      if (reason === "Level too low" && typeof body?.minLevel === "number") {
+        return { ok: false, code: "level_too_low", minLevel: body.minLevel };
+      }
       // Not logging the body: an unrecognised reason is exactly the case
       // where we don't know what it contains.
       console.warn("purchaseWithCurrency: unrecognised 400 reason");
@@ -1303,6 +1308,8 @@ export async function purchaseWithCurrency(
 
 export type PurchaseCosmeticPackResult =
   | { ok: true; data: PurchasePackResponse }
+  // 400 "Level too low": an item in the bundle is level-locked above the account.
+  | { ok: false; code: "level_too_low"; minLevel: number }
   // 400 "Insufficient balance": the balance moved since the client's
   // pre-check. Nothing charged.
   | { ok: false; code: "insufficient_balance" }
@@ -1356,6 +1363,9 @@ export async function purchaseCosmeticPack(
       if (debt !== undefined) return debt;
       if (reason === "Insufficient balance") {
         return { ok: false, code: "insufficient_balance" };
+      }
+      if (reason === "Level too low" && typeof body?.minLevel === "number") {
+        return { ok: false, code: "level_too_low", minLevel: body.minLevel };
       }
       if (PACK_UNAVAILABLE_REASONS.includes(reason)) {
         return { ok: false, code: "unavailable" };

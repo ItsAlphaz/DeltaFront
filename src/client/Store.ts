@@ -55,9 +55,12 @@ import {
   uiTwoColumn,
 } from "./components/ui/PageUi";
 import {
+  bundleInSeason,
   fetchCosmetics,
   findPackItem,
   groupCosmeticVariants,
+  levelLockOf,
+  minLevelOf,
   ownedPackItems,
   purchaseCosmetic,
   resolveCosmetics,
@@ -408,6 +411,7 @@ export class StoreModal extends BaseModal {
         .filter(
           (resolved) =>
             resolved.type === "cosmeticPack" &&
+            bundleInSeason(resolved.cosmetic as CosmeticPack) &&
             (resolved.relationship !== "blocked" ||
               this.ownedPackItemNames(resolved).length > 0),
         )
@@ -538,6 +542,20 @@ export class StoreModal extends BaseModal {
       OWNED_LISTED_TYPES.includes(active.type)
     ) {
       return this.renderStatus(translateText("store.owned"));
+    }
+    // "Earned, not bought": an item (or a bundle holding one) above the
+    // player's level shows what level opens it instead of a buy button.
+    if (active.relationship === "purchasable") {
+      const lock = levelLockOf(active, this.userMeResponse);
+      if (lock !== null) {
+        return html`<span
+          data-store-level-lock
+          class="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-black/30 px-2 py-1.5 text-center text-xs font-bold uppercase tracking-wider text-white/70"
+          >${uiIcons.lock()}${translateText("store.unlocks_at_level", {
+            level: lock,
+          })}</span
+        >`;
+      }
     }
     if (active.type === "cosmeticPack") {
       if (active.relationship === "owned") {
@@ -890,6 +908,13 @@ export class StoreModal extends BaseModal {
       label: translateText("store.rarity"),
       value: cosmeticRarityLabel(active),
     });
+    const needsLevel = minLevelOf(active);
+    if (needsLevel !== null) {
+      rows.push({
+        label: translateText("store.requires_level"),
+        value: translateText("progression.level", { level: needsLevel }),
+      });
+    }
     if (active.relationship === "purchasable") {
       const price = this.priceMeta(active);
       if (price !== undefined) {

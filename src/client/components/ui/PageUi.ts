@@ -36,6 +36,11 @@ export const uiIconButtonClasses =
   "ui-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-card border border-ui-border-strong bg-ui-surface text-ui-muted transition-colors hover:border-ui-border-hover hover:text-ui-text cursor-pointer";
 
 export const uiIcons = {
+  lock: () =>
+    icon(
+      svg`<rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" />`,
+      "h-4 w-4",
+    ),
   back: () => icon(svg`<path d="M19 12H5" /> <path d="m12 19-7-7 7-7" />`),
   search: () =>
     icon(

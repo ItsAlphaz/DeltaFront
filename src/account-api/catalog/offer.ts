@@ -17,6 +17,8 @@ export interface Offer {
   flare: string;
   /** Price in Credits: a positive whole number from the catalog. */
   price: number;
+  /** The account level needed to buy it ("earned, not bought"), when it has one. */
+  minLevel?: number;
 }
 
 const own = <T extends object>(record: T | undefined, key: string) =>
@@ -42,6 +44,7 @@ export function findOffer(
   const palette = request.colorPaletteName;
   let flare: string;
   let price: unknown;
+  let minLevel: number | undefined;
   switch (request.cosmeticType) {
     case "pattern": {
       const pattern = own(cosmetics.patterns, request.cosmeticName);
@@ -56,6 +59,7 @@ export function findOffer(
         flare = patternFlare(pattern.name, chosen.name);
       }
       price = pattern.priceSoft;
+      minLevel = pattern.minLevel;
       break;
     }
     case "flag": {
@@ -63,6 +67,7 @@ export function findOffer(
       if (flag === undefined || palette !== undefined) return null;
       flare = flagFlare(flag.name);
       price = flag.priceSoft;
+      minLevel = flag.minLevel;
       break;
     }
     case "crown": {
@@ -70,6 +75,7 @@ export function findOffer(
       if (crown === undefined || palette !== undefined) return null;
       flare = crownFlare(crown.name);
       price = crown.priceSoft;
+      minLevel = crown.minLevel;
       break;
     }
     case "effect": {
@@ -80,6 +86,7 @@ export function findOffer(
       if (effect === undefined) return null;
       flare = effectFlare(effect.name);
       price = effect.priceSoft;
+      minLevel = effect.minLevel;
       break;
     }
     default:
@@ -87,11 +94,13 @@ export function findOffer(
       return null;
   }
   if (!isPrice(price) || !catalog.validFlares.has(flare)) return null;
-  return { flare, price };
+  return { flare, price, ...(minLevel === undefined ? {} : { minLevel }) };
 }
 
 export interface BundleOffer {
   name: string;
+  /** The highest level any item in it needs, when one needs any. */
+  minLevel?: number;
   /** Every flare the bundle grants, in the bundle's order. */
   flares: string[];
   /** Price in Credits: a positive whole number from the catalog. */
@@ -103,15 +112,20 @@ export interface BundleOffer {
  * bundle. Each item is resolved through `findOffer`, so a bundle can only ever
  * grant what the catalog sells on its own; a bundle that no longer resolves
  * (an item was removed from the catalog after it was written) is not sold at
- * all rather than sold short.
+ * all rather than sold short. A seasonal bundle is sold only between its
+ * `startsAt` and `endsAt`. The bundle needs the highest level any item needs.
  */
 export function findBundleOffer(
   catalog: Catalog,
   packName: string,
+  now: Date = new Date(),
 ): BundleOffer | null {
   const pack = own(catalog.cosmetics.packs, packName);
   if (pack === undefined || !isPrice(pack.priceSoft)) return null;
+  if (pack.startsAt !== undefined && now < new Date(pack.startsAt)) return null;
+  if (pack.endsAt !== undefined && now >= new Date(pack.endsAt)) return null;
   const flares: string[] = [];
+  let minLevel: number | undefined;
   for (const item of pack.items) {
     const offer = findOffer(catalog, {
       cosmeticType: item.type,
@@ -120,7 +134,15 @@ export function findBundleOffer(
     });
     if (offer === null) return null;
     flares.push(offer.flare);
+    if (offer.minLevel !== undefined) {
+      minLevel = Math.max(minLevel ?? 0, offer.minLevel);
+    }
   }
   if (flares.length === 0) return null;
-  return { name: pack.name, flares, price: pack.priceSoft };
+  return {
+    name: pack.name,
+    flares,
+    price: pack.priceSoft,
+    ...(minLevel === undefined ? {} : { minLevel }),
+  };
 }

@@ -80,6 +80,17 @@ function issuesOf(run: () => unknown): string {
   throw new Error("expected the catalog to be rejected");
 }
 
+/** The rank effects: XP-only cosmetics, one per kind, handed out at levels 15 to 90. */
+const RANK_EFFECTS = [
+  "private_glow",
+  "corporal_wake",
+  "sergeant_hull",
+  "lieutenant_ring",
+  "major_livery",
+  "major_rails",
+  "general_helix",
+];
+
 /** The items DeltaFront shipped first; level rewards point at some, so they never change. */
 const ORIGINAL_FLARES = [
   "effect:colonel_wake",
@@ -104,6 +115,7 @@ const SAMPLE_FLARES = [
   "effect:sample_structures",
   "effect:sample_train",
   "effect:sample_warship",
+  ...RANK_EFFECTS.map((n) => `effect:${n}`),
 ].sort();
 
 /** Cosmetics only progression hands out (milestone rewards): in the catalog, never for sale. */
@@ -111,11 +123,13 @@ const REWARD_ONLY = new Set([
   "flag:recruit_banner",
   "pattern:officer_chevrons:ash",
   "effect:colonel_wake",
+  ...RANK_EFFECTS.map((n) => `effect:${n}`),
 ]);
 const REWARD_ONLY_NAMES = new Set([
   "recruit_banner",
   "officer_chevrons",
   "colonel_wake",
+  ...RANK_EFFECTS,
 ]);
 
 describe("the shipped DeltaFront catalog", () => {
@@ -1048,7 +1062,7 @@ describe("the public sample catalog", () => {
   it("is small: the production store is a private catalog, not this repository", () => {
     const files = realAssets();
     expect(files.size).toBeLessThanOrEqual(8);
-    expect(catalog.validFlares.size).toBeLessThanOrEqual(24);
+    expect(catalog.validFlares.size).toBeLessThanOrEqual(40);
     expect(sourceText.length).toBeLessThan(40 * 1024);
   });
 
@@ -1237,6 +1251,28 @@ describe("bundles", () => {
     ).toMatch(/pattern:delta_stripes:ash is a free default item/);
   });
 
+  it("take a sale window, refused if it ends before it starts", () => {
+    const withWindow = (startsAt: string, endsAt: string) =>
+      catalogWith((c) => {
+        c.packs.recruit_kit.startsAt = startsAt;
+        c.packs.recruit_kit.endsAt = endsAt;
+      });
+    const ok = withWindow("2026-10-01T00:00:00Z", "2026-11-01T00:00:00Z");
+    expect(ok.cosmetics.packs!.recruit_kit.endsAt).toBeTruthy();
+    expect(() =>
+      withWindow("2026-11-01T00:00:00Z", "2026-10-01T00:00:00Z"),
+    ).toThrow(/endsAt must be after startsAt/);
+    // sold only inside the window
+    const during = new Date("2026-10-15T00:00:00Z");
+    expect(findBundleOffer(ok, "recruit_kit", during)).not.toBeNull();
+    expect(
+      findBundleOffer(ok, "recruit_kit", new Date("2026-09-30T00:00:00Z")),
+    ).toBeNull();
+    expect(
+      findBundleOffer(ok, "recruit_kit", new Date("2026-11-01T00:00:00Z")),
+    ).toBeNull();
+  });
+
   it("an item that stops being sold after load takes its bundle off sale", () => {
     const flags = { ...catalog.cosmetics.flags };
     delete flags.delta_mark;
@@ -1245,5 +1281,40 @@ describe("bundles", () => {
       cosmetics: { ...catalog.cosmetics, flags },
     };
     expect(findBundleOffer(broken, "recruit_kit")).toBeNull();
+  });
+});
+
+describe("level-locked items", () => {
+  it("take a minLevel from 2 to 100 on an item sold for Credits, and offers carry it", () => {
+    const c = catalogWith((x) => {
+      x.flags.delta_mark.minLevel = 30;
+    });
+    expect(
+      findOffer(c, { cosmeticType: "flag", cosmeticName: "delta_mark" }),
+    ).toMatchObject({ price: 400, minLevel: 30 });
+    expect(
+      findOffer(c, { cosmeticType: "flag", cosmeticName: "split_field" })
+        ?.minLevel,
+    ).toBeUndefined();
+    // a bundle holding it needs the same level
+    expect(findBundleOffer(c, "recruit_kit")?.minLevel).toBe(30);
+  });
+
+  it.each([1, 101, 2.5, -4])("refuse a minLevel of %s", (minLevel) => {
+    expect(() =>
+      catalogWith((x) => {
+        x.flags.delta_mark.minLevel = minLevel;
+      }),
+    ).toThrow();
+  });
+
+  it("refuse a minLevel on an item that is not sold for Credits", () => {
+    expect(
+      issuesOf(() =>
+        catalogWith((x) => {
+          x.flags.recruit_banner.minLevel = 10; // a reward, no price
+        }),
+      ),
+    ).toMatch(/minLevel is only for items sold for Credits/);
   });
 });

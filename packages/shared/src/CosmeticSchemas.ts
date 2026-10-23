@@ -95,6 +95,10 @@ const CosmeticSchema = z.object({
   product: ProductSchema.nullable(),
   priceSoft: z.number().optional(),
   priceHard: z.number().optional(),
+  // "Earned, not bought": the account level (2 to 100) needed before it can be
+  // bought. Owning it does not depend on it, and a prestiged account counts as
+  // level 100. Absent: anyone may buy it.
+  minLevel: z.number().int().min(2).max(100).optional(),
   artist: z.string().optional(),
   // Whether the artist declared they used generative AI making this. Present only when they
   // actually answered: the catalogue omits the field for everything nobody was asked about, so
@@ -487,6 +491,11 @@ export const CosmeticPackSchema = z.object({
   displayName: z.string(),
   description: z.string(),
   tagline: z.string().optional(),
+  // A seasonal bundle is for sale from `startsAt` until `endsAt` (ISO times);
+  // either may be absent. The server enforces them; the client uses them to
+  // hide a bundle before it starts and to show its countdown.
+  startsAt: z.iso.datetime().optional(),
+  endsAt: z.iso.datetime().optional(),
   priceHard: z.number().optional(),
   priceSoft: z.number().optional(),
   rarity: z

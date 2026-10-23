@@ -12,6 +12,7 @@ import {
   allTitles,
   earnedTitles,
   LEVEL_MILESTONES,
+  MAX_LEVEL,
   progressState,
   rankForLevel,
   SEASON_MAX_LEVEL,
@@ -45,6 +46,15 @@ import type { Db } from "./users";
 
 export interface ProgressRowWithTitle extends ProgressRow {
   displayTitle: string | null;
+}
+
+/**
+ * The level an account counts as for "earned, not bought" items: its current
+ * level, or 100 once it has prestiged (reaching level 100 is how it got there).
+ */
+export async function reachedLevelOf(db: Db, userId: string): Promise<number> {
+  const row = await progressRowOf(db, userId);
+  return row.prestige > 0 ? MAX_LEVEL : progressState(row).level;
 }
 
 /** An account that has not earned XP yet reads as level 1 with nothing. */

@@ -158,7 +158,7 @@ describe("the reward track", () => {
     await mount(track(1));
     const rewards = qa("[data-track-reward]");
     expect(rewards.map((r) => Number(r.dataset.trackReward))).toEqual([
-      5, 10, 25, 50, 75, 100,
+      5, 10, 15, 20, 25, 30, 40, 50, 60, 65, 75, 90, 100,
     ]);
     const credits = (level: number) =>
       q(`[data-track-reward='${level}'] [data-track-credits]`)?.textContent;
@@ -191,7 +191,7 @@ describe("the reward track", () => {
       (n) =>
         !LEVEL_MILESTONES.some((m) => m.level === Number(n.dataset.trackLevel)),
     );
-    expect(plain).toHaveLength(94);
+    expect(plain).toHaveLength(100 - LEVEL_MILESTONES.length);
     for (const node of plain) {
       expect(node.querySelector("[data-track-reward]")).toBeNull();
       expect(node.querySelector("credits-icon")).toBeNull();

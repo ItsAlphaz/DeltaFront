@@ -841,10 +841,12 @@ describeDb("public progress and config", () => {
     expect(config.prestige?.caps).toBe(1000);
     expect(config.ranks?.[0]).toEqual({ key: "recruit", fromLevel: 1 });
     expect(config.milestones?.map((m) => m.level)).toEqual([
-      5, 10, 25, 50, 75, 100,
+      5, 10, 15, 20, 25, 30, 40, 50, 60, 65, 75, 90, 100,
     ]);
     expect(config.season).toBeNull();
-    expect(config.flares.map((f) => f.level)).toEqual([10, 50, 75]);
+    expect(config.flares.map((f) => f.level)).toEqual([
+      10, 15, 20, 30, 40, 50, 60, 65, 75, 90,
+    ]);
 
     await q(
       h,

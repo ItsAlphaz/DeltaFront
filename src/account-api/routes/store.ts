@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ASSET_ROUTE, type Catalog } from "../catalog/load";
 import { findBundleOffer, findOffer } from "../catalog/offer";
 import { purchaseBundle, purchaseOffer } from "../domain/economy";
+import { reachedLevelOf } from "../repo/progression";
 import { activeBan, getUser } from "../repo/users";
 import { authenticate, jsonBody, type AppDeps } from "./common";
 
@@ -86,6 +87,7 @@ const PackBody = z.object({ packName: z.string().regex(NAME) });
  *   400 { reason: "Insufficient balance" }   too few Credits, nothing charged
  *   400 { reason: "Currency not accepted" }  anything but Credits ("soft")
  *   400 { reason: "Item not for sale" }      unknown, unpriced or invalid palette
+ *   400 { reason: "Level too low", minLevel } a level-locked item, and the account is below it
  *   409 { reason: "Already owned" }          held already, or a free default
  *
  * `POST /shop/purchase/pack` buys a bundle (a themed set of catalog items for
@@ -139,6 +141,18 @@ export function shopRouter(deps: AppDeps & { catalog: Catalog }): Router {
       res.status(400).json({ reason: "Item not for sale" });
       return;
     }
+    // "Earned, not bought": a level-locked item needs the level first. Skipped
+    // when progression is off, since there is then no level to read.
+    if (
+      offer.minLevel !== undefined &&
+      deps.config.features.progression &&
+      (await reachedLevelOf(pool, user.id)) < offer.minLevel
+    ) {
+      res
+        .status(400)
+        .json({ reason: "Level too low", minLevel: offer.minLevel });
+      return;
+    }
     const outcome = await purchaseOffer(pool, user.id, offer, {
       catalogVersion: catalog.version,
       defaultFlares: catalog.defaultFlares,
@@ -189,6 +203,16 @@ export function shopRouter(deps: AppDeps & { catalog: Catalog }): Router {
     const bundle = findBundleOffer(catalog, body.data.packName);
     if (bundle === null) {
       res.status(400).json({ reason: "Pack not found" });
+      return;
+    }
+    if (
+      bundle.minLevel !== undefined &&
+      deps.config.features.progression &&
+      (await reachedLevelOf(pool, user.id)) < bundle.minLevel
+    ) {
+      res
+        .status(400)
+        .json({ reason: "Level too low", minLevel: bundle.minLevel });
       return;
     }
     const outcome = await purchaseBundle(pool, user.id, bundle, {

@@ -2953,6 +2953,7 @@
     "already_owned": "You already own this item. Nothing was charged.",
     "already_subscribed": "Already subscribed.",
     "balance_after": "Balance after",
+    "bundle_ends_in": "Ends in {time}",
     "bundle_items": "{count} items",
     "bundle_lot": "Lot {lot}",
     "bundle_save": "Save {percent}%",
@@ -2995,6 +2996,7 @@
     "insufficient_currency_body": "You need {amount, number} more {currency} to buy {item}.",
     "insufficient_currency_title": "Insufficient {currency}",
     "items_count": "{count, plural, one {# item} other {# items}}",
+    "level_required": "You need to reach level {level} to buy this.",
     "login_required": "You must be logged in to purchase with currency.",
     "manage_billing": "Manage billing",
     "no_affiliate_items": "No affiliate items available. Check back later for new items.",
@@ -3035,6 +3037,7 @@
     "purchase_success": "Purchase succeeded: {name}",
     "purchase_tribe_button": "Purchase",
     "rarity": "Rarity",
+    "requires_level": "Requires",
     "select_item": "Select an item to see its details.",
     "steam_overlay_cancelled": "Purchase cancelled. You haven't been charged.",
     "steam_overlay_waiting": "Approve the purchase in the Steam overlay to continue.",
@@ -3082,6 +3085,7 @@
     "tribes_login_required": "Log in to buy and manage tribe names.",
     "tribes_purchase_description": "Your name gets assigned to a bot tribe in real multiplayer games. It goes live right away.",
     "tribes_purchase_heading": "Buy a Tribe Name",
+    "unlocks_at_level": "Unlocks at level {level}",
     "your_tribes_heading": "Your Tribe Names"
   },
   "streaming_now": {

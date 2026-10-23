@@ -116,6 +116,8 @@ const BundleSourceSchema = z.strictObject({
   displayName: z.string().min(1).max(40),
   description: z.string().max(240),
   tagline: z.string().max(60).optional(),
+  startsAt: z.iso.datetime().optional(),
+  endsAt: z.iso.datetime().optional(),
   priceSoft: z.number(),
   rarity: z.enum(["common", "uncommon", "rare", "epic", "legendary"]),
   items: z
@@ -294,6 +296,7 @@ export function parseCatalog(
       product: unknown;
       priceSoft?: number;
       priceHard?: number;
+      minLevel?: number;
       affiliateCode?: string | null;
     },
   ): void => {
@@ -309,6 +312,11 @@ export function parseCatalog(
     }
     if (item.product !== null) {
       issues.push(`${where}: product must be null (no real-money products)`);
+    }
+    if (item.minLevel !== undefined && item.priceSoft === undefined) {
+      issues.push(
+        `${where}: minLevel is only for items sold for Credits (it has no priceSoft)`,
+      );
     }
     if (item.affiliateCode !== undefined && item.affiliateCode !== null) {
       issues.push(`${where}: affiliateCode is not used`);
@@ -507,6 +515,13 @@ export function parseCatalog(
       issues.push(
         `${where}: the key and the bundle name must match, in lowercase letters, digits and underscores`,
       );
+    }
+    if (
+      pack.startsAt !== undefined &&
+      pack.endsAt !== undefined &&
+      new Date(pack.endsAt) <= new Date(pack.startsAt)
+    ) {
+      issues.push(`${where}: endsAt must be after startsAt`);
     }
     if (!(Number.isInteger(pack.priceSoft) && pack.priceSoft > 0)) {
       issues.push(

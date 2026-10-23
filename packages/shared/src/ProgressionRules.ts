@@ -181,14 +181,23 @@ export interface LevelMilestone {
 export const LEVEL_MILESTONES: readonly LevelMilestone[] = [
   { level: 5, credits: 250, flare: null, title: null },
   { level: 10, credits: 500, flare: "flag:recruit_banner", title: null },
+  // The rank effects: one XP-only cosmetic every few levels, one per kind, each
+  // named for the rank it opens. Never sold.
+  { level: 15, credits: 300, flare: "effect:private_glow", title: null },
+  { level: 20, credits: 350, flare: "effect:corporal_wake", title: null },
   { level: 25, credits: 750, flare: null, title: "veteran" },
+  { level: 30, credits: 400, flare: "effect:sergeant_hull", title: null },
+  { level: 40, credits: 500, flare: "effect:lieutenant_ring", title: null },
   {
     level: 50,
     credits: 1_000,
     flare: "pattern:officer_chevrons:ash",
     title: "elite",
   },
+  { level: 60, credits: 800, flare: "effect:major_livery", title: null },
+  { level: 65, credits: 900, flare: "effect:major_rails", title: null },
   { level: 75, credits: 1_500, flare: "effect:colonel_wake", title: null },
+  { level: 90, credits: 1_200, flare: "effect:general_helix", title: null },
   { level: 100, credits: 2_500, flare: null, title: "supreme_commander" },
 ];
 

@@ -113,6 +113,18 @@
         },
         "product": null,
         "rarity": "epic"
+      },
+      "corporal_wake": {
+        "name": "corporal_wake",
+        "effectType": "transportShipTrail",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#f5f5f5", "#090909", "#e31b23"],
+          "colorSize": 5,
+          "movementSpeed": 5
+        },
+        "product": null,
+        "rarity": "uncommon"
       }
     },
     "nukeTrail": {
@@ -128,6 +140,18 @@
         },
         "product": null,
         "rarity": "common"
+      },
+      "general_helix": {
+        "name": "general_helix",
+        "effectType": "nukeTrail",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#f5f5f5", "#090909"],
+          "colorSize": 6,
+          "movementSpeed": 8
+        },
+        "product": null,
+        "rarity": "legendary"
       }
     },
     "nukeExplosion": {
@@ -178,6 +202,21 @@
         },
         "product": null,
         "rarity": "common"
+      },
+      "lieutenant_ring": {
+        "name": "lieutenant_ring",
+        "effectType": "nukeExplosion",
+        "attributes": {
+          "type": "shockwave",
+          "nukeType": "atom",
+          "colors": ["#e31b23", "#090909"],
+          "size": 90,
+          "speed": 70,
+          "thickness": 4,
+          "transitionSpeed": 1
+        },
+        "product": null,
+        "rarity": "rare"
       }
     },
     "structures": {
@@ -193,6 +232,18 @@
         },
         "product": null,
         "rarity": "common"
+      },
+      "private_glow": {
+        "name": "private_glow",
+        "effectType": "structures",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#090909", "#e31b23"],
+          "colorSize": 6,
+          "movementSpeed": 3
+        },
+        "product": null,
+        "rarity": "uncommon"
       }
     },
     "warship": {
@@ -208,6 +259,18 @@
         },
         "product": null,
         "rarity": "common"
+      },
+      "sergeant_hull": {
+        "name": "sergeant_hull",
+        "effectType": "warship",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#090909"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "rare"
       }
     },
     "train": {
@@ -223,6 +286,18 @@
         },
         "product": null,
         "rarity": "common"
+      },
+      "major_livery": {
+        "name": "major_livery",
+        "effectType": "train",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#f5f5f5", "#e31b23", "#090909"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "epic"
       }
     },
     "railroad": {
@@ -238,6 +313,18 @@
         },
         "product": null,
         "rarity": "common"
+      },
+      "major_rails": {
+        "name": "major_rails",
+        "effectType": "railroad",
+        "attributes": {
+          "type": "gradient",
+          "colors": ["#e31b23", "#f5f5f5", "#090909"],
+          "colorSize": 6,
+          "movementSpeed": 4
+        },
+        "product": null,
+        "rarity": "epic"
       }
     }
   },

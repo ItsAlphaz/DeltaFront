@@ -111,6 +111,23 @@ const CSS = `
   font-size: 12px;
   color: var(--color-ui-muted);
 }
+.bundle-card .bc-ends {
+  margin: 6px 14px 0;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ui-accent-soft);
+}
+.bundle-card .bc-ends::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  background: var(--color-ui-accent);
+  vertical-align: 1px;
+}
 .bundle-card .bc-loadout {
   position: relative;
   display: grid;
@@ -259,6 +276,16 @@ const CSS = `
 }
 `;
 
+/** "3d 4h", "5h 12m" or "9m": how long a seasonal bundle has left. */
+export function timeLeft(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${minutes}m`;
+}
+
 @customElement("bundle-card")
 export class BundleCard extends LitElement {
   @property({ attribute: false }) resolved!: ResolvedCosmetic;
@@ -350,6 +377,13 @@ export class BundleCard extends LitElement {
       </div>
       <h3 class="bc-name">${pack.displayName}</h3>
       ${pack.tagline ? html`<p class="bc-tag">${pack.tagline}</p>` : nothing}
+      ${pack.endsAt !== undefined
+        ? html`<p class="bc-ends" data-bundle-ends>
+            ${translateText("store.bundle_ends_in", {
+              time: timeLeft(Date.parse(pack.endsAt) - Date.now()),
+            })}
+          </p>`
+        : nothing}
       <div class="bc-loadout">
         ${shown.map((item, index) =>
           this.renderTile(item, index === 0, index === 2 ? extra : 0),

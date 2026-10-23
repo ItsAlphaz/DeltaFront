@@ -23,6 +23,7 @@ import { createPool } from "./db/pool";
 import { loadReservedClanNames } from "./domain/clans";
 import { runMaintenance } from "./domain/lifecycle";
 import { startLeaderboardJob } from "./jobs/leaderboard";
+import { startMilestoneBackfill } from "./jobs/milestones";
 import { startSeasonJob } from "./jobs/seasons";
 import { createSoloWorker } from "./jobs/solo";
 import { createLimiters, type RateLimit, type RateLimitName } from "./limits";
@@ -223,8 +224,12 @@ export async function startAccountApi(
       backend !== undefined &&
       config.features.progression &&
       config.features.accounts
-    )
+    ) {
       stopSeasons = startSeasonJob(pool, log);
+      startMilestoneBackfill(pool, log, {
+        validFlares: backend?.catalog?.validFlares ?? null,
+      });
+    }
     backend?.solo?.start();
     let maintenance: NodeJS.Timeout | null = null;
     if (backend !== undefined && config.features.accounts) {

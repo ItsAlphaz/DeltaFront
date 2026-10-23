@@ -113,6 +113,12 @@ catalog.packs = {
     1300,
   ),
 };
+// a level lock the player (level 44) has not reached, and a seasonal bundle with a countdown
+catalog.effects.transportShipTrail.venom_ring.minLevel = 60;
+catalog.packs.galaxy_loadout.endsAt = new Date(
+  Date.now() + (2 * 24 + 5) * 3_600_000,
+).toISOString();
+catalog.packs.midnight_vault.items.push({ type: "effect", name: "venom_ring" });
 const ownedEffects = ["prism_cinders", "red_wake"];
 const flares = [
   ...ownedEffects.map((n) => `effect:${n}`),
@@ -472,6 +478,11 @@ for (const page of pages) {
     );
     await sleep(2500);
     await shot(`ui-bundles${narrow ? "-narrow" : ""}`);
+    await g.ev(
+      `document.querySelector('[data-cosmetic-key="cosmeticPack:midnight_vault"]')?.scrollIntoView({block:'center'}); 1`,
+    );
+    await sleep(800);
+    await shot("ui-bundles-lock");
     await g.ev(
       `(()=>{ const c=document.querySelector('store-modal [data-bundle-card]'); c?.scrollIntoView(); c?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); return !!c })()`,
     );

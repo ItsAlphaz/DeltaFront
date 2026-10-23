@@ -706,6 +706,11 @@ export async function purchaseCosmetic(
       case "login_required":
         await showInGameAlert(translateText("store.login_required"));
         return;
+      case "level_too_low":
+        await showInGameAlert(
+          translateText("store.level_required", { level: result.minLevel }),
+        );
+        return;
       case "already_owned":
         // Either a genuine double-buy or a retry of a purchase that did go
         // through (the success response was lost): both mean the local
@@ -828,6 +833,11 @@ async function purchasePack(
       );
       invalidateUserMe();
       window.location.reload();
+      return;
+    case "level_too_low":
+      await showInGameAlert(
+        translateText("store.level_required", { level: result.minLevel }),
+      );
       return;
     case "unavailable":
       await showInGameAlert(translateText("store.pack_unavailable"));
@@ -1695,4 +1705,64 @@ export function translateCosmetic(prefix: string, name: string): string {
       .join(" ");
   }
   return translation;
+}
+
+/**
+ * The level an account counts as for level-locked ("earned, not bought")
+ * items: its level, 100 once it has prestiged. Null when the response carries
+ * no progression (the feature is off, or nobody is signed in).
+ */
+export function reachedLevel(
+  userMeResponse: UserMeResponse | false,
+): number | null {
+  if (userMeResponse === false) return null;
+  const progress = userMeResponse.player.progress;
+  if (progress === undefined) return null;
+  return progress.prestige > 0 ? 100 : progress.level;
+}
+
+/**
+ * The level an item or bundle needs before it can be bought, or null. A bundle
+ * needs the highest level any of its items needs.
+ */
+export function minLevelOf(resolved: ResolvedCosmetic): number | null {
+  if (resolved.type === "cosmeticPack") {
+    let max: number | null = null;
+    for (const item of resolved.packItems ?? []) {
+      const level = minLevelOf(item);
+      if (level !== null) max = Math.max(max ?? 0, level);
+    }
+    return max;
+  }
+  const level = (resolved.cosmetic as { minLevel?: number } | null)?.minLevel;
+  return level ?? null;
+}
+
+/**
+ * The level still missing to buy it, or null when it can be bought (it has no
+ * level lock, the account is high enough, or the account's level is unknown).
+ */
+export function levelLockOf(
+  resolved: ResolvedCosmetic,
+  userMeResponse: UserMeResponse | false,
+): number | null {
+  const needed = minLevelOf(resolved);
+  const have = reachedLevel(userMeResponse);
+  return needed !== null && have !== null && have < needed ? needed : null;
+}
+
+/**
+ * Whether a seasonal bundle is on sale at `now`: after its `startsAt` and
+ * before its `endsAt`, either of which may be absent. The server enforces the
+ * same window; this hides what it would refuse.
+ */
+export function bundleInSeason(
+  pack: CosmeticPack,
+  now: number = Date.now(),
+): boolean {
+  if (pack.startsAt !== undefined && now < Date.parse(pack.startsAt)) {
+    return false;
+  }
+  if (pack.endsAt !== undefined && now >= Date.parse(pack.endsAt)) return false;
+  return true;
 }

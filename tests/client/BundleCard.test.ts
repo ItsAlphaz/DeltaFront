@@ -1,11 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  bundleInSeason,
   bundleSavings,
   cosmeticPackRelationship,
+  levelLockOf,
+  minLevelOf,
+  reachedLevel,
   type ResolvedCosmetic,
 } from "../../src/client/Cosmetics";
 import "../../src/client/components/BundleCard";
-import type { BundleCard } from "../../src/client/components/BundleCard";
+import {
+  timeLeft,
+  type BundleCard,
+} from "../../src/client/components/BundleCard";
 
 const effect = (
   name: string,
@@ -226,5 +233,85 @@ describe("<bundle-card>", () => {
     expect(
       card.querySelector("[data-bundle-card]")!.hasAttribute("data-focused"),
     ).toBe(true);
+  });
+});
+
+describe("level locks", () => {
+  const lockedEffect = (minLevel: number): ResolvedCosmetic => {
+    const r = effect("locked", 900);
+    (r.cosmetic as { minLevel?: number }).minLevel = minLevel;
+    return r;
+  };
+  const me = (level: number, prestige = 0) =>
+    ({ player: { progress: { level, prestige } } }) as never;
+
+  it("reads the account's level, 100 once prestiged, null without progression", () => {
+    expect(reachedLevel(me(12))).toBe(12);
+    expect(reachedLevel(me(3, 1))).toBe(100);
+    expect(reachedLevel({ player: {} } as never)).toBeNull();
+    expect(reachedLevel(false)).toBeNull();
+  });
+
+  it("locks an item above the account's level and unlocks it at that level", () => {
+    const item = lockedEffect(20);
+    expect(minLevelOf(item)).toBe(20);
+    expect(levelLockOf(item, me(19))).toBe(20);
+    expect(levelLockOf(item, me(20))).toBeNull();
+    expect(levelLockOf(item, me(5, 1))).toBeNull(); // prestiged
+    expect(levelLockOf(effect("free", 100), me(1))).toBeNull();
+    // unknown level: nothing is locked client-side (the server decides)
+    expect(levelLockOf(item, false)).toBeNull();
+  });
+
+  it("holds a bundle to the highest level of its items", () => {
+    const bundle = pack([effect("a", 300), lockedEffect(12), lockedEffect(30)]);
+    expect(minLevelOf(bundle)).toBe(30);
+    expect(levelLockOf(bundle, me(29))).toBe(30);
+    expect(levelLockOf(bundle, me(30))).toBeNull();
+  });
+});
+
+describe("seasonal bundles", () => {
+  const dated = (startsAt?: string, endsAt?: string) =>
+    ({ name: "s", startsAt, endsAt }) as never;
+  const now = Date.parse("2026-10-20T12:00:00Z");
+
+  it("are in season between startsAt and endsAt, either of which may be absent", () => {
+    expect(bundleInSeason(dated(), now)).toBe(true);
+    expect(bundleInSeason(dated("2026-10-01T00:00:00Z"), now)).toBe(true);
+    expect(bundleInSeason(dated(undefined, "2026-11-01T00:00:00Z"), now)).toBe(
+      true,
+    );
+    expect(bundleInSeason(dated("2026-10-21T00:00:00Z"), now)).toBe(false);
+    expect(bundleInSeason(dated(undefined, "2026-10-20T12:00:00Z"), now)).toBe(
+      false,
+    );
+  });
+
+  it("say how long they have left", () => {
+    expect(timeLeft(3 * 86_400_000 + 4 * 3_600_000 + 1)).toBe("3d 4h");
+    expect(timeLeft(5 * 3_600_000 + 12 * 60_000)).toBe("5h 12m");
+    expect(timeLeft(9 * 60_000)).toBe("9m");
+    expect(timeLeft(-5)).toBe("0m");
+  });
+
+  it("show a countdown on the card only when they end", async () => {
+    const card = document.createElement("bundle-card") as BundleCard;
+    const withEnd = pack(four, {
+      endsAt: new Date(Date.now() + 2 * 86_400_000 + 3_600_000).toISOString(),
+    });
+    Object.assign(card, { resolved: withEnd });
+    document.body.appendChild(card);
+    await card.updateComplete;
+    expect(card.querySelector("[data-bundle-ends]")?.textContent).toContain(
+      "store.bundle_ends_in",
+    );
+    card.remove();
+    const plain = document.createElement("bundle-card") as BundleCard;
+    Object.assign(plain, { resolved: pack(four) });
+    document.body.appendChild(plain);
+    await plain.updateComplete;
+    expect(plain.querySelector("[data-bundle-ends]")).toBeNull();
+    plain.remove();
   });
 });

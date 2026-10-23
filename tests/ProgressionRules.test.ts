@@ -229,7 +229,7 @@ describe("seasons", () => {
 describe("milestones and titles", () => {
   it("has the approved milestone levels", () => {
     expect(LEVEL_MILESTONES.map((m) => m.level)).toEqual([
-      5, 10, 25, 50, 75, 100,
+      5, 10, 15, 20, 25, 30, 40, 50, 60, 65, 75, 90, 100,
     ]);
   });
 
