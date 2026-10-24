@@ -3,6 +3,11 @@ import type { ResolvedCosmetic } from "../../src/client/Cosmetics";
 
 const mocks = vi.hoisted(() => ({
   resolved: [] as unknown[],
+  news: [] as unknown[],
+}));
+
+vi.mock("../../src/client/Api", () => ({
+  getNews: vi.fn(async () => mocks.news),
 }));
 
 vi.mock("../../src/client/Cosmetics", async (importOriginal) => ({
@@ -11,8 +16,8 @@ vi.mock("../../src/client/Cosmetics", async (importOriginal) => ({
   resolveCosmetics: vi.fn(() => mocks.resolved),
 }));
 
-import "../../src/client/components/FeaturedBundleStrip";
-import { pickFeaturedBundle } from "../../src/client/components/FeaturedBundleStrip";
+import "../../src/client/components/NewsBox";
+import { pickFeaturedBundle } from "../../src/client/FeaturedBundle";
 
 const NOW = Date.parse("2026-10-20T12:00:00Z");
 
@@ -107,21 +112,32 @@ describe("pickFeaturedBundle", () => {
   });
 });
 
-describe("<featured-bundle-strip>", () => {
+describe("the featured bundle in <news-box>", () => {
   beforeEach(() => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    });
     mocks.resolved = [bundle("doomsday", 1990)];
+    mocks.news = [
+      {
+        id: "n1",
+        title: "Patch notes",
+        type: "announcement",
+        description: "x",
+      },
+    ];
   });
   afterEach(() => {
     document.body.innerHTML = "";
     delete (window as { showPage?: unknown }).showPage;
+    vi.unstubAllGlobals();
   });
 
   async function mount() {
-    const el = document.createElement(
-      "featured-bundle-strip",
-    ) as HTMLElement & {
-      updateComplete: Promise<unknown>;
-    };
+    const el = document.createElement("news-box") as HTMLElement;
+    el.setAttribute("variant", "strip");
     document.body.appendChild(el);
     await vi.waitFor(() =>
       expect(el.querySelector("[data-featured-bundle]")).not.toBeNull(),
@@ -129,7 +145,7 @@ describe("<featured-bundle-strip>", () => {
     return el;
   }
 
-  it("shows the featured bundle's name and price, and opens the Store's Bundles tab", async () => {
+  it("is the first notice: the bundle's name and price, opening the Store's Bundles tab", async () => {
     const showPage = vi.fn();
     window.showPage = showPage;
     const store = document.createElement("div") as unknown as HTMLElement & {
@@ -145,6 +161,11 @@ describe("<featured-bundle-strip>", () => {
     expect(button.getAttribute("data-featured-bundle")).toBe("doomsday");
     expect(button.textContent).toContain("DOOMSDAY");
     expect(button.textContent).toContain("1,990");
+    expect(el.textContent).not.toContain("Patch notes");
+    // one dot for the bundle, one for the news
+    await vi.waitFor(() =>
+      expect(el.querySelectorAll("button[aria-label]").length).toBe(3),
+    );
     button.click();
     expect(showPage).toHaveBeenCalledWith("page-item-store");
     await vi.waitFor(() =>
@@ -152,16 +173,30 @@ describe("<featured-bundle-strip>", () => {
     );
   });
 
-  it("renders nothing when no bundle is worth featuring", async () => {
+  it("can be dismissed, leaving the news", async () => {
+    const el = await mount();
+    const dismiss = [...el.querySelectorAll<HTMLButtonElement>("button")].find(
+      (b) => b.getAttribute("aria-label") === "news_box.dismiss",
+    )!;
+    dismiss.click();
+    await vi.waitFor(() =>
+      expect(el.querySelector("[data-featured-bundle]")).toBeNull(),
+    );
+    expect(el.textContent).toContain("Patch notes");
+  });
+
+  it("shows alone when there is no news", async () => {
+    mocks.news = [];
+    const el = await mount();
+    expect(el.querySelectorAll("button[aria-label]").length).toBe(1);
+  });
+
+  it("shows only the news when no bundle is worth featuring", async () => {
     mocks.resolved = [];
-    const el = document.createElement(
-      "featured-bundle-strip",
-    ) as HTMLElement & {
-      updateComplete: Promise<unknown>;
-    };
+    const el = document.createElement("news-box") as HTMLElement;
+    el.setAttribute("variant", "strip");
     document.body.appendChild(el);
-    await el.updateComplete;
-    await new Promise((r) => setTimeout(r, 20));
+    await vi.waitFor(() => expect(el.textContent).toContain("Patch notes"));
     expect(el.querySelector("[data-featured-bundle]")).toBeNull();
   });
 });

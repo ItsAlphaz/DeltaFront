@@ -1,10 +1,23 @@
-import type { NewsItem } from "@openfront/shared/ApiSchemas";
+import type { NewsItem, UserMeResponse } from "@openfront/shared/ApiSchemas";
+import type { CosmeticPack } from "@openfront/shared/CosmeticSchemas";
 import type { ClientPlatform } from "@openfront/shared/WireSchemas";
 import { LitElement, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { getNews } from "../Api";
 import { clientPlatform } from "../ClientPlatform";
+import {
+  fetchCosmetics,
+  resolveCosmetics,
+  type ResolvedCosmetic,
+} from "../Cosmetics";
+import {
+  featuredNote,
+  openBundlesTab,
+  pickFeaturedBundle,
+} from "../FeaturedBundle";
+import { lastUserMeResponse } from "../UserMeBroadcast";
 import { translateText } from "../Utils";
+import "./CreditsIcon";
 
 export type { NewsItem };
 
@@ -59,6 +72,10 @@ export class NewsBox extends LitElement {
   @property({ type: String }) variant: "box" | "strip" = "box";
   @state() private items: NewsItem[] = [];
   @state() private activeIndex = 0;
+  // The bundle worth a look, shown as the first notice (see FeaturedBundle.ts).
+  @state() private featured: ResolvedCosmetic | null = null;
+  @state() private featuredDismissed = false;
+  private me: UserMeResponse | false = lastUserMeResponse()?.response ?? false;
   // The markdown renderer is its own chunk, loaded alongside the news.
   private renderMarkdown: typeof import("../Markdown").renderMarkdown | null =
     null;
@@ -68,9 +85,46 @@ export class NewsBox extends LitElement {
     return this;
   }
 
+  private onUserMe = (event: Event) => {
+    this.me = (event as CustomEvent<UserMeResponse | false>).detail;
+    void this.loadFeatured();
+  };
+
   connectedCallback() {
     super.connectedCallback();
+    document.addEventListener("userMeResponse", this.onUserMe);
     this.loadNews();
+    void this.loadFeatured();
+  }
+
+  private async loadFeatured() {
+    try {
+      const cosmetics = await fetchCosmetics();
+      const hadFeatured = this.showsFeatured;
+      this.featured = pickFeaturedBundle(
+        resolveCosmetics(cosmetics, this.me, null),
+        this.me,
+      );
+      // It is the first notice: when it shows up, start on it.
+      if (!hadFeatured && this.showsFeatured) this.activeIndex = 0;
+      this.slidesChanged();
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  // The notices in rotation: the featured bundle first, then the news.
+  private get slideCount(): number {
+    return this.items.length + (this.showsFeatured ? 1 : 0);
+  }
+
+  private get showsFeatured(): boolean {
+    return this.featured !== null && !this.featuredDismissed;
+  }
+
+  private slidesChanged() {
+    if (this.activeIndex >= this.slideCount) this.activeIndex = 0;
+    this.startCycle();
   }
 
   private async loadNews() {
@@ -97,14 +151,15 @@ export class NewsBox extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    document.removeEventListener("userMeResponse", this.onUserMe);
     this.stopCycle();
   }
 
   private startCycle() {
     this.stopCycle();
-    if (this.items.length > 1) {
+    if (this.slideCount > 1) {
       this.cycleTimer = setInterval(() => {
-        this.activeIndex = (this.activeIndex + 1) % this.items.length;
+        this.activeIndex = (this.activeIndex + 1) % this.slideCount;
       }, CYCLE_INTERVAL_MS);
     }
   }
@@ -121,10 +176,12 @@ export class NewsBox extends LitElement {
     dismissed.add(id);
     saveDismissedIds(dismissed);
     this.items = this.items.filter((item) => item.id !== id);
-    if (this.activeIndex >= this.items.length) {
-      this.activeIndex = 0;
-    }
-    this.startCycle();
+    this.slidesChanged();
+  }
+
+  private dismissFeatured() {
+    this.featuredDismissed = true;
+    this.slidesChanged();
   }
 
   private goTo(index: number) {
@@ -133,8 +190,14 @@ export class NewsBox extends LitElement {
   }
 
   render() {
-    if (this.items.length === 0) return nothing;
-    const item = this.items[this.activeIndex];
+    if (this.slideCount === 0) return nothing;
+    const index = Math.min(this.activeIndex, this.slideCount - 1);
+    if (this.showsFeatured && index === 0) {
+      return this.variant === "strip"
+        ? this.renderFeaturedStrip()
+        : this.renderFeaturedBox();
+    }
+    const item = this.items[index - (this.showsFeatured ? 1 : 0)];
     return this.variant === "strip"
       ? this.renderStrip(item)
       : this.renderBox(item);
@@ -176,12 +239,12 @@ export class NewsBox extends LitElement {
     >`;
   }
 
-  private renderControls(item: NewsItem) {
+  private renderControls(dismiss: () => void) {
     return html`
-      ${this.items.length > 1
+      ${this.slideCount > 1
         ? html`
             <div class="flex gap-1 shrink-0">
-              ${this.items.map(
+              ${Array.from({ length: this.slideCount }).map(
                 (_, i) => html`
                   <button
                     @click=${() => this.goTo(i)}
@@ -199,7 +262,7 @@ export class NewsBox extends LitElement {
           `
         : nothing}
       <button
-        @click=${() => this.dismiss(item.id)}
+        @click=${dismiss}
         class="shrink-0 p-0.5 text-white/30 hover:text-white/70 transition-colors"
         aria-label="${translateText("news_box.dismiss")}"
       >
@@ -233,7 +296,68 @@ export class NewsBox extends LitElement {
           ${this.renderDescription(item, "[&_p]:inline")}
         </p>
         <div class="flex items-center gap-4 shrink-0">
-          ${this.renderControls(item)}
+          ${this.renderControls(() => this.dismiss(item.id))}
+        </div>
+      </div>
+    `;
+  }
+
+  // The featured bundle as a notice: a gold "Featured" badge, the bundle's name
+  // (a button that opens the Store's Bundles tab), its note and its price.
+  private renderFeaturedLine(textSize: string) {
+    const featured = this.featured!;
+    const pack = featured.cosmetic as CosmeticPack;
+    const note = featuredNote(featured);
+    return html`<button
+      type="button"
+      data-featured-bundle=${pack.name}
+      class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 text-left text-white hover:text-df-red-bright transition-colors"
+      @click=${openBundlesTab}
+    >
+      <span class="font-medium ${textSize}">${pack.displayName}</span>
+      ${note
+        ? html`<span
+            class="text-df-red-bright text-xs font-bold tracking-wider uppercase"
+            >${note}</span
+          >`
+        : nothing}
+      <span class="inline-flex items-center gap-1 font-bold text-xs"
+        ><credits-icon .size=${14}></credits-icon>${(
+          pack.priceSoft ?? 0
+        ).toLocaleString()}</span
+      >
+    </button>`;
+  }
+
+  private renderFeaturedStrip() {
+    return html`
+      <div
+        class="flex min-h-[62px] items-center gap-4 border-b border-df-border bg-df-panel px-8 py-2"
+      >
+        <span
+          class="shrink-0 font-bold tracking-wider rounded-sm font-display text-xs px-2.5 py-1 bg-amber-500/20 text-amber-300 uppercase"
+          >${translateText("main.featured_bundle")}</span
+        >
+        ${this.renderFeaturedLine("text-[15px]")}
+        <div class="flex items-center gap-4 shrink-0">
+          ${this.renderControls(() => this.dismissFeatured())}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderFeaturedBox() {
+    return html`
+      <div
+        class="px-2 py-2 bg-surface border-y border-white/10 lg:border-y-0 lg:rounded-xl lg:p-3"
+      >
+        <div class="flex items-center gap-3">
+          <span
+            class="shrink-0 font-bold tracking-wider rounded-sm text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 uppercase"
+            >${translateText("main.featured_bundle")}</span
+          >
+          ${this.renderFeaturedLine("text-sm")}
+          ${this.renderControls(() => this.dismissFeatured())}
         </div>
       </div>
     `;
@@ -250,7 +374,7 @@ export class NewsBox extends LitElement {
             ${this.renderTitle(item, "text-sm truncate block")}
             ${this.renderDescription(item, "text-xs text-white/50 block")}
           </div>
-          ${this.renderControls(item)}
+          ${this.renderControls(() => this.dismiss(item.id))}
         </div>
       </div>
     `;

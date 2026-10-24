@@ -6,7 +6,6 @@ import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { ClientEnv } from "src/client/ClientEnv";
 import { getDesktopSessionState } from "./Auth";
-import "./components/FeaturedBundleStrip";
 import "./components/IOSAddToHomeScreenBanner";
 import {
   canJoinTrustedLobby,
@@ -803,7 +802,6 @@ export class GameModeSelector extends LitElement {
               true,
             )}
           </div>
-          <featured-bundle-strip class="block"></featured-bundle-strip>
         </div>
 
         <!-- Upcoming: heading row, then the scheduled public lobbies in one
