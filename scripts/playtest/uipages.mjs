@@ -555,6 +555,31 @@ for (const page of pages) {
     await sleep(500);
     await shot("ui-notices");
   }
+  // the profile button's hover, the menu opening, and a hovered row
+  if (page === "accountmenu") {
+    await sleep(2500);
+    const rect = (sel) =>
+      g.ev(
+        `(()=>{ const r=document.querySelector('${sel}').getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2} })()`,
+      );
+    const move = (p) =>
+      g.b.send("Input.dispatchMouseEvent", {
+        type: "mouseMoved",
+        x: p.x,
+        y: p.y,
+      });
+    const trigger = await rect("[data-account-trigger]");
+    await move(trigger);
+    await sleep(600);
+    await shot("ui-account-hover");
+    await g.b.clickAt(trigger.x, trigger.y);
+    await shot("ui-account-opening");
+    await sleep(900);
+    await shot("ui-account-open");
+    await move(await rect('[data-menu-item="account-settings"]'));
+    await sleep(500);
+    await shot("ui-account-row");
+  }
   if (page === "home") {
     await sleep(2500);
     await shot(`ui-home${narrow ? "-narrow" : ""}`);

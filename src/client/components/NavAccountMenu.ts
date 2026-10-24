@@ -156,22 +156,97 @@ export class NavAccountMenu extends LitElement {
 
   protected updated(): void {
     if (!this.menuOpen) {
-      this.removePanel();
+      this.closePanel();
       return;
     }
     const trigger = this.querySelector<HTMLElement>("[data-account-trigger]");
     if (!trigger) return;
 
+    let enter = false;
     if (this.panel === null) {
       this.panel = document.createElement("div");
       this.panel.style.position = "fixed";
       this.panel.style.zIndex = "41000";
       document.body.appendChild(this.panel);
+      enter = true;
+    } else if (this.closing) {
+      // Reopened while it was still fading out.
+      this.closeAnimation?.cancel();
+      this.closing = false;
+      this.panel.style.pointerEvents = "";
+      enter = true;
     }
     const rect = trigger.getBoundingClientRect();
     this.panel.style.top = `${rect.bottom + 8}px`;
     this.panel.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
     render(this.renderMenu(), this.panel);
+    if (enter) this.animateIn(this.panel);
+  }
+
+  private closing = false;
+  private closeAnimation: Animation | null = null;
+
+  private motionAllowed(panel: HTMLElement): boolean {
+    return (
+      typeof panel.animate === "function" &&
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    );
+  }
+
+  // It drops in from the button with a little overshoot, and its rows follow
+  // one after the other.
+  private animateIn(panel: HTMLDivElement): void {
+    if (!this.motionAllowed(panel)) return;
+    const menu = panel.firstElementChild as HTMLElement | null;
+    if (menu === null) return;
+    menu.style.transformOrigin = "top right";
+    menu.animate(
+      [
+        { opacity: 0, transform: "translateY(-10px) scale(0.92)" },
+        { opacity: 1, transform: "translateY(0) scale(1)" },
+      ],
+      { duration: 260, easing: "cubic-bezier(0.2, 1.1, 0.3, 1)" },
+    );
+    panel
+      .querySelectorAll<HTMLElement>("[data-menu-item]")
+      .forEach((row, i) => {
+        row.animate(
+          [
+            { opacity: 0, transform: "translateX(12px)" },
+            { opacity: 1, transform: "translateX(0)" },
+          ],
+          {
+            duration: 240,
+            delay: 70 + i * 40,
+            easing: "cubic-bezier(0.2, 0.9, 0.3, 1)",
+            fill: "backwards",
+          },
+        );
+      });
+  }
+
+  // A short fade up and away, then the panel is taken down.
+  private closePanel(): void {
+    const panel = this.panel;
+    if (panel === null) return;
+    const menu = panel.firstElementChild as HTMLElement | null;
+    if (menu === null || !this.motionAllowed(panel)) {
+      this.removePanel();
+      return;
+    }
+    if (this.closing) return;
+    this.closing = true;
+    panel.style.pointerEvents = "none";
+    this.closeAnimation = menu.animate(
+      [
+        { opacity: 1, transform: "translateY(0) scale(1)" },
+        { opacity: 0, transform: "translateY(-6px) scale(0.96)" },
+      ],
+      { duration: 140, easing: "ease-in", fill: "forwards" },
+    );
+    this.closeAnimation.onfinish = () => {
+      if (this.closing) this.removePanel();
+    };
   }
 
   // A level (or prestige) gained since the last response: the badge bounces
@@ -191,6 +266,9 @@ export class NavAccountMenu extends LitElement {
   }
 
   private removePanel(): void {
+    this.closeAnimation?.cancel();
+    this.closeAnimation = null;
+    this.closing = false;
     if (this.panel === null) return;
     render(nothing, this.panel);
     this.panel.remove();
@@ -418,20 +496,29 @@ export class NavAccountMenu extends LitElement {
       <div
         role="menu"
         aria-label=${translateText("nav_account_menu.title")}
-        class="w-max min-w-60 max-w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-white/10 bg-zinc-900 shadow-xl overflow-hidden"
+        class="w-max min-w-60 max-w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-white/10 bg-zinc-900 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85),0_0_26px_-14px_var(--color-df-red)] overflow-hidden"
       >
+        <!-- A thin red light along the top edge. -->
+        <div
+          aria-hidden="true"
+          class="h-px bg-linear-to-r from-transparent via-df-red to-transparent"
+        ></div>
         ${this.items().map(
           (item) => html`
             <button
               role="menuitem"
               data-menu-item=${item.key}
               @click=${() => this.selectItem(item)}
-              class="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium normal-case tracking-normal cursor-pointer transition-colors ${item.danger
+              class="group relative w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium normal-case tracking-normal cursor-pointer transition-colors before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:bg-df-red before:transition-transform before:duration-200 hover:before:scale-y-100 focus-visible:before:scale-y-100 ${item.danger
                 ? "text-red-400 hover:bg-red-500/10 border-t border-white/10"
                 : "text-white/80 hover:bg-white/10 hover:text-white"}"
             >
-              <span class="w-4 h-4 shrink-0">${item.icon}</span>
-              <span class="min-w-0 break-words"
+              <span
+                class="w-4 h-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:scale-110"
+                >${item.icon}</span
+              >
+              <span
+                class="min-w-0 break-words transition-transform duration-200 group-hover:translate-x-0.5"
                 >${translateText(item.labelKey)}</span
               >
             </button>
@@ -446,8 +533,9 @@ export class NavAccountMenu extends LitElement {
       <svg
         class="${big
           ? "h-3.5 w-3.5 text-white/60"
-          : "h-3 w-3"} shrink-0 transition-transform ${this.menuOpen
-          ? "rotate-180"
+          : "h-3 w-3"} shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.3,1.4,0.5,1)] group-hover:translate-y-0.5 ${this
+          .menuOpen
+          ? "rotate-180 translate-y-0!"
           : ""}"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
@@ -537,7 +625,7 @@ export class NavAccountMenu extends LitElement {
         data-account-face
         class="${ring
           ? `absolute ${d.face} bg-white/10 [&_[data-account-email-badge]]:hidden!`
-          : "relative h-8 w-8"} flex items-center justify-center overflow-hidden rounded-full"
+          : "relative h-8 w-8"} flex items-center justify-center overflow-hidden rounded-full transition-transform duration-300 ease-out group-hover:scale-[1.07] group-aria-expanded:scale-[1.07]"
       >
         ${this.renderIdentityIcons(variant === "desktop")}
       </span>
@@ -737,7 +825,7 @@ export class NavAccountMenu extends LitElement {
         aria-expanded=${this.menuOpen ? "true" : "false"}
         @click=${this.handleTriggerClick}
         class=${desktop
-          ? `nav-menu-item relative ${ring ? "h-12 gap-3 border-white/6 bg-white/2 pl-[5px] pr-4 hover:border-white/15" : "h-10 gap-2 border-white/20 bg-transparent px-3"} items-center rounded-full flex justify-center border text-white/80 hover:text-white cursor-pointer transition-colors [&.active]:text-white`
+          ? `nav-menu-item relative ${ring ? "h-12 gap-3 border-white/6 bg-white/2 pl-[5px] pr-4 hover:border-df-red/50 hover:bg-white/5 hover:shadow-[0_0_22px_-8px_var(--color-df-red)] aria-expanded:border-df-red/70 aria-expanded:bg-white/5 aria-expanded:shadow-[0_0_26px_-6px_var(--color-df-red)]" : "h-10 gap-2 border-white/20 bg-transparent px-3 hover:border-df-red/50"} group items-center rounded-full flex justify-center border text-white/80 hover:text-white cursor-pointer transition-[color,background-color,border-color,box-shadow] duration-300 ease-out [&.active]:text-white`
           : "nav-menu-item h-10 flex items-center justify-center gap-1 pl-1 pr-1.5 rounded-full text-white/90 cursor-pointer transition-colors"}
         data-page="page-account"
         aria-label=${this.triggerLabel()}
