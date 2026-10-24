@@ -154,10 +154,12 @@ splash-stamp .splash-stamp {
   cursor: pointer;
   user-select: none;
   pointer-events: auto;
-  /* Discreet hover: it inks in a little (full opacity, a touch brighter, a faint
-     glow on the lettering). No movement and no size change. */
-  opacity: 0.86;
-  text-shadow: 0 0 6px color-mix(in srgb, var(--stamp) 0%, transparent);
+  /* Inked in by default (full opacity, a touch brighter, a faint glow on the
+     lettering); hover settles it back to a plain stamp. No movement and no size
+     change. */
+  opacity: 1;
+  filter: brightness(1.12);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--stamp) 55%, transparent);
   transition: opacity 300ms ease, filter 300ms ease, text-shadow 300ms ease;
   transform: translate(22%, -118%) rotate(-12deg);
   -webkit-mask-image: ${INK_MASK};
@@ -166,9 +168,9 @@ splash-stamp .splash-stamp {
   mask-size: 160px 160px;
 }
 splash-stamp .splash-stamp:hover {
-  opacity: 1;
-  filter: brightness(1.12);
-  text-shadow: 0 0 6px color-mix(in srgb, var(--stamp) 55%, transparent);
+  opacity: 0.86;
+  filter: none;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--stamp) 0%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   splash-stamp .splash-stamp { transition: none; }
