@@ -133,6 +133,8 @@ export class UsernameInput extends LitElement {
   // Playing under the account's verified bare name (sub-only). The free-form
   // name stays in baseUsername/localStorage so unchecking restores it.
   @state() private verifiedActive: boolean = false;
+  // Set by a press on the toggle; the next render plays the matching motion.
+  private toggleFx: "on" | "off" | null = null;
   private userMe: UserMeResponse | false | null = null;
   // The raw Steam persona, once it lands. Kept alongside the free-form name so
   // resolution sees the same inputs the seed did (see resolvedName).
@@ -478,6 +480,7 @@ export class UsernameInput extends LitElement {
     // covers both turning off and an eligible turn-on.
     if (this.verifiedActive || this.verifiedName() !== null) {
       this.verifiedActive = !this.verifiedActive;
+      this.toggleFx = this.verifiedActive ? "on" : "off";
       localStorage.setItem(useVerifiedNameKey, String(this.verifiedActive));
       this.validateAndStore();
       return;
@@ -755,6 +758,11 @@ export class UsernameInput extends LitElement {
   }
 
   protected updated(): void {
+    if (this.toggleFx !== null) {
+      const fx = this.toggleFx;
+      this.toggleFx = null;
+      this.playToggleFx(fx);
+    }
     // Re-validate when translations become available or language changes,
     // since initial validation may run before translations are loaded.
     if (this.validationError) {
@@ -769,6 +777,84 @@ export class UsernameInput extends LitElement {
         this.validateAndStore();
       }
     }
+  }
+
+  // Motion only, no colour. Switching verified on: the name is written in from
+  // the left (a wipe that sharpens as it goes), the check pops in with a spin
+  // and an overshoot, then draws its tick, and the pencil slides in from the
+  // side. Switching it off: the field and the button rise in softly.
+  private playToggleFx(fx: "on" | "off"): void {
+    if (
+      typeof this.animate !== "function" ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    const part = <T extends Element>(sel: string) => this.querySelector<T>(sel);
+    const run = (
+      el: Element | null,
+      frames: Keyframe[],
+      options: KeyframeAnimationOptions,
+    ) => el?.animate(frames, { fill: "backwards", ...options });
+    if (fx === "on") {
+      run(
+        part("[data-verified-name]"),
+        [
+          {
+            clipPath: "inset(0 100% 0 0)",
+            filter: "blur(6px)",
+            opacity: 0,
+            transform: "translateX(-12px)",
+          },
+          {
+            clipPath: "inset(0 0 0 0)",
+            filter: "blur(0)",
+            opacity: 1,
+            transform: "none",
+          },
+        ],
+        { duration: 520, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+      );
+      run(
+        part("[data-verified-badge]"),
+        [
+          { transform: "scale(0) rotate(-200deg)", opacity: 0 },
+          { transform: "scale(1.4) rotate(14deg)", opacity: 1, offset: 0.6 },
+          { transform: "scale(1) rotate(0deg)", opacity: 1 },
+        ],
+        { duration: 560, delay: 300, easing: "cubic-bezier(0.3, 1.2, 0.5, 1)" },
+      );
+      run(
+        part("[data-verified-badge] path"),
+        [
+          { strokeDasharray: 16, strokeDashoffset: 16 },
+          { strokeDasharray: 16, strokeDashoffset: 0 },
+        ],
+        { duration: 320, delay: 520, easing: "ease-out" },
+      );
+      run(
+        part("[data-verified-custom]"),
+        [
+          { transform: "translateX(18px)", opacity: 0 },
+          { transform: "translateX(0)", opacity: 1 },
+        ],
+        { duration: 420, delay: 200, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" },
+      );
+      return;
+    }
+    const rise = [
+      { transform: "translateY(8px)", opacity: 0 },
+      { transform: "translateY(0)", opacity: 1 },
+    ];
+    run(part("[data-name-input]"), rise, {
+      duration: 320,
+      easing: "cubic-bezier(0.2, 0.9, 0.3, 1)",
+    });
+    run(part("[data-verified-use]"), rise, {
+      duration: 320,
+      delay: 90,
+      easing: "cubic-bezier(0.2, 0.9, 0.3, 1)",
+    });
   }
 
   private loadStoredUsername() {
@@ -1069,10 +1155,14 @@ export class UsernameInput extends LitElement {
       >
         <!-- Check trails the name, as everywhere else it is rendered. The name
              shrinks rather than grows, so the mark keeps hugging it. -->
-        <span class="min-w-0 truncate text-white ${NAME_TEXT}"
+        <span
+          data-verified-name
+          class="min-w-0 truncate text-white ${NAME_TEXT}"
           >${this.verifiedName() ?? ""}</span
         >
-        ${verifiedBadge("w-5 h-5 sm:w-6 sm:h-6", "text-df-red-bright")}
+        <span data-verified-badge class="inline-flex shrink-0"
+          >${verifiedBadge("w-5 h-5 sm:w-6 sm:h-6", "text-df-red-bright")}</span
+        >
       </div>
     `;
   }
@@ -1081,6 +1171,7 @@ export class UsernameInput extends LitElement {
     return html`
       <button
         type="button"
+        data-verified-custom
         class="flex h-full aspect-square items-center justify-center rounded-lg border border-white/15 bg-black/25 text-white/70 transition-colors hover:border-white/30 hover:bg-black/40 hover:text-white cursor-pointer"
         title=${translateText("username.verified_use_custom")}
         aria-label=${translateText("username.verified_use_custom")}
@@ -1109,6 +1200,7 @@ export class UsernameInput extends LitElement {
     return html`
       <input
         type="text"
+        data-name-input
         .value=${this.baseUsername}
         @input=${this.handleUsernameChange}
         placeholder="${translateText("username.enter_username")}"
@@ -1139,6 +1231,7 @@ export class UsernameInput extends LitElement {
     return html`
       <button
         type="button"
+        data-verified-use
         class="group flex h-full w-full items-center justify-center gap-1.5 rounded-lg border px-2 transition-colors cursor-pointer select-none ${eligible
           ? "border-df-red/50 bg-df-red/10 hover:border-df-red/80 hover:bg-df-red/20"
           : "border-white/10 bg-black/20 hover:border-white/25 hover:bg-black/35"}"

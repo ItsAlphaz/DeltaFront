@@ -593,10 +593,18 @@ for (const page of pages) {
       })()`);
     console.log("before", await where());
     await shot("ui-verified-before");
-    // the harness account has no verified name to play under, so give it one and switch it on
+    // the harness account has no verified name to play under, so give it one, then press the real button
     await g.ev(
-      `(() => { const u = document.querySelector('username-input'); u.verifiedName = () => 'Alphaz'; u.verifiedActive = true; u.requestUpdate(); return 1 })()`,
+      `(() => { const u = document.querySelector('username-input'); u.verifiedName = () => 'Alphaz'; u.requestUpdate(); return 1 })()`,
     );
+    await sleep(300);
+    await g.ev(
+      `document.querySelector('username-input [data-verified-use]').click(); 1`,
+    );
+    // frames of the motion
+    for (const name of ["a", "b", "c"]) {
+      await shot(`ui-verified-fx-${name}`);
+    }
     await sleep(800);
     console.log("after", await where());
     await shot("ui-verified-after");
