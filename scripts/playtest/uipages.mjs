@@ -128,6 +128,32 @@ catalog.patterns.create_your_own = {
   product: null,
   rarity: "legendary",
 };
+// ROLE_SKINS=1 adds the staff and admin skins from the private catalog, as an admin's profile reports them
+const roleSkinNames = (process.env.ROLE_SKINS ?? "")
+  ? [
+      "staff_tag",
+      "staff_diagonal",
+      "admin_tag",
+      "admin_diagonal",
+      "admin_crest",
+      "admin_shield",
+    ]
+  : [];
+if (roleSkinNames.length > 0) {
+  const priv = JSON.parse(
+    readFileSync(
+      new URL(
+        "../../../DeltaFront-Private-Store/catalog/cosmetics.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  for (const n of roleSkinNames) {
+    catalog.patterns[n] = priv.patterns[n];
+    catalog.colorPalettes[n] = priv.colorPalettes[n];
+  }
+}
 const ownedEffects = ["prism_cinders", "red_wake"];
 const flares = [
   ...ownedEffects.map((n) => `effect:${n}`),
@@ -135,6 +161,7 @@ const flares = [
   "pattern:delta_stripes:ember",
   "pattern:delta_stripes:ash",
   "flag:split_field",
+  ...roleSkinNames.map((n) => `pattern:${n}:${n}`),
 ];
 
 // ---- a small stand-in for the account service: a session, /users/@me, buying the skin
@@ -425,6 +452,15 @@ const signedIn = await g.ev(
   `import('/src/client/Api.ts').then(async (m) => { m.invalidateUserMe(); return !!(await m.getUserMe()); })`,
 );
 console.log("session", signedIn);
+if (!signedIn) {
+  // say why the stand-in profile was refused, so a mock that drifted from the schema is easy to fix
+  console.log(
+    "profile check",
+    await g.ev(
+      `fetch('${API}/users/@me',{headers:{authorization:'Bearer x'}}).then((r) => r.json()).then(async (b) => { const { UserMeResponseSchema } = await import('/packages/shared/src/ApiSchemas.ts'); const r = UserMeResponseSchema.safeParse(b); return r.success ? 'ok' : JSON.stringify(r.error.issues.slice(0, 3)); }).catch((e) => String(e))`,
+    ),
+  );
+}
 await g.ev(
   `document.dispatchEvent(new CustomEvent('userMeResponse',{detail:${JSON.stringify(meBody())}})); 1`,
 );
@@ -915,6 +951,13 @@ for (const page of pages) {
     await g.ev(`window.showPage('page-inventory'); 1`);
     await sleep(2500);
     await shot(`ui-inventory${narrow ? "-narrow" : ""}`);
+    if (roleSkinNames.length > 0) {
+      await g.ev(
+        `document.querySelector('inventory-modal [data-loadout-category="patterns"]')?.click(); 1`,
+      );
+      await sleep(1200);
+      await shot("ui-inventory-roleskins");
+    }
     await g.ev(
       `document.querySelector('inventory-modal [data-loadout-category="effects"]')?.click(); 1`,
     );

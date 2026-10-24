@@ -170,6 +170,22 @@ Deployment.md §14. `flag:admin_contributors` works if it is in the private
 catalog; a flare not in it, a wildcard or a malformed flare is refused. A
 catalog that is configured but unreadable is an error, not the sample.
 
+## Staff and admin skins
+
+Six patterns in the private catalog have no price and belong to a role instead
+(`packages/shared/src/RoleSkins.ts` names them): `staff_tag` and `staff_diagonal`
+for everyone on staff (mod, admin, owner), and `admin_tag`, `admin_diagonal`,
+`admin_crest` and `admin_shield` for admins and the owner. Each has one colour
+palette with the same name, so its flare is `pattern:<name>:<name>`.
+
+Nothing is stored. `/users/@me` adds the flares of the account's current
+`users.role` on top of what it owns, so a promotion shows the skins in the
+inventory on the next profile fetch, and `user:role ... none` (or any demotion)
+takes them away again, with no row to clean up. A worn skin that is no longer
+owned is dropped from the next join by the client. A catalog without these
+patterns grants nothing. They are drawn in `generator/role-skins.ts` in the
+private repository.
+
 ## Licensing
 
 - Code: AGPL-3.0 (the loader, the store UI, the tests).

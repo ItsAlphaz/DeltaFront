@@ -231,7 +231,7 @@ export function usersRouter(deps: AppDeps): Router {
     const flares =
       deps.catalog === null || owned === undefined
         ? undefined
-        : reportedFlares(deps.catalog, owned);
+        : reportedFlares(deps.catalog, owned, user.role);
     res.json(
       buildUserMe(
         user,
