@@ -1036,14 +1036,26 @@ export class UsernameInput extends LitElement {
       ${this.verifiedActive
         ? this.renderVerifiedChip()
         : this.renderNameInput()}
-      <!-- The buttons differ in width, so this resizes the name field — which
-           is transparent and left-aligned, so only its invisible right edge
-           moves. -->
+      <!-- The two buttons differ in width. They share one grid cell with an
+           invisible copy of the wider one, so the cell is always that wide: the name field keeps its size and its centre when the
+           toggle is pressed. -->
       ${ACCOUNT_FEATURES.accounts
-        ? html`<div class="no-crazygames shrink-0 h-full max-h-[44px]">
-            ${this.verifiedActive
-              ? this.renderUseCustomButton()
-              : this.renderUseVerifiedButton()}
+        ? html`<div class="no-crazygames shrink-0 h-full max-h-[44px] grid">
+            <div class="[grid-area:1/1] h-full min-w-0 justify-self-end">
+              ${this.verifiedActive
+                ? this.renderUseCustomButton()
+                : this.renderUseVerifiedButton()}
+            </div>
+            <div
+              class="[grid-area:1/1] flex h-full items-center gap-1.5 border border-transparent px-2 invisible pointer-events-none"
+              aria-hidden="true"
+            >
+              <span class="w-5 h-5 shrink-0"></span>
+              <span
+                class="hidden sm:inline text-sm font-medium whitespace-nowrap"
+                >${translateText("username.verified_use")}</span
+              >
+            </div>
           </div>`
         : null}
     `;
@@ -1052,7 +1064,7 @@ export class UsernameInput extends LitElement {
   private renderVerifiedChip() {
     return html`
       <div
-        class="flex items-center gap-1.5 ${NAME_BOX}"
+        class="flex items-center justify-center gap-1.5 ${NAME_BOX}"
         title=${translateText("username.verified_active_hint")}
       >
         <!-- Check trails the name, as everywhere else it is rendered. The name

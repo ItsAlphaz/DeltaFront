@@ -580,6 +580,27 @@ for (const page of pages) {
     await sleep(500);
     await shot("ui-account-row");
   }
+  // "Use verified" and back: the name must keep its place
+  if (page === "verified") {
+    await sleep(2500);
+    const where = () =>
+      g.ev(`(() => {
+        const u = document.querySelector('username-input');
+        const name = u.querySelector('input[aria-label], [class*="NAME"], .truncate');
+        const el = u.querySelector('input[type=text]') || u.querySelector('span.truncate');
+        const r = el.getBoundingClientRect();
+        return JSON.stringify({ tag: el.tagName, x: Math.round(r.x), w: Math.round(r.width), centre: Math.round(r.x + r.width / 2) });
+      })()`);
+    console.log("before", await where());
+    await shot("ui-verified-before");
+    // the harness account has no verified name to play under, so give it one and switch it on
+    await g.ev(
+      `(() => { const u = document.querySelector('username-input'); u.verifiedName = () => 'Alphaz'; u.verifiedActive = true; u.requestUpdate(); return 1 })()`,
+    );
+    await sleep(800);
+    console.log("after", await where());
+    await shot("ui-verified-after");
+  }
   if (page === "home") {
     await sleep(2500);
     await shot(`ui-home${narrow ? "-narrow" : ""}`);
