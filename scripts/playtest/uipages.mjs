@@ -691,6 +691,10 @@ if (demo) {
         m.requestUpdate();
       }
       return 1 })()`);
+  // the harness account has no verified name, so give it one: "Use verified" then switches on, as it does for a real account
+  await g.ev(
+    `(() => { const u = document.querySelector('username-input'); if (u) { u.verifiedName = () => 'Alphaz'; u.requestUpdate(); } return 1 })()`,
+  );
   console.log("demo window open: close it (or wait for the timeout) to stop");
   while (!g.b.isClosed()) {
     await feed();
