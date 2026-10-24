@@ -904,7 +904,6 @@
   },
   "news_box": {
     "dismiss": "Ignori",
-    "firefox_warning": "DeltaFront ne funkcias efike kun [retnavigiloj bazitaj sur Fajrovulpo](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Ni rekomendas al vi uzi [retnavigilon bazitan sur Chromium](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) por plej bonaj rendimentoj.",
     "go_to_item": "Iri al {num}a ero ",
     "news": "NOVAĴOJ",
     "tournament": "TURNIRO",

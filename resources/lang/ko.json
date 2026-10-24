@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "닫기",
-    "firefox_warning": "DeltaFront는 [Firefox 기반 브라우저](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox)에서 원활하게 작동하지 않습니다. 최상의 성능을 위해 [Chromium 기반 브라우저](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium)를 사용하는 것을 권장합니다.",
     "go_to_item": "{num}번 항목으로 이동",
     "news": "뉴스",
     "tournament": "토너먼트",

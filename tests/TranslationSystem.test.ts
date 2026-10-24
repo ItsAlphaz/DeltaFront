@@ -26,7 +26,7 @@ const DYNAMIC_KEY_PATTERNS: RegExp[] = [
   /^territory_patterns\.color_palette\.[^.]+$/,
   /^build_menu\.desc\.[^.]+$/,
   /^unit_type\.[^.]+$/,
-  /^news_box\.(tournament|tutorial|news|warning|firefox_warning)$/,
+  /^news_box\.(tournament|tutorial|news|warning)$/,
   // Built-in graphics preset names/descriptions are referenced from
   // src/client/render/gl/graphics-presets.json, not translateText literals.
   /^graphics_setting\.preset_(default|night|colorblind|delta_noir|blood_moon|ember_front|obsidian|red_alert)(_desc)?$/,

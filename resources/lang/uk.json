@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "Відхилити",
-    "firefox_warning": "DeltaFront погано працює з [браузерами на основі Firefox](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Ми рекомендуємо використовувати [браузери на основі Chromium](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) для найкращої продуктивності.",
     "go_to_item": "Перейти до пункту {num}",
     "news": "НОВИНИ",
     "tournament": "ТУРНІР",

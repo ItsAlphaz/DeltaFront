@@ -1357,7 +1357,6 @@
   },
   "news_box": {
     "dismiss": "Отхвърли",
-    "firefox_warning": "DeltaFront не работи добре с [браузъри, базирани на Firefox](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Препоръчваме ти да ползваш [браузър, базиран на Chromium](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) за най-добро качество.",
     "go_to_item": "Отиди на предмет {num}",
     "news": "НОВИНИ",
     "tournament": "ТУРНИР",

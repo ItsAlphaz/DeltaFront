@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "Zavřít",
-    "firefox_warning": "DeltaFront běží nejlépe v [prohlížečích založených na Chromiu](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium). Výkon může být horší v [prohlížečích založených na Firefoxu](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox).",
     "go_to_item": "Přejít na položku {num}",
     "news": "NOVINKY",
     "tournament": "TURNAJ",

@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "Ignorar",
-    "firefox_warning": "O DeltaFront não performa bem com navegadores baseados em Firefox\n(https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Recomendamos que você utilize um navegador baseado no Chromium\n(https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) para um melhor desempenho.",
     "go_to_item": "Ir para o item {num}",
     "news": "NOTÍCIAS",
     "tournament": "TORNEIO",

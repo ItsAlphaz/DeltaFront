@@ -43,17 +43,17 @@ export function pickFeaturedBundle(
   )[0];
 }
 
-/** "Ends in 2d 4h" for a seasonal bundle, else "Save 26%", else nothing. */
+/** "ends in 2d 4h" for a seasonal bundle, else "is 26% off", else nothing. */
 export function featuredNote(featured: ResolvedCosmetic): string {
   const pack = featured.cosmetic as CosmeticPack;
   if (pack.endsAt !== undefined) {
-    return translateText("store.bundle_ends_in", {
+    return translateText("main.featured_ends", {
       time: timeLeft(Date.parse(pack.endsAt) - Date.now()),
     });
   }
   const savings = bundleSavings(featured);
   return savings !== null && savings.savePct > 0
-    ? translateText("store.bundle_save", { percent: savings.savePct })
+    ? translateText("main.featured_off", { percent: savings.savePct })
     : "";
 }
 

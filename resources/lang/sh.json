@@ -1442,7 +1442,6 @@
   },
   "news_box": {
     "dismiss": "Odbaci",
-    "firefox_warning": "DeltaFront ne radi dobro na pregledačima [zasnovanim na Firefox-u.](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox) Preporučujemo da koristite pregledač [zasnovan na Chromium-u](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) za najbolje performanse.",
     "go_to_item": "Idi na stavku {num}",
     "news": "VESTI",
     "tournament": "TURNIR",

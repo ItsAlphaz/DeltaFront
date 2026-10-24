@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "Verwerfen",
-    "firefox_warning": "DeltaFront funktioniert nicht gut mit [Firefox-basierten Browsern](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Wir empfehlen dir einen [Chromium-basierten Browser](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) für beste Leistung zu verwenden.",
     "go_to_item": "Gehe zu Artikel {num}",
     "news": "Neuigkeiten",
     "tournament": "TURNIERE",

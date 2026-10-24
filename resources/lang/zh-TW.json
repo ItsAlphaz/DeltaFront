@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "忽略",
-    "firefox_warning": "DeltaFront 在 [基於 Firefox 的瀏覽器](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox) 上表現不佳。我們推薦你使用 [基於 Chromium 的瀏覽器](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) 來獲得最佳效能體驗。",
     "go_to_item": "跳轉到第 {num} 項",
     "news": "新聞",
     "tournament": "錦標賽",

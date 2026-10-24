@@ -1018,7 +1018,6 @@
   },
   "news_box": {
     "dismiss": "Afvis",
-    "firefox_warning": "DeltaFront fungerer ikke godt med [Firefox-baserede browsere](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Vi anbefaler dig at bruge en [Chromium-baseret browser](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) for den bedste ydeevne.",
     "go_to_item": "Gå til element {num}",
     "news": "NYHEDER",
     "tournament": "TURNERING",

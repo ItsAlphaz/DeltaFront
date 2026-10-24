@@ -5,12 +5,5 @@
     "description": "DeltaFront is in early development. Expect frequent changes.",
     "url": null,
     "type": "announcement"
-  },
-  {
-    "id": "firefox-performance-issues-2026",
-    "title": "Firefox Performance Issues",
-    "descriptionTranslationKey": "news_box.firefox_warning",
-    "url": null,
-    "type": "warning"
   }
 ]

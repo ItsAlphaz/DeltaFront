@@ -1088,8 +1088,7 @@
     "news": "新闻",
     "warning": "警告",
     "dismiss": "忽略",
-    "go_to_item": "跳转到商品 {num}",
-    "firefox_warning": "DeltaFront 在 [基于 Firefox 的浏览器](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox) 上表现不佳。我们推荐你使用 [基于 Chromium 的浏览器](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) 来获得最佳性能体验。"
+    "go_to_item": "跳转到商品 {num}"
   },
   "ios_banner": {
     "text": "将 DeltaFront 添加到主屏幕，获得全屏体验",

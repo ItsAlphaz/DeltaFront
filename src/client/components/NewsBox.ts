@@ -17,6 +17,7 @@ import {
 } from "../FeaturedBundle";
 import { lastUserMeResponse } from "../UserMeBroadcast";
 import { translateText } from "../Utils";
+import { TIER_COLOR } from "./BundleCard";
 import "./CreditsIcon";
 
 export type { NewsItem };
@@ -58,7 +59,7 @@ const typeLabelKeys: Record<string, string> = {
 const typeLabelColors: Record<string, string> = {
   tournament: "bg-amber-500/20 text-amber-300",
   tutorial: "bg-sky-500/20 text-sky-300",
-  announcement: "bg-emerald-500/20 text-emerald-300",
+  announcement: "bg-red-500/20 text-red-300",
   warning: "bg-red-500/20 text-red-300",
 };
 
@@ -284,66 +285,78 @@ export class NewsBox extends LitElement {
   // line, controls on the right. Held at a two-line height so rotating
   // between a short and a long item never shifts the page below it.
   private renderStrip(item: NewsItem) {
-    return html`
-      <div
-        class="flex min-h-[62px] items-center gap-4 border-b border-df-border bg-df-panel px-8 py-2"
-      >
-        ${this.renderBadge(item, "font-display text-xs px-2.5 py-1")}
-        <p
-          class="flex-1 min-w-0 text-[13px] leading-[1.6] text-df-text-secondary"
-        >
+    return this.stripFrame(
+      html`${this.renderBadge(item, "font-display text-xs px-2.5 py-1")}
+        <p class="min-w-0 text-[13px] leading-[1.6] text-df-text-secondary">
           ${this.renderTitle(item, "text-[15px] mr-1.5")}
           ${this.renderDescription(item, "[&_p]:inline")}
-        </p>
-        <div class="flex items-center gap-4 shrink-0">
-          ${this.renderControls(() => this.dismiss(item.id))}
+        </p>`,
+      () => this.dismiss(item.id),
+    );
+  }
+
+  // The bar every notice sits in: its content centred, the rotation dots and
+  // the close button pinned to the right.
+  private stripFrame(content: unknown, dismiss: () => void) {
+    return html`
+      <div
+        class="relative flex min-h-[62px] items-center justify-center gap-4 border-b border-df-border bg-df-panel py-2 pl-8 pr-32 text-center"
+      >
+        ${content}
+        <div
+          class="absolute right-8 top-1/2 flex -translate-y-1/2 items-center gap-4"
+        >
+          ${this.renderControls(dismiss)}
         </div>
       </div>
     `;
   }
 
-  // The featured bundle as a notice: a gold "Featured" badge, the bundle's name
-  // (a button that opens the Store's Bundles tab), its note and its price.
+  // The featured bundle as a notice: a square in the bundle's tier colour, its
+  // name and note, its price and "Shop now". One button that opens the Store's
+  // Bundles tab.
   private renderFeaturedLine(textSize: string) {
     const featured = this.featured!;
     const pack = featured.cosmetic as CosmeticPack;
     const note = featuredNote(featured);
+    const dot = html`<span class="text-white/25" aria-hidden="true">·</span>`;
     return html`<button
       type="button"
       data-featured-bundle=${pack.name}
-      class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 text-left text-white hover:text-df-red-bright transition-colors"
+      aria-label=${`${translateText("main.featured_bundle")}: ${pack.displayName}`}
+      class="group flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 text-df-text-secondary ${textSize}"
       @click=${openBundlesTab}
     >
-      <span class="font-medium ${textSize}">${pack.displayName}</span>
-      ${note
-        ? html`<span
-            class="text-df-red-bright text-xs font-bold tracking-wider uppercase"
-            >${note}</span
-          >`
-        : nothing}
-      <span class="inline-flex items-center gap-1 font-bold text-xs"
+      <span
+        class="inline-block h-2 w-2 shrink-0"
+        style="background: ${TIER_COLOR[String(pack.rarity)] ??
+        TIER_COLOR.common}"
+        aria-hidden="true"
+      ></span>
+      <span
+        ><span class="font-medium text-white">${pack.displayName}</span>${note
+          ? html` ${note}`
+          : nothing}</span
+      >
+      ${dot}
+      <span
+        class="inline-flex items-center gap-1.5 font-pixel text-xs text-white"
         ><credits-icon .size=${14}></credits-icon>${(
           pack.priceSoft ?? 0
         ).toLocaleString()}</span
+      >
+      ${dot}
+      <span
+        class="font-medium text-white transition-colors group-hover:text-df-red-bright"
+        >${translateText("main.shop_now")} →</span
       >
     </button>`;
   }
 
   private renderFeaturedStrip() {
-    return html`
-      <div
-        class="flex min-h-[62px] items-center gap-4 border-b border-df-border bg-df-panel px-8 py-2"
-      >
-        <span
-          class="shrink-0 font-bold tracking-wider rounded-sm font-display text-xs px-2.5 py-1 bg-amber-500/20 text-amber-300 uppercase"
-          >${translateText("main.featured_bundle")}</span
-        >
-        ${this.renderFeaturedLine("text-[15px]")}
-        <div class="flex items-center gap-4 shrink-0">
-          ${this.renderControls(() => this.dismissFeatured())}
-        </div>
-      </div>
-    `;
+    return this.stripFrame(this.renderFeaturedLine("text-[13px]"), () =>
+      this.dismissFeatured(),
+    );
   }
 
   private renderFeaturedBox() {
@@ -352,11 +365,9 @@ export class NewsBox extends LitElement {
         class="px-2 py-2 bg-surface border-y border-white/10 lg:border-y-0 lg:rounded-xl lg:p-3"
       >
         <div class="flex items-center gap-3">
-          <span
-            class="shrink-0 font-bold tracking-wider rounded-sm text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 uppercase"
-            >${translateText("main.featured_bundle")}</span
-          >
-          ${this.renderFeaturedLine("text-sm")}
+          <div class="flex min-w-0 flex-1 justify-center">
+            ${this.renderFeaturedLine("text-xs")}
+          </div>
           ${this.renderControls(() => this.dismissFeatured())}
         </div>
       </div>

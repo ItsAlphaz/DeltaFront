@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "無視",
-    "firefox_warning": "DeltaFrontは[Firefoxベースのブラウザ](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox)でうまく動作しません。良いパフォーマンスのために[Chromiumベースのブラウザ](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium)を使用するのをおすすめします。",
     "go_to_item": "{num}番目のアイテムに移動",
     "news": "お知らせ",
     "tournament": "トーナメント",

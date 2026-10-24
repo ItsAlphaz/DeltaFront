@@ -546,6 +546,15 @@ for (const page of pages) {
     await sleep(1200);
     await shot(`ui-lobby-units${narrow ? "-narrow" : ""}`);
   }
+  // the top notice bar on its second notice (the first is the featured bundle)
+  if (page === "notices") {
+    await sleep(2500);
+    await g.ev(
+      `document.querySelectorAll('news-box[variant="strip"] .gap-1 button')[1]?.click(); 1`,
+    );
+    await sleep(500);
+    await shot("ui-notices");
+  }
   if (page === "home") {
     await sleep(2500);
     await shot(`ui-home${narrow ? "-narrow" : ""}`);

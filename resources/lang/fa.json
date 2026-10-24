@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "نادیده گرفتن",
-    "firefox_warning": "DeltaFront با [مرورگرهای مبتنی بر فایرفاکس](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox) عملکرد خوبی ندارد. برای بهترین عملکرد، توصیه می‌کنیم از [مرورگر مبتنی بر کرومیوم](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) استفاده کنید.",
     "go_to_item": "رفتن به آیتم {num}",
     "news": "تازه‌ها",
     "tournament": "تورنمنت",

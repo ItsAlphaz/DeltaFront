@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "Bỏ qua",
-    "firefox_warning": "DeltaFront hoạt động không tốt trên các [Trình duyệt dựa trên Firefox] (https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Chúng tôi khuyên bạn sử dụng [Trình duyệt dựa trên Chromium] (https://vi.wikipedia.org/wiki/Chromium_(tr%C3%ACnh_duy%E1%BB%87t)#C%C3%A1c_tr%C3%ACnh_duy%E1%BB%87t_%C4%91%C6%B0%E1%BB%A3c_x%C3%A2y_d%E1%BB%B1ng_d%E1%BB%B1a_tr%C3%AAn_m%C3%A3_ngu%E1%BB%93n_Chromium) để có hiệu suất tốt nhất.",
     "go_to_item": "Đi đến mục {num}",
     "news": "TIN TỨC",
     "tournament": "GIẢI ĐẤU",

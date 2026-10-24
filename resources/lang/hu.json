@@ -1442,7 +1442,6 @@
   },
   "news_box": {
     "dismiss": "Elvetés",
-    "firefox_warning": "Az DeltaFront nem működik jól [Firefox-alapú böngészőkkel](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). A legjobb teljesítmény érdekében [Chromium-alapú böngésző](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) használatát javasoljuk.",
     "go_to_item": "Ugrás a(z) {num} elemre",
     "news": "HÍREK",
     "tournament": "BAJNOKSÁG",

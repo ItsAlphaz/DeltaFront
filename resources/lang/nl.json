@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "Dismiss",
-    "firefox_warning": "DeltaFront presteert niet goed op [Firefox-gebaseerde browsers](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). We raden je aan om een [Chromium-gebaseerde browser] (https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) te gebruiken voor de beste prestaties.",
     "go_to_item": "Ga naar item nr. {num}",
     "news": "NIEUWS",
     "tournament": "TOURNOOI",

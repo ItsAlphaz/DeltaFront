@@ -164,7 +164,9 @@ describe("the featured bundle in <news-box>", () => {
     expect(el.textContent).not.toContain("Patch notes");
     // one dot for the bundle, one for the news
     await vi.waitFor(() =>
-      expect(el.querySelectorAll("button[aria-label]").length).toBe(3),
+      expect(el.querySelectorAll("button[aria-label^='news_box']").length).toBe(
+        3,
+      ),
     );
     button.click();
     expect(showPage).toHaveBeenCalledWith("page-item-store");
@@ -188,7 +190,9 @@ describe("the featured bundle in <news-box>", () => {
   it("shows alone when there is no news", async () => {
     mocks.news = [];
     const el = await mount();
-    expect(el.querySelectorAll("button[aria-label]").length).toBe(1);
+    expect(el.querySelectorAll("button[aria-label^='news_box']").length).toBe(
+      1,
+    );
   });
 
   it("shows only the news when no bundle is worth featuring", async () => {

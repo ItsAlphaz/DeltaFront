@@ -1519,7 +1519,6 @@
   },
   "news_box": {
     "dismiss": "Renunțați",
-    "firefox_warning": "DeltaFront nu are rezultate bune cu [browserele Firefox](https://simple.wikipedia.org/wiki/Web_browsers_based_on_Firefox). Vă recomandăm să utilizați un [browser Chromium](https://en.wikipedia.org/wiki/Chromium_(web_browser)#Browsers_based_on_Chromium) pentru cea mai bună performanță.",
     "go_to_item": "Mergeți la articol {num}",
     "news": "NOUTĂŢI",
     "tournament": "TURNAȚIE",
