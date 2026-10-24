@@ -1,4 +1,4 @@
-import { roleSkinFlares } from "@openfront/shared/RoleSkins";
+import { roleFlares } from "@openfront/shared/RoleSkins";
 import type { Catalog } from "../catalog/load";
 import type { Db } from "./users";
 
@@ -99,7 +99,7 @@ export async function revokeFlare(
  * what the account was given, minus anything the catalog no longer defines
  * (an item removed after it was granted is simply not reported, and a stored
  * wildcard or malformed string can never reach the game server). `role` is
- * the account's `users.role`: the skins of that role (RoleSkins.ts) are added
+ * the account's `users.role`: the skins and crowns of that role (RoleSkins.ts) are added
  * on top, so they follow the role without being stored.
  */
 export function reportedFlares(
@@ -108,7 +108,7 @@ export function reportedFlares(
   role?: string | null,
 ): string[] {
   const out = new Set<string>(catalog.defaultFlares);
-  for (const flare of [...owned, ...roleSkinFlares(role)]) {
+  for (const flare of [...owned, ...roleFlares(role)]) {
     if (catalog.validFlares.has(flare)) out.add(flare);
   }
   return [...out].sort();

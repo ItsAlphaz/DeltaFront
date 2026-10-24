@@ -140,6 +140,18 @@ const roleSkinNames =
         "admin_shield",
       ]
     : [];
+const roleCrownNames = roleSkinNames.length
+  ? [
+      "staff_majesty",
+      "pixel_staff",
+      "crimson_majesty",
+      "scarlet_majesty",
+      "pixel_admin",
+      "owner_majesty",
+      "owner_wings",
+      "pixel_owner",
+    ]
+  : [];
 if (roleSkinNames.length > 0) {
   const priv = JSON.parse(
     readFileSync(
@@ -154,6 +166,19 @@ if (roleSkinNames.length > 0) {
     catalog.patterns[n] = priv.patterns[n];
     catalog.colorPalettes[n] = priv.colorPalettes[n];
   }
+  for (const n of roleCrownNames) {
+    const art = readFileSync(
+      new URL(
+        `../../../DeltaFront-Private-Store/assets/${priv.crowns[n].url}`,
+        import.meta.url,
+      ),
+    );
+    // the stand-in serves no asset files: the artwork travels inside the URL
+    catalog.crowns[n] = {
+      ...priv.crowns[n],
+      url: `data:image/svg+xml;base64,${art.toString("base64")}`,
+    };
+  }
 }
 const ownedEffects = ["prism_cinders", "red_wake"];
 const flares = [
@@ -163,6 +188,7 @@ const flares = [
   "pattern:delta_stripes:ash",
   "flag:split_field",
   ...roleSkinNames.map((n) => `pattern:${n}:${n}`),
+  ...roleCrownNames.map((n) => `crown:${n}`),
 ];
 
 // ---- a small stand-in for the account service: a session, /users/@me, buying the skin
@@ -999,6 +1025,11 @@ for (const page of pages) {
       );
       await sleep(1200);
       await shot("ui-inventory-roleskins");
+      await g.ev(
+        `document.querySelector('inventory-modal [data-loadout-category="crowns"]')?.click(); 1`,
+      );
+      await sleep(1200);
+      await shot("ui-inventory-rolecrowns");
     }
     await g.ev(
       `document.querySelector('inventory-modal [data-loadout-category="effects"]')?.click(); 1`,

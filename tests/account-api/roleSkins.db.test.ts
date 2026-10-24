@@ -1,5 +1,11 @@
 // @vitest-environment node
-import { ADMIN_SKINS, STAFF_SKINS } from "@openfront/shared/RoleSkins";
+import {
+  ADMIN_CROWNS,
+  ADMIN_SKINS,
+  OWNER_CROWNS,
+  STAFF_CROWNS,
+  STAFF_SKINS,
+} from "@openfront/shared/RoleSkins";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,6 +27,7 @@ afterEach(async () => {
 });
 
 const ALL_SKINS = [...STAFF_SKINS, ...ADMIN_SKINS];
+const ALL_CROWNS = [...STAFF_CROWNS, ...ADMIN_CROWNS, ...OWNER_CROWNS];
 const flareOf = (name: string) => `pattern:${name}:${name}`;
 
 /** The public sample plus the six role skins, unpriced, each with a palette of its own. */
@@ -47,6 +54,18 @@ function catalogWithRoleSkins(): string {
       rarity: "epic",
     };
   }
+  fs.writeFileSync(
+    path.join(dir, "assets", "role_crown.svg"),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#000"/></svg>',
+  );
+  for (const name of ALL_CROWNS) {
+    json.crowns[name] = {
+      name,
+      url: "role_crown.svg",
+      product: null,
+      rarity: "epic",
+    };
+  }
   fs.writeFileSync(path.join(dir, "cosmetics.json"), JSON.stringify(json));
   return dir;
 }
@@ -65,6 +84,9 @@ const setRole = (h: Harness, userId: string, role: string | null) =>
 
 const skinFlares = (flares: string[]) =>
   flares.filter((f) => ALL_SKINS.some((name) => f === flareOf(name))).sort();
+
+const crownFlares = (flares: string[]) =>
+  flares.filter((f) => ALL_CROWNS.some((name) => f === `crown:${name}`)).sort();
 
 describeDb("staff and admin skins", () => {
   it("gives an ordinary account none of them", async () => {
@@ -126,5 +148,25 @@ describeDb("staff and admin skins", () => {
     const { status, body } = await userMe(h, u);
     expect(status).toBe(200);
     expect(skinFlares(body.player.flares)).toEqual([]);
+  });
+
+  it("gives crowns by role, and the owner's only to the owner", async () => {
+    const h = await start();
+    const u = await makeUser(h);
+    const mine = async () =>
+      crownFlares((await userMe(h, u)).body.player.flares);
+    const crowns = (names: readonly string[]) =>
+      names.map((n) => `crown:${n}`).sort();
+    expect(await mine()).toEqual([]);
+    await setRole(h, u.id, "mod");
+    expect(await mine()).toEqual(crowns(STAFF_CROWNS));
+    await setRole(h, u.id, "admin");
+    expect(await mine()).toEqual(crowns([...STAFF_CROWNS, ...ADMIN_CROWNS]));
+    await setRole(h, u.id, "owner");
+    expect(await mine()).toEqual(crowns(ALL_CROWNS));
+    await setRole(h, u.id, "mod");
+    expect(await mine()).toEqual(crowns(STAFF_CROWNS));
+    await setRole(h, u.id, null);
+    expect(await mine()).toEqual([]);
   });
 });

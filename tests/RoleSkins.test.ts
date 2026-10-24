@@ -1,6 +1,11 @@
 import {
+  ADMIN_CROWNS,
   ADMIN_SKINS,
+  OWNER_CROWNS,
+  STAFF_CROWNS,
   STAFF_SKINS,
+  roleCrownNames,
+  roleFlares,
   roleSkinFlares,
   roleSkinNames,
 } from "@openfront/shared/RoleSkins";
@@ -23,5 +28,24 @@ describe("role skins", () => {
     for (const role of [null, undefined, "", "flagged", "none", "*"]) {
       expect(roleSkinFlares(role), String(role)).toEqual([]);
     }
+  });
+
+  it("gives the owner's crowns to the owner and nobody else", () => {
+    expect(roleCrownNames("mod")).toEqual([...STAFF_CROWNS]);
+    expect(roleCrownNames("admin")).toEqual([...STAFF_CROWNS, ...ADMIN_CROWNS]);
+    expect(roleCrownNames("owner")).toEqual([
+      ...STAFF_CROWNS,
+      ...ADMIN_CROWNS,
+      ...OWNER_CROWNS,
+    ]);
+    expect(roleCrownNames(null)).toEqual([]);
+    for (const role of ["mod", "admin", null, "flagged"]) {
+      for (const crown of OWNER_CROWNS) {
+        expect(roleFlares(role), `${role} ${crown}`).not.toContain(
+          `crown:${crown}`,
+        );
+      }
+    }
+    expect(roleFlares("root")).toContain("crown:owner_wings");
   });
 });
