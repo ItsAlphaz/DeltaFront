@@ -12,6 +12,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { z } from "zod";
 import { base64urlToUuid } from "./Base64";
+import { CustomSkinSchema } from "./CustomSkins";
 import { staffRoleOf } from "./Permissions";
 
 const RequiredClanTagSchema = ClanTagSchema.unwrap();
@@ -764,6 +765,10 @@ export const UserMeResponseSchema = z.object({
     // null both mean a rename is allowed.
     nextUsernameChangeAt: z.iso.datetime().nullable().optional(),
     flares: z.string().array().optional(),
+    // The account's saved "Create Your Own" designs. Absent while it has none.
+    // A malformed list reads as absent: drift here must never fail the whole
+    // /users/@me parse, which would make the player look signed out.
+    customSkins: CustomSkinSchema.array().optional().catch(undefined),
     achievements: z.object({
       singleplayerMap: z.array(SingleplayerMapAchievementSchema),
       // Optional with a default rather than required: prod and staging deploy

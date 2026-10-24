@@ -504,6 +504,7 @@ class Client {
         "change-username",
         { tag: "change-username-modal" },
       ],
+      [ACCOUNT_FEATURES.store, "skin-creator", { tag: "skin-creator-modal" }],
       [
         ACCOUNT_FEATURES.payments,
         "subscription",
@@ -1838,6 +1839,7 @@ class Client {
         "admin-modal",
         "season-track-modal",
         "change-username-modal",
+        "skin-creator-modal",
         "subscription-modal",
         "lang-selector",
         "homepage-promos",

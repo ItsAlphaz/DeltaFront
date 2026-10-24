@@ -44,6 +44,8 @@ export const RATE_LIMITS = Object.freeze({
   progressionWrite: { max: 30, windowMs: 60 * 1000 },
   /** Singleplayer matches uploaded for XP, per account (a day's total is capped in the database). */
   soloSubmit: { max: 20, windowMs: 60 * 1000 },
+  /** Saving or deleting a skin-creator design, per account. */
+  skinWrite: { max: 30, windowMs: 60 * 1000 },
   /** Admin API reads, per staff account. */
   adminRead: { max: 300, windowMs: 60 * 1000 },
   /** Admin API changes, per staff account. */
@@ -136,6 +138,7 @@ export function createLimiters(
     serverKeyFailure: make("serverKeyFailure"),
     progressionWrite: make("progressionWrite"),
     soloSubmit: make("soloSubmit"),
+    skinWrite: make("skinWrite"),
     adminRead: make("adminRead"),
     adminWrite: make("adminWrite"),
   };

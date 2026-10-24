@@ -359,9 +359,14 @@ export function parseCatalog(
     }
   }
 
+  const patterns: Cosmetics["patterns"] = {};
   for (const [key, pattern] of Object.entries(source.patterns)) {
     const where = `patterns.${key}`;
     checkItem(where, key, pattern);
+    patterns[key] =
+      pattern.url === undefined
+        ? pattern
+        : { ...pattern, url: assetUrl(where, pattern.url) ?? pattern.url };
     const palettes = pattern.colorPalettes ?? [];
     if (palettes.length === 0)
       addFlare(where, patternFlare(pattern.name, null));
@@ -584,7 +589,7 @@ export function parseCatalog(
   // can never serve a catalog the client or the game server would refuse.
   const served = CosmeticsSchema.safeParse({
     colorPalettes: source.colorPalettes,
-    patterns: source.patterns,
+    patterns,
     flags,
     ...(source.crowns === undefined ? {} : { crowns }),
     effects,
@@ -675,10 +680,12 @@ function referencedAssets(json: unknown): string[] {
     }
   };
   const source = json as {
+    patterns?: unknown;
     flags?: unknown;
     crowns?: unknown;
     effects?: unknown;
   };
+  visit(source.patterns);
   visit(source.flags);
   visit(source.crowns);
   if (source.effects !== null && typeof source.effects === "object") {

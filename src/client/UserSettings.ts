@@ -1,5 +1,9 @@
 import { Emoji, flattenedEmojiTable } from "@openfront/engine-api/Schemas";
 import { Cosmetics } from "@openfront/shared/CosmeticSchemas";
+import {
+  customSkinSelection,
+  customSkinSlotOf,
+} from "@openfront/shared/CustomSkins";
 import { PlayerPattern } from "@openfront/shared/WireSchemas";
 import {
   GraphicsOverrides,
@@ -616,6 +620,18 @@ export class UserSettings {
       this.setCached(PATTERN_KEY, value);
     }
     this.syncActiveLoadout();
+  }
+
+  /** The saved "Create Your Own" design being worn (`custom:<slot>`), or null. */
+  getSelectedCustomSkinSlot(): number | null {
+    return customSkinSlotOf(this.getCached(PATTERN_KEY));
+  }
+
+  /** Wears a saved design, in place of any pattern or skin; `undefined` takes it off. */
+  setSelectedCustomSkin(slot: number | undefined): void {
+    this.setSelectedPatternName(
+      slot === undefined ? undefined : customSkinSelection(slot),
+    );
   }
 
   /** Returns the bare skin name (no `skin:` prefix), or null if a pattern (or nothing) is selected. */

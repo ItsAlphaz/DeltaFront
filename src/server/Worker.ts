@@ -5,6 +5,7 @@ import {
 } from "@openfront/shared/AccountFeatures";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
+import type { CustomSkin } from "@openfront/shared/CustomSkins";
 import { normalizeJoinCode } from "@openfront/shared/JoinCode";
 import type { StaffRole } from "@openfront/shared/Permissions";
 import { generateID, replacer } from "@openfront/shared/SharedUtil";
@@ -781,6 +782,7 @@ export async function startWorker() {
         }
 
         let flares: string[] | undefined;
+        let customSkins: CustomSkin[] | undefined;
         let publicId: string | undefined;
         let friends: string[] = [];
         let ownedClanTags: string[] = [];
@@ -818,6 +820,7 @@ export async function startWorker() {
             return;
           }
           flares = result.response.player.flares;
+          customSkins = result.response.player.customSkins;
           publicId = result.response.player.publicId;
           friends = result.response.player.friends;
           ownedClanTags = result.response.player.clans?.map((c) => c.tag) ?? [];
@@ -876,7 +879,11 @@ export async function startWorker() {
 
         const cosmeticResult = privilegeRefresher
           .get()
-          .isAllowed(flares ?? [], clientMsg.cosmetics ?? {});
+          .isAllowed(
+            flares ?? [],
+            clientMsg.cosmetics ?? {},
+            customSkins ?? [],
+          );
 
         if (cosmeticResult.type === "forbidden") {
           log.warn(`Forbidden: ${cosmeticResult.reason}`, {

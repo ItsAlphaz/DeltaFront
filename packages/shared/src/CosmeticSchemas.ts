@@ -111,6 +111,10 @@ const CosmeticSchema = z.object({
 
 export const PatternSchema = CosmeticSchema.extend({
   pattern: PatternDataSchema,
+  // Optional artwork, for the one skin that is a shop feature rather than a
+  // tile ("Create Your Own", see CustomSkins.ts): the card draws this instead of
+  // the pattern. A bare asset name in the catalog, a served URL on the wire.
+  url: z.string().optional(),
   colorPalettes: z
     .object({
       name: z.string(),

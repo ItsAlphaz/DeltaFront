@@ -59,6 +59,7 @@ import {
   fetchCosmetics,
   findPackItem,
   groupCosmeticVariants,
+  isSkinCreator,
   levelLockOf,
   minLevelOf,
   ownedPackItems,
@@ -519,6 +520,11 @@ export class StoreModal extends BaseModal {
   // Same box as a purchase button (w-full, min-h-11, text-base) so an owned
   // tier or bundle reads as a peer of its neighbours' buy action instead of
   // a small tag tucked to one side of the card.
+  private openSkinCreator(): void {
+    this.close();
+    window.location.hash = "modal=skin-creator";
+  }
+
   private renderStatus(text: string, muted = false): TemplateResult {
     return html`<span
       data-store-status
@@ -541,6 +547,20 @@ export class StoreModal extends BaseModal {
       active.relationship === "owned" &&
       OWNED_LISTED_TYPES.includes(active.type)
     ) {
+      if (isSkinCreator(active)) {
+        // Owning the creator is using it: the card opens it.
+        return html`<span class="mt-2 flex w-full [&>button]:w-full">
+          ${uiButton({
+            label: translateText("skin_creator.open"),
+            variant: "primary",
+            name: "open-skin-creator",
+            onClick: (event) => {
+              event.stopPropagation();
+              this.openSkinCreator();
+            },
+          })}
+        </span>`;
+      }
       return this.renderStatus(translateText("store.owned"));
     }
     // "Earned, not bought": an item (or a bundle holding one) above the
@@ -985,6 +1005,11 @@ export class StoreModal extends BaseModal {
           eyebrow,
           title: cosmeticDisplayName(active),
         })}
+        ${isSkinCreator(active)
+          ? html`<p data-skin-creator-blurb class="ui-body m-0 text-ui-muted">
+              ${translateText("skin_creator.shop_blurb")}
+            </p>`
+          : ""}
         ${swatches.length > 1
           ? html`<div>
               <div class="ui-label mb-3">${translateText("store.color")}</div>
@@ -1001,12 +1026,20 @@ export class StoreModal extends BaseModal {
         ${uiDetailRows(rows)}`,
       action: owned
         ? html`<div class="flex flex-col gap-2">
-            ${uiButton({
-              label: translateText("store.owned"),
-              block: true,
-              disabled: true,
-              name: "owned",
-            })}
+            ${isSkinCreator(active)
+              ? uiButton({
+                  label: translateText("skin_creator.open"),
+                  variant: "primary",
+                  block: true,
+                  name: "open-skin-creator",
+                  onClick: () => this.openSkinCreator(),
+                })
+              : uiButton({
+                  label: translateText("store.owned"),
+                  block: true,
+                  disabled: true,
+                  name: "owned",
+                })}
             ${uiButton({
               label: translateText("store.open_inventory"),
               variant: "text",

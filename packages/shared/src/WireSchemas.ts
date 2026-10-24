@@ -428,6 +428,10 @@ export const PlayerCosmeticRefsSchema = z.object({
   // (resolveVerifiedJoin in src/server/Privilege.ts); the name is never
   // replaced and nothing sent here can mint a badge.
   verified: z.boolean().optional(),
+  // A saved "Create Your Own" design, by slot. The game server looks the
+  // design up in the account's own list (a slot it does not have is refused);
+  // nothing drawn is taken from here.
+  customSkin: zb.uint().optional(),
 });
 
 export const FlagSchema = z.string();

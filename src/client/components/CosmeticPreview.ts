@@ -11,7 +11,7 @@ import {
 import { PlayerPattern } from "@openfront/shared/WireSchemas";
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { ResolvedCosmetic } from "../Cosmetics";
+import { isSkinCreator, ResolvedCosmetic } from "../Cosmetics";
 import { translateText } from "../Utils";
 import { cosmeticDisplayName } from "./CosmeticPresentation";
 import "./CreditsIcon";
@@ -90,6 +90,19 @@ export class CosmeticPreview extends LitElement {
   }
 
   private renderResolvedPreview(): TemplateResult {
+    if (isSkinCreator(this.resolved)) {
+      const url = (this.resolved.cosmetic as Pattern).url;
+      if (url !== undefined) {
+        return html`<img
+          src=${url}
+          alt=${cosmeticDisplayName(this.resolved)}
+          data-skin-creator-art
+          class="h-full w-full object-contain [image-rendering:pixelated] transition-transform duration-500 pointer-events-none"
+          draggable="false"
+          loading="lazy"
+        />`;
+      }
+    }
     if (this.resolved.type === "pattern") {
       const cosmetic = this.resolved.cosmetic;
       const playerPattern: PlayerPattern | null =

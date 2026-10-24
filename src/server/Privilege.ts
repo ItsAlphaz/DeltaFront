@@ -5,6 +5,11 @@ import {
   Cosmetics,
   findEffectForSlot,
 } from "@openfront/shared/CosmeticSchemas";
+import {
+  customSkinPattern,
+  ownsSkinCreator,
+  type CustomSkin,
+} from "@openfront/shared/CustomSkins";
 import { decodePatternData } from "@openfront/shared/PatternDecoder";
 import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import {
@@ -50,7 +55,15 @@ type CosmeticResult =
   | { type: "forbidden"; reason: string };
 
 export interface PrivilegeChecker {
-  isAllowed(flares: string[], refs: PlayerCosmeticRefs): CosmeticResult;
+  /**
+   * `customSkins` are the account's own saved "Create Your Own" designs, as the
+   * account service reported them with the player's flares.
+   */
+  isAllowed(
+    flares: string[],
+    refs: PlayerCosmeticRefs,
+    customSkins?: readonly CustomSkin[],
+  ): CosmeticResult;
   /**
    * Decide whether a player may wear the given clan tag. Members keep their
    * tag; impersonated or unverifiable tags are dropped. `ownedClanTags` are
@@ -78,9 +91,22 @@ export class PrivilegeCheckerImpl implements PrivilegeChecker {
     return decideClanTag(censoredTag, ownedClanTags, this.reservedClanTags);
   }
 
-  isAllowed(flares: string[], refs: PlayerCosmeticRefs): CosmeticResult {
+  isAllowed(
+    flares: string[],
+    refs: PlayerCosmeticRefs,
+    customSkins: readonly CustomSkin[] = [],
+  ): CosmeticResult {
     const cosmetics: PlayerCosmetics = {};
-    if (refs.patternName) {
+    if (refs.customSkin !== undefined) {
+      // Worn instead of a catalog pattern, and only by an account that bought
+      // the creator and saved that design: the design itself comes from its own
+      // list, never from what the client sent.
+      const skin = customSkins.find((s) => s.slot === refs.customSkin);
+      if (!ownsSkinCreator(flares) || skin === undefined) {
+        return { type: "forbidden", reason: "invalid pattern: custom skin" };
+      }
+      cosmetics.pattern = customSkinPattern(skin);
+    } else if (refs.patternName) {
       try {
         cosmetics.pattern = this.isPatternAllowed(
           flares,

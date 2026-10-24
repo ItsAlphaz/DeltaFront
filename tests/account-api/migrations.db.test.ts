@@ -105,6 +105,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0008",
       "0009",
       "0010",
+      "0011",
     ]);
 
     expect(await tablesOf(pool)).toEqual(
@@ -116,6 +117,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         ...PROGRESSION_TABLES,
         "early_xp",
         "solo_submissions",
+        "custom_skins",
       ].sort(),
     );
     const files = loadMigrationFiles();
@@ -155,6 +157,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         checksum: files[8].checksum,
       },
       { version: "0010", name: "bundles", checksum: files[9].checksum },
+      { version: "0011", name: "custom_skins", checksum: files[10].checksum },
     ]);
   });
 
@@ -166,7 +169,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(10);
+    ).toBe(11);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -189,6 +192,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0008",
         "0009",
         "0010",
+        "0011",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -217,6 +221,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0008",
       "0009",
       "0010",
+      "0011",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -233,6 +238,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0008",
       "0009",
       "0010",
+      "0011",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -456,11 +462,12 @@ describeDb("migration safety", () => {
       "0008",
       "0009",
       "0010",
+      "0011",
     ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(10);
+    ).toBe(11);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -490,6 +497,7 @@ describeDb("migration safety", () => {
       "0008",
       "0009",
       "0010",
+      "0011",
     ]);
   });
 });

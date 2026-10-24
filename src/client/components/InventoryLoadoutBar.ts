@@ -1,8 +1,10 @@
+import type { PlayerPattern } from "@openfront/shared/WireSchemas";
 import { html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { ResolvedCosmetic } from "../Cosmetics";
 import { translateText } from "../Utils";
 import "./CosmeticPreview";
+import { renderPatternPreview } from "./PatternPreview";
 
 export type InventoryCategory = "skins" | "flags" | "crowns" | "effects";
 
@@ -11,6 +13,8 @@ export interface InventoryLoadoutEntry {
   label: string;
   items: readonly ResolvedCosmetic[];
   summary: string;
+  /** A worn "Create Your Own" design, which is not a catalog item. */
+  customPattern?: PlayerPattern;
 }
 
 @customElement("inventory-loadout-bar")
@@ -42,7 +46,15 @@ export class InventoryLoadoutBar extends LitElement {
         ? "-space-x-3"
         : ""}"
     >
-      ${items.length === 0
+      ${items.length === 0 && entry.customPattern !== undefined
+        ? html`<div
+            data-loadout-preview="custom"
+            class="h-12 w-12 shrink-0 overflow-hidden rounded-ui-card border border-ui-border-strong bg-ui-ground"
+          >
+            ${renderPatternPreview(entry.customPattern, 48, 48)}
+          </div>`
+        : nothing}
+      ${items.length === 0 && entry.customPattern === undefined
         ? html`<div
             class="h-12 w-12 rounded-ui-card border border-ui-border bg-ui-ground"
           ></div>`

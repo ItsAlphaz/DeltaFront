@@ -187,6 +187,37 @@ export async function setBareNameEntitlement(
   return { holdsBare, name: current.username_base };
 }
 
+// ------------------------------------------------------------ custom skins
+
+/**
+ * Takes away an account's "Create Your Own" designs: one slot, or all of them
+ * with `slot` null. A design is made by the player, so staff need a way to
+ * remove one (and the account stops wearing it at its next join: the game
+ * server only knows the designs the account has). Returns what was removed.
+ */
+export async function removeCustomSkins(
+  db: Db,
+  ctx: AuditContext,
+  publicId: string,
+  slot: number | null,
+  reason: string,
+): Promise<Array<{ slot: number; name: string }>> {
+  const user = await targetUser(db, publicId);
+  const { rows } = await db.query<{ slot: number; name: string }>(
+    slot === null
+      ? "DELETE FROM custom_skins WHERE user_id = $1 RETURNING slot, name"
+      : "DELETE FROM custom_skins WHERE user_id = $1 AND slot = $2 RETURNING slot, name",
+    slot === null ? [user.id] : [user.id, slot],
+  );
+  if (rows.length > 0) {
+    await writeAudit(db, ctx, "skin:remove", "user", publicId, {
+      removed: rows,
+      reason,
+    });
+  }
+  return rows;
+}
+
 // ----------------------------------------------------------------------- roles
 
 /** The roles the column accepts, as the operator spells them ("none" clears it). */

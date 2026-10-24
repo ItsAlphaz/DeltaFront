@@ -24,6 +24,11 @@ import {
   Subscription,
 } from "@openfront/shared/CosmeticSchemas";
 import {
+  customSkinPattern,
+  ownsSkinCreator,
+  SKIN_CREATOR_NAME,
+} from "@openfront/shared/CustomSkins";
+import {
   PlayerCosmeticRefs,
   PlayerCosmetics,
   PlayerEffect,
@@ -727,7 +732,12 @@ export async function purchaseCosmetic(
     }
   }
   await showInGameAlert(
-    translateText("store.purchase_success", { name: c.name }),
+    translateText("store.purchase_success", {
+      name:
+        resolved.type === "pattern" || resolved.type === "skin"
+          ? translateCosmetic("territory_patterns.pattern", c.name)
+          : c.name,
+    }),
   );
   invalidateUserMe();
   window.location.reload();
@@ -1010,6 +1020,20 @@ export function patternRelationship(
   affiliateCode: string | null,
 ): "owned" | "purchasable" | "blocked" {
   if (colorPalette === null) {
+    // The skin creator is sold as it is: it has no colours of its own.
+    if (pattern.name === SKIN_CREATOR_NAME) {
+      return cosmeticRelationship(
+        {
+          wildcardFlare: "pattern:*",
+          requiredFlare: `pattern:${pattern.name}`,
+          priceSoft: pattern.priceSoft,
+          priceHard: pattern.priceHard,
+          affiliateCode,
+          itemAffiliateCode: pattern.affiliateCode ?? null,
+        },
+        userMeResponse,
+      );
+    }
     // For backwards compatibility only show non-colored patterns if they are owned.
     const flares =
       userMeResponse === false ? [] : (userMeResponse.player.flares ?? []);
@@ -1434,6 +1458,21 @@ export function resolveCosmetics(
  * Groups resolved cosmetics so that colour-palette variants of the same pattern
  * collapse into a single entry. Returns an array of groups in first-seen order
  */
+/**
+ * The "Create Your Own" shop item: a pattern in the catalog, but a feature
+ * rather than a tile. It has its own artwork, opens the skin creator instead
+ * of being worn, and leads every list it is in.
+ */
+export function isSkinCreator(
+  resolved: ResolvedCosmetic | null | undefined,
+): boolean {
+  return (
+    resolved?.type === "pattern" &&
+    resolved.cosmetic !== null &&
+    resolved.cosmetic.name === SKIN_CREATOR_NAME
+  );
+}
+
 export function groupCosmeticVariants(
   items: ResolvedCosmetic[],
 ): ResolvedCosmetic[][] {
@@ -1451,7 +1490,11 @@ export function groupCosmeticVariants(
     }
     groups.push([item]);
   }
-  return groups;
+  // The skin creator is the first thing in the shop's skins.
+  return [
+    ...groups.filter((group) => isSkinCreator(group[0])),
+    ...groups.filter((group) => !isSkinCreator(group[0])),
+  ];
 }
 
 export function resolvedToPlayerPattern(
@@ -1498,6 +1541,26 @@ export async function getPlayerCosmeticsRefs(
     }
     if (pattern === null) {
       userSettings.setSelectedPatternName(undefined);
+    }
+  }
+
+  // A worn "Create Your Own" design. Like a pattern it is dropped from this
+  // join when the profile says the account no longer owns the creator or has
+  // no such design, and only then is the choice erased: "we could not ask"
+  // (getUserMe is false) is not an answer.
+  let customSkin: number | undefined;
+  const wornSlot = userSettings.getSelectedCustomSkinSlot();
+  if (wornSlot !== null) {
+    const userMe = await getUserMe();
+    if (userMe) {
+      if (
+        ownsSkinCreator(userMe.player.flares) &&
+        userMe.player.customSkins?.some((skin) => skin.slot === wornSlot)
+      ) {
+        customSkin = wornSlot;
+      } else {
+        userSettings.setSelectedCustomSkin(undefined);
+      }
     }
   }
 
@@ -1622,6 +1685,7 @@ export async function getPlayerCosmeticsRefs(
     crownName,
     effects: Object.keys(effects).length > 0 ? effects : undefined,
     verified: opts.verified ? true : undefined,
+    customSkin,
   };
 }
 
@@ -1645,6 +1709,12 @@ export async function getPlayerCosmetics(
       patternData: devPattern.patternData,
       colorPalette: devPattern.colorPalette,
     };
+  } else if (refs.customSkin !== undefined) {
+    const userMe = await getUserMe();
+    const skin = userMe
+      ? userMe.player.customSkins?.find((s) => s.slot === refs.customSkin)
+      : undefined;
+    if (skin) result.pattern = customSkinPattern(skin);
   } else if (refs.patternName && cosmetics) {
     const pattern = cosmetics.patterns[refs.patternName];
 

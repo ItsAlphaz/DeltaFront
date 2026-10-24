@@ -12,6 +12,10 @@ import {
   NukeExplosionType,
   Skin,
 } from "@openfront/shared/CosmeticSchemas";
+import {
+  customSkinPattern,
+  type CustomSkin,
+} from "@openfront/shared/CustomSkins";
 import { PlayerPattern } from "@openfront/shared/WireSchemas";
 import type { TemplateResult } from "lit";
 import { html, nothing } from "lit";
@@ -37,13 +41,16 @@ import type {
   InventoryLoadoutEntry,
 } from "./components/InventoryLoadoutBar";
 import "./components/InventoryLoadoutMenu";
+import { renderPatternPreview } from "./components/PatternPreview";
 import { ProgressiveList } from "./components/ProgressiveList";
 import {
+  uiBadge,
   uiButton,
   uiDetailHeading,
   uiDetailPanel,
   uiDetailRows,
   uiIcons,
+  uiItemCard,
   uiPageHeader,
   uiSearch,
   uiSegmented,
@@ -56,11 +63,13 @@ import { signedOutNotice } from "./components/ui/SignedOutNotice";
 import {
   fetchCosmetics,
   groupCosmeticVariants,
+  isSkinCreator,
   resolveCosmetics,
   ResolvedCosmetic,
   resolvedToPlayerPattern,
   translateCosmetic,
 } from "./Cosmetics";
+import { canCreateSkins, customSkinsOf } from "./CustomSkins";
 import {
   CROWN_KEY,
   EFFECTS_KEY,
@@ -340,6 +349,68 @@ export class InventoryModal extends BaseModal {
     );
   }
 
+  /** The saved "Create Your Own" design being worn, when it still exists. */
+  private wornDesign(): CustomSkin | null {
+    const slot = this.userSettings.getSelectedCustomSkinSlot();
+    if (slot === null) return null;
+    return (
+      customSkinsOf(this.userMeResponse).find((s) => s.slot === slot) ?? null
+    );
+  }
+
+  /** "Your designs": the saved designs, to wear with a click, and the way into the creator. */
+  private renderDesigns(): TemplateResult {
+    const worn = this.userSettings.getSelectedCustomSkinSlot();
+    const designs = customSkinsOf(this.userMeResponse);
+    return html`<div data-inventory-designs class="px-6 pt-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="ui-heading text-ui-text">
+          ${translateText("skin_creator.slots")}
+        </h2>
+        ${uiButton({
+          label: translateText("skin_creator.open"),
+          name: "open-skin-creator",
+          onClick: () => {
+            this.close();
+            window.location.hash = "modal=skin-creator";
+          },
+        })}
+      </div>
+      ${designs.length === 0
+        ? html`<p class="ui-body mt-3 text-ui-muted">
+            ${translateText("skin_creator.none_yet")}
+          </p>`
+        : html`<div
+            class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
+          >
+            ${designs.map((design) =>
+              uiItemCard({
+                preview: renderPatternPreview(
+                  customSkinPattern(design),
+                  150,
+                  150,
+                ),
+                name: design.name,
+                tier: "gray",
+                selected: worn === design.slot,
+                badge:
+                  worn === design.slot
+                    ? uiBadge(translateText("inventory.equipped"), "success")
+                    : undefined,
+                hook: "design",
+                dataKey: `custom:${design.slot}`,
+                onSelect: () => {
+                  this.userSettings.setSelectedCustomSkin(
+                    worn === design.slot ? undefined : design.slot,
+                  );
+                  this.updateFromSettings();
+                },
+              }),
+            )}
+          </div>`}
+    </div>`;
+  }
+
   private equippedFlag(): ResolvedCosmetic | null {
     const selectedFlag = this.userSettings.getFlag();
     if (selectedFlag === null) return null;
@@ -395,11 +466,13 @@ export class InventoryModal extends BaseModal {
       category: Exclude<InventoryCategory, "effects">;
       label: string;
       item: ResolvedCosmetic | null;
+      custom?: CustomSkin | null;
     }> = [
       {
         category: "skins",
         label: translateText("store.patterns"),
         item: this.equippedSkin(),
+        custom: this.wornDesign(),
       },
       {
         category: "flags",
@@ -417,11 +490,14 @@ export class InventoryModal extends BaseModal {
         .filter(
           ({ category }) => category !== "crowns" || this.catalogHasCrowns(),
         )
-        .map(({ category, label, item }) => ({
+        .map(({ category, label, item, custom }) => ({
           category,
           label,
           items: item ? [item] : [],
-          summary: item ? cosmeticDisplayName(item) : "",
+          summary: item ? cosmeticDisplayName(item) : custom ? custom.name : "",
+          ...(!item && custom
+            ? { customPattern: customSkinPattern(custom) }
+            : {}),
         })),
       {
         category: "effects",
@@ -507,6 +583,8 @@ export class InventoryModal extends BaseModal {
           (r.type === "pattern" || r.type === "skin") &&
           r.relationship === "owned" &&
           r.cosmetic !== null &&
+          // the creator is a tool, not a skin: it has its own section
+          !isSkinCreator(r) &&
           this.includedInSearch(r.cosmetic.name),
       ),
     );
@@ -1000,6 +1078,9 @@ export class InventoryModal extends BaseModal {
           })}
         </div>
       </div>
+      ${activeTab === "skins" && canCreateSkins(this.userMeResponse)
+        ? this.renderDesigns()
+        : nothing}
       <div class="p-6">
         ${owned === 0 ? this.renderEmptyState(activeTab) : nothing}
         <div

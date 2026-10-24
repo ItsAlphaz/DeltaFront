@@ -4,6 +4,7 @@ import type {
   Reward,
   UserMeResponse,
 } from "@openfront/shared/ApiSchemas";
+import type { CustomSkin } from "@openfront/shared/CustomSkins";
 import { staffRoleOf, type StaffRole } from "@openfront/shared/Permissions";
 import express, { type Router } from "express";
 import { clearCookie, parseCookies, REFRESH_COOKIE } from "../auth/cookies";
@@ -16,6 +17,7 @@ import {
 } from "../domain/usernames";
 import { clientIp, requireAllowedOrigin } from "../http";
 import { clansOfUser, type MyClan } from "../repo/clans";
+import { customSkinsOf } from "../repo/customSkins";
 import { activeFlaresOf, reportedFlares } from "../repo/inventory";
 import { creditsOf } from "../repo/profile";
 import {
@@ -112,6 +114,8 @@ export function buildUserMe(
   },
   /** Level, XP and the unclaimed progression rewards; absent while progression is off. */
   progression?: { progress: Progress; levelHidden: boolean; rewards: Reward[] },
+  /** The designs saved with the "Create Your Own" skin creator; absent when there are none. */
+  customSkins?: CustomSkin[],
 ): UserMeResponse {
   return {
     user: linkedIdentities(identities),
@@ -146,6 +150,9 @@ export function buildUserMe(
       // Credits ride in the contract's "soft" slot; the premium slot stays 0.
       currency: { soft: credits, hard: 0 },
       ...(flares === undefined ? {} : { flares }),
+      ...(customSkins === undefined || customSkins.length === 0
+        ? {}
+        : { customSkins }),
       ...(clans === undefined
         ? {}
         : { clans: clans.clans, clanRequests: clans.requests }),
@@ -211,7 +218,7 @@ export function usersRouter(deps: AppDeps): Router {
       res.status(401).json({ error: "unauthorized" });
       return;
     }
-    const [identities, ban, credits, owned, clans, progression] =
+    const [identities, ban, credits, owned, clans, progression, customSkins] =
       await Promise.all([
         identitiesOf(pool, user.id),
         activeBan(pool, user.id),
@@ -219,13 +226,23 @@ export function usersRouter(deps: AppDeps): Router {
         deps.catalog === null ? undefined : activeFlaresOf(pool, user.id),
         config.features.clans ? clansOfUser(pool, user.id) : undefined,
         config.features.progression ? meProgression(pool, user) : undefined,
+        deps.catalog === null ? undefined : customSkinsOf(pool, user.id),
       ]);
     const flares =
       deps.catalog === null || owned === undefined
         ? undefined
         : reportedFlares(deps.catalog, owned);
     res.json(
-      buildUserMe(user, identities, ban, credits, flares, clans, progression),
+      buildUserMe(
+        user,
+        identities,
+        ban,
+        credits,
+        flares,
+        clans,
+        progression,
+        customSkins,
+      ),
     );
   });
 

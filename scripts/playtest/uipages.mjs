@@ -119,6 +119,15 @@ catalog.packs.galaxy_loadout.endsAt = new Date(
   Date.now() + (2 * 24 + 5) * 3_600_000,
 ).toISOString();
 catalog.packs.midnight_vault.items.push({ type: "effect", name: "venom_ring" });
+// the skin creator: a legendary pattern with its own artwork, first in the shop
+catalog.patterns.create_your_own = {
+  name: "create_your_own",
+  priceSoft: 10000,
+  pattern: "AAAAAA",
+  url: "http://localhost:8787/cosmetics/assets/create_your_own.png",
+  product: null,
+  rarity: "legendary",
+};
 const ownedEffects = ["prism_cinders", "red_wake"];
 const flares = [
   ...ownedEffects.map((n) => `effect:${n}`),
@@ -127,6 +136,129 @@ const flares = [
   "pattern:delta_stripes:ash",
   "flag:split_field",
 ];
+
+// ---- a small stand-in for the account service: a session, /users/@me, buying the skin
+// creator and saving designs. It lets the real client code run end to end: sign in, buy, draw, save, wear.
+const API = "http://localhost:8787";
+const accountRoute = /:8787\/(auth\/refresh|users\/@me|shop\/purchase)/;
+const creatorArt = (() => {
+  try {
+    return readFileSync(
+      process.env.SKIN_ART ??
+        new URL(
+          "../../../DeltaFront-Private-Store/overlays/assets/create_your_own.png",
+          import.meta.url,
+        ),
+    );
+  } catch {
+    return null;
+  }
+})();
+const account = {
+  credits: 981850,
+  flares: [...flares],
+  customSkins: [],
+};
+if (process.env.OWN_CREATOR) account.flares.push("pattern:create_your_own");
+const meBody = () => ({
+  user: { email: "a@b.c" },
+  ban: null,
+  player: {
+    publicId: "p1",
+    adfree: false,
+    unlimitedRanked: false,
+    canCreatePublicLobbies: false,
+    trustTier: "untrusted",
+    username: "Alphaz",
+    usernameBase: "Alphaz",
+    verified: true,
+    staffRole: "owner",
+    flares: account.flares,
+    ...(account.customSkins.length ? { customSkins: account.customSkins } : {}),
+    currency: { soft: account.credits, hard: 0 },
+    progress: me.player.progress,
+    achievements: { singleplayerMap: [], player: [] },
+    friends: [],
+    subscription: null,
+  },
+});
+const fakeJwt = () => {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  return `${b64({ alg: "none" })}.${b64({
+    jti: "demo",
+    sub: Buffer.alloc(16, 7).toString("base64url"),
+    iat: now,
+    iss: API,
+    aud: "localhost",
+    exp: now + 3600,
+  })}.x`;
+};
+g.b.onEvent(async (d) => {
+  if (d.method !== "Fetch.requestPaused") return;
+  const { requestId, request } = d.params;
+  const isArt = /create_your_own\.png/.test(request.url);
+  if (!isArt && !accountRoute.test(request.url)) return;
+  const origin = request.headers?.Origin ?? "http://localhost:9000";
+  const reply = (body, code = 200) =>
+    g.b.send("Fetch.fulfillRequest", {
+      requestId,
+      responseCode: code,
+      responseHeaders: [
+        { name: "content-type", value: "application/json" },
+        { name: "access-control-allow-origin", value: origin },
+        { name: "access-control-allow-credentials", value: "true" },
+        {
+          name: "access-control-allow-headers",
+          value: "authorization,content-type",
+        },
+        {
+          name: "access-control-allow-methods",
+          value: "GET,POST,PUT,DELETE,OPTIONS",
+        },
+      ],
+      body: Buffer.from(JSON.stringify(body)).toString("base64"),
+    });
+  const path = new URL(request.url).pathname;
+  if (isArt) {
+    await g.b.send("Fetch.fulfillRequest", {
+      requestId,
+      responseCode: creatorArt ? 200 : 404,
+      responseHeaders: [
+        { name: "content-type", value: "image/png" },
+        { name: "access-control-allow-origin", value: "*" },
+      ],
+      body: (creatorArt ?? Buffer.alloc(0)).toString("base64"),
+    });
+  } else if (request.method === "OPTIONS") await reply({}, 204);
+  else if (path === "/auth/refresh")
+    await reply({ jwt: fakeJwt(), expiresIn: 3600 });
+  else if (path === "/users/@me") await reply(meBody());
+  else if (path === "/shop/purchase") {
+    const body = JSON.parse(request.postData ?? "{}");
+    const flare = `pattern:${body.cosmeticName}`;
+    if (body.cosmeticName !== "create_your_own") await reply({}, 400);
+    else if (account.flares.includes(flare)) await reply({}, 409);
+    else if (account.credits < 10000)
+      await reply({ reason: "Insufficient balance" }, 400);
+    else {
+      account.credits -= 10000;
+      account.flares.push(flare);
+      await reply({ currency: { soft: account.credits } });
+    }
+  } else if (/^\/users\/@me\/skins\/\d$/.test(path)) {
+    const slot = Number(path.slice(-1));
+    account.customSkins = account.customSkins.filter((x) => x.slot !== slot);
+    if (request.method === "PUT") {
+      account.customSkins.push({
+        slot,
+        ...JSON.parse(request.postData ?? "{}"),
+      });
+      account.customSkins.sort((a, b) => a.slot - b.slot);
+    }
+    await reply({ customSkins: account.customSkins });
+  } else await reply({}, 404);
+});
 
 g.b.onEvent(async (d) => {
   if (d.method !== "Fetch.requestPaused") return;
@@ -220,7 +352,11 @@ g.b.onEvent(async (d) => {
         clans.find((c) => c.tag === parts[1].toUpperCase()) ?? clans[0],
       );
     else await reply({ results: [], total: 0, page: 1, limit: 20 });
-  } else if (!/\/leaderboard\//.test(request.url)) {
+  } else if (
+    !/\/leaderboard\//.test(request.url) &&
+    !accountRoute.test(request.url) &&
+    !/create_your_own\.png/.test(request.url)
+  ) {
     await g.b.send("Fetch.continueRequest", { requestId });
   }
 });
@@ -229,6 +365,10 @@ await g.b.send("Fetch.enable", {
     { urlPattern: "*cosmetics.json*" },
     { urlPattern: "*leaderboard*" },
     { urlPattern: "*:8787/clans*" },
+    { urlPattern: "*:8787/auth/refresh*" },
+    { urlPattern: "*:8787/users/@me*" },
+    { urlPattern: "*:8787/shop/purchase*" },
+    { urlPattern: "*create_your_own.png*" },
   ],
 });
 
@@ -280,8 +420,13 @@ const me = {
     },
   },
 };
+// the page asked for the profile before the stand-in was there: ask again, so it has a session
+const signedIn = await g.ev(
+  `import('/src/client/Api.ts').then(async (m) => { m.invalidateUserMe(); return !!(await m.getUserMe()); })`,
+);
+console.log("session", signedIn);
 await g.ev(
-  `document.dispatchEvent(new CustomEvent('userMeResponse',{detail:${JSON.stringify(me)}})); 1`,
+  `document.dispatchEvent(new CustomEvent('userMeResponse',{detail:${JSON.stringify(meBody())}})); 1`,
 );
 await sleep(800);
 
@@ -609,6 +754,114 @@ for (const page of pages) {
     console.log("after", await where());
     await shot("ui-verified-after");
   }
+  // the skin creator: the shop's headliner card, buying it, drawing and saving a design
+  if (page === "skincreator") {
+    const rect = (sel) =>
+      g.ev(
+        `(()=>{ const e=document.querySelector('${sel}'); if(!e) return null; const r=e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height} })()`,
+      );
+    const move = (p) =>
+      g.b.send("Input.dispatchMouseEvent", {
+        type: "mouseMoved",
+        x: p.x,
+        y: p.y,
+      });
+    await g.ev(`window.showPage('page-item-store'); 1`);
+    await sleep(2500);
+    await g.ev(
+      `document.querySelector('store-modal [data-ui-segmented="store-tabs"] [data-key="cosmetics"]')?.click(); 1`,
+    );
+    await sleep(1500);
+    await shot("ui-skin-shop");
+    const card = await rect("[data-cosmetic-feature]");
+    console.log("card", JSON.stringify(card));
+    if (card) {
+      await move(card);
+      await sleep(900);
+      await shot("ui-skin-hover");
+      await g.ev(
+        `document.querySelector('[data-cosmetic-feature]').closest('cosmetic-card').querySelector('[data-cosmetic-main]')?.click(); 1`,
+      );
+      await sleep(900);
+      await shot("ui-skin-detail");
+    }
+    await g.ev(`window.location.hash = 'modal=skin-creator'; 1`);
+    await sleep(2500);
+    await shot("ui-skin-locked");
+    console.log(
+      "locked",
+      await g.ev(`!!document.querySelector('[data-skin-creator-locked]')`),
+    );
+    // buy it through the real shop button, then draw
+    await g.ev(`document.querySelector('skin-creator-modal')?.close?.(); 1`);
+    await sleep(800);
+    await g.ev(`window.showPage('page-item-store'); 1`);
+    await sleep(1200);
+    await g.ev(
+      `document.querySelector('[data-cosmetic-feature]')?.closest('cosmetic-card')?.querySelector('[data-cosmetic-main]')?.click(); 1`,
+    );
+    await sleep(600);
+    await g.ev(
+      `document.querySelector('store-modal [data-ui="detail-action"] button')?.click(); 1`,
+    );
+    await sleep(800);
+    await shot("ui-skin-confirm");
+    await g.ev(
+      `[...document.querySelectorAll('button')].find((b) => b.textContent.trim().toLowerCase() === 'confirm')?.click(); 1`,
+    );
+    await sleep(1500);
+    await shot("ui-skin-bought");
+    // the shop reloads the page after a purchase
+    await g.ev(
+      `[...document.querySelectorAll('button')].find((b) => b.textContent.trim().toLowerCase() === 'close')?.click(); 1`,
+    );
+    await sleep(6000);
+    await g.ev(`window.location.hash = 'modal=skin-creator'; 1`);
+    await sleep(2500);
+    await shot("ui-skin-editor");
+    const canvas = await rect("skin-editor-canvas canvas");
+    console.log("canvas", JSON.stringify(canvas));
+    if (canvas) {
+      const at = (fx, fy) => ({
+        x: canvas.x - canvas.w / 2 + canvas.w * fx,
+        y: canvas.y - canvas.h / 2 + canvas.h * fy,
+      });
+      const mouse = (type, p, extra = {}) =>
+        g.b.send("Input.dispatchMouseEvent", {
+          type,
+          x: p.x,
+          y: p.y,
+          button: "left",
+          buttons: type === "mouseReleased" ? 0 : 1,
+          clickCount: 1,
+          ...extra,
+        });
+      const stroke = async (a, b) => {
+        await mouse("mouseMoved", a, { buttons: 0 });
+        await mouse("mousePressed", a);
+        for (let i = 1; i <= 10; i++)
+          await mouse("mouseMoved", {
+            x: a.x + ((b.x - a.x) * i) / 10,
+            y: a.y + ((b.y - a.y) * i) / 10,
+          });
+        await mouse("mouseReleased", b);
+      };
+      await stroke(at(0.1, 0.1), at(0.9, 0.9));
+      await stroke(at(0.9, 0.1), at(0.1, 0.9));
+      await stroke(at(0.5, 0.05), at(0.5, 0.95));
+      await sleep(400);
+      await shot("ui-skin-drawn");
+      await g.ev(
+        `document.querySelector('[data-ui-button="save"]')?.click(); 1`,
+      );
+      await sleep(1500);
+      await g.ev(
+        `document.querySelector('[data-ui-button="wear"]')?.click(); 1`,
+      );
+      await sleep(600);
+      await shot("ui-skin-saved");
+    }
+  }
   if (page === "home") {
     await sleep(2500);
     await shot(`ui-home${narrow ? "-narrow" : ""}`);
@@ -689,7 +942,7 @@ if (demo) {
   ]);
   const feed = () =>
     g.ev(`(() => {
-      document.dispatchEvent(new CustomEvent('userMeResponse',{detail:${JSON.stringify(me)}}));
+      document.dispatchEvent(new CustomEvent('userMeResponse',{detail:${JSON.stringify(meBody())}}));
       const a = document.querySelector('#nav-account-signin-text'); a && a.classList.add('hidden');
       const m = document.querySelector('clan-modal');
       if (m && m.signedOut) {

@@ -13,6 +13,7 @@ import { authRouter } from "./routes/auth";
 import { clansRouter } from "./routes/clans";
 import { clusterRouter } from "./routes/cluster";
 import type { AppDeps } from "./routes/common";
+import { customSkinsRouter } from "./routes/customSkins";
 import { devOutboxRouter } from "./routes/devOutbox";
 import { feedsRouter } from "./routes/feeds";
 import { gameRouter } from "./routes/game";
@@ -127,6 +128,7 @@ export function createApp(deps: {
       // Spending Credits needs sign-in as well as the catalog.
       if (config.features.store && config.features.accounts) {
         app.use(shopRouter({ ...backend, catalog: backend.catalog }));
+        app.use(customSkinsRouter({ ...backend, catalog: backend.catalog }));
       }
     }
     if (usesAccountApi(config.features)) {

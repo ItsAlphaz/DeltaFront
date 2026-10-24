@@ -30,6 +30,7 @@ const modules: Record<string, () => Promise<unknown>> = {
   "rewards-modal": () => import("./RewardsModal"),
   "season-track-modal": () => import("./SeasonTrackModal"),
   "single-player-modal": () => import("./SinglePlayerModal"),
+  "skin-creator-modal": () => import("./SkinCreatorModal"),
   "steam-handoff-modal": () => import("./SteamHandoffModal"),
   "steam-link-modal": () => import("./SteamLinkModal"),
   "store-modal": () => import("./Store"),

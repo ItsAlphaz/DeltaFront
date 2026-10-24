@@ -1,6 +1,6 @@
 import { html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { ResolvedCosmetic } from "../Cosmetics";
+import { isSkinCreator, ResolvedCosmetic } from "../Cosmetics";
 import { translateText } from "../Utils";
 
 /** Skins, patterns and effects can be rendered in-game; flags, crowns, subscriptions and packs can't. */
@@ -8,6 +8,8 @@ export function isPreviewableCosmetic(
   resolved: ResolvedCosmetic | null | undefined,
 ): boolean {
   if (!resolved || resolved.cosmetic === null) return false;
+  // The creator's artwork is its preview: there is no tile to try on.
+  if (isSkinCreator(resolved)) return false;
   const type = resolved.type;
   return (
     type !== "flag" &&

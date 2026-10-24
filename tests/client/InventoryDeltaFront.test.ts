@@ -1,6 +1,10 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import type { Cosmetics } from "@openfront/shared/CosmeticSchemas";
+import {
+  encodeSkinGrid,
+  SKIN_CREATOR_FLARE,
+} from "@openfront/shared/CustomSkins";
 import type { LitElement } from "lit";
 import fs from "node:fs";
 import path from "node:path";
@@ -667,5 +671,79 @@ describe("no Caps or Plutonium anywhere a V1 player can reach", () => {
       expect(modal.textContent ?? "").not.toMatch(OLD_NAME);
       expect(modal.innerHTML).not.toMatch(/plutonium|cap-icon|bottle/i);
     }
+  });
+});
+
+describe("Create Your Own in the inventory", () => {
+  const withCreator = {
+    ...catalog,
+    patterns: {
+      ...catalog.patterns,
+      create_your_own: {
+        name: "create_your_own",
+        pattern: "AAAAAA",
+        url: "https://cdn.test/create_your_own.png",
+        product: null,
+        priceSoft: 10000,
+        rarity: "legendary",
+      },
+    },
+  } as unknown as Cosmetics;
+  const design = (slot: number, name: string) => ({
+    slot,
+    name,
+    patternData: encodeSkinGrid({
+      width: 8,
+      height: 8,
+      scale: 1,
+      secondary: Array.from({ length: 64 }, (_, i) => i % 2 === 0),
+    }),
+    primaryColor: "#aa0000",
+    secondaryColor: "#101010",
+  });
+  const owner = (customSkins: ReturnType<typeof design>[] = []) => {
+    const me = userWith([FREE, SKIN_CREATOR_FLARE]);
+    (me.player as unknown as Record<string, unknown>).customSkins = customSkins;
+    return me;
+  };
+
+  it("lists the creator as a tool, not as a skin to wear", async () => {
+    const modal = await openInventory(owner(), "loaded", withCreator);
+    expect(cardKeys(modal)).not.toContain("pattern:create_your_own");
+    expect(modal.querySelector("[data-inventory-designs]")).not.toBeNull();
+    expect(
+      modal.querySelector('[data-ui-button="open-skin-creator"]'),
+    ).not.toBeNull();
+  });
+
+  it("shows no designs section to an account that did not buy it", async () => {
+    const modal = await openInventory(userWith([FREE]), "loaded", withCreator);
+    expect(modal.querySelector("[data-inventory-designs]")).toBeNull();
+  });
+
+  it("wears a saved design with a click, shows it in the loadout, and takes it off with another", async () => {
+    const modal = await openInventory(
+      owner([design(0, "Night Watch"), design(2, "Dusk")]),
+      "loaded",
+      withCreator,
+    );
+    const cards = () =>
+      [
+        ...modal.querySelectorAll<HTMLElement>('[data-ui-item="design"]'),
+      ] as HTMLElement[];
+    expect(cards().map((c) => c.dataset.key)).toEqual(["custom:0", "custom:2"]);
+    cards()[1].click();
+    await modal.updateComplete;
+    expect(new UserSettings().getSelectedCustomSkinSlot()).toBe(2);
+    expect(cards()[1].getAttribute("aria-pressed")).toBe("true");
+    const bar = modal.querySelector<InventoryLoadoutBar>(
+      "inventory-loadout-bar",
+    )!;
+    const skins = bar.entries.find((e) => e.category === "skins")!;
+    expect(skins.summary).toBe("Dusk");
+    expect(skins.customPattern?.name).toBe("custom_2");
+    cards()[1].click();
+    await modal.updateComplete;
+    expect(new UserSettings().getSelectedCustomSkinSlot()).toBeNull();
   });
 });

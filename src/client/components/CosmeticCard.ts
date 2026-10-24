@@ -1,7 +1,11 @@
 import { Subscription } from "@openfront/shared/CosmeticSchemas";
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { ResolvedCosmetic, translateCosmetic } from "../Cosmetics";
+import {
+  isSkinCreator,
+  ResolvedCosmetic,
+  translateCosmetic,
+} from "../Cosmetics";
 import { isDesktopShell } from "../DesktopShell";
 import { translateText } from "../Utils";
 import "./CosmeticInfo";
@@ -12,6 +16,132 @@ import {
 } from "./CosmeticPresentation";
 import "./CosmeticPreview";
 import "./CosmeticPreviewBubble";
+
+const FEATURE_STYLE_ID = "cosmetic-card-feature-styles";
+if (!document.getElementById(FEATURE_STYLE_ID)) {
+  // The "Create Your Own" card is the shop's headliner: a legendary that does
+  // more than the others when it is hovered. All of it is behind the hover and
+  // is switched off for reduced motion.
+  const style = document.createElement("style");
+  style.id = FEATURE_STYLE_ID;
+  style.textContent = `
+    @keyframes cosmetic-feature-radar { to { transform: rotate(360deg); } }
+    @keyframes cosmetic-feature-halo {
+      0%, 100% { opacity: 0.55; transform: scale(1); }
+      50% { opacity: 0.95; transform: scale(1.08); }
+    }
+    @keyframes cosmetic-feature-flicker {
+      0%, 100% { opacity: 0.5; }
+      45% { opacity: 0.5; }
+      50% { opacity: 0.9; }
+      55% { opacity: 0.4; }
+    }
+    @keyframes cosmetic-feature-rise {
+      0% { opacity: 0; transform: translateY(8px) scale(0.6); }
+      30% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-46px) scale(1); }
+    }
+    [data-cosmetic-feature] {
+      --tilt-x: 0deg;
+      --tilt-y: 0deg;
+      transform-style: preserve-3d;
+      background:
+        radial-gradient(120% 90% at 50% 0%, rgba(229,56,59,0.35) 0%, transparent 60%),
+        linear-gradient(to top, rgba(180,80,0,0.8) 0%, rgba(15,15,20,0.9) 100%) !important;
+      border-color: rgba(251,191,36,0.85) !important;
+      box-shadow: 0 0 0 1px rgba(229,56,59,0.5), 0 8px 26px rgba(229,56,59,0.28);
+    }
+    [data-cosmetic-feature] [data-cosmetic-fx] {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      overflow: hidden;
+      border-radius: 0.75rem;
+      pointer-events: none;
+    }
+    [data-cosmetic-feature] [data-cosmetic-halo],
+    [data-cosmetic-feature] [data-cosmetic-radar],
+    [data-cosmetic-feature] [data-cosmetic-scan],
+    [data-cosmetic-feature] [data-cosmetic-ember] { opacity: 0; pointer-events: none; }
+    [data-cosmetic-feature] [data-cosmetic-halo] {
+      position: absolute;
+      inset: -26px;
+      z-index: -1;
+      border-radius: 1.5rem;
+      background: radial-gradient(closest-side, rgba(229,56,59,0.75), rgba(251,191,36,0.35) 60%, transparent 100%);
+      filter: blur(14px);
+      transition: opacity 0.3s ease;
+    }
+    [data-cosmetic-feature] [data-cosmetic-radar] {
+      position: absolute;
+      left: 50%;
+      top: 38%;
+      z-index: 1;
+      width: 150%;
+      aspect-ratio: 1;
+      margin: -75% 0 0 -75%;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0deg 310deg, rgba(229,56,59,0.5) 350deg, rgba(255,255,255,0.7) 360deg);
+      mix-blend-mode: screen;
+      -webkit-mask-image: radial-gradient(closest-side, #000 0 62%, transparent 63%);
+      mask-image: radial-gradient(closest-side, #000 0 62%, transparent 63%);
+    }
+    [data-cosmetic-feature] [data-cosmetic-scan] {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      border-radius: 0.75rem;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.14) 0 2px, transparent 2px 5px);
+      mix-blend-mode: multiply;
+    }
+    [data-cosmetic-feature] [data-cosmetic-ember] {
+      position: absolute;
+      bottom: 24%;
+      z-index: 3;
+      width: 6px;
+      height: 6px;
+      background: #fbbf24;
+      box-shadow: 0 0 8px 2px rgba(251,146,60,0.9);
+    }
+    cosmetic-card:hover [data-cosmetic-feature] {
+      transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateY(-10px) scale(1.2) !important;
+      animation: none !important;
+      box-shadow: 0 0 0 2px rgba(251,191,36,0.9), 0 0 36px rgba(229,56,59,0.75), 0 0 70px rgba(251,146,60,0.45) !important;
+    }
+    cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-halo] {
+      opacity: 1;
+      animation: cosmetic-feature-halo 1.6s ease-in-out infinite;
+    }
+    cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-radar] {
+      opacity: 1;
+      animation: cosmetic-feature-radar 2.4s linear infinite;
+    }
+    cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-scan] {
+      opacity: 1;
+      animation: cosmetic-feature-flicker 3s steps(1) infinite;
+    }
+    cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-ember] {
+      animation: cosmetic-feature-rise 1.6s ease-out infinite;
+    }
+    cosmetic-card:hover [data-cosmetic-feature] [data-skin-creator-art] {
+      transform: scale(1.14) rotate(-1.5deg);
+    }
+    cosmetic-card [data-cosmetic-feature] [data-cosmetic-name] {
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(251,191,36,0.7);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      cosmetic-card:hover [data-cosmetic-feature] { transform: translateY(-4px) scale(1.04) !important; }
+      cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-halo],
+      cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-radar],
+      cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-scan],
+      cosmetic-card:hover [data-cosmetic-feature] [data-cosmetic-ember],
+      cosmetic-card:hover [data-cosmetic-feature] [data-skin-creator-art] { animation: none; transform: none; }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 const COSMETIC_CARD_STYLE_ID = "cosmetic-card-styles";
 if (!document.getElementById(COSMETIC_CARD_STYLE_ID)) {
@@ -229,11 +359,15 @@ export class CosmeticCard extends LitElement {
     super.connectedCallback();
     this.addEventListener("mouseenter", this.onHoverStart);
     this.addEventListener("mouseleave", this.onHoverEnd);
+    this.addEventListener("pointermove", this.onTilt);
+    this.addEventListener("pointerleave", this.onTiltEnd);
   }
 
   disconnectedCallback() {
     this.removeEventListener("mouseenter", this.onHoverStart);
     this.removeEventListener("mouseleave", this.onHoverEnd);
+    this.removeEventListener("pointermove", this.onTilt);
+    this.removeEventListener("pointerleave", this.onTiltEnd);
     this.onHoverEnd();
     super.disconnectedCallback();
   }
@@ -262,6 +396,24 @@ export class CosmeticCard extends LitElement {
   private onHoverStart = () => {
     if (cosmeticRarity(this.activeResolved) !== "legendary") return;
     CosmeticCard.ensureBackdrop().style.background = "rgba(0,0,0,0.6)";
+  };
+
+  /** The feature card leans towards the pointer. */
+  private onTilt = (event: PointerEvent) => {
+    const shell = this.querySelector<HTMLElement>("[data-cosmetic-feature]");
+    if (shell === null) return;
+    const rect = this.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+    shell.style.setProperty("--tilt-y", `${(x * 14).toFixed(2)}deg`);
+    shell.style.setProperty("--tilt-x", `${(-y * 14).toFixed(2)}deg`);
+  };
+
+  private onTiltEnd = () => {
+    const shell = this.querySelector<HTMLElement>("[data-cosmetic-feature]");
+    shell?.style.setProperty("--tilt-x", "0deg");
+    shell?.style.setProperty("--tilt-y", "0deg");
   };
 
   private onHoverEnd = () => {
@@ -309,7 +461,12 @@ export class CosmeticCard extends LitElement {
         variant.colorPalette !== null ||
         (variant.type === "pattern" && variant.cosmetic !== null),
     );
-    if (!this.interactive || !this.showSwatches || variants.length === 0) {
+    if (
+      !this.interactive ||
+      !this.showSwatches ||
+      variants.length === 0 ||
+      isSkinCreator(this.activeResolved)
+    ) {
       return nothing;
     }
 
@@ -427,12 +584,28 @@ export class CosmeticCard extends LitElement {
       >${displayName}</span
     >`;
 
+    const feature = isSkinCreator(active);
     return html`<div
       data-cosmetic-shell
+      data-cosmetic-feature=${feature ? "skin-creator" : nothing}
       data-cosmetic-state=${this.state}
       data-cosmetic-rarity=${rarity}
       class="relative flex h-full flex-col items-center overflow-visible rounded-xl border transition-all duration-200 ease-out hover:-translate-y-1 ${shellClass}"
     >
+      ${feature
+        ? html`<span data-cosmetic-halo aria-hidden="true"></span>
+            <span data-cosmetic-fx aria-hidden="true">
+              <span data-cosmetic-radar></span>
+              <span data-cosmetic-scan></span>
+              ${[18, 36, 54, 72].map(
+                (left, i) =>
+                  html`<span
+                    data-cosmetic-ember
+                    style="left:${left}%;animation-delay:${i * 0.35}s"
+                  ></span>`,
+              )}
+            </span>`
+        : nothing}
       ${rarity === "epic" || rarity === "legendary"
         ? html`<span data-cosmetic-shimmer aria-hidden="true"></span>`
         : nothing}

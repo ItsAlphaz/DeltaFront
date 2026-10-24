@@ -1,3 +1,4 @@
+import { MAX_CUSTOM_SKINS } from "@openfront/shared/CustomSkins";
 import {
   progressState,
   rankForLevel,
@@ -17,6 +18,7 @@ import {
   AdminOpError,
   banUser,
   grantItem,
+  removeCustomSkins,
   revokeItem,
   revokeSessions,
   ROLE_VALUES,
@@ -135,6 +137,7 @@ export const ADMIN_COMMANDS = [
   "user:unverify <publicId> --reason <text> --yes",
   "user:grant-bare-name <publicId> --reason <text> --yes",
   "user:revoke-bare-name <publicId> --reason <text> --yes",
+  "skin:remove <publicId> <slot|all> --reason <text> --yes",
   "clan:list [search]",
   "clan:show <TAG>",
   "clan:rename <TAG> <new name> --reason <text>",
@@ -466,6 +469,28 @@ export async function runAdminCommand(
                 : ""),
           );
         }
+        return 0;
+      }
+      case "skin:remove": {
+        requireYes(p, "removing a player's skin design");
+        const publicId = need(p, 0, "public id");
+        const which = need(p, 1, "slot (0 to 4) or all");
+        const slot = which === "all" ? null : Number(which);
+        if (
+          slot !== null &&
+          !(Number.isInteger(slot) && slot >= 0 && slot < MAX_CUSTOM_SKINS)
+        ) {
+          throw new AdminUsageError("the slot is 0 to 4, or all");
+        }
+        const reason = reasonArg(p);
+        const removed = await withTransaction(pool, (db) =>
+          removeCustomSkins(db, ctxOf(io), publicId, slot, reason),
+        );
+        io.out(
+          removed.length === 0
+            ? `${publicId} has no such design; nothing changed`
+            : `removed from ${publicId}: ${removed.map((r) => `${r.slot} "${r.name}"`).join(", ")}`,
+        );
         return 0;
       }
       case "clan:list": {

@@ -1,4 +1,8 @@
 import {
+  SKIN_CREATOR_FLARE,
+  encodeSkinGrid,
+} from "@openfront/shared/CustomSkins";
+import {
   FailOpenPrivilegeChecker,
   PrivilegeCheckerImpl,
   resolveVerifiedJoin,
@@ -846,5 +850,82 @@ describe("FailOpenPrivilegeChecker#resolveClanTag", () => {
   it("keeps an anonymous user's tag fail-open", () => {
     const result = checker.resolveClanTag("ABC", []);
     expect(result).toEqual({ tag: "ABC", dropped: false });
+  });
+});
+
+describe("Custom skins (Create Your Own)", () => {
+  const grid = {
+    width: 8,
+    height: 8,
+    scale: 1,
+    secondary: Array.from({ length: 64 }, (_, i) => i % 2 === 0),
+  };
+  const design = (slot: number) => ({
+    slot,
+    name: `Design ${slot}`,
+    patternData: encodeSkinGrid(grid),
+    primaryColor: "#aa0000",
+    secondaryColor: "#101010",
+  });
+  const owns = [SKIN_CREATOR_FLARE];
+
+  test("puts a saved design on the player's cosmetics, from the account's own list", () => {
+    const result = checker.isAllowed(owns, { customSkin: 1 }, [
+      design(0),
+      design(1),
+    ]);
+    expect(result.type).toBe("allowed");
+    if (result.type !== "allowed") return;
+    expect(result.cosmetics.pattern).toEqual({
+      name: "custom_1",
+      patternData: design(1).patternData,
+      colorPalette: {
+        name: "custom",
+        primaryColor: "#aa0000",
+        secondaryColor: "#101010",
+      },
+    });
+  });
+
+  test("refuses a design the account did not save", () => {
+    const result = checker.isAllowed(owns, { customSkin: 3 }, [design(0)]);
+    expect(result.type).toBe("forbidden");
+    expect(checker.isAllowed(owns, { customSkin: 0 }, []).type).toBe(
+      "forbidden",
+    );
+    expect(checker.isAllowed(owns, { customSkin: 0 }).type).toBe("forbidden");
+  });
+
+  test("refuses it to an account that does not own the creator", () => {
+    const result = checker.isAllowed(
+      ["pattern:grid_check"],
+      { customSkin: 0 },
+      [design(0)],
+    );
+    expect(result.type).toBe("forbidden");
+    if (result.type === "forbidden") {
+      expect(result.reason).toContain("custom skin");
+    }
+  });
+
+  test("takes the design from the account, never from the join message", () => {
+    const result = checker.isAllowed(
+      owns,
+      {
+        customSkin: 0,
+        // a client cannot name data or a palette here; they are ignored
+        patternName: "nothing",
+      } as never,
+      [design(0)],
+    );
+    expect(result.type).toBe("allowed");
+    if (result.type === "allowed") {
+      expect(result.cosmetics.pattern?.name).toBe("custom_0");
+    }
+  });
+
+  test("leaves an ordinary join alone", () => {
+    const result = checker.isAllowed(owns, {}, [design(0)]);
+    expect(result).toEqual({ type: "allowed", cosmetics: {} });
   });
 });
