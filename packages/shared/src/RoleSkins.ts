@@ -18,11 +18,7 @@ export const ADMIN_SKINS = [
 ] as const;
 
 export const STAFF_CROWNS = ["staff_majesty", "pixel_staff"] as const;
-export const ADMIN_CROWNS = [
-  "crimson_majesty",
-  "scarlet_majesty",
-  "pixel_admin",
-] as const;
+export const ADMIN_CROWNS = ["crimson_majesty", "pixel_admin"] as const;
 /** Only the owner is given these. */
 export const OWNER_CROWNS = [
   "owner_majesty",

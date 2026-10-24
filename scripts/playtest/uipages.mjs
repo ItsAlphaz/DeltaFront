@@ -145,7 +145,6 @@ const roleCrownNames = roleSkinNames.length
       "staff_majesty",
       "pixel_staff",
       "crimson_majesty",
-      "scarlet_majesty",
       "pixel_admin",
       "owner_majesty",
       "owner_wings",
