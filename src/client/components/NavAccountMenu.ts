@@ -496,7 +496,7 @@ export class NavAccountMenu extends LitElement {
       <div
         role="menu"
         aria-label=${translateText("nav_account_menu.title")}
-        class="w-max min-w-60 max-w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-white/10 bg-zinc-900 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85),0_0_26px_-14px_var(--color-df-red)] overflow-hidden"
+        class="w-max min-w-60 max-w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-white/10 bg-zinc-900 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85)] overflow-hidden"
       >
         <!-- A thin red light along the top edge. -->
         <div
@@ -825,7 +825,7 @@ export class NavAccountMenu extends LitElement {
         aria-expanded=${this.menuOpen ? "true" : "false"}
         @click=${this.handleTriggerClick}
         class=${desktop
-          ? `nav-menu-item relative ${ring ? "h-12 gap-3 border-white/6 bg-white/2 pl-[5px] pr-4 hover:border-df-red/50 hover:bg-white/5 hover:shadow-[0_0_22px_-8px_var(--color-df-red)] aria-expanded:border-df-red/70 aria-expanded:bg-white/5 aria-expanded:shadow-[0_0_26px_-6px_var(--color-df-red)]" : "h-10 gap-2 border-white/20 bg-transparent px-3 hover:border-df-red/50"} group items-center rounded-full flex justify-center border text-white/80 hover:text-white cursor-pointer transition-[color,background-color,border-color,box-shadow] duration-300 ease-out [&.active]:text-white`
+          ? `nav-menu-item relative ${ring ? "h-12 gap-3 border-white/6 bg-white/2 pl-[5px] pr-4 hover:border-df-red/50 hover:bg-white/5 aria-expanded:border-df-red/70 aria-expanded:bg-white/5" : "h-10 gap-2 border-white/20 bg-transparent px-3 hover:border-df-red/50"} group items-center rounded-full flex justify-center border text-white/80 hover:text-white cursor-pointer transition-[color,background-color,border-color] duration-300 ease-out [&.active]:text-white`
           : "nav-menu-item h-10 flex items-center justify-center gap-1 pl-1 pr-1.5 rounded-full text-white/90 cursor-pointer transition-colors"}
         data-page="page-account"
         aria-label=${this.triggerLabel()}
