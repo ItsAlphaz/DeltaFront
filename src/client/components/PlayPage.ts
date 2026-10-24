@@ -1,7 +1,8 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { assetUrl } from "@openfront/shared/AssetUrls";
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement } from "lit/decorators.js";
+import { BRAND } from "../Branding";
 import "./CosmeticBackground";
 import "./NavAccountMenu";
 import "./NavUtilityIcons";
@@ -94,7 +95,10 @@ export class PlayPage extends LitElement {
              version is stamped into .game-version-display at boot
              (renderNavVersion), as it is in the nav drawer. -->
         <div class="hidden lg:flex flex-col items-center shrink-0 mt-[38px]">
-          ${(void import("./SplashStamp"), html`<splash-stamp></splash-stamp>`)}<!-- SPLASH-STAMP -->
+          ${BRAND.splashStampEnabled
+            ? (void import("./SplashStamp"),
+              html`<splash-stamp></splash-stamp>`)
+            : nothing}<!-- SPLASH-STAMP -->
           <img
             src=${assetUrl("images/branding/deltafront-logo.png")}
             alt="DeltaFront"

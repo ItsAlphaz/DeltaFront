@@ -34,6 +34,11 @@ export const BRAND = {
   // index.html.
   adsEnabled: false,
 
+  // The rotating "splash" stamp above the homepage logo (components/
+  // SplashStamp.ts). Off for now; set true to bring it back. While it is false
+  // the component is never loaded.
+  splashStampEnabled: false,
+
   // Steam app for the wishlist promos and "open lobby in the Steam app".
   // null: DeltaFront has no Steam build, so those stay hidden.
   steamAppId: null as string | null,
