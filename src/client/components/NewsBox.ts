@@ -300,7 +300,7 @@ export class NewsBox extends LitElement {
   private stripFrame(content: unknown, dismiss: () => void) {
     return html`
       <div
-        class="relative flex min-h-[62px] items-center justify-center gap-4 border-b border-df-border bg-df-panel py-2 pl-8 pr-32 text-center"
+        class="relative flex min-h-[62px] items-center justify-center gap-4 border-b border-df-border bg-df-panel px-32 py-2 text-center"
       >
         ${content}
         <div
