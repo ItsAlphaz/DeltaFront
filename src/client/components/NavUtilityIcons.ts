@@ -3,6 +3,98 @@ import { customElement, property } from "lit/decorators.js";
 import { desktopQuit, requestDesktopQuit } from "../DesktopShell";
 import { NavNotificationsController } from "./NavNotificationsController";
 
+const ICON_STYLE_ID = "nav-utility-icon-styles";
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById(ICON_STYLE_ID)
+) {
+  // Each icon plays its own short animation while its button is hovered or has
+  // keyboard focus: the bell rings, the question mark draws itself and its dot
+  // hops, the cogwheel turns. Motion only, switched off for reduced motion.
+  const style = document.createElement("style");
+  style.id = ICON_STYLE_ID;
+  style.textContent = `
+    .nav-icon * { transform-box: view-box; }
+    /* the bell swings from its hook, the clapper a beat behind */
+    @keyframes nav-bell-ring {
+      0%, 100% { transform: rotate(0deg); }
+      15% { transform: rotate(16deg); }
+      30% { transform: rotate(-14deg); }
+      45% { transform: rotate(10deg); }
+      60% { transform: rotate(-7deg); }
+      75% { transform: rotate(4deg); }
+      90% { transform: rotate(-2deg); }
+    }
+    @keyframes nav-bell-clapper {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-2.2px); }
+      40% { transform: translateX(2px); }
+      60% { transform: translateX(-1.4px); }
+      80% { transform: translateX(0.8px); }
+    }
+    .nav-menu-item:is(:hover, :focus-visible) .nav-bell-body {
+      transform-origin: 12px 3px;
+      animation: nav-bell-ring 0.9s ease-in-out;
+    }
+    .nav-menu-item:is(:hover, :focus-visible) .nav-bell-clapper {
+      animation: nav-bell-clapper 0.9s ease-in-out;
+    }
+    /* the question mark is drawn again and its dot hops */
+    @keyframes nav-help-draw {
+      0% { stroke-dashoffset: 16; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes nav-help-hop {
+      0%, 100% { transform: translateY(0); }
+      35% { transform: translateY(-3px); }
+      60% { transform: translateY(0); }
+      78% { transform: translateY(-1.2px); }
+    }
+    @keyframes nav-help-breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.07); }
+    }
+    .nav-menu-item:is(:hover, :focus-visible) .nav-help-mark {
+      stroke-dasharray: 16;
+      animation: nav-help-draw 0.55s ease-out;
+    }
+    .nav-menu-item:is(:hover, :focus-visible) .nav-help-dot {
+      animation: nav-help-hop 0.7s ease-out 0.4s;
+    }
+    .nav-menu-item:is(:hover, :focus-visible) .nav-help-ring {
+      transform-origin: 12px 12px;
+      animation: nav-help-breathe 1.1s ease-in-out;
+    }
+    /* the cogwheel turns a third of the way round, with a little overshoot, and its hub pulses */
+    .nav-gear-body {
+      transform-origin: 12px 12px;
+      transition: transform 0.8s cubic-bezier(0.3, 1.5, 0.5, 1);
+    }
+    .nav-menu-item:is(:hover, :focus-visible) .nav-gear-body {
+      transform: rotate(120deg);
+    }
+    @keyframes nav-gear-hub {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.35); }
+    }
+    .nav-menu-item:is(:hover, :focus-visible) .nav-gear-hub {
+      transform-origin: 12px 12px;
+      animation: nav-gear-hub 0.8s ease-in-out;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .nav-menu-item:is(:hover, :focus-visible) .nav-bell-body,
+      .nav-menu-item:is(:hover, :focus-visible) .nav-bell-clapper,
+      .nav-menu-item:is(:hover, :focus-visible) .nav-help-mark,
+      .nav-menu-item:is(:hover, :focus-visible) .nav-help-dot,
+      .nav-menu-item:is(:hover, :focus-visible) .nav-help-ring,
+      .nav-menu-item:is(:hover, :focus-visible) .nav-gear-hub { animation: none; }
+      .nav-gear-body { transition: none; }
+      .nav-menu-item:is(:hover, :focus-visible) .nav-gear-body { transform: none; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 /**
  * The news bell, help "?", settings cogwheel and (on the desktop shell) a
  * power button as icon buttons, with the notification dots the first two carry.
@@ -133,11 +225,14 @@ export class NavUtilityIcons extends LitElement {
               stroke-width="1.8"
               stroke-linecap="round"
               stroke-linejoin="round"
-              class="w-6 h-6 pointer-events-none"
+              class="nav-icon w-6 h-6 pointer-events-none"
               aria-hidden="true"
             >
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              <path
+                class="nav-bell-body"
+                d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"
+              />
+              <path class="nav-bell-clapper" d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
           </button>
           ${this._notifications.showNewsDot()
@@ -162,12 +257,21 @@ export class NavUtilityIcons extends LitElement {
               stroke-width="1.8"
               stroke-linecap="round"
               stroke-linejoin="round"
-              class="w-6 h-6 pointer-events-none"
+              class="nav-icon w-6 h-6 pointer-events-none"
               aria-hidden="true"
             >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4" />
-              <line x1="12" y1="17.5" x2="12.01" y2="17.5" />
+              <circle class="nav-help-ring" cx="12" cy="12" r="9" />
+              <path
+                class="nav-help-mark"
+                d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4"
+              />
+              <line
+                class="nav-help-dot"
+                x1="12"
+                y1="17.5"
+                x2="12.01"
+                y2="17.5"
+              />
             </svg>
           </button>
           ${this._notifications.showHelpDot()
@@ -190,11 +294,12 @@ export class NavUtilityIcons extends LitElement {
             stroke-width="1.8"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="w-6 h-6 pointer-events-none"
+            class="nav-icon w-6 h-6 pointer-events-none"
             aria-hidden="true"
           >
-            <circle cx="12" cy="12" r="3" />
+            <circle class="nav-gear-hub" cx="12" cy="12" r="3" />
             <path
+              class="nav-gear-body"
               d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
             />
           </svg>

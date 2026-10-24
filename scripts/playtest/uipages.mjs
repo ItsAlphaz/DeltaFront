@@ -129,16 +129,17 @@ catalog.patterns.create_your_own = {
   rarity: "legendary",
 };
 // ROLE_SKINS=1 adds the staff and admin skins from the private catalog, as an admin's profile reports them
-const roleSkinNames = (process.env.ROLE_SKINS ?? "")
-  ? [
-      "staff_tag",
-      "staff_diagonal",
-      "admin_tag",
-      "admin_diagonal",
-      "admin_crest",
-      "admin_shield",
-    ]
-  : [];
+const roleSkinNames =
+  (process.env.ROLE_SKINS ?? "")
+    ? [
+        "staff_tag",
+        "staff_diagonal",
+        "admin_tag",
+        "admin_diagonal",
+        "admin_crest",
+        "admin_shield",
+      ]
+    : [];
 if (roleSkinNames.length > 0) {
   const priv = JSON.parse(
     readFileSync(
@@ -735,6 +736,47 @@ for (const page of pages) {
     );
     await sleep(500);
     await shot("ui-notices");
+  }
+  // the news, help and settings icons while their buttons are hovered: which animations run, and a close-up frame of each
+  if (page === "navicons") {
+    await sleep(2500);
+    const box = (sel) =>
+      g.ev(
+        `(()=>{ const r=document.querySelector('${sel}').getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height} })()`,
+      );
+    const move = (x, y) =>
+      g.b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+    for (const [name, page, wait] of [
+      ["news", "page-news", 160],
+      ["help", "page-help", 300],
+      ["settings", "page-settings", 450],
+    ]) {
+      const r = await box(`button[data-page="${page}"]`);
+      await move(2, 2);
+      await sleep(900);
+      await move(r.x + r.w / 2, r.y + r.h / 2);
+      await sleep(wait);
+      const running = await g.ev(
+        `JSON.stringify([...document.getAnimations()].map((a) => a.animationName ?? a.transitionProperty).filter(Boolean))`,
+      );
+      console.log(name, "running:", running);
+      const { result } = await g.b.send("Page.captureScreenshot", {
+        format: "png",
+        clip: {
+          x: r.x - 8,
+          y: r.y - 8,
+          width: r.w + 16,
+          height: r.h + 16,
+          scale: 6,
+        },
+      });
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(
+        `${OUT}/ui-navicon-${name}.png`,
+        Buffer.from(result.data, "base64"),
+      );
+      console.log("shot ui-navicon-" + name);
+    }
   }
   // the profile button's hover, the menu opening, and a hovered row
   if (page === "accountmenu") {
