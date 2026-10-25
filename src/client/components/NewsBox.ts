@@ -12,6 +12,7 @@ import {
 } from "../Cosmetics";
 import {
   featuredNote,
+  msUntilNextFeatured,
   openBundlesTab,
   pickFeaturedBundle,
 } from "../FeaturedBundle";
@@ -81,6 +82,8 @@ export class NewsBox extends LitElement {
   private renderMarkdown: typeof import("../Markdown").renderMarkdown | null =
     null;
   private cycleTimer: ReturnType<typeof setInterval> | null = null;
+  // Picks the next featured bundle at the top of the hour.
+  private featuredTimer: ReturnType<typeof setTimeout> | null = null;
 
   createRenderRoot() {
     return this;
@@ -98,7 +101,17 @@ export class NewsBox extends LitElement {
     void this.loadFeatured();
   }
 
+  private scheduleFeatured() {
+    if (this.featuredTimer !== null) clearTimeout(this.featuredTimer);
+    // A moment past the hour, so the clock is surely in the new one.
+    this.featuredTimer = setTimeout(() => {
+      this.featuredTimer = null;
+      void this.loadFeatured();
+    }, msUntilNextFeatured() + 500);
+  }
+
   private async loadFeatured() {
+    this.scheduleFeatured();
     try {
       const cosmetics = await fetchCosmetics();
       const hadFeatured = this.showsFeatured;
@@ -153,6 +166,8 @@ export class NewsBox extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener("userMeResponse", this.onUserMe);
+    if (this.featuredTimer !== null) clearTimeout(this.featuredTimer);
+    this.featuredTimer = null;
     this.stopCycle();
   }
 

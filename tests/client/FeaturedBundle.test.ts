@@ -17,7 +17,12 @@ vi.mock("../../src/client/Cosmetics", async (importOriginal) => ({
 }));
 
 import "../../src/client/components/NewsBox";
-import { pickFeaturedBundle } from "../../src/client/FeaturedBundle";
+import {
+  FEATURED_ROTATION_MS,
+  featuredCandidates,
+  msUntilNextFeatured,
+  pickFeaturedBundle,
+} from "../../src/client/FeaturedBundle";
 
 const NOW = Date.parse("2026-10-20T12:00:00Z");
 
@@ -59,7 +64,7 @@ function bundle(
 const me = (level: number) =>
   ({ player: { progress: { level, prestige: 0 } } }) as never;
 
-describe("pickFeaturedBundle", () => {
+describe("the featured bundle candidates", () => {
   it("is nothing when there is nothing to feature", () => {
     expect(pickFeaturedBundle([], false, NOW)).toBeNull();
     expect(
@@ -68,16 +73,20 @@ describe("pickFeaturedBundle", () => {
   });
 
   it("takes the biggest saving when none is seasonal", () => {
-    const picked = pickFeaturedBundle(
+    const picked = featuredCandidates(
       [bundle("small", 2400), bundle("big", 1500), bundle("mid", 2000)],
       false,
       NOW,
     );
-    expect((picked!.cosmetic as { name: string }).name).toBe("big");
+    expect(picked.map((r) => (r.cosmetic as { name: string }).name)).toEqual([
+      "big",
+      "mid",
+      "small",
+    ]);
   });
 
   it("prefers a seasonal bundle, the one ending soonest", () => {
-    const picked = pickFeaturedBundle(
+    const picked = featuredCandidates(
       [
         bundle("evergreen", 1000),
         bundle("later", 2000, { endsAt: "2026-12-01T00:00:00Z" }),
@@ -86,11 +95,15 @@ describe("pickFeaturedBundle", () => {
       false,
       NOW,
     );
-    expect((picked!.cosmetic as { name: string }).name).toBe("soon");
+    expect(picked.map((r) => (r.cosmetic as { name: string }).name)).toEqual([
+      "soon",
+      "later",
+      "evergreen",
+    ]);
   });
 
   it("skips a bundle that has ended, has not started, is part-owned or is level-locked", () => {
-    const picked = pickFeaturedBundle(
+    const picked = featuredCandidates(
       [
         bundle("ended", 1000, { endsAt: "2026-10-19T00:00:00Z" }),
         bundle("future", 1000, { startsAt: "2026-10-21T00:00:00Z" }),
@@ -101,14 +114,57 @@ describe("pickFeaturedBundle", () => {
       me(10),
       NOW,
     );
-    expect((picked!.cosmetic as { name: string }).name).toBe("fine");
+    expect(picked.map((r) => (r.cosmetic as { name: string }).name)).toEqual([
+      "fine",
+    ]);
     // the same locked bundle is offered once the account is high enough
-    const high = pickFeaturedBundle(
+    const high = featuredCandidates(
       [bundle("locked", 1000, {}, "purchasable", [item(1000, 40), item(1500)])],
       me(40),
       NOW,
     );
-    expect(high).not.toBeNull();
+    expect(high).toHaveLength(1);
+  });
+});
+
+describe("pickFeaturedBundle", () => {
+  const three = () => [bundle("a", 1500), bundle("b", 2000), bundle("c", 2400)];
+  const nameAt = (now: number) =>
+    (pickFeaturedBundle(three(), false, now)!.cosmetic as { name: string })
+      .name;
+
+  it("is nothing when there is nothing to feature", () => {
+    expect(pickFeaturedBundle([], false, NOW)).toBeNull();
+  });
+
+  it("stays the same within an hour and moves to the next at the top of the hour", () => {
+    const hour = Math.floor(NOW / FEATURED_ROTATION_MS) * FEATURED_ROTATION_MS;
+    const first = nameAt(hour);
+    expect(nameAt(hour + FEATURED_ROTATION_MS - 1)).toBe(first);
+    const second = nameAt(hour + FEATURED_ROTATION_MS);
+    expect(second).not.toBe(first);
+    const third = nameAt(hour + 2 * FEATURED_ROTATION_MS);
+    expect(new Set([first, second, third]).size).toBe(3);
+    // and round again after the last
+    expect(nameAt(hour + 3 * FEATURED_ROTATION_MS)).toBe(first);
+  });
+
+  it("is a single bundle's turn every hour when there is only one", () => {
+    const only = [bundle("only", 1500)];
+    for (let h = 0; h < 4; h++) {
+      const picked = pickFeaturedBundle(
+        only,
+        false,
+        NOW + h * FEATURED_ROTATION_MS,
+      );
+      expect((picked!.cosmetic as { name: string }).name).toBe("only");
+    }
+  });
+
+  it("says how long until the hour turns", () => {
+    const hour = Math.floor(NOW / FEATURED_ROTATION_MS) * FEATURED_ROTATION_MS;
+    expect(msUntilNextFeatured(hour)).toBe(FEATURED_ROTATION_MS);
+    expect(msUntilNextFeatured(hour + 1000)).toBe(FEATURED_ROTATION_MS - 1000);
   });
 });
 
