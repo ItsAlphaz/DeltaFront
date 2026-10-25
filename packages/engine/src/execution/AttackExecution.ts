@@ -327,6 +327,14 @@ export class AttackExecution implements Execution {
     const targetIsPlayer = this.target.isPlayer(); // cache target type
     const targetPlayer = targetIsPlayer ? (this.target as Player) : null; // cache target player
 
+    // Before the retreat: another attack's init can absorb or cancel this one
+    // on the tick its retreat completes, and its troops are then someone
+    // else's. Refunding them here as well duplicates them.
+    if (!this.attack.isActive()) {
+      this.active = false;
+      return;
+    }
+
     if (this.attack.retreated()) {
       if (targetIsPlayer) {
         this.retreat(malusForRetreat);
@@ -338,11 +346,6 @@ export class AttackExecution implements Execution {
     }
 
     if (this.attack.retreating()) {
-      return;
-    }
-
-    if (!this.attack.isActive()) {
-      this.active = false;
       return;
     }
 

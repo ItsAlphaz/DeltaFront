@@ -746,6 +746,88 @@ describe("Fractional attack troop duplication (#4948)", () => {
   });
 });
 
+// An attack whose retreat completes on the tick another attack absorbs it must
+// not refund the troops the absorbing attack now carries (OpenFront #6089).
+describe("Retreat on the tick the attack is absorbed", () => {
+  // Two neighbours, the first player attacks the second, then a second attack
+  // on the same target starts and absorbs the first. With `retreat` the first
+  // attack's retreat completes right after. Returns what the owner holds.
+  async function run(retreat: boolean) {
+    const rGame = await setup("ocean_and_land", {
+      infiniteGold: true,
+      instantBuild: true,
+    });
+    const attackerInfo = new PlayerInfo(
+      "attacker dude",
+      PlayerType.Human,
+      null,
+      "attacker_id",
+    );
+    const defenderInfo = new PlayerInfo(
+      "defender dude",
+      PlayerType.Human,
+      null,
+      "defender_id",
+    );
+    rGame.addPlayer(attackerInfo);
+    rGame.addPlayer(defenderInfo);
+    rGame.addExecution(
+      new SpawnExecution(
+        gameID,
+        rGame.player(attackerInfo.id).info(),
+        rGame.ref(0, 10),
+      ),
+      new SpawnExecution(
+        gameID,
+        rGame.player(defenderInfo.id).info(),
+        rGame.ref(0, 15),
+      ),
+    );
+    rGame.executeNextTick();
+    rGame.executeNextTick();
+    const rAttacker = rGame.player(attackerInfo.id);
+    const rDefender = rGame.player(defenderInfo.id);
+
+    // Give the attacker an unowned tile next to the defender, so the attack
+    // has something to conquer and lives on.
+    let given = false;
+    for (const tile of Array.from(rDefender.borderTiles())) {
+      for (const n of rGame.neighbors(tile)) {
+        if (!given && rGame.isLand(n) && !rGame.hasOwner(n)) {
+          rAttacker.conquer(n);
+          given = true;
+        }
+      }
+    }
+    expect(given).toBe(true);
+
+    rGame.addExecution(new AttackExecution(60, rAttacker, rDefender.id()));
+    rGame.executeNextTick();
+    const first = rAttacker.outgoingAttacks()[0];
+    expect(first).toBeDefined();
+    // The new attack's init (at the end of this tick) absorbs the first.
+    rGame.addExecution(new AttackExecution(1, rAttacker, rDefender.id()));
+    rGame.executeNextTick();
+    expect(first.isActive()).toBe(false);
+    // Its retreat completes on the tick the absorbed attack's execution still
+    // runs; its troops now belong to the new attack.
+    if (retreat) first.executeRetreat();
+    rGame.executeNextTick();
+    return {
+      owner: rAttacker.troops(),
+      inFlight: rAttacker
+        .outgoingAttacks()
+        .reduce((sum, attack) => sum + attack.troops(), 0),
+    };
+  }
+
+  it("does not hand the absorbed attack's troops back to the owner as well", async () => {
+    const absorbed = await run(false);
+    const absorbedAndRetreated = await run(true);
+    expect(absorbedAndRetreated).toEqual(absorbed);
+  });
+});
+
 describe("Attack with nothing to conquer", () => {
   let tGame: Game;
   let tAttacker: Player;
