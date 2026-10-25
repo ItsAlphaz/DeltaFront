@@ -1,7 +1,7 @@
 // A crown cosmetic over a player's name in a real match: how large it is, and whether it reads on dark land.
 //   scripts/playtest/stack.sh node scripts/playtest/crown.mjs [crown.svg ...]
 // Each svg (default: the private catalog's staff, admin and owner crowns) is served to the page as the crown of "me",
-// who leads the match; one screenshot per crown, zoomed in on the name.
+// who leads the match; one screenshot per crown, zoomed in on the name. KEEP=30 leaves the first match open for 30 minutes.
 import { readFileSync } from "node:fs";
 import { openGame, sleep, startMatch } from "./game.mjs";
 
@@ -21,7 +21,7 @@ const crowns = files.length
       "crown_ivory_owner.svg",
     ];
 
-for (const file of crowns) {
+for (const file of process.env.KEEP ? crowns.slice(0, 1) : crowns) {
   const svg = readFileSync(file.includes("/") ? file : new URL(file, dir));
   const g = await openGame({ width: 1280, height: 800 });
   await g.b.send("Fetch.enable", {
@@ -82,5 +82,15 @@ for (const file of crowns) {
   const name = file.replace(/^crown_|\.svg$/g, "").replace(/.*\//, "");
   await g.b.shot(`crown-${name}`);
   console.log("shot crown-" + name);
+  if (process.env.KEEP) {
+    // leave the match open to look at: it ends when the window is closed or after KEEP minutes
+    console.log(
+      "match open: close the window (or wait " +
+        process.env.KEEP +
+        " minutes) to stop",
+    );
+    for (let i = 0; i < Number(process.env.KEEP) * 12 && !g.b.isClosed(); i++)
+      await sleep(5000);
+  }
   await g.close();
 }
