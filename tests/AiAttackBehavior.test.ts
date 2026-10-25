@@ -95,6 +95,26 @@ describe("Ai Attack Behavior", () => {
     attackBehavior = env.behavior;
   });
 
+  describe("neighbouring traitors", () => {
+    test("an unallied traitor neighbour is a target", () => {
+      human.markTraitor();
+      expect(attackBehavior.getNeighborTraitorToAttack()).toBe(human);
+      expect(attackBehavior.getNeighborTraitorToAttack(true)).toBe(human);
+    });
+
+    test("an allied traitor is left alone unless allies are included (a tribe breaks the alliance first)", () => {
+      bot.createAllianceRequest(human)?.accept();
+      expect(bot.isAlliedWith(human)).toBe(true);
+      human.markTraitor();
+      expect(attackBehavior.getNeighborTraitorToAttack()).toBeNull();
+      expect(attackBehavior.getNeighborTraitorToAttack(true)).toBe(human);
+    });
+
+    test("a neighbour who is not a traitor is never a target", () => {
+      expect(attackBehavior.getNeighborTraitorToAttack(true)).toBeNull();
+    });
+  });
+
   test("bot cannot attack allied player", () => {
     // Form alliance (bot creates request to human)
     const allianceRequest = bot.createAllianceRequest(human);

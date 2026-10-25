@@ -1059,14 +1059,21 @@ export class AiAttackBehavior {
     }
   }
 
-  getNeighborTraitorToAttack(): Player | null {
+  /**
+   * A random neighbouring traitor. Allies are left out unless `includeAllies`
+   * is set: a nation never attacks an ally without breaking the alliance
+   * first, while a tribe does exactly that (TribeExecution.maybeAttack).
+   */
+  getNeighborTraitorToAttack(includeAllies = false): Player | null {
     if (this.game.config().disableAlliances()) return null;
 
     const traitors = this.player
       .nearby()
       .filter(
         (n): n is Player =>
-          n.isPlayer() && this.player.isFriendly(n) === false && n.isTraitor(),
+          n.isPlayer() &&
+          (includeAllies || this.player.isFriendly(n) === false) &&
+          n.isTraitor(),
       );
     return traitors.length > 0 ? this.random.randElement(traitors) : null;
   }
