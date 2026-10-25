@@ -81,6 +81,7 @@ describe("createRenderer", () => {
     const eventBus = new EventBus();
     const game = {
       layers: () => [],
+      mapNationCount: () => 0,
       width: () => 100,
       height: () => 100,
       isValidCoord: () => true,
