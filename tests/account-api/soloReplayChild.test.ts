@@ -77,6 +77,9 @@ function startInfo(over: Partial<GameConfig> = {}): GameStartInfo {
   };
 }
 
+/** Whether the human was still alive when the live game's 400 ticks were over. */
+let humanAliveLive: boolean | null = null;
+
 /** Plays 400 ticks live (spawn, then attacks), with the hashes LocalServer stores. */
 async function play(start: GameStartInfo): Promise<Turn[]> {
   const hashes = new Map<number, number>();
@@ -128,6 +131,7 @@ async function play(start: GameStartInfo): Promise<Turn[]> {
     runner.addTurn(turn);
     if (!runner.executeNextTick()) throw new Error("tick failed");
   }
+  humanAliveLive = game.playerByClientID(HUMAN)?.isAlive() ?? null;
   for (const [tick, hash] of hashes) {
     if (tick % 100 === 0 && turns[tick] !== undefined) turns[tick].hash = hash;
   }
@@ -154,7 +158,13 @@ describe("the account API's replay subprocess", () => {
       infiniteTroops: false,
     });
     expect(r.ticks).toBe(400);
-    expect(r.humans).toEqual([{ clientID: HUMAN, spawned: true, alive: true }]);
+    // Whether a passive player survives 400 ticks among Hard nations depends
+    // on the nations' play (a small pocket can be absorbed), so the replay is
+    // held to what the live game ended with, not to a fixed outcome.
+    expect(humanAliveLive).not.toBeNull();
+    expect(r.humans).toEqual([
+      { clientID: HUMAN, spawned: true, alive: humanAliveLive },
+    ]);
   }, 60_000);
 
   it("does not reproduce a record played under another setup", async () => {

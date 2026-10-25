@@ -541,23 +541,32 @@ export class Config {
    * the flat amount a standing capital adds (scaled by how far it has ramped).
    */
   maxTroops(player: PlayerLike): number {
-    const base = this.maxTroopsWithoutCapital(player);
+    return this.withCapitalBonus(player, this.troopCap(player, true));
+  }
+
+  /** maxTroops without what cities add. */
+  maxTroopsWithoutCities(player: PlayerLike): number {
+    return this.withCapitalBonus(player, this.troopCap(player, false));
+  }
+
+  private withCapitalBonus(player: PlayerLike, base: number): number {
     const strength = player.capitalStrengthPercent?.() ?? 0;
     if (strength === 0 || !this.capitalSystemEnabled()) return base;
     return base + scaleBonus(this.capitalSpec().bonusMaxTroops, strength);
   }
 
-  private maxTroopsWithoutCapital(player: PlayerLike): number {
+  private troopCap(player: PlayerLike, withCities: boolean): number {
+    const cityTroops = withCities
+      ? player
+          .units(UnitType.City)
+          .filter((u) => !u.isUnderConstruction())
+          .map((city) => city.level())
+          .reduce((a, b) => a + b, 0) * this.cityTroopIncrease()
+      : 0;
     const maxTroops =
       player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)
         ? 1_000_000_000
-        : 2 * (pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +
-          player
-            .units(UnitType.City)
-            .filter((u) => !u.isUnderConstruction())
-            .map((city) => city.level())
-            .reduce((a, b) => a + b, 0) *
-            this.cityTroopIncrease();
+        : 2 * (pow(player.numTilesOwned(), 0.6) * 1000 + 50000) + cityTroops;
 
     if (player.type() === PlayerType.Bot) {
       return maxTroops / 3;
