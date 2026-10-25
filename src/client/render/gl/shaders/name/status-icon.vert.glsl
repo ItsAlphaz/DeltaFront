@@ -209,10 +209,13 @@ void main() {
     // If an emoji is also active it occupies one extra slot on the right,
     // so include it in the total for centering purposes.
     // totalActive is precomputed by the CPU into pd8.z — single source of truth.
-    int totalActive = int(pd8.z);
+    // A crown cosmetic is drawn large above the row on its own, so it takes
+    // no place in the row (icon.vert.glsl leaves it out of the count too).
+    bool crownSkinned = statusFlag[0] > 0.5 && pd8.x >= 0.0;
+    int totalActive = int(pd8.z) - (crownSkinned ? 1 : 0);
     bool hasEmoji = (pd4.y >= 0.0);
     int totalItems = totalActive + (hasEmoji ? 1 : 0);
-    int myIndex = countBelow(iconSlot);
+    int myIndex = countBelow(iconSlot) - ((crownSkinned && iconSlot > 0) ? 1 : 0);
 
     // Horizontal centering: treat status icons + emoji as one group.
     float gap = iconWorldSize * 0.15;
@@ -222,6 +225,20 @@ void main() {
 
     // Position: same row as the emoji
     iconY = wy - uFontBase * nameWorldScale * uStatusRowOffset;
+
+    // The crown cosmetic: much larger than the row's icons, centred over the
+    // name. Alone it sits on the name's top edge; with other icons it sits
+    // just above their row.
+    if (iconSlot == 0 && crownSkinned) {
+      float lineHeight = uFontBase * nameWorldScale;
+      float crownSize = iconWorldSize * 2.4;
+      float bottom = (totalItems > 0)
+        ? iconY - iconWorldSize * 0.1
+        : wy - lineHeight * 0.52;
+      iconWorldSize = crownSize;
+      iconX = wx - crownSize * 0.5;
+      iconY = bottom - crownSize;
+    }
   }
 
   // Determine atlas index
@@ -258,6 +275,9 @@ void main() {
     ? min(uStatusPad - 2.0, uStatusOutlinePx + 2.0)
     : 0.0;
   float marginWorld = marginTex * (iconWorldSize / iconTexels);
+  // The crown cosmetic's quad grows by a margin so its soft shadow is not cut
+  // off at the artwork's edge (the fragment shader masks outside [0,1]).
+  if (vCrownLayer >= 0) marginWorld = iconWorldSize * 0.18;
 
   // Quad world position (expanded by the outline margin, centred on the icon)
   vec2 iconOrigin = vec2(iconX, iconY) - vec2(marginWorld);

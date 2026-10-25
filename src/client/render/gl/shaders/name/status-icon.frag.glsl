@@ -28,15 +28,34 @@ const vec2 kRing[8] = vec2[8](
   vec2(0.707, -0.707), vec2(-0.707, -0.707)
 );
 
+// The crown cosmetic at a position in its quad, transparent outside the
+// artwork (the quad is larger than the image to leave room for the shadow).
+vec4 crownTexel(vec2 uv) {
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return vec4(0.0);
+  return texture(uCrownAtlas, vec3(uv, float(vCrownLayer)));
+}
+
 void main() {
   if (vDiscard != 0) discard;
 
   // A crown cosmetic replaces the default first-place crown icon. Only slot 0
   // ever carries a layer, and its quad has no outline margin, so vLocalUV is
   // plain [0,1] over the icon.
-  vec4 texel = (vCrownLayer >= 0)
-    ? texture(uCrownAtlas, vec3(vLocalUV, float(vCrownLayer)))
-    : texture(uStatusAtlas, vUV);
+  vec4 texel;
+  float shadow = 0.0;
+  if (vCrownLayer >= 0) {
+    texel = crownTexel(vLocalUV);
+    // A subtle soft shadow under the crown so it stays readable on any
+    // territory colour: the artwork's alpha, blurred and nudged downwards.
+    vec2 from = vLocalUV - vec2(0.0, 0.02);
+    float blur = crownTexel(from).a;
+    for (int i = 0; i < 8; i++) {
+      blur += crownTexel(from + kRing[i] * 0.035).a;
+    }
+    shadow = blur / 9.0 * 0.42;
+  } else {
+    texel = texture(uStatusAtlas, vUV);
+  }
 
   // Alliance drain: composite faded icon behind colored icon, clipped by fraction.
   // Matches the game's CSS clip-path: inset(topCut% -2px 0 -2px) behavior.
@@ -61,6 +80,15 @@ void main() {
   // Traitor flash + hover fade: modulate alpha
   float fade = vFlashAlpha * vHoverAlpha;
   texel.a *= fade;
+
+  // Lay the crown over its shadow.
+  if (vCrownLayer >= 0) {
+    float shadowA = shadow * fade * (1.0 - texel.a);
+    float outA = texel.a + shadowA;
+    if (outA < 0.01) discard;
+    fragColor = vec4(texel.rgb * texel.a / outA, outA);
+    return;
+  }
 
   // Dark outline: dilate the icon's alpha so it stays legible over terrain of a
   // similar color (the green alliance icon vs. irradiated land). Sampling the

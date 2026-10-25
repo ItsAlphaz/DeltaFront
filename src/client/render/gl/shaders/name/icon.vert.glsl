@@ -138,7 +138,11 @@ void main() {
     // Read precomputed active status icon count from pd8.z (set by CPU, avoids
     // duplicating flag logic here and in status-icon.vert.glsl).
     vec4 pd8 = texelFetch(uPlayerData, ivec2(8, playerIdx), 0);
-    int totalStatusActive = int(pd8.z);
+    // A crown cosmetic is drawn on its own above the row (status-icon.vert.glsl),
+    // so it is not one of the row's items.
+    vec4 pd5 = texelFetch(uPlayerData, ivec2(5, playerIdx), 0);
+    bool crownSkinned = pd5.x > 0.5 && pd8.x >= 0.0;
+    int totalStatusActive = int(pd8.z) - (crownSkinned ? 1 : 0);
 
     // Place emoji as rightmost slot in the combined group, or centered if alone.
     float gap = emojiWorldSize * 0.15;

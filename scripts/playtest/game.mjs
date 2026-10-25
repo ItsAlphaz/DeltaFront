@@ -129,7 +129,7 @@ export async function openGame(o = {}) {
  * A two-human match on Antarctica (compact): "me" (the player of this page) and
  * a scripted raider, spawned 9 tiles apart. Returns inject(who, intent): queue an
  * intent for either player (solo only).
- *   startingGold, capitalSystem, extra (more GameConfig fields)
+ *   startingGold, capitalSystem, extra (more GameConfig fields), myCosmetics (the cosmetics of "me")
  *   buyCapitals (default true): v0.8.0 sells the capital, so both players buy
  *     theirs (the same order the tile picker sends) once the spawn phase is over;
  *     false leaves them without one, for a check of the purchase itself.
@@ -138,7 +138,7 @@ export async function startMatch(g, o = {}) {
   const cap = o.capitalSystem ?? { enabled: true };
   await g.ev(`(()=>{ const cid='me'+Math.random().toString(36).slice(2,8).padEnd(6,'x'), p2='fo'+Math.random().toString(36).slice(2,8).padEnd(6,'x'); window.__cid=cid; window.__p2=p2; const gid='g'+Math.random().toString(36).slice(2,10);
     document.dispatchEvent(new CustomEvent('join-lobby',{bubbles:true,composed:true,detail:{gameID:gid,source:'singleplayer',gameStartInfo:{gameID:gid,lobbyCreatedAt:Date.now(),
-     players:[{clientID:cid,username:${JSON.stringify(o.myName ?? "Playtester")},clanTag:null,cosmetics:{}},{clientID:p2,username:${JSON.stringify(o.foeName ?? "Raider")},clanTag:null,cosmetics:{}}],
+     players:[{clientID:cid,username:${JSON.stringify(o.myName ?? "Playtester")},clanTag:null,cosmetics:${JSON.stringify(o.myCosmetics ?? {})}},{clientID:p2,username:${JSON.stringify(o.foeName ?? "Raider")},clanTag:null,cosmetics:{}}],
      config:{gameMap:'Antarctica',gameMapSize:'Compact',gameType:'Singleplayer',gameMode:'Free For All',playerTeams:2,difficulty:'Medium',maxTimerValue:undefined,bots:0,infiniteGold:false,donateGold:false,donateTroops:false,infiniteTroops:false,instantBuild:true,randomSpawn:false,disabledUnits:[],nations:'disabled',startingGold:${o.startingGold ?? 3000000},capitalSystem:${JSON.stringify(cap)},...${JSON.stringify(o.extra ?? {})}}}}}));
     window.__inject=[{type:'spawn',tile:612071,clientID:cid},{type:'spawn',tile:612080,clientID:p2}];return 1})()`);
   for (let i = 0; i < 60; i++) {
