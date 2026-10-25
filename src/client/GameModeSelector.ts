@@ -104,8 +104,8 @@ const SOLO_CSS = `
   box-shadow: inset 0 0 18px -8px color-mix(in srgb, var(--color-df-red) 0%, transparent);
 }
 .action-btn:hover:not([aria-disabled="true"]) {
-  background-color: color-mix(in srgb, var(--color-df-red) 7%, var(--color-df-panel));
-  box-shadow: inset 0 0 18px -8px color-mix(in srgb, var(--color-df-red) 70%, transparent);
+  background-color: color-mix(in srgb, var(--color-df-red) 2%, var(--color-df-panel));
+  box-shadow: inset 0 0 18px -8px color-mix(in srgb, var(--color-df-red) 15%, transparent);
 }
 .action-btn .action-fx {
   position: absolute;
