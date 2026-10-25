@@ -26,9 +26,11 @@ export function notableLobbySettings(
       label: translateText("host_modal.crowded"),
       value: enabled,
     });
+  // The difficulty belongs to the nations, so it means nothing without them.
   if (
-    pm?.isHardNations ||
-    (c.gameType === GameType.Private && c.difficulty !== Difficulty.Easy)
+    c.nations !== "disabled" &&
+    (pm?.isHardNations ||
+      (c.gameType === GameType.Private && c.difficulty !== Difficulty.Easy))
   )
     items.push({
       label: translateText("difficulty.difficulty"),
