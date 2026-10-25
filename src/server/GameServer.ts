@@ -144,6 +144,17 @@ function configWithoutPool(config: GameConfig): GameConfig {
   return copy;
 }
 
+// `allowedPublicIds` / `nameRevealPublicIds` hold account publicIds and are
+// enforced server-side against the full config. A config that leaves the server
+// (the client start message, the publicly downloadable game record, the
+// unauthenticated gameInfo route and the lobby_info broadcast) carries neither.
+function sanitizeConfigForWire(config: GameConfig): GameConfig {
+  const copy = configWithoutPool(config);
+  delete copy.allowedPublicIds;
+  delete copy.nameRevealPublicIds;
+  return copy;
+}
+
 const KICK_REASON_DUPLICATE_SESSION = "kick_reason.duplicate_session";
 const KICK_REASON_LOBBY_CREATOR = "kick_reason.lobby_creator";
 const KICK_REASON_ADMIN = "kick_reason.admin";
@@ -1337,9 +1348,7 @@ export class GameServer {
     // enforced server-side against this.gameConfig (joinClient / seesReal).
     // Keep them out of gameStartInfo: its config goes to every client in the
     // start message and into the publicly downloadable game record.
-    const config = configWithoutPool(this.gameConfig);
-    delete config.allowedPublicIds;
-    delete config.nameRevealPublicIds;
+    const config = sanitizeConfigForWire(this.gameConfig);
     // With progression on every game's clients report the live stats the server
     // votes on: that is what lets a player see their XP while they play.
     if (progressFeedEnabled()) config.liveStatsEnabled = true;
@@ -1907,8 +1916,9 @@ export class GameServer {
   // anonymizes all names when the option is on.
   public gameInfo(viewer?: ClientID): GameInfo {
     // Goes out over the unauthenticated /api/game/:id route and the per-second
-    // lobby_info broadcast, so strip the pool secrets (see configWithoutPool).
-    const gameConfig = configWithoutPool(this.gameConfig);
+    // lobby_info broadcast, so strip the pool secrets and the publicId lists
+    // (see sanitizeConfigForWire).
+    const gameConfig = sanitizeConfigForWire(this.gameConfig);
     return {
       gameID: this.id,
       clients: this.names.lobbyClients(viewer, this.clients.active()),

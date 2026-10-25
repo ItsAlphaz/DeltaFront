@@ -140,4 +140,23 @@ describe("GameServer - allowlist (allowedPublicIds)", () => {
     // The server still enforces the allowlist from its own config.
     expect(game.gameConfig.allowedPublicIds).toEqual(["pub-ok"]);
   });
+
+  it("keeps publicId lists out of gameInfo (the public route and the lobby broadcast)", () => {
+    const game = harnessGame({
+      config: {
+        gameType: GameType.Private,
+        allowedPublicIds: ["pub-ok"],
+        nameRevealPublicIds: ["pub-reveal"],
+      },
+    });
+    const info = game.gameInfo();
+    expect(info.gameConfig?.allowedPublicIds).toBeUndefined();
+    expect(info.gameConfig?.nameRevealPublicIds).toBeUndefined();
+    // The server's own config keeps them, so the allowlist still holds.
+    expect(game.gameConfig.allowedPublicIds).toEqual(["pub-ok"]);
+    expect(game.gameConfig.nameRevealPublicIds).toEqual(["pub-reveal"]);
+    expect(game.joinClient(makeClient(C2, "p2", "pub-no"))).toBe(
+      "not_allowlisted",
+    );
+  });
 });
