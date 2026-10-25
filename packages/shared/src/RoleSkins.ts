@@ -24,6 +24,7 @@ export const OWNER_CROWNS = [
   "owner_majesty",
   "owner_wings",
   "pixel_owner",
+  "ivory_owner",
 ] as const;
 
 /** The skin names a staff role is given: everyone on staff gets the staff skins, admins and the owner the admin ones too. */

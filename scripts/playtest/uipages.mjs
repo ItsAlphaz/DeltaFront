@@ -149,6 +149,7 @@ const roleCrownNames = roleSkinNames.length
       "owner_majesty",
       "owner_wings",
       "pixel_owner",
+      "ivory_owner",
     ]
   : [];
 if (roleSkinNames.length > 0) {
