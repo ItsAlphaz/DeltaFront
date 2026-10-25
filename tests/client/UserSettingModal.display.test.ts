@@ -216,10 +216,17 @@ describe("Display tab visibility", () => {
 // Keybinds is about having keys, not about screen size, so this is gated on
 // the primary pointer rather than a breakpoint.
 describe("Keybinds tab on touch devices", () => {
-  beforeEach(resetDom);
+  const clearKeyboardFlag = () => {
+    delete (window as unknown as Record<string, unknown>).__hasKeyboard;
+  };
+  beforeEach(() => {
+    resetDom();
+    clearKeyboardFlag();
+  });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    clearKeyboardFlag();
   });
 
   it("is present with a fine pointer", async () => {
@@ -231,6 +238,32 @@ describe("Keybinds tab on touch devices", () => {
   it("is absent on a touch device", async () => {
     vi.spyOn(Platform, "isTouch", "get").mockReturnValue(true);
     const el = await mount();
+    expect(tabKeys(el)).not.toContain("keybinds");
+  });
+
+  // A tablet with a cover, a touchscreen laptop: the first key pressed outside
+  // a text field shows there is a keyboard, and the tab appears at once.
+  it("appears on a touch device once a key is pressed outside a text field", async () => {
+    vi.spyOn(Platform, "isTouch", "get").mockReturnValue(true);
+    const el = await mount();
+    expect(tabKeys(el)).not.toContain("keybinds");
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "w", bubbles: true, composed: true }),
+    );
+    await flush(el);
+    expect(tabKeys(el)).toContain("keybinds");
+  });
+
+  it("does not appear for typing in a text field (an on-screen keyboard)", async () => {
+    vi.spyOn(Platform, "isTouch", "get").mockReturnValue(true);
+    const el = await mount();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "a", bubbles: true, composed: true }),
+    );
+    await flush(el);
     expect(tabKeys(el)).not.toContain("keybinds");
   });
 

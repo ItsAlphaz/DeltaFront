@@ -152,4 +152,50 @@ describe("Platform", () => {
     expect(platform.isTabletWidth).toBe(false);
     expect(platform.isDesktopWidth).toBe(false);
   });
+
+  describe("hasKeyboard", () => {
+    const ua =
+      "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Safari/537.36";
+    const touch = (coarse: boolean) =>
+      vi.stubGlobal("matchMedia", () => ({ matches: coarse }));
+    const press = (target: EventTarget) =>
+      target.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "w",
+          bubbles: true,
+          composed: true,
+        }),
+      );
+
+    it("is true on a device that is not touch", async () => {
+      touch(false);
+      const platform = await loadPlatform({ userAgent: ua });
+      expect(platform.hasKeyboard).toBe(true);
+    });
+
+    it("is false on a touch device until a key is pressed outside a text field", async () => {
+      touch(true);
+      const platform = await loadPlatform({ userAgent: ua });
+      expect(platform.hasKeyboard).toBe(false);
+
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+      press(input);
+      expect(platform.hasKeyboard).toBe(false);
+
+      press(document.body);
+      expect(platform.hasKeyboard).toBe(true);
+      delete (window as unknown as Record<string, unknown>).__hasKeyboard;
+    });
+
+    it("does not take a fine pointer for a keyboard on a touch device", async () => {
+      touch(true);
+      const platform = await loadPlatform({
+        userAgent: ua,
+        maxTouchPoints: 5,
+      });
+      expect(platform.isTouch).toBe(true);
+      expect(platform.hasKeyboard).toBe(false);
+    });
+  });
 });

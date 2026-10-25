@@ -89,6 +89,36 @@ export const Platform = (() => {
 
   const isMac = currentOS === "macOS";
 
+  // A touch device may still have a keyboard (a tablet with a cover, a
+  // touchscreen laptop). `(pointer: coarse)` cannot tell, so the first key
+  // pressed outside a text field says so: on-screen keyboards type into
+  // fields, a real one is also used on the page itself.
+  const KEYBOARD_FLAG = "__hasKeyboard";
+  const isTextEntry = (event: KeyboardEvent): boolean => {
+    const target = (event.composedPath?.()[0] ?? event.target) as
+      | HTMLElement
+      | null
+      | undefined;
+    if (target === null || target === undefined) return false;
+    const tag = target.tagName;
+    return (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      target.isContentEditable === true
+    );
+  };
+  if (isBrowser() && typeof window.addEventListener === "function") {
+    window.addEventListener(
+      "keydown",
+      (event) => {
+        if (isTextEntry(event)) return;
+        (window as unknown as Record<string, unknown>)[KEYBOARD_FLAG] = true;
+      },
+      true,
+    );
+  }
+
   return {
     os: currentOS,
     isMac,
@@ -118,6 +148,18 @@ export const Platform = (() => {
         isBrowser() &&
         typeof window.matchMedia === "function" &&
         window.matchMedia("(pointer: coarse)").matches
+      );
+    },
+
+    /**
+     * Whether a keyboard is in use: always on a device that is not touch, and
+     * on a touch device once a key has been pressed outside a text field.
+     */
+    get hasKeyboard(): boolean {
+      if (!this.isTouch) return true;
+      return (
+        isBrowser() &&
+        (window as unknown as Record<string, unknown>)[KEYBOARD_FLAG] === true
       );
     },
   };

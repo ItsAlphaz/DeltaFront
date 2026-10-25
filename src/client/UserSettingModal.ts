@@ -172,7 +172,15 @@ export class UserSettingModal extends BaseModal {
       `${USER_SETTINGS_CHANGED_EVENT}:${GRAPHICS_KEY}`,
       this.onGraphicsChanged,
     );
+    window.addEventListener("keydown", this.onFirstKey, true);
   }
+
+  // The Keybinds tab appears as soon as a touch device shows it has a keyboard
+  // (Platform.hasKeyboard), without the modal being reopened.
+  private onFirstKey = (event: KeyboardEvent) => {
+    if (!Platform.isTouch || event.target instanceof Node === false) return;
+    this.requestUpdate();
+  };
 
   disconnectedCallback() {
     globalThis.removeEventListener(
@@ -180,6 +188,7 @@ export class UserSettingModal extends BaseModal {
       this.onGraphicsChanged,
     );
     window.removeEventListener("keydown", this.handleEasterEggKey);
+    window.removeEventListener("keydown", this.onFirstKey, true);
     // An element torn down without close() being called (the in-game instance
     // when the match ends) would otherwise leave the bridge holding a
     // callback into a dead component.
@@ -761,19 +770,21 @@ export class UserSettingModal extends BaseModal {
             ]
           : []),
         { key: "audio", label: translateText("user_setting.tab_audio") },
-        // Keybinds is about having keys. A touch device has none, so the tab
-        // is a list of rebind controls the player can neither use nor trigger.
+        // Keybinds is about having keys. A touch device with none has no use
+        // for a list of rebind controls it can neither use nor trigger.
         //
         // Platform.isTouch tests the PRIMARY pointer (`pointer: coarse`), not
         // the viewport, which is the distinction that matters here: a laptop
         // with a touchscreen and a mouse keeps the tab, and a tablet loses it
-        // at any width. A CSS breakpoint would get both backwards.
+        // at any width. A CSS breakpoint would get both backwards. A touch
+        // device that turns out to have a keyboard (the first key pressed
+        // outside a text field, Platform.hasKeyboard) gets the tab too.
         //
         // Removed from tabs[] rather than hidden, so BaseModal -- which
         // validates a requested tab against this list -- lands
         // open({ tab: "keybinds" }) on Gameplay instead of selecting a tab
         // with nothing behind it.
-        ...(Platform.isTouch
+        ...(Platform.isTouch && !Platform.hasKeyboard
           ? []
           : [
               {
