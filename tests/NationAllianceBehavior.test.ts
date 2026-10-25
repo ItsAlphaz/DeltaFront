@@ -494,3 +494,59 @@ describe("AllianceBehavior.maybeBetray - juicy ally strategy", () => {
     },
   );
 });
+
+describe("AllianceBehavior.hasTooManyAlliances", () => {
+  // Four players who count (the bots do not): the limit is half of them on
+  // Hard, a quarter on Impossible.
+  async function makeGame(difficulty: Difficulty) {
+    const info = (id: string, type: PlayerType) =>
+      new PlayerInfo(id, type, null, id);
+    const g = await setup("big_plains", { infiniteGold: true, difficulty }, [
+      info("nation_id", PlayerType.Nation),
+      info("human_a", PlayerType.Human),
+      info("human_b", PlayerType.Human),
+      info("human_c", PlayerType.Human),
+    ]);
+    const nation = g.player("nation_id");
+    // players() lists only players who have spawned; these have not.
+    vi.spyOn(g, "players").mockReturnValue(
+      ["nation_id", "human_a", "human_b", "human_c"].map((id) => g.player(id)),
+    );
+    const random = new PseudoRandom(7);
+    const behavior = new NationAllianceBehavior(
+      random,
+      g,
+      nation,
+      new NationEmojiBehavior(random, g, nation),
+    );
+    const tooMany = (other: Player) =>
+      (
+        behavior as unknown as {
+          hasTooManyAlliances(p: Player): boolean;
+        }
+      ).hasTooManyAlliances(other);
+    return { g, nation, tooMany };
+  }
+
+  it("does not count the alliance being renewed against the ally", async () => {
+    const { g, tooMany } = await makeGame(Difficulty.Hard);
+    const ally = g.player("human_a");
+    // Two alliances, one of them the nation's: that is one other alliance,
+    // under the limit of two.
+    vi.spyOn(ally, "alliances").mockReturnValue(new Array(2));
+    vi.spyOn(ally, "isAlliedWith").mockReturnValue(true);
+    expect(tooMany(ally)).toBe(false);
+  });
+
+  it("still refuses a player with too many alliances of their own", async () => {
+    const { g, tooMany } = await makeGame(Difficulty.Hard);
+    const other = g.player("human_b");
+    vi.spyOn(other, "alliances").mockReturnValue(new Array(2));
+    vi.spyOn(other, "isAlliedWith").mockReturnValue(false);
+    expect(tooMany(other)).toBe(true);
+    // Allied to the nation too, three alliances leave two others: still too many.
+    vi.spyOn(other, "alliances").mockReturnValue(new Array(3));
+    vi.spyOn(other, "isAlliedWith").mockReturnValue(true);
+    expect(tooMany(other)).toBe(true);
+  });
+});
