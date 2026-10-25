@@ -74,11 +74,11 @@ export class GameRightSidebar extends LitElement implements Controller {
   private immunityBarVisible = false;
 
   createRenderRoot() {
-    // Stack the timer bar + doomsday-clock readout, centers aligned (the narrower
-    // one sits centered under the wider one).
+    // Stack the timer bar + overtime / doomsday-clock panel against the right
+    // edge, so the timer stays in the corner when a wider panel is shown.
     this.style.display = "flex";
     this.style.flexDirection = "column";
-    this.style.alignItems = "center";
+    this.style.alignItems = "flex-end";
     this.style.gap = "6px";
     return this;
   }

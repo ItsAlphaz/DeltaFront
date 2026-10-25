@@ -1,5 +1,7 @@
 import { GameType } from "@openfront/engine-api/game/GameTypes";
 import { EventBus } from "@openfront/shared/EventBus";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { GameRightSidebar } from "../src/client/hud/layers/GameRightSidebar";
 import { SendWinnerEvent } from "../src/client/Transport";
 import type { GameView } from "../src/client/view";
@@ -199,5 +201,29 @@ describe("GameRightSidebar end timer warnings", () => {
       "game-end-timer-sidebar-flash",
     );
     expect(toasts).toHaveLength(0);
+  });
+});
+
+// The Overtime and Doomsday Clock panels are wider than the timer bar. Centred,
+// the stack pushed the timer away from the top-right corner.
+describe("GameRightSidebar layout", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("keeps its children against the right edge", () => {
+    const { sidebar } = createSidebar();
+    expect(sidebar.style.alignItems).toBe("flex-end");
+  });
+
+  it("rounds both left corners of the overtime and doomsday panels", () => {
+    for (const file of ["OvertimePanel", "DoomsdayClockPanel"]) {
+      const source = readFileSync(
+        resolve(__dirname, `../src/client/components/${file}.ts`),
+        "utf8",
+      );
+      expect(source, file).toContain("rounded-l-lg");
+      expect(source, file).not.toContain("rounded-bl-lg");
+    }
   });
 });
