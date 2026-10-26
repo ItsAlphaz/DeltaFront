@@ -660,6 +660,34 @@ describe("Client.initialize() booted from Main.ts module scope", () => {
 
   // Last: the viewer replaces the menu, and any later hash change would
   // then leave the page.
+  it("keeps the root pathname for singleplayer games without rewriting to /game/<id>", async () => {
+    mocks.joinLobby.mockClear();
+    let resolveJoin = () => {};
+    mocks.joinLobby.mockReturnValueOnce({
+      prestart: new Promise<void>(() => {}),
+      join: new Promise<void>((r) => {
+        resolveJoin = r;
+      }),
+      stop: () => true,
+    });
+    (document.querySelector("username-input") as any).canPlay = () => true;
+    try {
+      history.replaceState(null, "", "/");
+      document.dispatchEvent(
+        new CustomEvent("join-lobby", {
+          detail: { gameID: "sp12345", source: "singleplayer" },
+          bubbles: true,
+        }),
+      );
+      await vi.waitFor(() => expect(mocks.joinLobby).toHaveBeenCalled());
+      resolveJoin();
+      await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
+      expect(window.location.href).not.toMatch(/game\/sp12345/);
+    } finally {
+      document.dispatchEvent(new CustomEvent("leave-lobby"));
+    }
+  });
+
   it("opens the replay viewer when the hash changes to one, though closing the join modal resets the URL", async () => {
     await loadModal("join-lobby-modal");
     const joinModal = document.querySelector("join-lobby-modal") as unknown as {
