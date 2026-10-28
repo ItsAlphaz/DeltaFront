@@ -38,6 +38,7 @@ type SpritePass = Pick<
   | "spawnFxForUnit"
   | "applyRailroadDust"
   | "applyConquestEvents"
+  | "spawnAirstrikeImpact"
   | "tick"
   | "draw"
   | "setTimeFn"
@@ -48,6 +49,7 @@ type ShockwavePass = Pick<
   FxShockwavePass,
   | "pushNukeShockwave"
   | "pushSAMShockwave"
+  | "pushAirstrikeShockwave"
   | "tick"
   | "draw"
   | "setTimeFn"
@@ -64,6 +66,7 @@ const NOOP_SPRITE_PASS: SpritePass = {
   spawnFxForUnit: noop,
   applyRailroadDust: noop,
   applyConquestEvents: noop,
+  spawnAirstrikeImpact: noop,
   tick: noop,
   draw: noop,
   setTimeFn: noop,
@@ -73,6 +76,7 @@ const NOOP_SPRITE_PASS: SpritePass = {
 const NOOP_SHOCKWAVE_PASS: ShockwavePass = {
   pushNukeShockwave: noop,
   pushSAMShockwave: noop,
+  pushAirstrikeShockwave: noop,
   tick: noop,
   draw: noop,
   setTimeFn: noop,
