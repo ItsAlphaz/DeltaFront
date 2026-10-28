@@ -3,6 +3,7 @@ import { EventBus } from "@openfront/shared/EventBus";
 import { GameLeftSidebar } from "../src/client/hud/layers/GameLeftSidebar";
 import type { PlayerStats } from "../src/client/hud/layers/PlayerStats";
 import type { TeamStats } from "../src/client/hud/layers/TeamStats";
+import { Platform } from "../src/client/Platform";
 import { UserSettings } from "../src/client/UserSettings";
 import type { GameView, PlayerView } from "../src/client/view";
 
@@ -110,4 +111,29 @@ describe("GameLeftSidebar", () => {
 
     sidebar.remove();
   });
+
+  // Short laptops and small frames need the room for the map, so the player
+  // list starts closed there (OpenFront #6192).
+  it.each([
+    { viewport: "a large screen", compact: false, shown: true },
+    { viewport: "a compact screen", compact: true, shown: false },
+  ])(
+    "starts the player list open: $shown on $viewport",
+    ({ compact, shown }) => {
+      vi.spyOn(Platform, "isDesktopWidth", "get").mockReturnValue(true);
+      vi.stubGlobal("matchMedia", () => ({ matches: compact }));
+      const sidebar = new GameLeftSidebar();
+      sidebar.game = {
+        config: () => ({ gameConfig: () => ({ gameMode: GameMode.FFA }) }),
+      } as unknown as GameView;
+      sidebar.eventBus = new EventBus();
+      sidebar.init();
+      expect(
+        (sidebar as unknown as { showPlayerStatsAfterSpawn: boolean })
+          .showPlayerStatsAfterSpawn,
+      ).toBe(shown);
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    },
+  );
 });
