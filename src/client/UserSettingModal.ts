@@ -543,7 +543,12 @@ export class UserSettingModal extends BaseModal {
   }
 
   private sliderNukeAllianceSafetyDuration(e: CustomEvent<{ value: number }>) {
-    this.userSettings.setNukeAllianceSafetyDuration(e.detail.value);
+    const value = e.detail?.value;
+    if (typeof value !== "number") {
+      console.warn("Slider event missing detail.value", e);
+      return;
+    }
+    this.userSettings.setNukeAllianceSafetyDuration(value);
     this.requestUpdate();
   }
 
