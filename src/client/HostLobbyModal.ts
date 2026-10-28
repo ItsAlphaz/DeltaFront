@@ -512,7 +512,7 @@ export class HostLobbyModal extends BaseModal {
       secondsRemaining === null
         ? this.queued
           ? translateText("host_modal.queued_waiting")
-          : this.clients.length === 1
+          : this.seatedPlayerCount() === 1
             ? translateText("host_modal.waiting")
             : translateText("game_settings.start")
         : // A queued lobby's countdown belongs to the public queue; the host
@@ -891,7 +891,7 @@ export class HostLobbyModal extends BaseModal {
         name: "start",
         disabled:
           this.queued ||
-          (this.lobbyStartAt === null && this.clients.length < 2),
+          (this.lobbyStartAt === null && this.seatedPlayerCount() < 2),
         onClick: () => this.toggleGameStartTimer(),
       }),
     });
