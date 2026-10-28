@@ -185,7 +185,7 @@ describe("tick sampling", () => {
     ];
 
     let actualStats = new StatsImpl();
-    let refStats = new ReferenceStats();
+    const refStats = new ReferenceStats();
 
     // Value generator mixing:
     // - zero leads (0)
