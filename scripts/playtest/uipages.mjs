@@ -898,6 +898,80 @@ for (const page of pages) {
     await sleep(900);
     await shot(`ui-vault-collection-filter${sfx}`);
   }
+  // the Vault's own pieces, every one unlocked, a row of the collection at a time and close up: to look at the art
+  if (page === "vaultitems") {
+    await sleep(2500);
+    await g.ev(`window.showPage('page-vault'); 1`);
+    await sleep(3500);
+    await g.ev(
+      `(()=>{ const c=document.querySelector('vault-collection'); const v=c.view; const all=[...v.wheel.items, ...v.packs.flatMap(p=>p.items)]; void all; document.head.insertAdjacentHTML('beforeend', '<style>.vault-item .vault-item-art{filter:none!important;opacity:1!important}</style>'); document.querySelector('[data-vault-collection]').scrollIntoView({block:'start'}); return 1 })()`,
+    );
+    await sleep(2500);
+    const rows = await g.ev(
+      `(()=>{ const cards=[...document.querySelectorAll('[data-vault-item]')]; const tops=[...new Set(cards.map(c=>Math.round(c.getBoundingClientRect().top)))]; return JSON.stringify(tops.map(t=>{ const inRow=cards.filter(c=>Math.round(c.getBoundingClientRect().top)===t); const r=inRow.map(c=>c.getBoundingClientRect()); return {x:Math.min(...r.map(b=>b.left)), y:t, w:Math.max(...r.map(b=>b.right))-Math.min(...r.map(b=>b.left)), h:Math.max(...r.map(b=>b.height)), names: inRow.map(c=>c.dataset.vaultItem)} })) })()`,
+    );
+    const { writeFileSync } = await import("node:fs");
+    let n = 0;
+    for (const row of JSON.parse(rows)) {
+      // each row at its own place in the page: scroll it into the middle, then clip it
+      await g.ev(
+        `document.querySelector('[data-vault-item="${row.names[0]}"]').scrollIntoView({block:'center'}); 1`,
+      );
+      await sleep(900);
+      const box = JSON.parse(
+        await g.ev(
+          `JSON.stringify((()=>{ const cards=${JSON.stringify(row.names)}.map(n=>document.querySelector('[data-vault-item="'+n+'"]').getBoundingClientRect()); return {x:Math.min(...cards.map(b=>b.left)), y:Math.min(...cards.map(b=>b.top)), w:Math.max(...cards.map(b=>b.right))-Math.min(...cards.map(b=>b.left)), h:Math.max(...cards.map(b=>b.height))} })())`,
+        ),
+      );
+      const { result } = await g.b.send("Page.captureScreenshot", {
+        format: "png",
+        clip: { x: box.x, y: box.y, width: box.w, height: box.h, scale: 1.4 },
+      });
+      writeFileSync(
+        `${OUT}/ui-vaultitems-${n}.png`,
+        Buffer.from(result.data, "base64"),
+      );
+      console.log("row", n, row.names.join(", "));
+      n++;
+    }
+  }
+  // the Vault's effects over time: a strip of frames of each one's preview, to see how it moves
+  if (page === "vaulteffects") {
+    await sleep(2500);
+    await g.ev(`window.showPage('page-vault'); 1`);
+    await sleep(3500);
+    await g.ev(
+      `(()=>{ document.head.insertAdjacentHTML('beforeend', '<style>.vault-item .vault-item-art{filter:none!important;opacity:1!important}</style>'); return 1 })()`,
+    );
+    const { writeFileSync } = await import("node:fs");
+    const names = (
+      process.env.EFFECTS ??
+      "bluefire_helix,supernova_bloom,leviathan_wake,obsidian_veins,jade_dynasty_express,spirit_lantern_rails"
+    ).split(",");
+    for (const name of names) {
+      await g.ev(
+        `document.querySelector('[data-vault-item="${name}"]').scrollIntoView({block:'center'}); 1`,
+      );
+      await sleep(900);
+      const box = JSON.parse(
+        await g.ev(
+          `JSON.stringify((()=>{ const r=document.querySelector('[data-vault-item="${name}"] .vault-item-art').getBoundingClientRect(); return {x:r.left,y:r.top,w:r.width,h:r.height} })())`,
+        ),
+      );
+      for (let i = 0; i < 8; i++) {
+        const { result } = await g.b.send("Page.captureScreenshot", {
+          format: "png",
+          clip: { x: box.x, y: box.y, width: box.w, height: box.h, scale: 1 },
+        });
+        writeFileSync(
+          `${OUT}/ui-vaulteffect-${name}-${i}.png`,
+          Buffer.from(result.data, "base64"),
+        );
+        await sleep(330);
+      }
+      console.log("effect", name);
+    }
+  }
   // the news, help and settings icons while their buttons are hovered: which animations run, and a close-up frame of each
   if (page === "navicons") {
     await sleep(2500);
