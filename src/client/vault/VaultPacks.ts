@@ -5,7 +5,6 @@ import {
 } from "@openfront/shared/VaultSchemas";
 import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import "../components/CreditsIcon";
 import { translateText } from "../Utils";
 import { RARITY_COLOR } from "./VaultFx";
 import { renderPackArt } from "./VaultPackArt";
@@ -15,6 +14,7 @@ import {
   vaultSectionHead,
   watchInView,
 } from "./VaultParts";
+import { tone } from "./VaultPixel";
 import { tiltLeave, tiltMove } from "./VaultTilt";
 
 type Pack = VaultView["packs"][number];
@@ -61,8 +61,8 @@ export class VaultPacks extends LitElement {
           aside:
             state === null
               ? undefined
-              : html`<span class="vault-chip" style="--c:#fbbf24">
-                  ${vaultIcons.clock("h-3.5 w-3.5")}
+              : html`<span class="vault-chip" style=${tone("#fbbf24")}>
+                  ${vaultIcons.clock(1)}
                   ${translateText("vault.packs_today", {
                     used: state.today.packs,
                     max: view.limits.packsPerDay,
@@ -104,7 +104,7 @@ export class VaultPacks extends LitElement {
       data-vault-in-view
       style="--d:${index * 0.12}s"
     >
-      <article class="vault-pack-card" style="--c:${color}">
+      <article class="vault-pack-card" style=${tone(color)}>
         <div
           class="vault-pack-shelf"
           @pointermove=${(e: PointerEvent) => tiltMove(e, 13)}
@@ -145,7 +145,7 @@ export class VaultPacks extends LitElement {
                     ${pack.tagline}
                   </p>`}
             </div>
-            <span class="vault-chip shrink-0" style="--c:${color}"
+            <span class="vault-chip shrink-0" style=${tone(color)}
               >${translateText("vault.cards", {
                 count: pack.slots.length,
               })}</span
@@ -156,8 +156,8 @@ export class VaultPacks extends LitElement {
             <button
               type="button"
               data-vault-open=${pack.name}
-              class="vault-open vault-shine ui-focus"
-              style="--c:${color}"
+              class="vault-btn vault-open vault-shine ui-focus"
+              style=${tone(color)}
               ?disabled=${disabled}
               @click=${() =>
                 this.dispatchEvent(
@@ -169,8 +169,7 @@ export class VaultPacks extends LitElement {
             >
               <span>${translateText("vault.open_pack")}</span>
               <span class="ui-mono flex items-center gap-1.5 text-[15px]"
-                ><credits-icon .size=${18}></credits-icon
-                >${pack.priceSoft.toLocaleString()}</span
+                >${vaultIcons.coin(2)}${pack.priceSoft.toLocaleString()}</span
               >
             </button>
             ${hint === null
@@ -223,9 +222,7 @@ export class VaultPacks extends LitElement {
         const next = signedIn && left === 1;
         return html`<div class="flex flex-col gap-1.5">
           <div class="flex items-center gap-1.5 text-xs">
-            <span style="color:${color}"
-              >${vaultIcons.shield("h-3.5 w-3.5")}</span
-            >
+            <span style="color:${color}">${vaultIcons.shield(1)}</span>
             <span class="font-bold text-white/85"
               >${!signedIn
                 ? translateText("vault.pity_within", {

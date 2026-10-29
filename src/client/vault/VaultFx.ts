@@ -36,6 +36,13 @@ const RARITY_POWER: Record<VaultRarity, number> = {
 export const rarityPower = (rarity: VaultRarity): number =>
   RARITY_POWER[rarity];
 
+/** The grid every spark snaps to, in CSS pixels. */
+const PIXEL = 4;
+
+/** Fades in four steps, not smoothly: 1, 0.75, 0.5, 0.25, then gone. */
+const fadeSteps = (t: number): number =>
+  t >= 1 ? 0 : Math.ceil((1 - t * t) * 4) / 4;
+
 export function motionAllowed(): boolean {
   return !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
@@ -181,16 +188,30 @@ export class VaultFx {
     const dpr = this.canvas.width / Math.max(1, w);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    ctx.globalCompositeOperation = "lighter";
+    // everything is drawn in whole pixels of the Vault's grid, and fades in
+    // steps, so a spark is a few squares and not a soft dot
+    const square = (x: number, y: number, wide = 1, tall = 1) =>
+      ctx.fillRect(
+        Math.round(x / PIXEL) * PIXEL,
+        Math.round(y / PIXEL) * PIXEL,
+        wide * PIXEL,
+        tall * PIXEL,
+      );
     for (const r of this.rings) {
       r.age += dt;
       const t = r.age / r.life;
-      ctx.globalAlpha = Math.max(0, 1 - t);
-      ctx.strokeStyle = r.color;
-      ctx.lineWidth = 6 * (1 - t) + 1;
-      ctx.beginPath();
-      ctx.arc(r.x, r.y, r.size * t, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.globalAlpha = fadeSteps(t);
+      ctx.fillStyle = r.color;
+      // a ring is a circle of squares
+      const radius = r.size * t;
+      const count = Math.max(
+        8,
+        Math.round((Math.PI * 2 * radius) / PIXEL / 1.6),
+      );
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2;
+        square(r.x + Math.cos(a) * radius, r.y + Math.sin(a) * radius);
+      }
     }
     this.rings = this.rings.filter((r) => r.age < r.life);
     for (const p of this.particles) {
@@ -198,36 +219,26 @@ export class VaultFx {
       p.vy += p.gravity * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.rotation += p.spin * dt;
-      const t = p.age / p.life;
-      ctx.globalAlpha = Math.max(0, 1 - t * t);
+      ctx.globalAlpha = fadeSteps(p.age / p.life);
       ctx.fillStyle = p.color;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rotation);
+      const units = Math.max(1, Math.round(p.size / 3));
       if (p.shape === "bar") {
-        ctx.fillRect(-p.size / 2, -p.size, p.size, p.size * 2);
+        square(p.x, p.y, 1, 2);
       } else if (p.shape === "star") {
-        ctx.beginPath();
-        for (let i = 0; i < 8; i++) {
-          const rad = i % 2 === 0 ? p.size * 1.6 : p.size * 0.5;
-          const a = (i * Math.PI) / 4;
-          ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
-        }
-        ctx.closePath();
-        ctx.fill();
+        // a plus of five squares
+        square(p.x, p.y);
+        square(p.x - PIXEL, p.y);
+        square(p.x + PIXEL, p.y);
+        square(p.x, p.y - PIXEL);
+        square(p.x, p.y + PIXEL);
       } else {
-        ctx.beginPath();
-        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
-        ctx.fill();
+        square(p.x, p.y, units, units);
       }
-      ctx.restore();
     }
     this.particles = this.particles.filter(
       (p) => p.age < p.life && p.y < h + 40,
     );
     ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
     if (this.particles.length > 0 || this.rings.length > 0) {
       this.frame = requestAnimationFrame(this.tick);
     } else {
@@ -294,8 +305,8 @@ export function playTick(pitch = 1): void {
 export function playTear(): void {
   const ctx = context();
   if (ctx === null) return;
-  tone(ctx, 140, 0, 0.35, "sawtooth", 0.1, 900);
-  tone(ctx, 70, 0.28, 0.22, "sine", 0.25, 40);
+  tone(ctx, 140, 0, 0.35, "square", 0.05, 900);
+  tone(ctx, 70, 0.28, 0.22, "square", 0.12, 40);
 }
 
 /** A card turning over: higher and longer the better it is. */
@@ -303,10 +314,10 @@ export function playReveal(rarity: VaultRarity): void {
   const ctx = context();
   if (ctx === null) return;
   const power = rarityPower(rarity);
-  tone(ctx, 420 + power * 80, 0, 0.12, "triangle", 0.12, 640 + power * 120);
+  tone(ctx, 420 + power * 80, 0, 0.12, "square", 0.06, 640 + power * 120);
   if (power >= 2) {
     const notes = [523, 659, 784, 1047, 1319].slice(0, power + 1);
-    notes.forEach((n, i) => tone(ctx, n, 0.1 + i * 0.07, 0.3, "triangle", 0.1));
+    notes.forEach((n, i) => tone(ctx, n, 0.1 + i * 0.07, 0.3, "square", 0.05));
   }
 }
 

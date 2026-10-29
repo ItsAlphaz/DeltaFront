@@ -24,6 +24,8 @@ import {
   VaultFx,
 } from "./VaultFx";
 import { renderPackArt } from "./VaultPackArt";
+import { tone } from "./VaultPixel";
+import "./VaultSky";
 import { tiltLeave, tiltMove } from "./VaultTilt";
 
 export type RevealMode =
@@ -40,22 +42,30 @@ export type RevealMode =
 type Stage = "sealed" | "tearing" | "cards" | "done";
 
 const CSS = `
-  @keyframes vr-shake { 0%,100% { transform: translate(0,0) rotate(0); } 20% { transform: translate(-6px,2px) rotate(-2deg); } 40% { transform: translate(6px,-3px) rotate(2deg); } 60% { transform: translate(-4px,-2px) rotate(-1.5deg); } 80% { transform: translate(4px,3px) rotate(1.5deg); } }
-  @keyframes vr-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-  @keyframes vr-glow { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  /* poses held for a moment, not tweened: the pack shakes and floats a frame at a time */
+  @keyframes vr-shake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-6px,2px); } 40% { transform: translate(6px,-3px); } 60% { transform: translate(-4px,-2px); } 80% { transform: translate(4px,3px); } }
+  @keyframes vr-float { 0%,100% { transform: translateY(0); } 25%,75% { transform: translateY(-5px); } 50% { transform: translateY(-10px); } }
   @keyframes vr-left { to { transform: translate(-70%, 12%) rotate(-24deg); opacity: 0; } }
   @keyframes vr-right { to { transform: translate(70%, 12%) rotate(24deg); opacity: 0; } }
   @keyframes vr-flash { 0% { opacity: 0; } 25% { opacity: .95; } 100% { opacity: 0; } }
   @keyframes vr-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
-  @keyframes vr-rays { to { transform: rotate(360deg); } }
   /* the band is a fifth of the card wide: it starts and ends fully off the card, so the loop has no pause and no jump */
   @keyframes vr-shine { from { transform: translateX(-250%) skewX(-18deg); } to { transform: translateX(750%) skewX(-18deg); } }
+  .vr-root { background: var(--dither), rgba(6,5,12,.72); }
+  .vr-root vault-sky { opacity: .7; }
+  .vr-burst { clip-path: polygon(50% 0, 60% 34%, 94% 18%, 68% 46%, 100% 50%, 68% 54%, 94% 82%, 60% 66%, 50% 100%, 40% 66%, 6% 82%, 32% 54%, 0 50%, 32% 46%, 6% 18%, 40% 34%); }
   .vr-card { perspective: 900px; }
-  .vr-inner { position: relative; transform-style: preserve-3d; transition: transform .75s cubic-bezier(.2,.8,.2,1.1); }
+  .vr-inner { position: relative; transform-style: preserve-3d; transition: transform .75s steps(8, end); }
   .vr-card[data-flipped="true"] .vr-inner { transform: rotateY(180deg); }
   .vr-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-  .vr-back { transform: rotateY(0); }
-  .vr-front { transform: rotateY(180deg); }
+  .vr-back { --u: 4px; border: var(--u) solid transparent; border-image: var(--bi-line) 1 / var(--u) / 0 stretch; background-clip: padding-box; background: var(--dither), #181633; transform: rotateY(0); }
+  .vr-front { --u: 4px; border: var(--u) solid transparent; border-image: var(--bi) 1 / var(--u) / 0 stretch; background-clip: padding-box; background: var(--dither), linear-gradient(180deg, color-mix(in srgb, var(--c) 24%, #14121c) 0 52%, #0f0e1c 52%); transform: rotateY(180deg); }
+  .vr-card[data-power="3"] .vr-front, .vr-card[data-power="4"] .vr-front { box-shadow: 0 6px 0 color-mix(in srgb, var(--c) 50%, #000); }
+  .vr-chip { margin-top: 4px; padding: 3px 6px; font-size: 13px; font-weight: 700; }
+  .vr-chip-new { background: #14391f; color: #4ade80; box-shadow: inset 0 0 0 2px #2d8a4e; }
+  .vr-chip-dupe { background: #3a2a08; color: #fbbf24; box-shadow: inset 0 0 0 2px #8a5f10; }
+  .vr-btn { width: auto; min-height: 52px; justify-content: center; padding: 0 24px; font-size: 16px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .vr-btn-quiet { --bg: #2a2838; --hi: #44405c; --lo: #1a1826; --sh: #0a0a10; --bi: var(--bi-line); }
   @media (prefers-reduced-motion: reduce) { .vr-inner { transition: none; } }
 `;
 
@@ -228,18 +238,15 @@ export class VaultReveal extends LitElement {
       data-reveal-card=${index}
       data-flipped=${faceUp ? "true" : "false"}
       data-rarity=${card.rarity}
+      data-power=${rarityPower(card.rarity)}
     >
       <div class="vr-inner h-full w-full">
-        <div
-          class="vr-face vr-back flex items-center justify-center rounded-2xl border-2 border-white/15"
-          style="background: radial-gradient(circle at 50% 35%, #2b2a52, #0f0e24 70%);"
-        >
-          <span class="font-pixel text-5xl text-white/20">?</span>
+        <div class="vr-face vr-back flex items-center justify-center">
+          <span class="text-6xl font-bold text-white/20">?</span>
         </div>
         <div
-          class="vr-face vr-front flex flex-col overflow-hidden rounded-2xl"
-          style="border: 3px solid ${color}; background: linear-gradient(180deg, ${color}33, #0f0e1c 60%); box-shadow: 0 0 ${18 +
-          rarityPower(card.rarity) * 10}px ${color}88;"
+          class="vr-face vr-front flex flex-col overflow-hidden"
+          style=${tone(color)}
         >
           <span class="vault-glare" style="z-index: 2"></span>
           <div class="relative min-h-0 flex-1 p-4">
@@ -252,34 +259,28 @@ export class VaultReveal extends LitElement {
             ${rarityPower(card.rarity) >= 2
               ? html`<span
                   class="pointer-events-none absolute inset-y-0 left-0 w-1/5 bg-white/20"
-                  style="animation: vr-shine 2.6s linear infinite; animation-delay: ${-index *
+                  style="animation: vr-shine 2.6s steps(20) infinite; animation-delay: ${-index *
                   0.65}s;"
                 ></span>`
               : nothing}
           </div>
           <div class="px-3 pb-3 text-center">
             <div
-              class="text-[11px] font-black uppercase tracking-[0.18em]"
+              class="text-[13px] font-bold uppercase tracking-[0.18em]"
               style="color:${color}"
             >
               ${resolved === null ? card.rarity : cosmeticRarityLabel(resolved)}
             </div>
-            <div class="mt-0.5 truncate text-base font-bold text-white">
+            <div class="mt-0.5 truncate text-[18px] font-bold text-white">
               ${name}
             </div>
             ${card.dupe
-              ? html`<div
-                  data-reveal-dupe
-                  class="mt-1 rounded-md bg-amber-400/15 px-2 py-1 text-xs font-bold text-amber-300"
-                >
+              ? html`<div data-reveal-dupe class="vr-chip vr-chip-dupe">
                   ${translateText("vault.duplicate", {
                     credits: card.credits.toLocaleString(),
                   })}
                 </div>`
-              : html`<div
-                  data-reveal-new
-                  class="mt-1 rounded-md bg-emerald-400/15 px-2 py-1 text-xs font-bold text-emerald-300"
-                >
+              : html`<div data-reveal-new class="vr-chip vr-chip-new">
                   ${translateText("vault.new_item")}
                 </div>`}
           </div>
@@ -302,13 +303,17 @@ export class VaultReveal extends LitElement {
     const tint = RARITY_COLOR[mode.kind === "pack" ? bestPack : "legendary"];
     return html`<div
       data-vault-reveal
-      class="fixed inset-0 z-[3000] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm"
+      class="vr-root fixed inset-0 z-[3000] flex flex-col items-center justify-center"
       role="dialog"
       aria-modal="true"
     >
       <style>
         ${CSS}
       </style>
+      <vault-sky
+        .spinning=${true}
+        .rayCenter=${{ x: 0.5, y: 0.42, r: 0.2 }}
+      ></vault-sky>
       <div
         data-reveal-stage
         class="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4 pb-[160px] lg:pb-[84px]"
@@ -316,18 +321,19 @@ export class VaultReveal extends LitElement {
         ${this.flash
           ? html`<div
               class="pointer-events-none absolute inset-0 z-40 bg-white"
-              style="animation: vr-flash .7s ease-out forwards"
+              style="animation: vr-flash .7s steps(5) forwards"
             ></div>`
           : nothing}
         ${mode.kind === "pack" ? this.renderPack(mode, tint) : nothing}
         ${mode.kind === "card"
           ? html`<div class="flex flex-col items-center gap-5">
               <h2
-                class="text-2xl font-black uppercase tracking-widest text-white"
+                class="text-[28px] font-bold uppercase tracking-widest text-white"
+                style="text-shadow: 3px 3px 0 #000"
               >
                 ${mode.title}
               </h2>
-              <div style="animation: vr-pop .6s ease-out both">
+              <div style="animation: vr-pop .6s steps(6) both">
                 ${this.renderCard(mode.card, 0, true)}
               </div>
             </div>`
@@ -335,11 +341,8 @@ export class VaultReveal extends LitElement {
         ${mode.kind === "credits"
           ? html`<div class="flex flex-col items-center gap-4 text-center">
               <div
-                class="pointer-events-none absolute left-1/2 top-[42%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 opacity-60"
-                style="background: conic-gradient(from 0deg, transparent 0 8%, #fbbf2455 10% 14%, transparent 16% 33%, #fbbf2455 35% 39%, transparent 41% 58%, #fbbf2455 60% 64%, transparent 66% 83%, #fbbf2455 85% 89%, transparent 91%); animation: vr-rays 14s linear infinite; mask-image: radial-gradient(circle, #000 20%, transparent 70%);"
-              ></div>
-              <div
-                class="text-sm font-black uppercase tracking-[0.3em] text-amber-300"
+                class="text-base font-bold uppercase tracking-[0.3em] text-amber-300"
+                style="text-shadow: 2px 2px 0 #000"
               >
                 ${translateText(
                   mode.jackpot ? "vault.jackpot" : "vault.you_won",
@@ -347,12 +350,15 @@ export class VaultReveal extends LitElement {
               </div>
               <div
                 data-reveal-credits
-                class="font-pixel text-6xl text-amber-300 sm:text-7xl"
-                style="text-shadow: 0 0 30px #f59e0b; animation: vr-pop .7s ease-out both"
+                class="text-6xl font-bold text-amber-300 sm:text-7xl"
+                style="text-shadow: 4px 4px 0 #7a4a05, 8px 8px 0 #000; animation: vr-pop .7s steps(7) both"
               >
                 +${mode.amount.toLocaleString()}
               </div>
-              <div class="text-lg font-bold text-white/80">
+              <div
+                class="text-xl font-bold text-white/80"
+                style="text-shadow: 2px 2px 0 #000"
+              >
                 ${translateText("vault.credits")}
               </div>
             </div>`
@@ -365,7 +371,7 @@ export class VaultReveal extends LitElement {
                   ? html`<button
                       type="button"
                       data-reveal-again
-                      class="ui-focus rounded-ui-card bg-ui-accent px-6 py-3 text-sm font-black uppercase tracking-widest text-white hover:brightness-110"
+                      class="vault-btn vault-spin vr-btn ui-focus"
                       @click=${this.again}
                     >
                       ${translateText("vault.again")}
@@ -374,7 +380,7 @@ export class VaultReveal extends LitElement {
                 <button
                   type="button"
                   data-reveal-done
-                  class="ui-focus rounded-ui-card border border-white/25 bg-white/10 px-6 py-3 text-sm font-bold uppercase tracking-widest text-white hover:bg-white/20"
+                  class="vault-btn vr-btn vr-btn-quiet ui-focus"
                   @click=${this.close}
                 >
                   ${translateText("vault.done")}
@@ -382,7 +388,7 @@ export class VaultReveal extends LitElement {
             : html`<button
                 type="button"
                 data-reveal-skip
-                class="ui-focus rounded-ui-card border border-white/20 bg-white/5 px-5 py-2 text-xs font-bold uppercase tracking-widest text-white/70 hover:bg-white/15"
+                class="vault-btn vr-btn vr-btn-quiet ui-focus"
                 @click=${mode.kind === "pack" && this.stage !== "sealed"
                   ? this.revealAll
                   : this.tear}
@@ -442,17 +448,15 @@ export class VaultReveal extends LitElement {
       class="relative h-[360px] w-[250px] cursor-pointer sm:h-[420px] sm:w-[290px]"
       style="${tearing
         ? ""
-        : "animation: vr-shake .9s ease-in-out infinite, vr-float 2.4s ease-in-out infinite;"} filter: drop-shadow(0 0 40px ${tearing
-        ? tint
-        : base}aa);"
+        : "animation: vr-shake .9s steps(1, end) infinite, vr-float 1.6s steps(1, end) infinite;"} filter: drop-shadow(0 10px 0 rgba(0,0,0,.6));"
       aria-label=${translateText("vault.tear_open")}
       @click=${this.tear}
     >
       ${half("left")}${half("right")}
       ${tearing
         ? html`<div
-            class="absolute left-1/2 top-1/2 h-[140%] w-[140%] -translate-x-1/2 -translate-y-1/2 rounded-full"
-            style="background: radial-gradient(circle, ${tint}, transparent 65%); animation: vr-flash .7s ease-out forwards"
+            class="vr-burst absolute left-1/2 top-1/2 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2"
+            style="background: ${tint}; animation: vr-flash .7s steps(5) forwards"
           ></div>`
         : nothing}
     </button>`;
@@ -460,7 +464,10 @@ export class VaultReveal extends LitElement {
 
   private renderCards(mode: Extract<RevealMode, { kind: "pack" }>) {
     return html`<div class="flex max-w-full flex-col items-center gap-6">
-      <h2 class="text-xl font-black uppercase tracking-widest text-white">
+      <h2
+        class="text-2xl font-bold uppercase tracking-widest text-white"
+        style="text-shadow: 3px 3px 0 #000"
+      >
         ${mode.name}
       </h2>
       <div
@@ -470,7 +477,7 @@ export class VaultReveal extends LitElement {
           (card, i) =>
             html`<div
               class="cursor-pointer"
-              style="animation: vr-pop .5s ease-out ${i * 0.08}s both"
+              style="animation: vr-pop .5s steps(5) ${i * 0.08}s both"
               @pointermove=${(e: PointerEvent) => tiltMove(e, 12)}
               @pointerleave=${tiltLeave}
               @click=${this.flipNext}

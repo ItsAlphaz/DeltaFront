@@ -34,10 +34,10 @@ real money turn into Vault draws, it is the wrong change.
 `src/client/VaultModal.ts` holds the account's state, the draws and the reveal
 that follows them; the rest is components in `src/client/vault/`:
 
-- **The hero** (a stage of drifting colour, a grid, sparkles and a spotlight that
-  follows the pointer): the wheel (`VaultWheel`, a canvas: an icon on every
+- **The hero** (a pixel sky with a sunburst, stars and a glow that follows the
+  pointer): the wheel (`VaultWheel`: an icon on every
   segment, a chasing rim of lights, sparks off the pointer at every peg, a lean
-  towards the cursor), the daily spin (a ring that fills as the day passes, a
+  towards the cursor), the daily spin (a bar of blocks that fills as the day passes, a
   `hh:mm:ss` countdown, a gold claim button while it is ready), the spin button
   and `VaultWheelOdds`: a bar and legend of the chances by kind, with the full
   table folded under "Show odds". Pointing at a bar, a chip or a row dims the
@@ -52,12 +52,29 @@ that follows them; the rest is components in `src/client/vault/`:
   the change ("+250") floating beside it; it is held back while a prize is being
   revealed so it does not give the result away.
 
-Everything that moves is made of canvas, CSS and synthesised Web Audio, with no
-asset files. `VaultStyles.ts` is the page's stylesheet; every loop in it starts
-and ends where nothing shows (off the card, at zero opacity, a full turn), so
-none of them pauses or jumps. Reduced motion turns all of it off: the wheel
-jumps to its result, nothing floats or sweeps, and everything is shown at once.
-The sounds follow the sound-effects volume setting.
+## The pixel look
+
+The page is pixel art, in the game's own pixel face (Pixelify Sans, the nav's):
+
+- **Frames** are a border of whole pixels (`--u`, 4px; 3px on a phone) with the
+  corner pixel left out (`pixelBorder` in `VaultPixel.ts`, a `border-image`),
+  so shadows, filters and transforms still work. Buttons have a light top, a
+  dark bottom and a hard shadow they sink into when pressed. Shades are flat
+  bands with a checker dither; no soft blurs or glows.
+- **The wheel** (`VaultWheel`) is not drawn by the browser: every pixel of a
+  small grid (two screen pixels to one; one on a phone) is worked out, with an
+  ordered dither for the shading, a pixel-art rim of chasing bulbs, and each
+  segment's icon (`VaultSprites.ts`) and label looked up from a small bitmap as
+  the wheel turns. The sky behind the hero (`VaultSky`) is made the same way:
+  drifting dithered glows, a sunburst of rays behind the wheel, twinkling pixel
+  stars and a glow under the pointer, at about twelve frames a second.
+- **Icons** are pixel sprites (rows of characters, one per pixel), drawn as
+  crisp SVG for the page and, rotated, into the wheel.
+- **Motion** is in steps (`steps()`), and sparks and rings are squares on a
+  four-pixel grid. Every loop starts and ends where nothing shows (off the card,
+  at zero opacity, a full turn) so none pauses or jumps. Reduced motion turns it
+  all off: the wheel jumps to its result, nothing floats or sweeps, the sky is
+  drawn once, and everything is shown at once. The sounds are square waves.
 
 ## How it is built
 

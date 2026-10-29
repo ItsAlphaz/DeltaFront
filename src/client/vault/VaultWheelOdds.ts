@@ -5,10 +5,10 @@ import {
 } from "@openfront/shared/VaultSchemas";
 import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import "../components/CreditsIcon";
 import { translateText } from "../Utils";
 import { PACK_COLOR, prizeColor } from "./VaultFx";
 import { rarityName, vaultIcons } from "./VaultParts";
+import { tone } from "./VaultPixel";
 
 type Segment = VaultView["wheel"]["segments"][number];
 
@@ -48,13 +48,13 @@ export function groupSegments(segments: readonly Segment[]): Group[] {
         indexes: [],
         icon:
           prize.kind === "credits"
-            ? html`<credits-icon .size=${14}></credits-icon>`
+            ? vaultIcons.coin(1)
             : prize.kind === "pack"
               ? html`<span style="color:${PACK_COLOR}"
-                  >${vaultIcons.gift("h-3.5 w-3.5")}</span
+                  >${vaultIcons.gift(1)}</span
                 >`
               : html`<span style="color:${prizeColor(prize)}"
-                  >${vaultIcons.gem("h-3.5 w-3.5")}</span
+                  >${vaultIcons.gem(1)}</span
                 >`,
       };
       groups.set(key, group);
@@ -148,7 +148,7 @@ export class VaultWheelOdds extends LitElement {
           return html`<span
             class="vault-chip"
             data-vault-legend=${g.key}
-            style="--c:${g.color}"
+            style=${tone(g.color)}
             @pointerenter=${h.enter}
             @pointerleave=${h.leave}
             >${g.icon}${g.label}

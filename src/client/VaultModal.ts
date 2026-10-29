@@ -9,7 +9,6 @@ import { customElement, query, state } from "lit/decorators.js";
 import { drawVault, fetchVault, getUserMe, type VaultDrawOutcome } from "./Api";
 import { BaseModal } from "./components/BaseModal";
 import "./components/CosmeticPreview";
-import "./components/CreditsIcon";
 import "./components/NotLoggedInWarning";
 import { uiPageHeader, uiStatusChip } from "./components/ui/PageUi";
 import {
@@ -27,6 +26,8 @@ import "./vault/VaultPacks";
 import { vaultIcons, watchInView } from "./vault/VaultParts";
 import "./vault/VaultReveal";
 import type { RevealMode, VaultReveal } from "./vault/VaultReveal";
+import "./vault/VaultSky";
+import type { VaultSky } from "./vault/VaultSky";
 import { VAULT_CSS } from "./vault/VaultStyles";
 import "./vault/VaultWheel";
 import type { VaultWheel } from "./vault/VaultWheel";
@@ -41,25 +42,8 @@ function clock(ms: number): string {
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
-/** The free spin comes back at the next UTC midnight: a day is how long its ring takes to fill. */
+/** The free spin comes back at the next UTC midnight: a day is how long its bar takes to fill. */
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RING = 2 * Math.PI * 26;
-
-/** Where the sparkles in the hero's sky are: left, top, size, seconds, delay. */
-const SPARKLES: readonly [string, string, number, number, number][] = [
-  ["6%", "16%", 9, 5.2, 0],
-  ["14%", "72%", 6, 6.1, 1.4],
-  ["23%", "34%", 8, 4.8, 2.6],
-  ["31%", "88%", 7, 5.6, 0.7],
-  ["44%", "10%", 10, 6.4, 3.1],
-  ["52%", "78%", 6, 5.0, 1.9],
-  ["61%", "26%", 8, 5.8, 0.3],
-  ["68%", "92%", 9, 6.6, 2.2],
-  ["76%", "14%", 7, 4.9, 3.6],
-  ["84%", "58%", 10, 5.4, 1.1],
-  ["91%", "30%", 6, 6.0, 2.9],
-  ["95%", "82%", 8, 5.1, 0.5],
-];
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -95,6 +79,7 @@ export class VaultModal extends BaseModal {
   private pendingBalance: number | null = null;
 
   @query("vault-wheel") private wheel?: VaultWheel;
+  @query("vault-sky") private sky?: VaultSky;
   @query("vault-reveal") private revealEl?: VaultReveal;
 
   protected modalConfig() {
@@ -103,6 +88,8 @@ export class VaultModal extends BaseModal {
 
   connectedCallback() {
     super.connectedCallback();
+    // the page is set in pixels (VAULT_CSS), header and all
+    this.classList.add("vault-px");
     document.addEventListener("userMeResponse", this.onUserMe);
     this.clockTimer = setInterval(() => this.tick(), 1000);
   }
@@ -323,12 +310,15 @@ export class VaultModal extends BaseModal {
     );
   }
 
-  /** The hero's spotlight follows the pointer. */
+  /** The hero's sky glows where the pointer is. */
   private onHeroMove = (event: PointerEvent) => {
-    const hero = event.currentTarget as HTMLElement;
-    const rect = hero.getBoundingClientRect();
-    hero.style.setProperty("--mx", `${event.clientX - rect.left}px`);
-    hero.style.setProperty("--my", `${event.clientY - rect.top}px`);
+    const sky = this.sky;
+    if (sky === undefined) return;
+    const rect = sky.getBoundingClientRect();
+    sky.setPointer({
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    });
   };
 
   // ---- rendering -------------------------------------------------------------
@@ -341,8 +331,9 @@ export class VaultModal extends BaseModal {
       status: html`${this.signedIn
           ? uiStatusChip(
               html`<span data-vault-balance class="flex items-center gap-2"
-                ><credits-icon .size=${18}></credits-icon
-                ><vault-count .value=${this.balance}></vault-count
+                >${vaultIcons.coin(2)}<vault-count
+                  .value=${this.balance}
+                ></vault-count
               ></span>`,
             )
           : ""}<not-logged-in-warning></not-logged-in-warning>`,
@@ -383,7 +374,7 @@ export class VaultModal extends BaseModal {
         <p
           class="flex items-start justify-center gap-2 pb-2 text-center text-xs text-ui-muted"
         >
-          ${vaultIcons.shield("mt-px h-4 w-4")}
+          ${vaultIcons.shield(2)}
           <span class="max-w-[70ch]"
             >${translateText("vault.credits_only")}</span
           >
@@ -419,27 +410,16 @@ export class VaultModal extends BaseModal {
       class="vault-hero"
       ?data-spinning=${this.spinning}
       @pointermove=${this.onHeroMove}
+      @pointerleave=${() => this.sky?.setPointer(null)}
     >
       <div class="vault-bg" aria-hidden="true">
-        <i class="vault-blob vault-blob-a"></i>
-        <i class="vault-blob vault-blob-b"></i>
-        <i class="vault-blob vault-blob-c"></i>
+        <vault-sky ?spinning=${this.spinning}></vault-sky>
         <div class="vault-gridlines"></div>
-        <div class="vault-spot"></div>
-        ${SPARKLES.map(
-          ([x, y, size, t, d]) =>
-            html`<i
-              class="vault-sparkle"
-              style="--x:${x};--y:${y};--s:${size}px;--t:${t}s;--d:${d}s"
-            ></i>`,
-        )}
       </div>
       <div
         class="grid items-center gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:p-10"
       >
         <div class="vault-stage vault-rise" style="--d:.05s">
-          <div class="vault-halo" aria-hidden="true"></div>
-          <div class="vault-rays" aria-hidden="true"></div>
           <vault-wheel
             class="block w-full"
             .segments=${view.wheel.segments}
@@ -465,26 +445,27 @@ export class VaultModal extends BaseModal {
             <button
               type="button"
               data-vault-spin
-              class="vault-spin vault-shine ui-focus"
+              class="vault-btn vault-spin vault-shine ui-focus"
               ?disabled=${!canPay || limitHit || this.busy}
               @click=${() => void this.spin("spin")}
             >
               <span class="flex flex-col items-start leading-tight">
-                <span class="text-[15px] font-black uppercase tracking-[0.1em]"
+                <span class="text-[20px] font-bold uppercase tracking-[0.08em]"
                   >${translateText("vault.spin")}</span
                 >
                 ${state === null
                   ? nothing
-                  : html`<span class="text-[11px] font-semibold opacity-75"
+                  : html`<span class="text-xs opacity-80"
                       >${translateText("vault.spins_today", {
                         used: state.today.spins,
                         max: view.limits.paidSpinsPerDay,
                       })}</span
                     >`}
               </span>
-              <span class="ui-mono flex items-center gap-2 text-lg font-bold"
-                ><credits-icon .size=${22}></credits-icon
-                >${view.wheel.spinPrice.toLocaleString()}</span
+              <span class="ui-mono flex items-center gap-2 text-2xl font-bold"
+                >${vaultIcons.coin(
+                  2,
+                )}${view.wheel.spinPrice.toLocaleString()}</span
               >
             </button>
             ${spinHint === null
@@ -506,7 +487,7 @@ export class VaultModal extends BaseModal {
     </section>`;
   }
 
-  /** The free daily spin: a ring that fills towards the next one, or a gold button while it is waiting. */
+  /** The free daily spin: a gift and a bar of blocks that fills as the day passes towards the next one, gold and blinking while it is waiting. */
   private renderDaily(view: VaultView): TemplateResult {
     const daily = view.state?.daily;
     const ready = daily?.available === true;
@@ -519,42 +500,21 @@ export class VaultModal extends BaseModal {
     return html`<button
       type="button"
       data-vault-daily
-      class="vault-daily vault-glass ui-focus"
+      class="vault-daily vault-panel ui-focus"
       ?data-ready=${ready && !this.busy}
       ?disabled=${!ready || this.busy}
       @click=${() => void this.spin("daily")}
     >
-      <span class="vault-ring">
-        <svg class="vault-ring-svg" viewBox="0 0 60 60" aria-hidden="true">
-          <circle
-            class="vault-ring-track"
-            cx="30"
-            cy="30"
-            r="26"
-            fill="none"
-            stroke-width="4"
-          />
-          <circle
-            class="vault-ring-bar"
-            cx="30"
-            cy="30"
-            r="26"
-            fill="none"
-            stroke-width="4"
-            stroke-dasharray=${RING}
-            stroke-dashoffset=${RING * (1 - progress)}
-          />
-        </svg>
-        <span class="vault-ring-gift">${vaultIcons.gift("h-6 w-6")}</span>
-      </span>
-      <span class="flex min-w-0 flex-col gap-0.5">
-        <span
-          class="text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/60"
+      <span class="vault-daily-icon"
+        ><span class="vault-daily-gift">${vaultIcons.gift(3)}</span></span
+      >
+      <span class="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span class="text-sm font-bold uppercase tracking-[0.2em] text-white/60"
           >${translateText("vault.daily_title")}</span
         >
         <span
           data-vault-daily-state
-          class="ui-mono text-xl font-bold text-white"
+          class="ui-mono text-2xl font-bold text-white"
           aria-label=${daily === undefined || ready
             ? nothing
             : translateText("vault.daily_next", { time: clock(msLeft) })}
@@ -563,15 +523,22 @@ export class VaultModal extends BaseModal {
             ? translateText("vault.sign_in")
             : ready
               ? translateText("vault.daily_free")
-              : html`<span
-                    class="mr-1.5 font-sans text-xs font-semibold text-white/55"
+              : html`<span class="mr-2 text-sm font-semibold text-white/55"
                     >${translateText("vault.daily_next_label")}</span
                   >${clock(msLeft)}`}
         </span>
-        <span class="flex items-center gap-1.5 text-xs text-white/45"
-          >${vaultIcons.clock("h-3 w-3")}${translateText(
-            "vault.daily_resets",
-          )}</span
+        <span
+          class="vault-blocks"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow=${Math.round(progress * 100)}
+          ?data-full=${ready && !this.busy}
+          style="--p:${progress * 100}%;--rc:${ready ? "#fbbf24" : "#8b8b95"}"
+          ><i></i
+        ></span>
+        <span class="flex items-center gap-2 text-xs text-white/45"
+          >${vaultIcons.clock(1)}${translateText("vault.daily_resets")}</span
         >
       </span>
       ${ready && !this.busy

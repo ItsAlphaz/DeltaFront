@@ -23,6 +23,7 @@ import {
   vaultSectionHead,
   watchInView,
 } from "./VaultParts";
+import { tone } from "./VaultPixel";
 import { tiltLeave, tiltMove } from "./VaultTilt";
 
 type Status = "all" | "owned" | "missing";
@@ -189,7 +190,7 @@ export class VaultCollection extends LitElement {
               type="button"
               class="vault-chip ui-focus"
               data-vault-rarity=${r}
-              style="--c:${RARITY_COLOR[r]}"
+              style=${tone(RARITY_COLOR[r])}
               aria-pressed=${this.rarity === r ? "true" : "false"}
               @click=${() => (this.rarity = this.rarity === r ? "all" : r)}
             >
@@ -244,13 +245,13 @@ export class VaultCollection extends LitElement {
       <article
         class="vault-item vault-tilt"
         data-owned=${have ? "true" : "false"}
-        style="--c:${color}; --tilt-hover-scale: 1.04"
+        style="${tone(color)};--tilt-hover-scale:1.04"
       >
         ${power >= 3 ? html`<span class="vault-edge"></span>` : nothing}
         <span class="vault-item-state"
           >${have
-            ? html`${vaultIcons.check("h-3 w-3")}${translateText("vault.owned")}`
-            : html`${vaultIcons.lock("h-3 w-3")}${translateText("vault.locked")}`}</span
+            ? html`${vaultIcons.check(1)}${translateText("vault.owned")}`
+            : html`${vaultIcons.lock(1)}${translateText("vault.locked")}`}</span
         >
         <div class="vault-item-art">
           ${resolved === null
@@ -258,7 +259,7 @@ export class VaultCollection extends LitElement {
                 class="flex h-full items-center justify-center"
                 style="color:${color}"
               >
-                ${vaultIcons.gem("h-10 w-10")}
+                ${vaultIcons.gem(4)}
               </div>`
             : html`<cosmetic-preview .resolved=${resolved}></cosmetic-preview>`}
         </div>
@@ -289,7 +290,7 @@ export class VaultCollection extends LitElement {
             data-vault-sources
             class="mt-auto flex items-center justify-center gap-1.5 pt-1 text-[11px] text-white/45"
           >
-            ${vaultIcons.gift("h-3 w-3")}
+            ${vaultIcons.gift(1)}
             <span
               class="truncate"
               title=${[

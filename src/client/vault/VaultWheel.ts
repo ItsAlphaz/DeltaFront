@@ -1,6 +1,5 @@
-import { assetUrl } from "@openfront/shared/AssetUrls";
 import type { VaultView } from "@openfront/shared/VaultSchemas";
-import { html, LitElement } from "lit";
+import { html, LitElement, type PropertyValues } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import {
   motionAllowed,
@@ -9,46 +8,143 @@ import {
   RARITY_COLOR,
   VaultFx,
 } from "./VaultFx";
+import {
+  bayerAt,
+  darken,
+  hexToRgb,
+  lighten,
+  mix,
+  pack,
+  packRgb,
+  PIXEL_FONT,
+  pixelFontReady,
+  TAU,
+  type Rgb,
+} from "./VaultPixel";
+import { spriteColor, spriteRows, type SpriteName } from "./VaultSprites";
 import { tiltLeave, tiltMove, tiltRelease } from "./VaultTilt";
 
 type Segment = VaultView["wheel"]["segments"][number];
 type Prize = Segment["prize"];
 
-const TAU = Math.PI * 2;
 const SPIN_MS = 5600;
+const HALF_PI = Math.PI / 2;
 const easeOutQuint = (t: number): number => 1 - Math.pow(1 - t, 5);
-const FONT = "Inter, system-ui, sans-serif";
+const mod = (a: number, n: number): number => ((a % n) + n) % n;
 
-/** The fill of a segment: Credits alternate two night blues, items take their rarity, a pack is pink, the jackpot gold. */
-function segmentColors(segment: Segment, index: number): [string, string] {
+/** Texels of a decal per pixel of the wheel: the labels are drawn at twice the size and sampled down, so a thin stroke does not vanish as the wheel turns. */
+const K = 2;
+
+const OUTLINE: Rgb = [20, 15, 28];
+const CREAM: Rgb = [255, 243, 176];
+const GOLD_RAMP: readonly Rgb[] = [
+  [109, 71, 9],
+  [184, 128, 28],
+  [224, 168, 42],
+  [251, 233, 160],
+];
+
+/** The two ends of a segment's shading: Credits alternate two night blues, items take their rarity, a pack is pink, the jackpot gold. */
+function segmentColors(segment: Segment, index: number): [Rgb, Rgb] {
   const prize = segment.prize;
   if (prize.kind === "item") {
-    const color = RARITY_COLOR[prize.rarity];
-    return [color, shade(color, -0.5)];
+    const color = hexToRgb(RARITY_COLOR[prize.rarity]);
+    return [color, darken(color, 0.5)];
   }
-  if (prize.kind === "pack") return [PACK_COLOR, "#7a1d4d"];
-  if (prize.amount >= 1000) return ["#ffe266", "#d97706"];
-  return index % 2 === 0 ? ["#4a4fa8", "#1c1d44"] : ["#2f6a8c", "#12283e"];
-}
-
-function shade(hex: string, amount: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const channel = (shift: number) =>
-    Math.max(0, Math.min(255, Math.round(((n >> shift) & 255) * (1 + amount))));
-  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+  if (prize.kind === "pack") return [hexToRgb(PACK_COLOR), [122, 29, 77]];
+  if (prize.amount >= 1000) {
+    return [
+      [255, 226, 102],
+      [217, 119, 6],
+    ];
+  }
+  return index % 2 === 0
+    ? [
+        [74, 79, 168],
+        [28, 29, 68],
+      ]
+    : [
+        [47, 106, 140],
+        [18, 40, 62],
+      ];
 }
 
 const isJackpot = (prize: Prize): boolean =>
   prize.kind === "credits" && prize.amount >= 1000;
 
+const rgbHex = (c: Rgb): string =>
+  `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+
+/** The icon of what a segment gives, and the colour it is tinted. */
+function iconOf(prize: Prize): { name: SpriteName; tint: Rgb } {
+  if (prize.kind === "item") {
+    return {
+      name: "gem",
+      tint: lighten(hexToRgb(RARITY_COLOR[prize.rarity]), 0.2),
+    };
+  }
+  if (prize.kind === "pack")
+    return { name: "pack", tint: hexToRgb(PACK_COLOR) };
+  return { name: isJackpot(prize) ? "star" : "coin", tint: [255, 255, 255] };
+}
+
+/** What a decal's texel numbers stand for, besides 0 (nothing): 1 the label's outline, 2 the label, 3 and up the icon's colours. */
+const SPRITE_INDEX: Record<string, number> = {
+  K: 3,
+  L: 4,
+  P: 5,
+  D: 6,
+  W: 7,
+  Y: 8,
+  y: 9,
+  R: 10,
+  r: 11,
+  B: 12,
+};
+
 /**
- * The wheel: a canvas that draws the segments (each with the icon of what it
- * gives), a rim of chasing lights, a flapper that ticks past each peg, a glass
- * sheen and a hub. `spinTo(index)` turns it to the winning segment (chosen by
+ * A segment's label and icon, drawn once as a small bitmap in the segment's
+ * own frame (`u` out from the hub, `v` across), to be looked up as the wheel
+ * turns.
+ */
+interface Decal {
+  w: number;
+  h: number;
+  /** Half the height, in pixels of the wheel: where `v` is 0. */
+  vh: number;
+  data: Uint8Array;
+  palette: Uint32Array;
+}
+
+/** What is the same until the wheel is a different size: where each pixel is, and the parts that never move. */
+interface Geometry {
+  size: number;
+  center: number;
+  rimOuter: number;
+  face: number;
+  /** The rim, its shadow and the dark channel; 0 where there is nothing or where the face goes. */
+  base: Uint32Array;
+  /** The hub's own pixels: 0 where it is not. */
+  hubLayer: Uint32Array;
+  faceIdx: Int32Array;
+  faceDx: Float32Array;
+  faceDy: Float32Array;
+  faceR: Float32Array;
+  facePhi: Float32Array;
+  image: ImageData;
+  buffer: Uint32Array;
+}
+
+/**
+ * The wheel, drawn pixel by pixel on a small grid and shown at whole-number
+ * size, so every edge is a staircase and every shade a dither. The segments
+ * (each with the pixel icon and label of what it gives), the rim of chasing
+ * bulbs, the pegs, the hub and the pointer are all worked out here, not drawn
+ * by the browser. `spinTo(index)` turns it to the winning segment (chosen by
  * the server) over a few seconds of slowing down and resolves when it has
- * stopped. Every peg it passes throws sparks off the pointer; the wheel leans
+ * stopped; every peg it passes throws sparks off the pointer. The wheel leans
  * towards the cursor while it is still, and `highlight` lights segments up
- * (the odds list shows which segment a line is about).
+ * and steps the others back.
  */
 @customElement("vault-wheel")
 export class VaultWheel extends LitElement {
@@ -59,17 +155,19 @@ export class VaultWheel extends LitElement {
   private rotation = 0;
   private flap = 0;
   private lit = -1;
+  private litUntil = 0;
   /** How far the segments that are not highlighted have dimmed, 0 to 1. */
   private dim = 0;
-  private litUntil = 0;
   private spinning = false;
   private frame: number | null = null;
   private visible = true;
   private lastPaint = 0;
   private seen: IntersectionObserver | null = null;
   private fx: VaultFx | null = null;
-  private coin: HTMLImageElement | null = null;
-  private labelWidths = new Map<string, number>();
+  private geometry: Geometry | null = null;
+  private decals: Decal[] = [];
+  private decalsFor = "";
+  private fontReady = false;
 
   createRenderRoot() {
     return this;
@@ -88,10 +186,10 @@ export class VaultWheel extends LitElement {
       });
       this.seen.observe(this);
     }
-    if (this.coin === null && typeof Image !== "undefined") {
-      this.coin = new Image();
-      this.coin.src = assetUrl("images/CreditsIcon.svg");
-    }
+    // labels are drawn in the pixel face: again once it is here
+    void pixelFontReady().then(() => {
+      this.fontReady = true;
+    });
     this.frame = requestAnimationFrame(this.paint);
   }
 
@@ -107,11 +205,15 @@ export class VaultWheel extends LitElement {
     this.fx = null;
   }
 
+  protected willUpdate(changed: PropertyValues<this>) {
+    if (changed.has("segments")) this.decalsFor = "";
+  }
+
   render() {
     return html`<div class="vault-tilt" style="--tilt-hover-scale: 1">
       <canvas
         data-vault-wheel
-        class="mx-auto block aspect-square w-full max-w-[540px]"
+        class="vault-wheel-canvas mx-auto block"
         aria-hidden="true"
       ></canvas>
     </div>`;
@@ -169,8 +271,8 @@ export class VaultWheel extends LitElement {
       return Promise.resolve();
     }
     this.spinning = true;
-    const canvas = this.querySelector<HTMLElement>(".vault-tilt");
-    if (canvas !== null) tiltRelease(canvas);
+    const lean = this.querySelector<HTMLElement>(".vault-tilt");
+    if (lean !== null) tiltRelease(lean);
     return new Promise((resolve) => {
       const begin = performance.now();
       let lastPeg = Math.floor((-from / slice) * 1);
@@ -212,7 +314,7 @@ export class VaultWheel extends LitElement {
   private celebrate(index: number): void {
     const segment = this.segments[index];
     if (segment === undefined) return;
-    const color = segmentColors(segment, index)[0];
+    const color = rgbHex(segmentColors(segment, index)[0]);
     const tip = this.tip();
     const fx = this.effects();
     fx.ring(tip.x, tip.y + tip.h * 0.4, color, tip.w * 0.55);
@@ -223,19 +325,215 @@ export class VaultWheel extends LitElement {
     });
   }
 
-  private labelWidth(label: string): number {
-    let width = this.labelWidths.get(label);
-    if (width === undefined) {
-      const ctx = document.createElement("canvas").getContext?.("2d");
-      if (ctx) {
-        ctx.font = `800 100px ${FONT}`;
-        width = ctx.measureText(label).width;
-      }
-      width ??= label.length * 62;
-      this.labelWidths.set(label, width);
-    }
-    return width;
+  // ---- what never moves ----------------------------------------------------------
+
+  private scratchContext(
+    width: number,
+    height: number,
+  ): CanvasRenderingContext2D | null {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas.getContext?.("2d", { willReadFrequently: true }) ?? null;
   }
+
+  private build(size: number): Geometry {
+    const c = size / 2;
+    const rimOuter = size * 0.465;
+    const rimInner = size * 0.42;
+    const face = size * 0.4;
+    const hub = size * 0.075;
+    const count = size * size;
+    const base = new Uint32Array(count);
+    const hubLayer = new Uint32Array(count);
+    const faceIdx: number[] = [];
+    const faceDx: number[] = [];
+    const faceDy: number[] = [];
+    const faceR: number[] = [];
+    const facePhi: number[] = [];
+    // a hard shadow down and to the right, in the dark of the page
+    const shadow = Math.max(2, Math.round(size * 0.012));
+    const shadowWord = pack(8, 6, 14);
+    const channel = pack(18, 14, 26);
+    const ramp = GOLD_RAMP.map(packRgb);
+    const outline = packRgb([26, 18, 8]);
+    const cream = packRgb(CREAM);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x + 0.5 - c;
+        const dy = y + 0.5 - c;
+        const r = Math.hypot(dx, dy);
+        const i = y * size + x;
+        // light from the top left: on a ring, the side that faces it is bright
+        const nx = r === 0 ? 0 : dx / r;
+        const ny = r === 0 ? 0 : dy / r;
+        const lum = nx * -0.62 + ny * -0.78;
+        if (r > rimOuter) {
+          if (Math.hypot(dx - shadow, dy - shadow) <= rimOuter) {
+            base[i] = shadowWord;
+          }
+        } else if (r > rimOuter - 1.2) {
+          base[i] = outline;
+        } else if (r > rimInner) {
+          // the gold rim: a lip bright on the outside and dark on the inside
+          const q = (r - rimInner) / (rimOuter - rimInner);
+          const bevel = q > 0.78 ? 0.3 : q < 0.2 ? -0.35 : 0;
+          const level = Math.floor(
+            ((lum * 0.5 + bevel + 1) / 2) * 4 + bayerAt(x, y),
+          );
+          base[i] = ramp[Math.max(0, Math.min(3, level))];
+        } else if (r > face) {
+          base[i] = channel;
+        } else if (r > hub) {
+          faceIdx.push(i);
+          faceDx.push(dx);
+          faceDy.push(dy);
+          faceR.push(r);
+          facePhi.push(Math.atan2(dy, dx));
+        } else if (r > hub - 1.2) {
+          // the hub: a gold disc with a lip and an inner ring
+          hubLayer[i] = outline;
+        } else if (r > hub * 0.8 && r < hub * 0.8 + 1) {
+          hubLayer[i] = cream;
+        } else {
+          const level = Math.floor(((lum * 0.5 + 1) / 2) * 4 + bayerAt(x, y));
+          hubLayer[i] = ramp[Math.max(0, Math.min(3, level))];
+        }
+      }
+    }
+    this.stampHubLabel(hubLayer, size, c, hub);
+    const image = new ImageData(size, size);
+    return {
+      size,
+      center: c,
+      rimOuter,
+      face,
+      base,
+      hubLayer,
+      faceIdx: Int32Array.from(faceIdx),
+      faceDx: Float32Array.from(faceDx),
+      faceDy: Float32Array.from(faceDy),
+      faceR: Float32Array.from(faceR),
+      facePhi: Float32Array.from(facePhi),
+      image,
+      buffer: new Uint32Array(image.data.buffer),
+    };
+  }
+
+  /** "VAULT" on the hub, from the pixel face. */
+  private stampHubLabel(
+    layer: Uint32Array,
+    size: number,
+    c: number,
+    hub: number,
+  ): void {
+    const box = Math.ceil(hub * 2);
+    const ctx = this.scratchContext(box, box);
+    if (ctx === null) return;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 ${Math.max(6, Math.round(hub * 0.5))}px ${PIXEL_FONT}`;
+    ctx.fillStyle = "#000";
+    ctx.fillText("VAULT", box / 2, box / 2 + 0.5);
+    const data = ctx.getImageData(0, 0, box, box).data;
+    const ink = packRgb([42, 28, 4]);
+    const left = Math.round(c - box / 2);
+    const top = Math.round(c - box / 2);
+    for (let y = 0; y < box; y++) {
+      for (let x = 0; x < box; x++) {
+        if (data[(y * box + x) * 4 + 3] > 127) {
+          layer[(top + y) * size + left + x] = ink;
+        }
+      }
+    }
+  }
+
+  // ---- the labels ------------------------------------------------------------------
+
+  private buildDecals(geo: Geometry): Decal[] {
+    const n = this.segments.length;
+    const face = geo.face;
+    const slice = TAU / Math.max(1, n);
+    const vh = face * Math.tan(slice / 2) + 1;
+    const w = Math.ceil(face * K);
+    const h = Math.ceil(vh * 2 * K);
+    const ctx = this.scratchContext(w, h);
+    return this.segments.map((segment) => {
+      const data = new Uint8Array(w * h);
+      const palette = new Uint32Array(16);
+      const jackpot = isJackpot(segment.prize);
+      palette[1] = packRgb(jackpot ? [255, 240, 170] : OUTLINE);
+      palette[2] = packRgb(jackpot ? [58, 34, 0] : [255, 255, 255]);
+
+      // the icon, standing up from the rim end
+      const { name, tint } = iconOf(segment.prize);
+      for (const ch of Object.keys(SPRITE_INDEX)) {
+        palette[SPRITE_INDEX[ch]] = packRgb(spriteColor(ch, tint));
+      }
+      const rows = spriteRows(name);
+      const sw = Math.max(...rows.map((r) => r.length));
+      const sh = rows.length;
+      const texel = Math.max(
+        2,
+        Math.round((face * 0.19 * K) / Math.max(sw, sh)),
+      );
+      const x0 = Math.round(face * 0.83 * K - (sh * texel) / 2);
+      const y0 = Math.round(h / 2 - (sw * texel) / 2);
+      rows.forEach((row, sy) => {
+        for (let sx = 0; sx < row.length; sx++) {
+          const code = SPRITE_INDEX[row[sx]];
+          if (code === undefined) continue;
+          // turned a quarter, so the top of the icon points out to the rim
+          const px = x0 + (sh - 1 - sy) * texel;
+          const py = y0 + sx * texel;
+          for (let dy = 0; dy < texel; dy++) {
+            for (let dx = 0; dx < texel; dx++) {
+              const tx = px + dx;
+              const ty = py + dy;
+              if (tx >= 0 && tx < w && ty >= 0 && ty < h) {
+                data[ty * w + tx] = code;
+              }
+            }
+          }
+        }
+      });
+
+      // the label inwards of it, as large as the room allows, outlined
+      if (ctx !== null) {
+        const label = segment.label;
+        ctx.font = `700 100px ${PIXEL_FONT}`;
+        const room = face * 0.46 * K;
+        const fontSize = Math.min(
+          geo.size * 0.05 * K,
+          (room / ctx.measureText(label).width) * 100,
+        );
+        ctx.clearRect(0, 0, w, h);
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.font = `700 ${fontSize}px ${PIXEL_FONT}`;
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 3 * K;
+        ctx.strokeStyle = "#000";
+        ctx.fillStyle = "#000";
+        const x = face * 0.69 * K;
+        const y = h / 2 + fontSize * 0.04;
+        ctx.strokeText(label, x, y);
+        ctx.fillText(label, x, y);
+        const outlined = ctx.getImageData(0, 0, w, h).data;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillText(label, x, y);
+        const filled = ctx.getImageData(0, 0, w, h).data;
+        for (let i = 0; i < w * h; i++) {
+          if (data[i] !== 0) continue;
+          if (filled[i * 4 + 3] > 127) data[i] = 2;
+          else if (outlined[i * 4 + 3] > 127) data[i] = 1;
+        }
+      }
+      return { w, h, vh, data, palette };
+    });
+  }
+
+  // ---- each frame ---------------------------------------------------------------------
 
   private paint = (now: number): void => {
     this.frame = requestAnimationFrame(this.paint);
@@ -250,371 +548,238 @@ export class VaultWheel extends LitElement {
     this.lastPaint = now;
     const canvas = this.querySelector<HTMLCanvasElement>("canvas");
     if (canvas === null || this.segments.length === 0) return;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width === 0) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const size = Math.round(rect.width * dpr);
-    if (canvas.width !== size) {
+    // as wide as the room allows (a pixel of the wheel is two of the screen's,
+    // one on a phone), on a grid that fits whole
+    const avail = Math.min(540, this.clientWidth);
+    if (avail === 0) return;
+    const pixel = avail >= 420 ? 2 : 1;
+    const size = Math.floor(avail / pixel);
+    if (this.geometry === null || this.geometry.size !== size) {
+      this.geometry = this.build(size);
       canvas.width = size;
       canvas.height = size;
+      this.decalsFor = "";
     }
+    const geo = this.geometry;
+    canvas.style.width = `${size * pixel}px`;
+    canvas.style.height = `${size * pixel}px`;
     const ctx = canvas.getContext?.("2d");
     if (!ctx) return;
+    const key = `${this.fontReady}:${size}`;
+    if (this.decalsFor !== key) {
+      this.decals = this.buildDecals(geo);
+      this.decalsFor = key;
+    }
     // idle: a slow drift, so the wheel is never dead
-    if (!this.spinning && motionAllowed() && this.lit < 0)
+    if (!this.spinning && motionAllowed() && this.lit < 0) {
       this.rotation -= 0.0016 * (lively ? 1 : 2);
+    }
     if (!this.spinning && this.lit >= 0 && now > this.litUntil) this.lit = -1;
     this.flap *= 0.86;
     const target = this.highlight.length > 0 && !this.spinning ? 1 : 0;
     this.dim += (target - this.dim) * 0.22;
-    this.draw(ctx, size, now);
+    this.draw(geo, now);
+    ctx.putImageData(geo.image, 0, 0);
   };
 
-  private draw(ctx: CanvasRenderingContext2D, s: number, now: number): void {
-    const c = s / 2;
-    const rim = s * 0.465;
-    const radius = s * 0.4;
+  private draw(geo: Geometry, now: number): void {
+    const { buffer: out, size } = geo;
+    out.set(geo.base);
     const n = this.segments.length;
     const slice = TAU / n;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, s, s);
+    const rot = this.rotation;
 
-    // a glow behind the wheel that quickens while it turns
-    const pulse = 0.5 + 0.5 * Math.sin(now / (this.spinning ? 120 : 700));
-    const glow = ctx.createRadialGradient(c, c, radius * 0.6, c, c, s * 0.5);
-    glow.addColorStop(0, "rgba(0,0,0,0)");
-    glow.addColorStop(
-      0.8,
-      `rgba(251,191,36,${0.1 + pulse * (this.spinning ? 0.3 : 0.12)})`,
-    );
-    glow.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, s, s);
-
-    // the rim: a gold ring with a bevel, then the dark channel the bulbs sit in
-    const rimGradient = ctx.createLinearGradient(0, 0, s, s);
-    rimGradient.addColorStop(0, "#fbe9a0");
-    rimGradient.addColorStop(0.45, "#c0891f");
-    rimGradient.addColorStop(1, "#6d4709");
-    ctx.beginPath();
-    ctx.arc(c, c, rim, 0, TAU);
-    ctx.fillStyle = rimGradient;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(c, c, rim - s * 0.004, Math.PI * 1.05, Math.PI * 1.7);
-    ctx.lineWidth = s * 0.005;
-    ctx.strokeStyle = "rgba(255,250,214,0.6)";
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(c, c, radius + s * 0.02, 0, TAU);
-    ctx.fillStyle = "#14101c";
-    ctx.fill();
-
-    // the rim's lights: a band of light chases round, faster while it spins
-    const bulbs = 28;
-    const speed = this.spinning ? 0.012 : 0.002;
-    for (let i = 0; i < bulbs; i++) {
-      const a = (i / bulbs) * TAU - Math.PI / 2;
-      const phase = (i / bulbs + now * speed) % 1;
-      const on =
-        phase < 0.22 || (this.lit >= 0 && Math.floor(now / 160) % 2 === 0);
-      const x = c + Math.cos(a) * (rim - s * 0.022);
-      const y = c + Math.sin(a) * (rim - s * 0.022);
-      ctx.beginPath();
-      ctx.arc(x, y, s * 0.0085, 0, TAU);
-      ctx.fillStyle = on ? "#fff7c2" : "#7a5a14";
-      ctx.shadowColor = on ? "#ffd54a" : "transparent";
-      ctx.shadowBlur = on ? s * 0.02 : 0;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-
-    // the segments
-    ctx.save();
-    ctx.translate(c, c);
-    ctx.rotate(this.rotation);
-    this.segments.forEach((segment, i) => {
-      const a0 = i * slice - Math.PI / 2;
-      const a1 = a0 + slice;
-      const [light, dark] = segmentColors(segment, i);
-      const fill = ctx.createRadialGradient(0, 0, radius * 0.15, 0, 0, radius);
-      fill.addColorStop(0, dark);
-      fill.addColorStop(1, light);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, radius, a0, a1);
-      ctx.closePath();
-      ctx.fillStyle = fill;
-      ctx.fill();
-      if (i === this.lit) {
-        ctx.fillStyle = `rgba(255,255,255,${0.25 + 0.25 * Math.sin(now / 90)})`;
-        ctx.fill();
-      } else if (this.highlight.includes(i)) {
-        ctx.fillStyle = `rgba(255,255,255,${0.2 + 0.1 * Math.sin(now / 150)})`;
-        ctx.fill();
-      } else if (this.dim > 0.01) {
-        // the rest step back, so the ones being pointed at stand out
-        ctx.fillStyle = `rgba(8,6,20,${0.64 * this.dim})`;
-        ctx.fill();
-      }
-      ctx.lineWidth = s * 0.004;
-      ctx.strokeStyle = "rgba(255,247,194,0.7)";
-      ctx.stroke();
-      this.drawSegmentContent(ctx, segment, s, radius, a0 + slice / 2);
-    });
-    // a peg on every boundary
+    // each segment's shading this frame, and which way its label runs
+    const ramps: number[][] = [];
+    const cos = new Float32Array(n);
+    const sin = new Float32Array(n);
+    // dimming moves in quarters, so the others step back in a few shades
+    const dim = Math.round(this.dim * 4) / 4;
+    const blink = Math.floor(now / 140) % 2 === 0;
     for (let i = 0; i < n; i++) {
-      const a = i * slice - Math.PI / 2;
-      ctx.beginPath();
-      ctx.arc(
-        Math.cos(a) * radius * 0.985,
-        Math.sin(a) * radius * 0.985,
-        s * 0.0095,
-        0,
-        TAU,
+      const [light, dark] = segmentColors(this.segments[i], i);
+      let boost = 0;
+      let shadeBy = 0;
+      if (i === this.lit) boost = blink ? 0.45 : 0.2;
+      else if (this.highlight.includes(i)) boost = blink ? 0.3 : 0.2;
+      else shadeBy = dim * 0.64;
+      ramps.push(
+        [0, 1, 2, 3].map((level) => {
+          let c = mix(dark, light, level / 3);
+          if (boost > 0) c = lighten(c, boost);
+          if (shadeBy > 0) c = darken(c, shadeBy);
+          return packRgb(c);
+        }),
       );
-      ctx.fillStyle = "#fff3b0";
-      ctx.fill();
+      const theta = rot + (i + 0.5) * slice - HALF_PI;
+      cos[i] = Math.cos(theta);
+      sin[i] = Math.sin(theta);
     }
-    ctx.restore();
 
-    // depth: the face darkens towards the rim, and a glass sheen lies across it
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(c, c, radius, 0, TAU);
-    ctx.clip();
-    const vignette = ctx.createRadialGradient(c, c, radius * 0.7, c, c, radius);
-    vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(1, "rgba(0,0,0,0.34)");
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, s, s);
-    const sheen = ctx.createLinearGradient(c - radius, c - radius, c, c);
-    sheen.addColorStop(0, "rgba(255,255,255,0.16)");
-    sheen.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = sheen;
-    ctx.beginPath();
-    ctx.ellipse(
-      c - radius * 0.28,
-      c - radius * 0.42,
-      radius * 0.78,
-      radius * 0.42,
-      -0.6,
-      0,
-      TAU,
-    );
-    ctx.fill();
-    ctx.restore();
+    const line = packRgb([217, 201, 138]);
+    const { faceIdx, faceDx, faceDy, faceR, facePhi, face } = geo;
+    for (let k = 0; k < faceIdx.length; k++) {
+      const idx = faceIdx[k];
+      const r = faceR[k];
+      let a = facePhi[k] - rot + HALF_PI;
+      a -= Math.floor(a / TAU) * TAU;
+      const seg = Math.min(n - 1, Math.floor(a / slice));
+      const within = a - seg * slice;
+      // the lines between segments, a pixel wide
+      if (Math.min(within, slice - within) * r < 0.7) {
+        out[idx] = line;
+        continue;
+      }
+      // the label and icon, if this pixel is on them
+      const dx = faceDx[k];
+      const dy = faceDy[k];
+      const u = dx * cos[seg] + dy * sin[seg];
+      const v = -dx * sin[seg] + dy * cos[seg];
+      const decal = this.decals[seg];
+      if (decal !== undefined && u > 0 && u < face && Math.abs(v) < decal.vh) {
+        const code = this.sample(decal, u, v);
+        if (code !== 0) {
+          out[idx] = decal.palette[code];
+          continue;
+        }
+      }
+      // the face: dark at the hub, light at the rim, in dithered steps
+      const level = Math.floor(
+        (r / face) * 4 + bayerAt(idx % size, (idx / size) | 0),
+      );
+      out[idx] = ramps[seg][level < 0 ? 0 : level > 3 ? 3 : level];
+    }
 
-    this.drawHub(ctx, c, s, now);
-    this.drawPointer(ctx, c, rim, s);
+    // a peg on every line
+    const peg = size >= 200 ? 3 : 2;
+    const pegColor = packRgb(CREAM);
+    for (let i = 0; i < n; i++) {
+      const a = rot + i * slice - HALF_PI;
+      this.square(
+        geo,
+        geo.center + Math.cos(a) * face * 0.975,
+        geo.center + Math.sin(a) * face * 0.975,
+        peg,
+        pegColor,
+      );
+    }
+
+    // the hub
+    const hubLayer = geo.hubLayer;
+    for (let i = 0; i < hubLayer.length; i++) {
+      if (hubLayer[i] !== 0) out[i] = hubLayer[i];
+    }
+
+    // the rim's bulbs: a band of light chases round, faster while it spins,
+    // and all of them blink once the wheel has stopped
+    const bulbs = 28;
+    const stepped = Math.floor(now / (this.spinning ? 55 : 150));
+    const bulbSize = size >= 200 ? 3 : 2;
+    const rBulb = geo.rimOuter - size * 0.022;
+    const bright = packRgb([255, 247, 194]);
+    const dull = packRgb([122, 90, 20]);
+    for (let i = 0; i < bulbs; i++) {
+      const a = (i / bulbs) * TAU - HALF_PI;
+      const on = (i + stepped) % bulbs < 6 || (this.lit >= 0 && blink);
+      this.square(
+        geo,
+        geo.center + Math.cos(a) * rBulb,
+        geo.center + Math.sin(a) * rBulb,
+        bulbSize,
+        on ? bright : dull,
+      );
+    }
+
+    this.drawPointer(geo);
   }
 
-  /** The icon of what a segment gives and its label, along its middle. */
-  private drawSegmentContent(
-    ctx: CanvasRenderingContext2D,
-    segment: Segment,
-    s: number,
-    radius: number,
-    angle: number,
-  ): void {
-    const prize = segment.prize;
-    const jackpot = isJackpot(prize);
-    ctx.save();
-    ctx.rotate(angle);
-
-    // the icon at the rim end, standing up from the rim
-    ctx.save();
-    ctx.translate(radius * 0.83, 0);
-    ctx.rotate(Math.PI / 2);
-    this.drawIcon(ctx, prize, radius * 0.17);
-    ctx.restore();
-
-    // the label inwards of it, as large as the room allows
-    const label = segment.label;
-    const room = radius * 0.46;
-    const fontSize = Math.min(s * 0.052, (room / this.labelWidth(label)) * 100);
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = jackpot ? "#3a2200" : "#fff";
-    ctx.shadowColor = jackpot ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.7)";
-    ctx.shadowBlur = s * 0.008;
-    ctx.font = `800 ${Math.round(fontSize)}px ${FONT}`;
-    ctx.fillText(label, radius * 0.68, 0);
-    ctx.restore();
-  }
-
-  /** Drawn in a unit square (−0.5…0.5), scaled to `size`, its top towards the rim. */
-  private drawIcon(
-    ctx: CanvasRenderingContext2D,
-    prize: Prize,
-    size: number,
-  ): void {
-    ctx.save();
-    ctx.scale(size, size);
-    ctx.lineJoin = "round";
-    ctx.shadowColor = "rgba(0,0,0,0.45)";
-    ctx.shadowBlur = size * 0.2;
-    if (prize.kind === "item") {
-      const color = RARITY_COLOR[prize.rarity];
-      ctx.beginPath();
-      ctx.moveTo(-0.5, -0.12);
-      ctx.lineTo(-0.28, -0.5);
-      ctx.lineTo(0.28, -0.5);
-      ctx.lineTo(0.5, -0.12);
-      ctx.lineTo(0, 0.52);
-      ctx.closePath();
-      ctx.fillStyle = shade(color, 0.35);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = 0.07;
-      ctx.strokeStyle = "rgba(255,255,255,0.95)";
-      ctx.stroke();
-      ctx.lineWidth = 0.045;
-      ctx.strokeStyle = "rgba(255,255,255,0.7)";
-      ctx.beginPath();
-      ctx.moveTo(-0.5, -0.12);
-      ctx.lineTo(0.5, -0.12);
-      ctx.moveTo(-0.13, -0.12);
-      ctx.lineTo(0, 0.52);
-      ctx.lineTo(0.13, -0.12);
-      ctx.moveTo(-0.28, -0.5);
-      ctx.lineTo(-0.13, -0.12);
-      ctx.moveTo(0.28, -0.5);
-      ctx.lineTo(0.13, -0.12);
-      ctx.stroke();
-    } else if (prize.kind === "pack") {
-      ctx.beginPath();
-      ctx.roundRect(-0.34, -0.5, 0.68, 1, 0.1);
-      const body = ctx.createLinearGradient(0, -0.5, 0, 0.5);
-      body.addColorStop(0, "#ffd0e6");
-      body.addColorStop(1, "#d6336c");
-      ctx.fillStyle = body;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = 0.06;
-      ctx.strokeStyle = "rgba(255,255,255,0.95)";
-      ctx.stroke();
-      ctx.fillStyle = "rgba(255,255,255,0.9)";
-      ctx.beginPath();
-      for (let i = 0; i < 8; i++) {
-        const r = i % 2 === 0 ? 0.2 : 0.06;
-        const a = (i * Math.PI) / 4 - Math.PI / 2;
-        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-      ctx.closePath();
-      ctx.fill();
-    } else if (isJackpot(prize)) {
-      ctx.beginPath();
-      for (let i = 0; i < 16; i++) {
-        const r = i % 2 === 0 ? 0.55 : 0.26;
-        const a = (i * Math.PI) / 8 - Math.PI / 2;
-        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-      ctx.closePath();
-      ctx.fillStyle = "#fff6bf";
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = 0.06;
-      ctx.strokeStyle = "#b45309";
-      ctx.stroke();
-    } else {
-      const coin = this.coin;
-      if (coin !== null && coin.complete && coin.naturalWidth > 0) {
-        ctx.drawImage(coin, -0.55, -0.55, 1.1, 1.1);
-      } else {
-        ctx.beginPath();
-        ctx.arc(0, 0, 0.5, 0, TAU);
-        ctx.fillStyle = "#f5c542";
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.lineWidth = 0.08;
-        ctx.strokeStyle = "#b8860b";
-        ctx.stroke();
+  /** What is at `(u, v)` of a decal: the commonest of four samples, if at least two are not empty. */
+  private sample(decal: Decal, u: number, v: number): number {
+    const { w, h, vh, data } = decal;
+    const codes = [0, 0, 0, 0];
+    let filled = 0;
+    for (let s = 0; s < 4; s++) {
+      const tu = Math.floor((u + (s & 1 ? 0.25 : -0.25)) * K);
+      const tv = Math.floor((v + vh + (s & 2 ? 0.25 : -0.25)) * K);
+      const code =
+        tu >= 0 && tu < w && tv >= 0 && tv < h ? data[tv * w + tu] : 0;
+      codes[s] = code;
+      if (code !== 0) filled++;
+    }
+    if (filled < 2) return 0;
+    let best = 0;
+    let bestCount = 0;
+    for (const code of codes) {
+      if (code === 0) continue;
+      let count = 0;
+      for (const other of codes) if (other === code) count++;
+      if (count > bestCount) {
+        best = code;
+        bestCount = count;
       }
     }
-    ctx.restore();
+    return best;
   }
 
-  private drawHub(
-    ctx: CanvasRenderingContext2D,
-    c: number,
-    s: number,
-    now: number,
+  /** A square of `side` pixels centred on a point of the grid. */
+  private square(
+    geo: Geometry,
+    x: number,
+    y: number,
+    side: number,
+    word: number,
   ): void {
-    // a ring that swells from the hub and fades, again and again
-    const t = (now / (this.spinning ? 700 : 2200)) % 1;
-    ctx.beginPath();
-    ctx.arc(c, c, s * (0.075 + t * 0.06), 0, TAU);
-    ctx.lineWidth = s * 0.004;
-    ctx.strokeStyle = `rgba(255,223,120,${0.5 * (1 - t)})`;
-    ctx.stroke();
-
-    const hub = ctx.createRadialGradient(
-      c - s * 0.014,
-      c - s * 0.014,
-      2,
-      c,
-      c,
-      s * 0.08,
-    );
-    hub.addColorStop(0, "#fff3b0");
-    hub.addColorStop(0.5, "#d49a22");
-    hub.addColorStop(1, "#6d4709");
-    ctx.beginPath();
-    ctx.arc(c, c, s * 0.074, 0, TAU);
-    ctx.fillStyle = hub;
-    ctx.shadowColor = "rgba(0,0,0,0.5)";
-    ctx.shadowBlur = s * 0.02;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = s * 0.006;
-    ctx.strokeStyle = "#2a1c04";
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(c, c, s * 0.058, 0, TAU);
-    ctx.lineWidth = s * 0.003;
-    ctx.strokeStyle = "rgba(255,243,176,0.55)";
-    ctx.stroke();
-    ctx.fillStyle = "#2a1c04";
-    ctx.font = `900 ${Math.round(s * 0.024)}px ${FONT}`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("VAULT", c, c);
+    const left = Math.round(x - side / 2);
+    const top = Math.round(y - side / 2);
+    for (let dy = 0; dy < side; dy++) {
+      for (let dx = 0; dx < side; dx++) {
+        const px = left + dx;
+        const py = top + dy;
+        if (px >= 0 && px < geo.size && py >= 0 && py < geo.size) {
+          geo.buffer[py * geo.size + px] = word;
+        }
+      }
+    }
   }
 
-  /** The pointer at the top, its tip deflected by the flapper. */
-  private drawPointer(
-    ctx: CanvasRenderingContext2D,
-    c: number,
-    rim: number,
-    s: number,
-  ): void {
-    ctx.save();
-    ctx.translate(c, c - rim - s * 0.004);
-    ctx.rotate(this.flap * 0.5);
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.03, -s * 0.012);
-    ctx.lineTo(s * 0.03, -s * 0.012);
-    ctx.lineTo(0, s * 0.07);
-    ctx.closePath();
-    const pointer = ctx.createLinearGradient(0, -s * 0.012, 0, s * 0.07);
-    pointer.addColorStop(0, "#ff5a5a");
-    pointer.addColorStop(1, "#b3122a");
-    ctx.fillStyle = pointer;
-    ctx.shadowColor = "rgba(0,0,0,0.6)";
-    ctx.shadowBlur = s * 0.012;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = s * 0.004;
-    ctx.strokeStyle = "#fff3b0";
-    ctx.stroke();
+  /** The pointer at the top, a pixel arrow with a cream outline, its tip deflected by the flapper. */
+  private drawPointer(geo: Geometry): void {
+    const { size, center, rimOuter } = geo;
+    const px = center;
+    const py = center - rimOuter - size * 0.004;
+    const half = size * 0.03;
+    const top = size * 0.012;
+    const length = size * 0.07;
+    const angle = this.flap * 0.5;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const reach = Math.ceil(length + half + 3);
+    const fill = [
+      packRgb([255, 90, 90]),
+      packRgb([214, 38, 58]),
+      packRgb([179, 18, 42]),
+    ];
+    const cream = packRgb(CREAM);
+    for (let y = Math.floor(py - reach); y <= Math.ceil(py + reach); y++) {
+      for (let x = Math.floor(px - reach); x <= Math.ceil(px + reach); x++) {
+        if (x < 0 || x >= size || y < 0 || y >= size) continue;
+        const dx = x + 0.5 - px;
+        const dy = y + 0.5 - py;
+        // back into the pointer's own frame
+        const lx = dx * cos + dy * sin;
+        const ly = -dx * sin + dy * cos;
+        if (ly < -top || ly > length) continue;
+        const reachAt = half * (1 - (ly + top) / (length + top));
+        const inset = reachAt - Math.abs(lx);
+        if (inset < 0) continue;
+        const edge = inset < 1.1 || ly + top < 1.1;
+        const t = (ly + top) / (length + top);
+        geo.buffer[y * size + x] = edge
+          ? cream
+          : fill[t < 0.4 ? 0 : t < 0.75 ? 1 : 2];
+      }
+    }
     // the pivot
-    ctx.beginPath();
-    ctx.arc(0, -s * 0.004, s * 0.011, 0, TAU);
-    ctx.fillStyle = "#fff3b0";
-    ctx.fill();
-    ctx.restore();
+    this.square(geo, px, py, 4, cream);
   }
 }
-
-const mod = (a: number, n: number): number => ((a % n) + n) % n;

@@ -110,16 +110,17 @@ describe("VaultModal", () => {
       modal.querySelector<HTMLButtonElement>("[data-vault-spin]")!.disabled,
     ).toBe(true);
   });
-  it("shows the free spin's ring full and the claim button while it is ready", async () => {
+  it("shows the free spin's bar full and the claim button while it is ready", async () => {
     await mount(view());
     const daily = modal.querySelector("[data-vault-daily]")!;
     expect(daily.hasAttribute("data-ready")).toBe(true);
     expect(daily.querySelector(".vault-claim")).not.toBeNull();
-    const bar = daily.querySelector(".vault-ring-bar")!;
-    expect(bar.getAttribute("stroke-dashoffset")).toBe("0");
+    const bar = daily.querySelector(".vault-blocks")!;
+    expect(bar.getAttribute("aria-valuenow")).toBe("100");
+    expect(bar.hasAttribute("data-full")).toBe(true);
   });
 
-  it("fills the ring as the day passes towards the next free spin", async () => {
+  it("fills the bar as the day passes towards the next free spin", async () => {
     const nextAt = new Date(Date.now() + 6 * 3_600_000).toISOString();
     await mount(
       view({
@@ -133,12 +134,10 @@ describe("VaultModal", () => {
     );
     const daily = modal.querySelector("[data-vault-daily]")!;
     expect(daily.hasAttribute("data-ready")).toBe(false);
-    const bar = daily.querySelector(".vault-ring-bar")!;
-    const circumference = 2 * Math.PI * 26;
-    // six hours left of twenty-four: three quarters of the ring
-    expect(
-      Number(bar.getAttribute("stroke-dashoffset")) / circumference,
-    ).toBeCloseTo(0.25, 2);
+    const bar = daily.querySelector(".vault-blocks")!;
+    // six hours left of twenty-four: three quarters of the bar
+    expect(Number(bar.getAttribute("aria-valuenow"))).toBeCloseTo(75, 0);
+    expect(bar.hasAttribute("data-full")).toBe(false);
   });
 
   it("lights the wheel's segments while the odds are pointed at", async () => {
