@@ -1,5 +1,5 @@
 // The account pages (Store, Inventory, Leaderboard, Clans, Create Lobby) in a real browser, for comparing with the
-// design's screenshots: scripts/playtest/stack.sh node scripts/playtest/uipages.mjs [store|inventory|leaderboard|clans|lobby] [--narrow]
+// design's screenshots: scripts/playtest/stack.sh node scripts/playtest/uipages.mjs [store|inventory|leaderboard|clans|lobby] [--narrow|--phone]
 //
 // The private stack has no account API, so the page is given what it would ask the API for: the catalog through
 // request interception (a larger one than the public sample, so the grids fill) and a signed-in response through the
@@ -9,14 +9,18 @@ import { openGame, OUT, sleep } from "./game.mjs";
 import { privateCatalog, vaultMock } from "./vaultMock.mjs";
 
 const pages = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-const narrow = process.argv.includes("--narrow");
+const phone = process.argv.includes("--phone");
+const narrow = process.argv.includes("--narrow") || phone;
 // `demo` leaves a real window open on the signed-in site for browsing (it is not pinned to a size, so it can be resized).
 const demo = pages.includes("demo");
-const width = narrow ? 700 : 1440;
+const width = phone ? 390 : narrow ? 700 : 1440;
 const g = await openGame(
   demo
     ? { width: 1440, height: 1000 }
-    : { viewport: { width, height: narrow ? 900 : 1000 }, dpr: 1 },
+    : {
+        viewport: { width, height: phone ? 844 : narrow ? 900 : 1000 },
+        dpr: 1,
+      },
 );
 
 // ---- a catalog big enough to fill the grids
@@ -786,7 +790,7 @@ for (const page of pages) {
     await sleep(500);
     await shot("ui-notices");
   }
-  // the Vault: the page, the free daily spin turning and landing, and a pack tearing open and showing its cards
+  // the Vault: the hero, hovering the odds and the wheel, the free daily spin turning and landing, the packs, a pack tearing open and showing its cards, and the collection
   if (page === "vault") {
     await sleep(2500);
     // say why the page could not read the Vault, should the stand-in drift from the schema
@@ -796,56 +800,142 @@ for (const page of pages) {
         `fetch('${API}/vault',{headers:{authorization:'Bearer x'}}).then((r) => r.json()).then(async (b) => { const { VaultViewSchema } = await import('/packages/shared/src/VaultSchemas.ts'); const r = VaultViewSchema.safeParse(b); return r.success ? 'ok' : JSON.stringify(r.error.issues.slice(0, 3)); }).catch((e) => String(e))`,
       ),
     );
+    // REDUCED=1: the same walk with the system asking for less motion
+    if (process.env.REDUCED) {
+      await g.b.send("Emulation.setEmulatedMedia", {
+        features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+      });
+    }
+    const sfx = `${process.env.REDUCED ? "-reduced" : ""}${phone ? "-phone" : narrow ? "-narrow" : ""}`;
     const click = (sel) =>
       g.ev(`document.querySelector(${JSON.stringify(sel)})?.click(); 1`);
-    await g.ev(`window.showPage('page-vault'); 1`);
-    await sleep(3000);
-    await shot("ui-vault");
-    await click("[data-vault-daily]");
-    await sleep(1800);
-    await shot("ui-vault-spinning");
-    await sleep(5000);
-    await shot("ui-vault-landed");
-    await click("[data-reveal-done]");
-    await sleep(1200);
-    await g.ev(
-      `document.querySelector('[data-vault-packs]')?.scrollIntoView(); 1`,
-    );
-    await sleep(600);
-    await shot("ui-vault-packs");
-    await click('[data-vault-pack="officer"] [data-ui-button="open-officer"]');
-    await sleep(1000);
-    await shot("ui-vault-sealed");
-    // a real pointer near the pack's top-right corner: it leans towards it
-    const hover = async (sel, fx, fy) => {
+    // a real pointer at a fraction of an element; says what it ended up over
+    const hover = async (sel, fx = 0.5, fy = 0.5) => {
       const at = await g.ev(
-        `(()=>{ const r=document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return {x:r.x+r.width*${fx},y:r.y+r.height*${fy}} })()`,
+        `(()=>{ const e=document.querySelector(${JSON.stringify(sel)}); if(!e) return null; const r=e.getBoundingClientRect(); return {x:r.x+r.width*${fx},y:r.y+r.height*${fy}} })()`,
       );
-      for (const dx of [-8, 0]) {
+      if (at === null) {
+        console.log("hover: no", sel);
+        return;
+      }
+      for (const dx of [-6, 0]) {
         await g.b.send("Input.dispatchMouseEvent", {
           type: "mouseMoved",
           x: at.x + dx,
           y: at.y,
         });
-        await sleep(120);
+        await sleep(90);
       }
-      await sleep(400);
+      await sleep(450);
+      console.log(
+        "hover",
+        sel,
+        JSON.stringify(at),
+        await g.ev(
+          `(()=>{ const hs=[...document.querySelectorAll(':hover')]; const h=hs[hs.length-1]; const sc=document.querySelector('vault-modal o-modal')?.shadowRoot?.querySelector('[data-modal-scroll]'); return (h ? h.tagName+'.'+String(h.className).slice(0,40) : 'none') + ' scrollTop=' + (sc ? sc.scrollTop : 'n/a') + ' dpr=' + devicePixelRatio + ' iw=' + innerWidth })()`,
+        ),
+      );
     };
+    const scrollTo = async (sel) => {
+      await g.ev(
+        `document.querySelector(${JSON.stringify(sel)})?.scrollIntoView({block:'start'}); 1`,
+      );
+      await sleep(1400);
+    };
+    await g.ev(`window.showPage('page-vault'); 1`);
+    await sleep(3600);
+    await shot(`ui-vault${sfx}`);
+    console.log(
+      "outlines",
+      await g.ev(
+        `JSON.stringify([...document.querySelectorAll('[data-vault-daily], [data-vault-daily] *')].map((e) => { const c = getComputedStyle(e); return [e.tagName, String(e.className.baseVal ?? e.className).slice(0, 30), c.outlineStyle, c.outlineWidth, c.borderTopStyle, c.borderTopWidth, c.borderTopColor, e.matches(':focus-visible')]; }).filter((r) => r[2] !== 'none' || r[4] !== 'none'))`,
+      ),
+    );
+    {
+      const r = await g.ev(
+        `(()=>{ const r=document.querySelector('.vault-ring').getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height} })()`,
+      );
+      const { result } = await g.b.send("Page.captureScreenshot", {
+        format: "png",
+        clip: {
+          x: r.x - 20,
+          y: r.y - 20,
+          width: r.w + 40,
+          height: r.h + 40,
+          scale: 6,
+        },
+      });
+      (await import("node:fs")).writeFileSync(
+        `${process.env.PLAYTEST_OUT ?? "/tmp"}/ui-vault-ring-zoom.png`,
+        Buffer.from(result.data, "base64"),
+      );
+    }
+    if (narrow) await scrollTo("[data-vault-odds-block]");
+    await hover('[data-vault-legend="item:epic"]');
+    console.log(
+      "highlight",
+      await g.ev(
+        `(()=>{ const w=document.querySelector('vault-wheel'); return JSON.stringify({h:w.highlight, dim:w.dim, vis:w.visible, frame:w.frame!==null}) })()`,
+      ),
+    );
+    await shot(`ui-vault-odds-hover${sfx}`);
+    await hover("vault-wheel", 0.85, 0.2);
+    await shot(`ui-vault-wheel-tilt${sfx}`);
+    await click("[data-vault-odds-block] [data-vault-odds-toggle]");
+    await sleep(700);
+    await shot(`ui-vault-odds-open${sfx}`);
+    await click("[data-vault-odds-block] [data-vault-odds-toggle]");
+    await click("[data-vault-daily]");
+    await sleep(1800);
+    await shot(`ui-vault-spinning${sfx}`);
+    await sleep(5000);
+    await shot(`ui-vault-landed${sfx}`);
+    await sleep(900);
+    await shot(`ui-vault-credits${sfx}`);
+    await click("[data-reveal-done]");
+    await sleep(2200);
+    await shot(`ui-vault-balance${sfx}`);
+    // a win of 250 Credits: the balance counts up and the change floats beside it
+    await g.ev(
+      `(()=>{ const c=document.querySelector('vault-count'); c.value = c.value + 250; return 1 })()`,
+    );
+    await sleep(450);
+    await shot(`ui-vault-delta${sfx}`);
+    await scrollTo("[data-vault-packs]");
+    await shot(`ui-vault-packs${sfx}`);
+    await hover('[data-vault-pack="officer"] .vault-pack-shelf', 0.8, 0.25);
+    await shot(`ui-vault-pack-hover${sfx}`);
+    await click('[data-vault-pack="officer"] [data-vault-odds-toggle]');
+    await sleep(700);
+    await shot(`ui-vault-pack-odds${sfx}`);
+    await click('[data-vault-pack="officer"] [data-vault-odds-toggle]');
+    await click('[data-vault-pack="officer"] [data-vault-open="officer"]');
+    await sleep(1000);
+    await shot(`ui-vault-sealed${sfx}`);
     await hover("[data-reveal-pack]", 0.92, 0.08);
-    await shot("ui-vault-sealed-tilt");
+    await shot(`ui-vault-sealed-tilt${sfx}`);
     await click("[data-reveal-pack]");
     await sleep(350);
-    await shot("ui-vault-tearing");
+    await shot(`ui-vault-tearing${sfx}`);
     await sleep(1300);
-    await shot("ui-vault-cards");
+    await shot(`ui-vault-cards${sfx}`);
     await click('[data-reveal-card="0"]');
     await sleep(1200);
-    await shot("ui-vault-card-1");
+    await shot(`ui-vault-card-1${sfx}`);
     await click("[data-reveal-skip]");
     await sleep(3200);
-    await shot("ui-vault-done");
-    await hover('[data-reveal-card="2"]', 0.1, 0.9);
-    await shot("ui-vault-card-tilt");
+    await shot(`ui-vault-done${sfx}`);
+    await hover('[data-reveal-card="2"]', 0.2, 0.8);
+    await shot(`ui-vault-card-tilt${sfx}`);
+    await click("[data-reveal-done]");
+    await sleep(1500);
+    await scrollTo("[data-vault-collection]");
+    await shot(`ui-vault-collection${sfx}`);
+    await hover("[data-vault-item]", 0.3, 0.3);
+    await shot(`ui-vault-item-hover${sfx}`);
+    await click('[data-vault-rarity="legendary"]');
+    await sleep(900);
+    await shot(`ui-vault-collection-filter${sfx}`);
   }
   // the news, help and settings icons while their buttons are hovered: which animations run, and a close-up frame of each
   if (page === "navicons") {
