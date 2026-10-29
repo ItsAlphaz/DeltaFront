@@ -8,11 +8,22 @@ import {
   PatternSchema,
   type Cosmetics,
 } from "@openfront/shared/CosmeticSchemas";
+import {
+  VAULT_RARITIES,
+  VaultSourceSchema,
+  type VaultItemRef,
+  type VaultRarity,
+} from "@openfront/shared/VaultSchemas";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod/v4";
+import type {
+  DrawItem,
+  ItemsByRarity,
+  ResolvedVault,
+} from "../domain/vaultDraw";
 import {
   crownFlare,
   effectFlare,
@@ -87,6 +98,8 @@ export interface Catalog {
   /** Every flare the catalog can grant, sorted. */
   validFlares: ReadonlySet<string>;
   assets: ReadonlyMap<string, CatalogAsset>;
+  /** The Vault (docs/Vault.md): the wheel and the packs, or null when the catalog has none. */
+  vault: ResolvedVault | null;
   /** Where it was read from; null for a catalog built from text (tests). */
   source: CatalogSource | null;
 }
@@ -142,6 +155,8 @@ const SourceSchema = z.strictObject({
   patterns: z.record(z.string(), PatternSchema),
   flags: z.record(z.string(), FlagSchema),
   crowns: z.record(z.string(), CrownSchema).optional(),
+  /** The Vault: not served to clients with the catalog (its own route shows its odds). */
+  vault: VaultSourceSchema.optional(),
   effects: z.partialRecord(
     z.enum(EFFECT_TYPES),
     z.record(z.string(), EffectSchema),
@@ -438,8 +453,10 @@ export function parseCatalog(
   const priceOf = (
     where: string,
     item: { type: string; name: string; colorPalette?: string | undefined },
-  ): { flare: string; price: number } | null => {
+    allowUnpriced = false,
+  ): { flare: string; price: number; rarity: string } | null => {
     let price: number | undefined;
+    let rarity: string;
     let flare: string;
     switch (item.type) {
       case "pattern": {
@@ -466,6 +483,7 @@ export function parseCatalog(
           flare = patternFlare(pattern.name, chosen.name);
         }
         price = pattern.priceSoft;
+        rarity = pattern.rarity;
         break;
       }
       case "flag": {
@@ -478,6 +496,7 @@ export function parseCatalog(
         }
         flare = flagFlare(flag.name);
         price = flag.priceSoft;
+        rarity = flag.rarity;
         break;
       }
       case "crown": {
@@ -490,6 +509,7 @@ export function parseCatalog(
         }
         flare = crownFlare(crown.name);
         price = crown.priceSoft;
+        rarity = crown.rarity;
         break;
       }
       default: {
@@ -504,15 +524,16 @@ export function parseCatalog(
         }
         flare = effectFlare(effect.name);
         price = effect.priceSoft;
+        rarity = effect.rarity;
       }
     }
-    if (price === undefined) {
+    if (price === undefined && !allowUnpriced) {
       issues.push(
         `${where}: ${item.type} ${item.name} is not sold for Credits`,
       );
       return null;
     }
-    return { flare, price };
+    return { flare, price: price ?? 0, rarity };
   };
   for (const [key, pack] of Object.entries(source.packs ?? {})) {
     const where = `packs.${key}`;
@@ -554,6 +575,103 @@ export function parseCatalog(
     packs[key] = pack;
   }
 
+  // The Vault: every item it can hand out must exist, have a rarity the Vault
+  // knows and not be a free default; every rarity a slot or a segment can
+  // draw must have an item to draw.
+  const emptyByRarity = (): Record<VaultRarity, DrawItem[]> => ({
+    common: [],
+    uncommon: [],
+    rare: [],
+    epic: [],
+    legendary: [],
+  });
+  const resolvePool = (
+    where: string,
+    pool: readonly VaultItemRef[],
+  ): ItemsByRarity => {
+    const byRarity = emptyByRarity();
+    const seen = new Set<string>();
+    for (const [index, ref] of pool.entries()) {
+      const found = priceOf(`${where}.pool.${index}`, ref, true);
+      if (found === null) continue;
+      if (!(VAULT_RARITIES as readonly string[]).includes(found.rarity)) {
+        issues.push(
+          `${where}.pool.${index}: ${ref.name} has the rarity ${JSON.stringify(found.rarity)}, which the Vault does not know`,
+        );
+        continue;
+      }
+      if (seen.has(found.flare)) {
+        issues.push(`${where}: ${found.flare} is in the pool twice`);
+        continue;
+      }
+      seen.add(found.flare);
+      byRarity[found.rarity as VaultRarity].push({
+        ref,
+        flare: found.flare,
+        rarity: found.rarity as VaultRarity,
+      });
+    }
+    return byRarity;
+  };
+  let vault: ResolvedVault | null = null;
+  if (source.vault !== undefined) {
+    const v = source.vault;
+    const packs = new Map<
+      string,
+      { source: (typeof v.packs)[string]; items: ItemsByRarity }
+    >();
+    for (const [key, pack] of Object.entries(v.packs)) {
+      const where = `vault.packs.${key}`;
+      if (pack.name !== key) {
+        issues.push(`${where}: the key and the pack name differ`);
+      }
+      if (
+        pack.startsAt !== undefined &&
+        pack.endsAt !== undefined &&
+        new Date(pack.endsAt) <= new Date(pack.startsAt)
+      ) {
+        issues.push(`${where}: endsAt must be after startsAt`);
+      }
+      const items = resolvePool(where, pack.pool);
+      for (const [slot, weights] of pack.slots.entries()) {
+        for (const rarity of VAULT_RARITIES) {
+          if ((weights[rarity] ?? 0) > 0 && items[rarity].length === 0) {
+            issues.push(
+              `${where}.slots.${slot}: can draw a ${rarity} card but the pool has none`,
+            );
+          }
+        }
+      }
+      packs.set(key, { source: pack, items });
+    }
+    const wheelItems = resolvePool("vault.wheel", v.wheel.pool);
+    const segmentIds = new Set<string>();
+    for (const [index, segment] of v.wheel.segments.entries()) {
+      const where = `vault.wheel.segments.${index}`;
+      if (segmentIds.has(segment.id)) {
+        issues.push(`${where}: the segment id ${segment.id} is used twice`);
+      }
+      segmentIds.add(segment.id);
+      if (segment.prize.kind === "item") {
+        if (wheelItems[segment.prize.rarity].length === 0) {
+          issues.push(
+            `${where}: a ${segment.prize.rarity} item prize but the wheel's pool has none`,
+          );
+        }
+      } else if (segment.prize.kind === "pack") {
+        if (!packs.has(segment.prize.pack)) {
+          issues.push(`${where}: there is no pack ${segment.prize.pack}`);
+        }
+      }
+    }
+    for (const rarity of VAULT_RARITIES) {
+      if (v.dupeCredits[rarity] === undefined) {
+        issues.push(`vault.dupeCredits: needs a value for ${rarity}`);
+      }
+    }
+    vault = { source: v, packs, wheelItems };
+  }
+
   if (flares.size === 0) issues.push("the catalog has no items");
   if (flares.size > MAX_ITEMS)
     issues.push(`the catalog has more than ${MAX_ITEMS} items`);
@@ -579,6 +697,26 @@ export function parseCatalog(
         issues.push(
           `packs.${key}: ${flare} is a free default item every account owns`,
         );
+      }
+    }
+  }
+
+  // A free default item is owned by everyone, so the Vault could only ever
+  // pay a duplicate for it.
+  if (vault !== null) {
+    const pools: ItemsByRarity[] = [
+      vault.wheelItems,
+      ...[...vault.packs.values()].map((p) => p.items),
+    ];
+    for (const pool of pools) {
+      for (const rarity of VAULT_RARITIES) {
+        for (const item of pool[rarity]) {
+          if (defaults.has(item.flare)) {
+            issues.push(
+              `vault: ${item.flare} is a free default item every account owns`,
+            );
+          }
+        }
       }
     }
   }
@@ -609,6 +747,7 @@ export function parseCatalog(
     defaultFlares: [...defaults].sort(),
     validFlares: new Set([...flares].sort()),
     assets,
+    vault,
     source: null,
   };
 }

@@ -106,6 +106,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0009",
       "0010",
       "0011",
+      "0012",
     ]);
 
     expect(await tablesOf(pool)).toEqual(
@@ -118,6 +119,8 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "early_xp",
         "solo_submissions",
         "custom_skins",
+        "vault_draws",
+        "vault_pity",
       ].sort(),
     );
     const files = loadMigrationFiles();
@@ -158,6 +161,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       },
       { version: "0010", name: "bundles", checksum: files[9].checksum },
       { version: "0011", name: "custom_skins", checksum: files[10].checksum },
+      { version: "0012", name: "vault", checksum: files[11].checksum },
     ]);
   });
 
@@ -169,7 +173,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(11);
+    ).toBe(12);
   });
 
   it("works through the service's own pool (createPool) too", async () => {
@@ -193,6 +197,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
         "0009",
         "0010",
         "0011",
+        "0012",
       ]);
       // createPool caps statements at 30 s so a runaway query cannot hold a connection.
       expect(
@@ -222,6 +227,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0009",
       "0010",
       "0011",
+      "0012",
     ]);
     expect(await tablesOf(pool)).toEqual([]);
 
@@ -239,6 +245,7 @@ describeDb("applying the shipped migrations to PostgreSQL", () => {
       "0009",
       "0010",
       "0011",
+      "0012",
     ]);
     expect(after.pending).toEqual([]);
   });
@@ -463,11 +470,12 @@ describeDb("migration safety", () => {
       "0009",
       "0010",
       "0011",
+      "0012",
     ]);
     expect(
       (await pool.query("SELECT count(*)::int AS n FROM schema_migrations"))
         .rows[0].n,
-    ).toBe(11);
+    ).toBe(12);
   });
 
   it("gives up with a clear message when another run holds the lock too long", async () => {
@@ -498,6 +506,7 @@ describeDb("migration safety", () => {
       "0009",
       "0010",
       "0011",
+      "0012",
     ]);
   });
 });

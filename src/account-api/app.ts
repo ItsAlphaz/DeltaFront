@@ -26,6 +26,7 @@ import { serverLookupsRouter } from "./routes/server";
 import { soloRouter } from "./routes/solo";
 import { shopRouter, storeRouter } from "./routes/store";
 import { usersRouter } from "./routes/users";
+import { vaultRouter } from "./routes/vault";
 import { requestLog, securityHeaders } from "./security";
 
 /**
@@ -129,6 +130,7 @@ export function createApp(deps: {
       if (config.features.store && config.features.accounts) {
         app.use(shopRouter({ ...backend, catalog: backend.catalog }));
         app.use(customSkinsRouter({ ...backend, catalog: backend.catalog }));
+        app.use(vaultRouter({ ...backend, catalog: backend.catalog }));
       }
     }
     if (usesAccountApi(config.features)) {

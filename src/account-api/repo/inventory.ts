@@ -61,6 +61,7 @@ export async function grantFlare(
   how:
     | { source: "admin" }
     | { source: "reward" }
+    | { source: "vault" }
     | { source: "purchase"; purchaseId: string } = {
     source: "admin",
   },
