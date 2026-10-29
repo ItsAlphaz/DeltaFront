@@ -548,6 +548,11 @@ class Client {
         "inventory",
         { tag: "inventory-modal", pageId: "page-inventory" },
       ],
+      [
+        ACCOUNT_FEATURES.store,
+        "vault",
+        { tag: "vault-modal", pageId: "page-vault" },
+      ],
     ];
     for (const [enabled, name, entry] of routes) {
       if (enabled) modalRouter.register(name, entry);
@@ -1833,6 +1838,7 @@ class Client {
         "troubleshooting-modal",
         "inventory-modal",
         "store-modal",
+        "vault-modal",
         "language-modal",
         "news-modal",
         "account-button",

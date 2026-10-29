@@ -1,6 +1,7 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
+import { translateText } from "../Utils";
 import "./NavAccountMenu";
 import { NavNotificationsController } from "./NavNotificationsController";
 import "./NavUtilityIcons";
@@ -86,6 +87,26 @@ export class DesktopNavBar extends LitElement {
                       ></span>
                       <span
                         class="absolute -top-1 -right-1 w-2 h-2 bg-df-red-bright rounded-full"
+                      ></span>
+                    `
+                  : ""}
+              </div>`
+            : ""}
+          ${this._notifications.showVault()
+            ? html`<div class="relative no-crazygames">
+                <button
+                  class="${NAV_ITEM} ${active("page-vault")}"
+                  data-page="page-vault"
+                >
+                  ${translateText("main.vault")}
+                </button>
+                ${this._notifications.showVaultDot()
+                  ? html`
+                      <span
+                        class="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-ping"
+                      ></span>
+                      <span
+                        class="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full"
                       ></span>
                     `
                   : ""}

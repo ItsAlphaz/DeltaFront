@@ -6,6 +6,7 @@
 // same event Main broadcasts. Start it with DF_ACCOUNT_FEATURES=accounts,store,inventory,clans,leaderboards,progression.
 import { readFileSync } from "node:fs";
 import { openGame, OUT, sleep } from "./game.mjs";
+import { privateCatalog, vaultMock } from "./vaultMock.mjs";
 
 const pages = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const narrow = process.argv.includes("--narrow");
@@ -194,7 +195,7 @@ const flares = [
 // ---- a small stand-in for the account service: a session, /users/@me, buying the skin
 // creator and saving designs. It lets the real client code run end to end: sign in, buy, draw, save, wear.
 const API = "http://localhost:8787";
-const accountRoute = /:8787\/(auth\/refresh|users\/@me|shop\/purchase)/;
+const accountRoute = /:8787\/(auth\/refresh|users\/@me|shop\/purchase|vault)/;
 const creatorArt = (() => {
   try {
     return readFileSync(
@@ -214,6 +215,16 @@ const account = {
   customSkins: [],
 };
 if (process.env.OWN_CREATOR) account.flares.push("pattern:create_your_own");
+// VAULT=1 serves the private catalog (its images inlined) and a stand-in for the Vault's API
+const vaultCatalog = process.env.VAULT ? privateCatalog() : null;
+const vaultApi = vaultCatalog ? vaultMock(vaultCatalog, account) : null;
+if (vaultCatalog) {
+  for (const key of Object.keys(catalog)) delete catalog[key];
+  Object.assign(catalog, vaultCatalog);
+  delete catalog.vault;
+  account.flares = ["pattern:delta_stripes:ash"];
+  account.credits = 5000;
+}
 const meBody = () => ({
   user: { email: "a@b.c" },
   ban: null,
@@ -288,7 +299,18 @@ g.b.onEvent(async (d) => {
   else if (path === "/auth/refresh")
     await reply({ jwt: fakeJwt(), expiresIn: 3600 });
   else if (path === "/users/@me") await reply(meBody());
-  else if (path === "/shop/purchase") {
+  else if (path === "/vault" && vaultApi) await reply(vaultApi.view());
+  else if (
+    /^\/vault\/(spin|daily|packs\/[a-z_]+\/open)$/.test(path) &&
+    vaultApi
+  ) {
+    const parts = path.split("/");
+    const out = vaultApi.draw(
+      parts[2] === "packs" ? "pack" : parts[2],
+      parts[3],
+    );
+    await reply(out.body, out.status);
+  } else if (path === "/shop/purchase") {
     const body = JSON.parse(request.postData ?? "{}");
     const flare = `pattern:${body.cosmeticName}`;
     if (body.cosmeticName !== "create_your_own") await reply({}, 400);
@@ -422,6 +444,7 @@ await g.b.send("Fetch.enable", {
     { urlPattern: "*:8787/auth/refresh*" },
     { urlPattern: "*:8787/users/@me*" },
     { urlPattern: "*:8787/shop/purchase*" },
+    { urlPattern: "*:8787/vault*" },
     { urlPattern: "*create_your_own.png*" },
   ],
 });
@@ -762,6 +785,48 @@ for (const page of pages) {
     );
     await sleep(500);
     await shot("ui-notices");
+  }
+  // the Vault: the page, the free daily spin turning and landing, and a pack tearing open and showing its cards
+  if (page === "vault") {
+    await sleep(2500);
+    // say why the page could not read the Vault, should the stand-in drift from the schema
+    console.log(
+      "vault check",
+      await g.ev(
+        `fetch('${API}/vault',{headers:{authorization:'Bearer x'}}).then((r) => r.json()).then(async (b) => { const { VaultViewSchema } = await import('/packages/shared/src/VaultSchemas.ts'); const r = VaultViewSchema.safeParse(b); return r.success ? 'ok' : JSON.stringify(r.error.issues.slice(0, 3)); }).catch((e) => String(e))`,
+      ),
+    );
+    const click = (sel) =>
+      g.ev(`document.querySelector(${JSON.stringify(sel)})?.click(); 1`);
+    await g.ev(`window.showPage('page-vault'); 1`);
+    await sleep(3000);
+    await shot("ui-vault");
+    await click("[data-vault-daily]");
+    await sleep(1800);
+    await shot("ui-vault-spinning");
+    await sleep(5000);
+    await shot("ui-vault-landed");
+    await click("[data-reveal-done]");
+    await sleep(1200);
+    await g.ev(
+      `document.querySelector('[data-vault-packs]')?.scrollIntoView(); 1`,
+    );
+    await sleep(600);
+    await shot("ui-vault-packs");
+    await click('[data-vault-pack="officer"] [data-ui-button="open-officer"]');
+    await sleep(1000);
+    await shot("ui-vault-sealed");
+    await click("[data-reveal-pack]");
+    await sleep(350);
+    await shot("ui-vault-tearing");
+    await sleep(1300);
+    await shot("ui-vault-cards");
+    await click('[data-reveal-card="0"]');
+    await sleep(1200);
+    await shot("ui-vault-card-1");
+    await click("[data-reveal-skip]");
+    await sleep(3200);
+    await shot("ui-vault-done");
   }
   // the news, help and settings icons while their buttons are hovered: which animations run, and a close-up frame of each
   if (page === "navicons") {

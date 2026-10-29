@@ -147,3 +147,72 @@ export type VaultSpinResult = z.infer<typeof VaultSpinResultSchema>;
 /** The odds the page shows: every chance as a percentage of 100, to two places. */
 export const percentOf = (weight: number, total: number): number =>
   total <= 0 ? 0 : Math.round((weight / total) * 10_000) / 100;
+
+// ---- what GET /vault answers (the page's view) -------------------------------
+
+export const VaultItemViewSchema = z.object({
+  type: z.enum(["pattern", "flag", "crown", "effect"]),
+  name: Name,
+  colorPalette: Name.optional(),
+  rarity: z.enum(VAULT_RARITIES),
+});
+export type VaultItemView = z.infer<typeof VaultItemViewSchema>;
+
+export const VaultPityViewSchema = z.object({
+  sinceRare: z.number().int().min(0),
+  sinceEpic: z.number().int().min(0),
+});
+
+export const VaultViewSchema = z.object({
+  wheel: z.object({
+    spinPrice: z.number().int(),
+    segments: z.array(
+      z.object({
+        id: Name,
+        label: z.string(),
+        prize: WheelPrizeSchema,
+        percent: z.number(),
+      }),
+    ),
+    items: z.array(VaultItemViewSchema),
+  }),
+  packs: z.array(
+    z.object({
+      name: Name,
+      displayName: z.string(),
+      tagline: z.string().optional(),
+      priceSoft: z.number().int(),
+      rarity: z.enum(VAULT_RARITIES),
+      inSeason: z.boolean(),
+      startsAt: z.string().optional(),
+      endsAt: z.string().optional(),
+      pity: z.object({
+        rareAfter: z.number().int().optional(),
+        epicAfter: z.number().int().optional(),
+      }),
+      slots: z.array(z.record(z.string(), z.number())),
+      items: z.array(VaultItemViewSchema),
+    }),
+  ),
+  dupeCredits: z.record(z.string(), z.number()),
+  limits: z.object({
+    paidSpinsPerDay: z.number().int(),
+    packsPerDay: z.number().int(),
+  }),
+  /** The account's own counters; null for a guest or when signed out. */
+  state: z
+    .object({
+      pity: z.record(z.string(), VaultPityViewSchema),
+      today: z.object({ packs: z.number().int(), spins: z.number().int() }),
+      daily: z.object({ available: z.boolean(), nextAt: z.string() }),
+      balance: z.number(),
+    })
+    .nullable(),
+});
+export type VaultView = z.infer<typeof VaultViewSchema>;
+
+export const VaultDrawResponseSchema = z.object({
+  result: z.union([VaultSpinResultSchema, VaultPackResultSchema]),
+  balance: z.number(),
+  replay: z.boolean(),
+});

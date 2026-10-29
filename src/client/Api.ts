@@ -50,6 +50,11 @@ import {
 } from "@openfront/shared/ApiSchemas";
 import { joinCodeWorker } from "@openfront/shared/JoinCode";
 import {
+  VaultDrawResponseSchema,
+  VaultViewSchema,
+  type VaultView,
+} from "@openfront/shared/VaultSchemas";
+import {
   AnalyticsRecord,
   ArchivedAnalyticsRecordSchema,
   GameInfo,
@@ -1237,6 +1242,103 @@ export type PurchaseWithCurrencyResult =
   // 400 "Level too low": the item is level-locked and the account is below it.
   | { ok: false; code: "level_too_low"; minLevel: number }
   | { ok: false; code: "failed" };
+
+// ---- the Vault (docs/Vault.md): GET /vault and the three draws ---------------
+
+/** The Vault's odds and prices, and the account's own counters; null when it cannot be read. */
+export async function fetchVault(): Promise<VaultView | null> {
+  try {
+    const signedIn = (await getUserMe()) !== false;
+    const response = await fetch(`${getApiBase()}/vault`, {
+      headers: signedIn ? { Authorization: await getAuthHeader() } : {},
+    });
+    if (!response.ok) return null;
+    const parsed = VaultViewSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      console.warn("fetchVault: invalid response");
+      return null;
+    }
+    return parsed.data;
+  } catch (e) {
+    console.warn("fetchVault: request failed", e);
+    return null;
+  }
+}
+
+export type VaultDrawKind = "spin" | "daily" | "pack";
+
+export type VaultDrawOutcome =
+  | {
+      ok: true;
+      result: z.infer<typeof VaultDrawResponseSchema>["result"];
+      balance: number;
+    }
+  | {
+      ok: false;
+      code:
+        | "insufficient_balance"
+        | "daily_used"
+        | "daily_limit"
+        | "login_required"
+        | "not_found"
+        | "failed";
+      nextAt?: string;
+    };
+
+/**
+ * A spin, the daily spin or a pack. The request id is made here, once per
+ * click: if the connection drops and the same call is retried with it, the
+ * server answers with the first result and charges nothing more.
+ */
+export async function drawVault(
+  kind: VaultDrawKind,
+  pack?: string,
+  requestId: string = crypto.randomUUID(),
+): Promise<VaultDrawOutcome> {
+  const path =
+    kind === "pack" ? `/vault/packs/${pack ?? ""}/open` : `/vault/${kind}`;
+  try {
+    const response = await fetch(`${getApiBase()}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: await getAuthHeader(),
+      },
+      body: JSON.stringify({ requestId }),
+    });
+    if (response.status === 401) {
+      await logOut();
+      return { ok: false, code: "failed" };
+    }
+    if (response.status === 403) return { ok: false, code: "login_required" };
+    if (response.status === 404) return { ok: false, code: "not_found" };
+    if (response.status === 429) return { ok: false, code: "daily_limit" };
+    if (response.status === 409) {
+      const body = await response.json().catch(() => null);
+      return {
+        ok: false,
+        code: "daily_used",
+        ...(typeof body?.nextAt === "string" ? { nextAt: body.nextAt } : {}),
+      };
+    }
+    if (response.status === 400) {
+      return { ok: false, code: "insufficient_balance" };
+    }
+    if (!response.ok) return { ok: false, code: "failed" };
+    const parsed = VaultDrawResponseSchema.safeParse(await response.json());
+    if (!parsed.success) return { ok: false, code: "failed" };
+    // The balance changed: the cached profile is out of date.
+    invalidateUserMe();
+    return {
+      ok: true,
+      result: parsed.data.result,
+      balance: parsed.data.balance,
+    };
+  } catch (e) {
+    console.warn("drawVault: request failed", e);
+    return { ok: false, code: "failed" };
+  }
+}
 
 // POST /shop/purchase — buy a single cosmetic for hard or soft currency. The
 // only spend path that takes soft currency. Any error means no debit and no

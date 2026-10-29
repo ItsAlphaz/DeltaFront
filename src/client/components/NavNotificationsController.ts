@@ -1,5 +1,6 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { ReactiveController, ReactiveControllerHost } from "lit";
+import { fetchVault } from "../Api";
 import { APP_VERSION } from "../AppVersion";
 import { getCosmeticsHash } from "../Cosmetics";
 import { getGamesPlayed } from "../Utils";
@@ -30,6 +31,11 @@ class NavNotificationsStore {
   private _helpSeen = false;
   private _hasNewCosmetics = false;
   private _hasNewVersion = false;
+  // The Vault: whether the catalog has one (the nav item shows only then) and
+  // whether the account's free daily spin is waiting.
+  private _vaultExists = false;
+  private _vaultDaily = false;
+  private _vaultTimer: ReturnType<typeof setTimeout> | null = null;
 
   subscribe(host: ReactiveControllerHost): void {
     this.hosts.add(host);
@@ -59,6 +65,15 @@ class NavNotificationsStore {
       })
       .catch(() => {});
 
+    if (ACCOUNT_FEATURES.store) {
+      void this.refreshVault();
+      document.addEventListener(
+        "userMeResponse",
+        () => void this.refreshVault(),
+      );
+      window.addEventListener("vault-daily-changed", this.onVaultDaily);
+    }
+
     const currentVersion = normalizedVersion();
     const seenVersion = localStorage.getItem(NEWS_SEEN_VERSION_KEY);
     this._hasNewVersion =
@@ -66,6 +81,51 @@ class NavNotificationsStore {
     if (seenVersion === null) {
       localStorage.setItem(NEWS_SEEN_VERSION_KEY, currentVersion);
     }
+  }
+
+  private onVaultDaily = (event: Event): void => {
+    const detail = (
+      event as CustomEvent<{ available: boolean; nextAt: string }>
+    ).detail;
+    this.setVaultDaily(detail.available, detail.nextAt);
+  };
+
+  private setVaultDaily(available: boolean, nextAt: string | null): void {
+    this._vaultDaily = available;
+    if (this._vaultTimer !== null) clearTimeout(this._vaultTimer);
+    this._vaultTimer = null;
+    // the free spin comes back at the next UTC midnight: look again then
+    if (!available && nextAt !== null) {
+      const wait = Math.max(1000, Date.parse(nextAt) - Date.now() + 1500);
+      this._vaultTimer = setTimeout(
+        () => void this.refreshVault(),
+        Math.min(wait, 2 ** 31 - 1),
+      );
+    }
+    this.notify();
+  }
+
+  private async refreshVault(): Promise<void> {
+    try {
+      const view = await fetchVault();
+      this._vaultExists = view !== null;
+      this.setVaultDaily(
+        view?.state?.daily.available === true,
+        view?.state?.daily.nextAt ?? null,
+      );
+    } catch {
+      // the nav stays as it was
+    }
+  }
+
+  /** The Vault nav item: shown once the catalog is known to have one. */
+  showVault(): boolean {
+    return ACCOUNT_FEATURES.store && this._vaultExists;
+  }
+
+  /** A dot on it while the free daily spin is waiting. */
+  showVaultDot(): boolean {
+    return this.showVault() && this._vaultDaily;
   }
 
   // Only show one dot at a time to prevent
@@ -122,6 +182,10 @@ class NavNotificationsStore {
     this._helpSeen = false;
     this._hasNewCosmetics = false;
     this._hasNewVersion = false;
+    this._vaultExists = false;
+    this._vaultDaily = false;
+    if (this._vaultTimer !== null) clearTimeout(this._vaultTimer);
+    this._vaultTimer = null;
   }
 }
 
@@ -157,6 +221,14 @@ export class NavNotificationsController implements ReactiveController {
 
   showHelpDot(): boolean {
     return navNotifications.showHelpDot();
+  }
+
+  showVault(): boolean {
+    return navNotifications.showVault();
+  }
+
+  showVaultDot(): boolean {
+    return navNotifications.showVaultDot();
   }
 
   onNewsClick = (): void => navNotifications.onNewsClick();

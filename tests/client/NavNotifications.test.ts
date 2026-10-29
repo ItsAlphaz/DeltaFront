@@ -1,10 +1,12 @@
 import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCosmeticsHash, getGamesPlayed } = vi.hoisted(() => ({
+const { fetchVault, getCosmeticsHash, getGamesPlayed } = vi.hoisted(() => ({
+  fetchVault: vi.fn(async (): Promise<unknown> => null),
   getCosmeticsHash: vi.fn(async () => "hash-2"),
   getGamesPlayed: vi.fn(() => 0),
 }));
+vi.mock("../../src/client/Api", () => ({ fetchVault }));
 vi.mock("../../src/client/Cosmetics", () => ({ getCosmeticsHash }));
 vi.mock("../../src/client/Utils", () => ({ getGamesPlayed }));
 vi.mock("../../src/client/AppVersion", () => ({ APP_VERSION: "9.9.9" }));
@@ -87,5 +89,21 @@ describe("nav notifications", () => {
     expect(bell.controller.showHelpDot()).toBe(false); // store still pending
     bell.controller.onStoreClick();
     expect(bell.controller.showHelpDot()).toBe(true);
+  });
+  it("shows the Vault only when the catalog has one, with a dot while the free spin waits", async () => {
+    fetchVault.mockResolvedValueOnce({
+      state: { daily: { available: true, nextAt: "2030-01-01T00:00:00Z" } },
+    });
+    const navBar = host();
+    await vi.waitFor(() => expect(navBar.controller.showVault()).toBe(true));
+    expect(navBar.controller.showVaultDot()).toBe(true);
+  });
+
+  it("hides the Vault when the catalog has none", async () => {
+    const navBar = host();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(navBar.controller.showVault()).toBe(false);
+    expect(navBar.controller.showVaultDot()).toBe(false);
   });
 });

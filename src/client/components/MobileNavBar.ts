@@ -2,6 +2,7 @@ import { ACCOUNT_FEATURES } from "@openfront/shared/AccountFeatures";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
+import { translateText } from "../Utils";
 import { NavNotificationsController } from "./NavNotificationsController";
 
 // The open page gets a red bar on its left edge and white text.
@@ -112,6 +113,23 @@ export class MobileNavBar extends LitElement {
               <button class="${MOBILE_ITEM}" data-i18n="main.store"></button>
               ${this._notifications.showStoreDot()
                 ? this._renderDot("bg-df-red-bright")
+                : ""}
+            </div>`
+          : ""}
+        ${this._notifications.showVault()
+          ? html`<div
+              class="no-crazygames nav-menu-item flex items-center w-full cursor-pointer"
+              data-page="page-vault"
+            >
+              <button
+                class="${MOBILE_ITEM} ${currentPage === "page-vault"
+                  ? "active"
+                  : ""}"
+              >
+                ${translateText("main.vault")}
+              </button>
+              ${this._notifications.showVaultDot()
+                ? this._renderDot("bg-amber-400")
                 : ""}
             </div>`
           : ""}

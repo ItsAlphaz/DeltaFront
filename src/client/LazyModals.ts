@@ -38,6 +38,7 @@ const modules: Record<string, () => Promise<unknown>> = {
   "token-login": () => import("./TokenLoginModal"),
   "troubleshooting-modal": () => import("./TroubleshootingModal"),
   "user-setting": () => import("./UserSettingModal"),
+  "vault-modal": () => import("./VaultModal"),
 };
 
 /** Loads the module that defines `tag`, if it's one loaded on demand. */
