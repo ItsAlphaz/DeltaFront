@@ -827,14 +827,6 @@ for (const page of pages) {
         await sleep(90);
       }
       await sleep(450);
-      console.log(
-        "hover",
-        sel,
-        JSON.stringify(at),
-        await g.ev(
-          `(()=>{ const hs=[...document.querySelectorAll(':hover')]; const h=hs[hs.length-1]; const sc=document.querySelector('vault-modal o-modal')?.shadowRoot?.querySelector('[data-modal-scroll]'); return (h ? h.tagName+'.'+String(h.className).slice(0,40) : 'none') + ' scrollTop=' + (sc ? sc.scrollTop : 'n/a') + ' dpr=' + devicePixelRatio + ' iw=' + innerWidth })()`,
-        ),
-      );
     };
     const scrollTo = async (sel) => {
       await g.ev(
@@ -845,39 +837,8 @@ for (const page of pages) {
     await g.ev(`window.showPage('page-vault'); 1`);
     await sleep(3600);
     await shot(`ui-vault${sfx}`);
-    console.log(
-      "outlines",
-      await g.ev(
-        `JSON.stringify([...document.querySelectorAll('[data-vault-daily], [data-vault-daily] *')].map((e) => { const c = getComputedStyle(e); return [e.tagName, String(e.className.baseVal ?? e.className).slice(0, 30), c.outlineStyle, c.outlineWidth, c.borderTopStyle, c.borderTopWidth, c.borderTopColor, e.matches(':focus-visible')]; }).filter((r) => r[2] !== 'none' || r[4] !== 'none'))`,
-      ),
-    );
-    {
-      const r = await g.ev(
-        `(()=>{ const r=document.querySelector('.vault-ring').getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height} })()`,
-      );
-      const { result } = await g.b.send("Page.captureScreenshot", {
-        format: "png",
-        clip: {
-          x: r.x - 20,
-          y: r.y - 20,
-          width: r.w + 40,
-          height: r.h + 40,
-          scale: 6,
-        },
-      });
-      (await import("node:fs")).writeFileSync(
-        `${process.env.PLAYTEST_OUT ?? "/tmp"}/ui-vault-ring-zoom.png`,
-        Buffer.from(result.data, "base64"),
-      );
-    }
     if (narrow) await scrollTo("[data-vault-odds-block]");
     await hover('[data-vault-legend="item:epic"]');
-    console.log(
-      "highlight",
-      await g.ev(
-        `(()=>{ const w=document.querySelector('vault-wheel'); return JSON.stringify({h:w.highlight, dim:w.dim, vis:w.visible, frame:w.frame!==null}) })()`,
-      ),
-    );
     await shot(`ui-vault-odds-hover${sfx}`);
     await hover("vault-wheel", 0.85, 0.2);
     await shot(`ui-vault-wheel-tilt${sfx}`);
