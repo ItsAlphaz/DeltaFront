@@ -1,21 +1,17 @@
 import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
-import {
-  VAULT_RARITIES,
-  rarityRank,
-  type VaultCard,
-  type VaultItemView,
-  type VaultRarity,
-  type VaultView,
+import type {
+  VaultCard,
+  VaultItemView,
+  VaultView,
 } from "@openfront/shared/VaultSchemas";
 import { html, nothing, type TemplateResult } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { drawVault, fetchVault, getUserMe, type VaultDrawOutcome } from "./Api";
 import { BaseModal } from "./components/BaseModal";
-import { cosmeticDisplayName } from "./components/CosmeticPresentation";
 import "./components/CosmeticPreview";
 import "./components/CreditsIcon";
 import "./components/NotLoggedInWarning";
-import { uiButton, uiPageHeader, uiStatusChip } from "./components/ui/PageUi";
+import { uiPageHeader, uiStatusChip } from "./components/ui/PageUi";
 import {
   broadcastFreshUserMe,
   fetchCosmetics,
@@ -23,14 +19,18 @@ import {
   type ResolvedCosmetic,
 } from "./Cosmetics";
 import { showToast, translateText } from "./Utils";
-import { RARITY_COLOR, rarityPower } from "./vault/VaultFx";
+import "./vault/VaultCollection";
+import { itemFlare } from "./vault/VaultCollection";
+import "./vault/VaultCount";
+import { motionAllowed } from "./vault/VaultFx";
+import "./vault/VaultPacks";
+import { vaultIcons, watchInView } from "./vault/VaultParts";
 import "./vault/VaultReveal";
 import type { RevealMode, VaultReveal } from "./vault/VaultReveal";
+import { VAULT_CSS } from "./vault/VaultStyles";
 import "./vault/VaultWheel";
 import type { VaultWheel } from "./vault/VaultWheel";
-
-const rarityName = (rarity: VaultRarity): string =>
-  translateText(`cosmetics.${rarity}`);
+import "./vault/VaultWheelOdds";
 
 /** "05:12:33" */
 function clock(ms: number): string {
@@ -41,10 +41,35 @@ function clock(ms: number): string {
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
+/** The free spin comes back at the next UTC midnight: a day is how long its ring takes to fill. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+const RING = 2 * Math.PI * 26;
+
+/** Where the sparkles in the hero's sky are: left, top, size, seconds, delay. */
+const SPARKLES: readonly [string, string, number, number, number][] = [
+  ["6%", "16%", 9, 5.2, 0],
+  ["14%", "72%", 6, 6.1, 1.4],
+  ["23%", "34%", 8, 4.8, 2.6],
+  ["31%", "88%", 7, 5.6, 0.7],
+  ["44%", "10%", 10, 6.4, 3.1],
+  ["52%", "78%", 6, 5.0, 1.9],
+  ["61%", "26%", 8, 5.8, 0.3],
+  ["68%", "92%", 9, 6.6, 2.2],
+  ["76%", "14%", 7, 4.9, 3.6],
+  ["84%", "58%", 10, 5.4, 1.1],
+  ["91%", "30%", 6, 6.0, 2.9],
+  ["95%", "82%", 8, 5.1, 0.5],
+];
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 /**
  * The Vault page: a spin wheel, a free daily spin and packs, all paid for with
  * Credits, which can only be earned by playing (docs/Vault.md). The page only
  * shows and animates: every price, chance and result comes from the server.
+ * The wheel, the odds, the packs and the collection are components of their
+ * own (src/client/vault/); this holds what they share: the account's state,
+ * the draws and the reveal that follows them.
  */
 @customElement("vault-modal")
 export class VaultModal extends BaseModal {
@@ -53,15 +78,19 @@ export class VaultModal extends BaseModal {
   @state() private view: VaultView | null = null;
   @state() private loaded = false;
   @state() private busy = false;
+  /** The wheel is turning. */
+  @state() private spinning = false;
   @state() private reveal: RevealMode | null = null;
   @state() private now = Date.now();
-  @state() private openOdds: string | null = null;
+  /** The wheel's segments lit up because the odds are being pointed at. */
+  @state() private lit: readonly number[] = [];
   /** The balance shown: held back while a result is still being revealed, so it does not give it away. */
   @state() private shownBalance: number | null = null;
 
   private cosmetics: Awaited<ReturnType<typeof fetchCosmetics>> = null;
   private me: UserMeResponse | false = false;
   private resolved: ResolvedCosmetic[] = [];
+  private ownedFlares: ReadonlySet<string> = new Set();
   private clockTimer: ReturnType<typeof setInterval> | null = null;
   private pendingBalance: number | null = null;
 
@@ -87,6 +116,10 @@ export class VaultModal extends BaseModal {
 
   protected onOpen(): void {
     void this.load();
+  }
+
+  protected updated() {
+    watchInView(this);
   }
 
   private onUserMe = (event: Event) => {
@@ -136,6 +169,9 @@ export class VaultModal extends BaseModal {
 
   private rebuild() {
     this.resolved = resolveCosmetics(this.cosmetics, this.me, null);
+    this.ownedFlares = new Set(
+      this.me === false ? [] : (this.me.player.flares ?? []),
+    );
     this.requestUpdate();
   }
 
@@ -144,10 +180,6 @@ export class VaultModal extends BaseModal {
     name: string;
     colorPalette?: string | undefined;
   }): ResolvedCosmetic | null => {
-    const key =
-      item.colorPalette === undefined
-        ? `${item.type}:${item.name}`
-        : `${item.type}:${item.name}:${item.colorPalette}`;
     // effects are keyed by their effect type first (`effect:nukeTrail:name`),
     // which the Vault's items don't carry: match them by name
     if (item.type === "effect") {
@@ -157,17 +189,9 @@ export class VaultModal extends BaseModal {
         ) ?? null
       );
     }
+    const key = itemFlare(item);
     return this.resolved.find((r) => r.key === key) ?? null;
   };
-
-  private owns(item: VaultItemView): boolean {
-    if (this.me === false) return false;
-    const flare =
-      item.colorPalette === undefined
-        ? `${item.type}:${item.name}`
-        : `${item.type}:${item.name}:${item.colorPalette}`;
-    return (this.me.player.flares ?? []).includes(flare);
-  }
 
   private get balance(): number {
     return this.shownBalance ?? this.view?.state?.balance ?? 0;
@@ -215,7 +239,12 @@ export class VaultModal extends BaseModal {
     this.pendingBalance = outcome.balance;
     // the wheel turns first, then the prize is shown
     await this.updateComplete;
+    this.lit = [];
+    this.spinning = true;
     await this.wheel?.spinTo(result.segment);
+    this.spinning = false;
+    // a beat on the segment it stopped on, before the overlay takes over
+    if (motionAllowed()) await sleep(850);
     const prize = result.prize;
     if (prize.kind === "credits") {
       this.reveal = {
@@ -294,6 +323,14 @@ export class VaultModal extends BaseModal {
     );
   }
 
+  /** The hero's spotlight follows the pointer. */
+  private onHeroMove = (event: PointerEvent) => {
+    const hero = event.currentTarget as HTMLElement;
+    const rect = hero.getBoundingClientRect();
+    hero.style.setProperty("--mx", `${event.clientX - rect.left}px`);
+    hero.style.setProperty("--my", `${event.clientY - rect.top}px`);
+  };
+
   // ---- rendering -------------------------------------------------------------
 
   protected renderHeaderSlot() {
@@ -305,8 +342,8 @@ export class VaultModal extends BaseModal {
           ? uiStatusChip(
               html`<span data-vault-balance class="flex items-center gap-2"
                 ><credits-icon .size=${18}></credits-icon
-                >${this.balance.toLocaleString()}</span
-              >`,
+                ><vault-count .value=${this.balance}></vault-count
+              ></span>`,
             )
           : ""}<not-logged-in-warning></not-logged-in-warning>`,
     });
@@ -327,11 +364,30 @@ export class VaultModal extends BaseModal {
         ${translateText("vault.unavailable")}
       </div>`;
     }
-    return html`<div
-        class="mx-auto flex max-w-[1240px] flex-col gap-10 p-4 sm:p-8"
-      >
-        ${this.renderWheelSection(view)} ${this.renderPacks(view)}
-        ${this.renderCollection(view)}
+    return html`<style>
+        ${VAULT_CSS}
+      </style>
+      <div class="mx-auto flex max-w-[1240px] flex-col gap-14 p-4 sm:p-8">
+        ${this.renderHero(view)}
+        <vault-packs
+          .view=${view}
+          .busy=${this.busy}
+          @vault-open-pack=${(e: CustomEvent<string>) =>
+            void this.openPack(e.detail)}
+        ></vault-packs>
+        <vault-collection
+          .view=${view}
+          .owned=${this.ownedFlares}
+          .resolve=${this.find}
+        ></vault-collection>
+        <p
+          class="flex items-start justify-center gap-2 pb-2 text-center text-xs text-ui-muted"
+        >
+          ${vaultIcons.shield("mt-px h-4 w-4")}
+          <span class="max-w-[70ch]"
+            >${translateText("vault.credits_only")}</span
+          >
+        </p>
       </div>
       <vault-reveal
         .mode=${this.reveal}
@@ -342,329 +398,187 @@ export class VaultModal extends BaseModal {
       ></vault-reveal>`;
   }
 
-  private renderWheelSection(view: VaultView): TemplateResult {
+  /** The stage: the wheel with the sky behind it, and beside it the daily spin, the spin and the odds. */
+  private renderHero(view: VaultView): TemplateResult {
     const state = view.state;
-    const daily = state?.daily;
-    const dailyReady = daily?.available === true;
+    const canPay = state !== null && state.balance >= view.wheel.spinPrice;
+    const limitHit =
+      state !== null && state.today.spins >= view.limits.paidSpinsPerDay;
+    const spinHint =
+      state === null
+        ? translateText("vault.error_login")
+        : limitHit
+          ? translateText("vault.error_daily_limit")
+          : !canPay
+            ? translateText("vault.need_more", {
+                amount: (view.wheel.spinPrice - state.balance).toLocaleString(),
+              })
+            : null;
+    return html`<section
+      data-vault-wheel-section
+      class="vault-hero"
+      ?data-spinning=${this.spinning}
+      @pointermove=${this.onHeroMove}
+    >
+      <div class="vault-bg" aria-hidden="true">
+        <i class="vault-blob vault-blob-a"></i>
+        <i class="vault-blob vault-blob-b"></i>
+        <i class="vault-blob vault-blob-c"></i>
+        <div class="vault-gridlines"></div>
+        <div class="vault-spot"></div>
+        ${SPARKLES.map(
+          ([x, y, size, t, d]) =>
+            html`<i
+              class="vault-sparkle"
+              style="--x:${x};--y:${y};--s:${size}px;--t:${t}s;--d:${d}s"
+            ></i>`,
+        )}
+      </div>
+      <div
+        class="grid items-center gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12 lg:p-10"
+      >
+        <div class="vault-stage vault-rise" style="--d:.05s">
+          <div class="vault-halo" aria-hidden="true"></div>
+          <div class="vault-rays" aria-hidden="true"></div>
+          <vault-wheel
+            class="block w-full"
+            .segments=${view.wheel.segments}
+            .highlight=${this.lit}
+          ></vault-wheel>
+        </div>
+        <div class="flex min-w-0 flex-col gap-6">
+          <div class="vault-rise" style="--d:.12s">
+            <div class="vault-eyebrow">
+              ${translateText("vault.hero_eyebrow")}
+            </div>
+            <h2 class="vault-headline mt-2 pb-1">
+              ${translateText("vault.hero_title")}
+            </h2>
+            <p class="ui-body mt-3 max-w-[44ch] text-white/65">
+              ${translateText("vault.wheel_blurb")}
+            </p>
+          </div>
+          <div class="vault-rise" style="--d:.22s">
+            ${this.renderDaily(view)}
+          </div>
+          <div class="vault-rise flex flex-col gap-2" style="--d:.32s">
+            <button
+              type="button"
+              data-vault-spin
+              class="vault-spin vault-shine ui-focus"
+              ?disabled=${!canPay || limitHit || this.busy}
+              @click=${() => void this.spin("spin")}
+            >
+              <span class="flex flex-col items-start leading-tight">
+                <span class="text-[15px] font-black uppercase tracking-[0.1em]"
+                  >${translateText("vault.spin")}</span
+                >
+                ${state === null
+                  ? nothing
+                  : html`<span class="text-[11px] font-semibold opacity-75"
+                      >${translateText("vault.spins_today", {
+                        used: state.today.spins,
+                        max: view.limits.paidSpinsPerDay,
+                      })}</span
+                    >`}
+              </span>
+              <span class="ui-mono flex items-center gap-2 text-lg font-bold"
+                ><credits-icon .size=${22}></credits-icon
+                >${view.wheel.spinPrice.toLocaleString()}</span
+              >
+            </button>
+            ${spinHint === null
+              ? nothing
+              : html`<p class="text-xs text-white/55" data-vault-hint>
+                  ${spinHint}
+                </p>`}
+          </div>
+          <div class="vault-rise" style="--d:.42s">
+            <vault-wheel-odds
+              .segments=${view.wheel.segments}
+              .packs=${view.packs}
+              @vault-highlight=${(e: CustomEvent<number[]>) =>
+                (this.lit = e.detail)}
+            ></vault-wheel-odds>
+          </div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  /** The free daily spin: a ring that fills towards the next one, or a gold button while it is waiting. */
+  private renderDaily(view: VaultView): TemplateResult {
+    const daily = view.state?.daily;
+    const ready = daily?.available === true;
     const msLeft =
       daily === undefined
         ? 0
         : Math.max(0, Date.parse(daily.nextAt) - this.now);
-    const canPay = state !== null && state.balance >= view.wheel.spinPrice;
-    const limitHit =
-      state !== null && state.today.spins >= view.limits.paidSpinsPerDay;
-    return html`<section
-      data-vault-wheel-section
-      class="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start"
+    const progress =
+      daily === undefined ? 0 : ready ? 1 : 1 - Math.min(1, msLeft / DAY_MS);
+    return html`<button
+      type="button"
+      data-vault-daily
+      class="vault-daily vault-glass ui-focus"
+      ?data-ready=${ready && !this.busy}
+      ?disabled=${!ready || this.busy}
+      @click=${() => void this.spin("daily")}
     >
-      <div class="flex flex-col items-center gap-5">
-        <vault-wheel
-          class="block w-full"
-          .segments=${view.wheel.segments}
-        ></vault-wheel>
-        <div class="flex w-full max-w-[540px] flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            data-vault-daily
-            class="ui-focus relative flex-1 overflow-hidden rounded-ui-card px-5 py-4 text-left transition ${dailyReady &&
-            !this.busy
-              ? "bg-gradient-to-r from-amber-400 to-orange-500 text-black shadow-[0_0_28px_#f59e0b88] hover:brightness-110"
-              : "cursor-not-allowed border border-ui-border bg-ui-surface text-ui-muted"}"
-            ?disabled=${!dailyReady || this.busy}
-            @click=${() => void this.spin("daily")}
-          >
-            <div class="text-xs font-black uppercase tracking-[0.2em]">
-              ${translateText("vault.daily_title")}
-            </div>
-            <div class="ui-mono mt-1 text-lg font-bold" data-vault-daily-state>
-              ${!this.signedIn
-                ? translateText("vault.sign_in")
-                : dailyReady
-                  ? translateText("vault.daily_free")
-                  : translateText("vault.daily_next", { time: clock(msLeft) })}
-            </div>
-          </button>
-          <button
-            type="button"
-            data-vault-spin
-            class="ui-focus flex-1 rounded-ui-card bg-ui-accent px-5 py-4 text-left text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-            ?disabled=${!canPay || limitHit || this.busy}
-            @click=${() => void this.spin("spin")}
-          >
-            <div class="text-xs font-black uppercase tracking-[0.2em]">
-              ${translateText("vault.spin")}
-            </div>
-            <div class="ui-mono mt-1 flex items-center gap-2 text-lg font-bold">
-              <credits-icon .size=${18}></credits-icon
-              >${view.wheel.spinPrice.toLocaleString()}
-            </div>
-          </button>
-        </div>
-        ${limitHit
-          ? html`<p class="text-sm text-ui-muted">
-              ${translateText("vault.error_daily_limit")}
-            </p>`
-          : nothing}
-      </div>
-      <div class="flex flex-col gap-4">
-        <h2 class="ui-title text-ui-text">
-          ${translateText("vault.wheel_odds")}
-        </h2>
-        <p class="ui-body text-ui-muted">
-          ${translateText("vault.wheel_blurb")}
-        </p>
-        <table data-vault-wheel-odds class="w-full text-sm">
-          <tbody>
-            ${view.wheel.segments.map((s) => {
-              const prize = s.prize;
-              const color =
-                prize.kind === "item"
-                  ? RARITY_COLOR[prize.rarity]
-                  : prize.kind === "pack"
-                    ? "#38bdf8"
-                    : "#fbbf24";
-              const label =
-                prize.kind === "credits"
-                  ? translateText("vault.prize_credits", {
-                      amount: prize.amount.toLocaleString(),
-                    })
-                  : prize.kind === "item"
-                    ? translateText("vault.prize_item", {
-                        rarity: rarityName(prize.rarity),
-                      })
-                    : translateText("vault.prize_pack", {
-                        pack:
-                          view.packs.find((p) => p.name === prize.pack)
-                            ?.displayName ?? prize.pack,
-                      });
-              return html`<tr class="border-b border-ui-border/60">
-                <td class="py-2 pr-3">
-                  <span
-                    class="inline-block h-3 w-3 rounded-sm"
-                    style="background:${color}"
-                  ></span>
-                </td>
-                <td class="py-2 font-semibold text-ui-text">${label}</td>
-                <td class="ui-mono py-2 text-right text-ui-muted">
-                  ${s.percent}%
-                </td>
-              </tr>`;
-            })}
-          </tbody>
-        </table>
-        <p class="text-xs text-ui-muted">
-          ${translateText("vault.credits_only")}
-        </p>
-      </div>
-    </section>`;
-  }
-
-  private renderPacks(view: VaultView): TemplateResult {
-    return html`<section data-vault-packs class="flex flex-col gap-4">
-      <h2 class="ui-title text-ui-text">${translateText("vault.packs")}</h2>
-      <p class="ui-body text-ui-muted">${translateText("vault.packs_blurb")}</p>
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        ${view.packs.map((pack) => {
-          const color = RARITY_COLOR[pack.rarity];
-          const state = view.state;
-          const pity = state?.pity[pack.name];
-          const canPay = state !== null && state.balance >= pack.priceSoft;
-          const limitHit =
-            state !== null && state.today.packs >= view.limits.packsPerDay;
-          const showing = this.openOdds === pack.name;
-          return html`<article
-            data-vault-pack=${pack.name}
-            class="flex flex-col overflow-hidden rounded-ui-card border bg-ui-surface"
-            style="border-color:${color}88; box-shadow: 0 0 24px ${color}22;"
-          >
-            <div
-              class="relative flex h-40 items-center justify-center overflow-hidden"
-              style="background: radial-gradient(circle at 50% 40%, ${color}66, #12101f 75%);"
-            >
-              <div class="text-center">
-                <div
-                  class="text-5xl text-white"
-                  style="filter: drop-shadow(0 0 14px ${color})"
-                >
-                  ✦
-                </div>
-                <div
-                  class="mt-1 text-[11px] font-black uppercase tracking-[0.25em]"
-                  style="color:${color}"
-                >
-                  ${translateText("vault.cards", { count: pack.slots.length })}
-                </div>
-              </div>
-            </div>
-            <div class="flex flex-1 flex-col gap-3 p-4">
-              <div>
-                <h3 class="text-lg font-bold text-ui-text">
-                  ${pack.displayName}
-                </h3>
-                ${pack.tagline === undefined
-                  ? nothing
-                  : html`<p class="text-sm text-ui-muted">${pack.tagline}</p>`}
-              </div>
-              ${pack.pity.rareAfter !== undefined ||
-              pack.pity.epicAfter !== undefined
-                ? html`<p class="text-xs text-ui-muted" data-vault-pity>
-                    ${pack.pity.rareAfter !== undefined
-                      ? translateText("vault.pity_rare", {
-                          left: Math.max(
-                            1,
-                            pack.pity.rareAfter - (pity?.sinceRare ?? 0),
-                          ),
-                        })
-                      : translateText("vault.pity_epic", {
-                          left: Math.max(
-                            1,
-                            (pack.pity.epicAfter ?? 0) - (pity?.sinceEpic ?? 0),
-                          ),
-                        })}
-                  </p>`
-                : nothing}
-              <div class="mt-auto flex items-center gap-2">
-                ${uiButton({
-                  label: translateText("vault.open_pack"),
-                  variant: "primary",
-                  disabled: !pack.inSeason || !canPay || limitHit || this.busy,
-                  onClick: () => void this.openPack(pack.name),
-                  name: `open-${pack.name}`,
-                })}
-                <span
-                  class="ui-mono ml-auto flex items-center gap-1.5 text-base font-bold text-ui-text"
-                  ><credits-icon .size=${16}></credits-icon
-                  >${pack.priceSoft.toLocaleString()}</span
-                >
-              </div>
-              <button
-                type="button"
-                data-vault-odds-toggle
-                class="ui-focus self-start text-xs font-bold uppercase tracking-widest text-ui-muted hover:text-ui-text"
-                @click=${() => (this.openOdds = showing ? null : pack.name)}
-              >
-                ${translateText(
-                  showing ? "vault.hide_odds" : "vault.show_odds",
-                )}
-              </button>
-              ${showing ? this.renderOdds(view, pack) : nothing}
-            </div>
-          </article>`;
-        })}
-      </div>
-    </section>`;
-  }
-
-  private renderOdds(
-    view: VaultView,
-    pack: VaultView["packs"][number],
-  ): TemplateResult {
-    return html`<div
-      data-vault-odds
-      class="flex flex-col gap-3 rounded-lg bg-black/20 p-3 text-xs"
-    >
-      ${pack.slots.map(
-        (slot, i) =>
-          html`<div>
-            <div class="mb-1 font-bold uppercase tracking-widest text-ui-muted">
-              ${translateText("vault.card_n", { n: i + 1 })}
-            </div>
-            <div class="flex flex-wrap gap-x-3 gap-y-1">
-              ${VAULT_RARITIES.filter((r) => (slot[r] ?? 0) > 0).map(
-                (r) =>
-                  html`<span class="ui-mono" style="color:${RARITY_COLOR[r]}"
-                    >${rarityName(r)} ${slot[r]}%</span
-                  >`,
-              )}
-            </div>
-          </div>`,
-      )}
-      <div class="border-t border-ui-border pt-2 text-ui-muted">
-        ${translateText("vault.dupes_pay", {
-          common: view.dupeCredits.common,
-          legendary: view.dupeCredits.legendary,
-        })}
-      </div>
-    </div>`;
-  }
-
-  private renderCollection(view: VaultView): TemplateResult {
-    const seen = new Set<string>();
-    const items = [
-      ...view.wheel.items,
-      ...view.packs.flatMap((p) => p.items),
-    ].filter((item) => {
-      const key = `${item.type}:${item.name}:${item.colorPalette ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      // the cards worth chasing: rare and up. The cheap ones are in the shop.
-      return rarityRank(item.rarity) >= rarityRank("rare");
-    });
-    items.sort(
-      (a, b) =>
-        rarityRank(b.rarity) - rarityRank(a.rarity) ||
-        a.name.localeCompare(b.name),
-    );
-    const owned = items.filter((i) => this.owns(i)).length;
-    return html`<section data-vault-collection class="flex flex-col gap-4">
-      <div class="flex items-end justify-between gap-4">
-        <div>
-          <h2 class="ui-title text-ui-text">
-            ${translateText("vault.collection")}
-          </h2>
-          <p class="ui-body text-ui-muted">
-            ${translateText("vault.collection_blurb")}
-          </p>
-        </div>
-        <div
-          class="ui-mono text-lg font-bold text-ui-text"
-          data-vault-collection-count
+      <span class="vault-ring">
+        <svg class="vault-ring-svg" viewBox="0 0 60 60" aria-hidden="true">
+          <circle
+            class="vault-ring-track"
+            cx="30"
+            cy="30"
+            r="26"
+            fill="none"
+            stroke-width="4"
+          />
+          <circle
+            class="vault-ring-bar"
+            cx="30"
+            cy="30"
+            r="26"
+            fill="none"
+            stroke-width="4"
+            stroke-dasharray=${RING}
+            stroke-dashoffset=${RING * (1 - progress)}
+          />
+        </svg>
+        <span class="vault-ring-gift">${vaultIcons.gift("h-6 w-6")}</span>
+      </span>
+      <span class="flex min-w-0 flex-col gap-0.5">
+        <span
+          class="text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/60"
+          >${translateText("vault.daily_title")}</span
         >
-          ${owned} / ${items.length}
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        ${items.map((item) => {
-          const resolved = this.find(item);
-          const have = this.owns(item);
-          const color = RARITY_COLOR[item.rarity];
-          return html`<div
-            data-vault-item=${item.name}
-            data-owned=${have ? "true" : "false"}
-            class="relative flex flex-col overflow-hidden rounded-ui-card border bg-ui-surface"
-            style="border-color:${color}${have ? "" : "55"}; ${rarityPower(
-              item.rarity,
-            ) >= 4
-              ? `box-shadow: 0 0 18px ${color}33;`
-              : ""}"
-          >
-            <div
-              class="relative aspect-[4/3] p-3 ${have
-                ? ""
-                : "opacity-40 saturate-50"}"
-            >
-              ${resolved === null
-                ? nothing
-                : html`<cosmetic-preview
-                    .resolved=${resolved}
-                  ></cosmetic-preview>`}
-            </div>
-            <div class="px-3 pb-3 text-center">
-              <div class="truncate text-sm font-bold text-ui-text">
-                ${resolved === null ? item.name : cosmeticDisplayName(resolved)}
-              </div>
-              <div
-                class="text-[10px] font-black uppercase tracking-[0.18em]"
-                style="color:${color}"
-              >
-                ${rarityName(item.rarity)}${have
-                  ? ` · ${translateText("vault.owned")}`
-                  : ""}
-              </div>
-            </div>
-          </div>`;
-        })}
-      </div>
-    </section>`;
+        <span
+          data-vault-daily-state
+          class="ui-mono text-xl font-bold text-white"
+          aria-label=${daily === undefined || ready
+            ? nothing
+            : translateText("vault.daily_next", { time: clock(msLeft) })}
+        >
+          ${daily === undefined
+            ? translateText("vault.sign_in")
+            : ready
+              ? translateText("vault.daily_free")
+              : html`<span
+                    class="mr-1.5 font-sans text-xs font-semibold text-white/55"
+                    >${translateText("vault.daily_next_label")}</span
+                  >${clock(msLeft)}`}
+        </span>
+        <span class="flex items-center gap-1.5 text-xs text-white/45"
+          >${vaultIcons.clock("h-3 w-3")}${translateText(
+            "vault.daily_resets",
+          )}</span
+        >
+      </span>
+      ${ready && !this.busy
+        ? html`<span class="vault-claim vault-shine max-[430px]:hidden"
+            >${translateText("vault.claim")}</span
+          >`
+        : nothing}
+    </button>`;
   }
 }

@@ -1,4 +1,4 @@
-import type { VaultRarity } from "@openfront/shared/VaultSchemas";
+import type { VaultRarity, WheelPrize } from "@openfront/shared/VaultSchemas";
 import { UserSettings } from "../UserSettings";
 
 /**
@@ -14,6 +14,16 @@ export const RARITY_COLOR: Record<VaultRarity, string> = {
   epic: "#c084fc",
   legendary: "#fbbf24",
 };
+
+/** The colour of a Credits prize (the wheel's night blues) and of a free pack. */
+export const CREDITS_COLOR = "#6b72e8";
+export const PACK_COLOR = "#f472b6";
+
+/** What a wheel prize is coloured on the wheel, in its odds bar and in its legend. */
+export function prizeColor(prize: WheelPrize): string {
+  if (prize.kind === "item") return RARITY_COLOR[prize.rarity];
+  return prize.kind === "pack" ? PACK_COLOR : CREDITS_COLOR;
+}
 
 /** How much a rarity is celebrated: particles, and the notes of its sound. */
 const RARITY_POWER: Record<VaultRarity, number> = {
@@ -99,6 +109,8 @@ export class VaultFx {
       speed?: number;
       gravity?: number;
       shape?: Particle["shape"];
+      /** How long the sparks live, as a multiple of the usual (about a second). */
+      life?: number;
     } = {},
   ): void {
     if (!motionAllowed() || this.ctx === null) return;
@@ -111,7 +123,7 @@ export class VaultFx {
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        life: 0.7 + Math.random() * 0.9,
+        life: (0.7 + Math.random() * 0.9) * (options.life ?? 1),
         age: 0,
         size: 2 + Math.random() * 4,
         color: colors[i % colors.length],

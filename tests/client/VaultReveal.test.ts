@@ -19,7 +19,7 @@ async function mountPack(): Promise<VaultReveal> {
 describe("VaultReveal tilt", () => {
   it("the sealed pack leans towards the pointer and lets go when it leaves", async () => {
     const reveal = await mountPack();
-    const tilt = reveal.querySelector<HTMLElement>(".vr-tilt")!;
+    const tilt = reveal.querySelector<HTMLElement>(".vault-tilt")!;
     const host = tilt.parentElement!;
     host.getBoundingClientRect = () =>
       ({ left: 0, top: 0, width: 200, height: 400 }) as DOMRect;

@@ -29,9 +29,35 @@ real money turn into Vault draws, it is the wrong change.
 - Duplicates pay Credits by rarity (`dupeCredits`: 10 / 25 / 70 / 180 / 450),
   always less than the pack or spin that gave them.
 
-The animations (`src/client/vault/`) are canvas 2D and synthesised Web Audio, no
-asset files. They follow reduced-motion (no particles, no turning wheel; the
-result is shown at once) and the sound-effects volume setting.
+## The page
+
+`src/client/VaultModal.ts` holds the account's state, the draws and the reveal
+that follows them; the rest is components in `src/client/vault/`:
+
+- **The hero** (a stage of drifting colour, a grid, sparkles and a spotlight that
+  follows the pointer): the wheel (`VaultWheel`, a canvas: an icon on every
+  segment, a chasing rim of lights, sparks off the pointer at every peg, a lean
+  towards the cursor), the daily spin (a ring that fills as the day passes, a
+  `hh:mm:ss` countdown, a gold claim button while it is ready), the spin button
+  and `VaultWheelOdds`: a bar and legend of the chances by kind, with the full
+  table folded under "Show odds". Pointing at a bar, a chip or a row dims the
+  rest of the wheel so the segments it is about stand out.
+- **The packs** (`VaultPacks`): foil packs (`VaultPackArt`, also the sealed pack
+  of the reveal) that float, lean towards the pointer and shine; the price; the
+  bad-luck guarantee as a meter filling towards the pack that is sure to hold a
+  better card; each card's chances shown over the pack under "Show odds".
+- **The collection** (`VaultCollection`): the rare-and-better pieces as cards,
+  filterable by state and rarity, locked until won, with where each is found.
+- **The balance** in the header (`VaultCount`) counts to its new value and shows
+  the change ("+250") floating beside it; it is held back while a prize is being
+  revealed so it does not give the result away.
+
+Everything that moves is made of canvas, CSS and synthesised Web Audio, with no
+asset files. `VaultStyles.ts` is the page's stylesheet; every loop in it starts
+and ends where nothing shows (off the card, at zero opacity, a full turn), so
+none of them pauses or jumps. Reduced motion turns all of it off: the wheel
+jumps to its result, nothing floats or sweeps, and everything is shown at once.
+The sounds follow the sound-effects volume setting.
 
 ## How it is built
 

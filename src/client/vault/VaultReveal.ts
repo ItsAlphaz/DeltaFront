@@ -23,6 +23,8 @@ import {
   rarityPower,
   VaultFx,
 } from "./VaultFx";
+import { renderPackArt } from "./VaultPackArt";
+import { tiltLeave, tiltMove } from "./VaultTilt";
 
 export type RevealMode =
   | {
@@ -49,21 +51,18 @@ const CSS = `
   /* the band is a fifth of the card wide: it starts and ends fully off the card, so the loop has no pause and no jump */
   @keyframes vr-shine { from { transform: translateX(-250%) skewX(-18deg); } to { transform: translateX(750%) skewX(-18deg); } }
   .vr-card { perspective: 900px; }
-  /* leans towards the pointer, like the shop's feature card (CosmeticCard) */
-  .vr-tilt { --tilt-x: 0deg; --tilt-y: 0deg; transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) scale(1); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
-  .vr-tilt[data-tilting] { transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) scale(1.06); transition: transform .08s linear; }
-  .vr-glare { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s; background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.28), transparent 55%); }
-  .vr-tilt[data-tilting] .vr-glare { opacity: 1; }
   .vr-inner { position: relative; transform-style: preserve-3d; transition: transform .75s cubic-bezier(.2,.8,.2,1.1); }
   .vr-card[data-flipped="true"] .vr-inner { transform: rotateY(180deg); }
   .vr-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
   .vr-back { transform: rotateY(0); }
   .vr-front { transform: rotateY(180deg); }
-  @media (prefers-reduced-motion: reduce) { .vr-inner, .vr-tilt { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .vr-inner { transition: none; } }
 `;
 
 /**
- * The reveal: a full-screen stage for what a draw gave. A pack is sealed,
+ * The reveal: a full-screen stage for what a draw gave. (The tilt, the glare
+ * and the pack's art are styled by the page's VAULT_CSS, which is always on the
+ * page when this is.) A pack is sealed,
  * tears open and shows its cards one after another, the glow of its tear
  * tinted by the best card; a single card or a Credits prize pops in with a
  * burst. Everything that moves is skipped for reduced motion.
@@ -220,39 +219,12 @@ export class VaultReveal extends LitElement {
     this.dispatchEvent(new CustomEvent("vault-again", { bubbles: true }));
   };
 
-  /** The pack and the cards lean towards the pointer. The pointer is read on an element that does not itself turn, the one around the one that does. */
-  private tilt = (event: PointerEvent) => {
-    if (!motionAllowed()) return;
-    const host = event.currentTarget as HTMLElement;
-    const target = host.querySelector<HTMLElement>(".vr-tilt");
-    if (target === null) return;
-    const rect = host.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-    target.dataset.tilting = "";
-    target.style.setProperty("--tilt-y", `${(x * 24).toFixed(2)}deg`);
-    target.style.setProperty("--tilt-x", `${(-y * 24).toFixed(2)}deg`);
-    target.style.setProperty("--gx", `${((x + 0.5) * 100).toFixed(1)}%`);
-    target.style.setProperty("--gy", `${((y + 0.5) * 100).toFixed(1)}%`);
-  };
-
-  private untilt = (event: PointerEvent) => {
-    const target = (
-      event.currentTarget as HTMLElement
-    ).querySelector<HTMLElement>(".vr-tilt");
-    if (target === null) return;
-    delete target.dataset.tilting;
-    target.style.setProperty("--tilt-x", "0deg");
-    target.style.setProperty("--tilt-y", "0deg");
-  };
-
   private renderCard(card: VaultCard, index: number, faceUp: boolean) {
     const resolved = this.resolve(card);
     const color = RARITY_COLOR[card.rarity];
     const name = resolved === null ? card.name : cosmeticDisplayName(resolved);
     return html`<div
-      class="vr-card vr-tilt relative h-[300px] w-[200px] shrink-0 sm:h-[340px] sm:w-[230px]"
+      class="vr-card vault-tilt relative h-[236px] w-[158px] shrink-0 min-[430px]:h-[300px] min-[430px]:w-[200px] sm:h-[340px] sm:w-[230px]"
       data-reveal-card=${index}
       data-flipped=${faceUp ? "true" : "false"}
       data-rarity=${card.rarity}
@@ -269,7 +241,7 @@ export class VaultReveal extends LitElement {
           style="border: 3px solid ${color}; background: linear-gradient(180deg, ${color}33, #0f0e1c 60%); box-shadow: 0 0 ${18 +
           rarityPower(card.rarity) * 10}px ${color}88;"
         >
-          <span class="vr-glare" style="z-index: 2"></span>
+          <span class="vault-glare" style="z-index: 2"></span>
           <div class="relative min-h-0 flex-1 p-4">
             ${resolved === null
               ? nothing
@@ -280,7 +252,8 @@ export class VaultReveal extends LitElement {
             ${rarityPower(card.rarity) >= 2
               ? html`<span
                   class="pointer-events-none absolute inset-y-0 left-0 w-1/5 bg-white/20"
-                  style="animation: vr-shine 2.6s linear infinite;"
+                  style="animation: vr-shine 2.6s linear infinite; animation-delay: ${-index *
+                  0.65}s;"
                 ></span>`
               : nothing}
           </div>
@@ -338,7 +311,7 @@ export class VaultReveal extends LitElement {
       </style>
       <div
         data-reveal-stage
-        class="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4"
+        class="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4 pb-[160px] lg:pb-[84px]"
       >
         ${this.flash
           ? html`<div
@@ -385,7 +358,7 @@ export class VaultReveal extends LitElement {
             </div>`
           : nothing}
         <div
-          class="absolute bottom-[76px] left-0 right-0 z-30 flex justify-center gap-3"
+          class="absolute bottom-[150px] left-0 right-0 z-30 flex justify-center gap-3 lg:bottom-[76px]"
         >
           ${this.stage === "done"
             ? html`${this.canAgain
@@ -434,21 +407,21 @@ export class VaultReveal extends LitElement {
       const base = RARITY_COLOR[mode.rarity];
       const half = (side: "left" | "right") =>
         html`<div
-          class="absolute inset-0 overflow-hidden rounded-3xl"
+          class="absolute inset-0"
           style="clip-path: ${side === "left"
             ? "inset(0 50% 0 0)"
-            : "inset(0 0 0 50%)"}; background: linear-gradient(160deg, ${base}, #1a1530 70%); ${tearing
+            : "inset(0 0 0 50%)"}; ${tearing
             ? `animation: vr-${side} .7s ease-in forwards;`
             : ""}"
         >
-          ${this.packArt(mode, base)}
+          ${renderPackArt({ name: mode.name, rarity: mode.rarity })}
         </div>`;
       return html`<div
         class="flex items-center justify-center p-2"
-        @pointermove=${this.tilt}
-        @pointerleave=${this.untilt}
+        @pointermove=${(e: PointerEvent) => tiltMove(e, 12)}
+        @pointerleave=${tiltLeave}
       >
-        <div class="vr-tilt">
+        <div class="vault-tilt" style="--tilt-hover-scale: 1.06">
           ${this.renderSealed(mode, tint, tearing, base, half)}
         </div>
       </div>`;
@@ -498,36 +471,13 @@ export class VaultReveal extends LitElement {
             html`<div
               class="cursor-pointer"
               style="animation: vr-pop .5s ease-out ${i * 0.08}s both"
-              @pointermove=${this.tilt}
-              @pointerleave=${this.untilt}
+              @pointermove=${(e: PointerEvent) => tiltMove(e, 12)}
+              @pointerleave=${tiltLeave}
               @click=${this.flipNext}
             >
               ${this.renderCard(card, i, i < this.flipped)}
             </div>`,
         )}
-      </div>
-    </div>`;
-  }
-
-  private packArt(mode: Extract<RevealMode, { kind: "pack" }>, color: string) {
-    return html`<div
-      class="flex h-full w-full flex-col items-center justify-center gap-3 text-center"
-    >
-      <div
-        class="text-6xl text-white"
-        style="filter: drop-shadow(0 0 12px ${color})"
-      >
-        ✦
-      </div>
-      <div
-        class="px-3 text-lg font-black uppercase tracking-[0.2em] text-white"
-      >
-        ${mode.name}
-      </div>
-      <div
-        class="text-[10px] font-bold uppercase tracking-[0.3em] text-white/70"
-      >
-        DeltaFront
       </div>
     </div>`;
   }

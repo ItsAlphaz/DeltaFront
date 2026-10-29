@@ -17,54 +17,9 @@ vi.mock("../../src/client/Cosmetics", async (importOriginal) => ({
 import { drawVault, fetchVault } from "../../src/client/Api";
 import "../../src/client/VaultModal";
 import type { VaultModal } from "../../src/client/VaultModal";
+import { vaultView } from "./vaultFixtures";
 
-function view(overrides: Partial<VaultView> = {}): VaultView {
-  return {
-    wheel: {
-      spinPrice: 150,
-      segments: [
-        {
-          id: "c50",
-          label: "50",
-          prize: { kind: "credits", amount: 50 },
-          percent: 60,
-        },
-        {
-          id: "c2000",
-          label: "JACKPOT",
-          prize: { kind: "credits", amount: 2000 },
-          percent: 40,
-        },
-      ],
-      items: [],
-    },
-    packs: [
-      {
-        name: "recruit",
-        displayName: "Recruit Pack",
-        tagline: "Three cards.",
-        priceSoft: 120,
-        rarity: "uncommon",
-        inSeason: true,
-        pity: { rareAfter: 6 },
-        slots: [{ common: 1 }],
-        items: [],
-      },
-    ],
-    dupeCredits: { common: 10 },
-    limits: { paidSpinsPerDay: 100, packsPerDay: 50 },
-    state: {
-      pity: {},
-      today: { packs: 0, spins: 0 },
-      daily: {
-        available: true,
-        nextAt: new Date(Date.now() + 1e6).toISOString(),
-      },
-      balance: 5000,
-    },
-    ...overrides,
-  };
-}
+const view = vaultView;
 
 describe("VaultModal", () => {
   let modal: VaultModal;
@@ -94,8 +49,8 @@ describe("VaultModal", () => {
   it("shows the wheel's odds, the prices, and says Credits can't be bought", async () => {
     await mount(view());
     const rows = modal.querySelectorAll("[data-vault-wheel-odds] tr");
-    expect(rows).toHaveLength(2);
-    expect(rows[1].textContent).toContain("40%");
+    expect(rows).toHaveLength(5);
+    expect(rows[4].textContent).toContain("15%");
     expect(modal.querySelector("[data-vault-spin]")?.textContent).toContain(
       "150",
     );
@@ -154,5 +109,72 @@ describe("VaultModal", () => {
     expect(
       modal.querySelector<HTMLButtonElement>("[data-vault-spin]")!.disabled,
     ).toBe(true);
+  });
+  it("shows the free spin's ring full and the claim button while it is ready", async () => {
+    await mount(view());
+    const daily = modal.querySelector("[data-vault-daily]")!;
+    expect(daily.hasAttribute("data-ready")).toBe(true);
+    expect(daily.querySelector(".vault-claim")).not.toBeNull();
+    const bar = daily.querySelector(".vault-ring-bar")!;
+    expect(bar.getAttribute("stroke-dashoffset")).toBe("0");
+  });
+
+  it("fills the ring as the day passes towards the next free spin", async () => {
+    const nextAt = new Date(Date.now() + 6 * 3_600_000).toISOString();
+    await mount(
+      view({
+        state: {
+          pity: {},
+          today: { packs: 0, spins: 0 },
+          daily: { available: false, nextAt },
+          balance: 5000,
+        },
+      }),
+    );
+    const daily = modal.querySelector("[data-vault-daily]")!;
+    expect(daily.hasAttribute("data-ready")).toBe(false);
+    const bar = daily.querySelector(".vault-ring-bar")!;
+    const circumference = 2 * Math.PI * 26;
+    // six hours left of twenty-four: three quarters of the ring
+    expect(
+      Number(bar.getAttribute("stroke-dashoffset")) / circumference,
+    ).toBeCloseTo(0.25, 2);
+  });
+
+  it("lights the wheel's segments while the odds are pointed at", async () => {
+    await mount(view());
+    const wheel = modal.querySelector("vault-wheel") as unknown as {
+      highlight: number[];
+    };
+    expect(wheel.highlight).toEqual([]);
+    const chip = modal.querySelector('[data-vault-legend="item:epic"]')!;
+    chip.dispatchEvent(new MouseEvent("pointerenter"));
+    await modal.updateComplete;
+    expect(wheel.highlight).toEqual([2]);
+    chip.dispatchEvent(new MouseEvent("pointerleave"));
+    await modal.updateComplete;
+    expect(wheel.highlight).toEqual([]);
+  });
+
+  it("opens a pack when its shelf says so", async () => {
+    await mount(view());
+    vi.mocked(drawVault).mockResolvedValue({ ok: false, code: "daily_limit" });
+    modal
+      .querySelector<HTMLButtonElement>('[data-vault-open="officer"]')!
+      .click();
+    await vi.waitFor(() =>
+      expect(drawVault).toHaveBeenCalledWith("pack", "officer"),
+    );
+  });
+
+  it("tells a guest to sign in instead of letting them spin", async () => {
+    await mount(view({ state: null }));
+    expect(
+      modal.querySelector("[data-vault-daily-state]")?.textContent,
+    ).toContain("vault.sign_in");
+    expect(
+      modal.querySelector<HTMLButtonElement>("[data-vault-spin]")!.disabled,
+    ).toBe(true);
+    expect(modal.querySelector("[data-vault-balance]")).toBeNull();
   });
 });
