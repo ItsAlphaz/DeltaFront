@@ -971,8 +971,10 @@ describeDb("POST /shop/purchase", () => {
             "i",
           ).test(text(f)),
         );
-      expect(writers("currency_ledger")).toEqual([
+      // the Vault (docs/Vault.md) pays and charges Credits inside its own draw
+      expect(writers("currency_ledger").sort()).toEqual([
         "src/account-api/domain/economy.ts",
+        "src/account-api/domain/vault.ts",
       ]);
       expect(writers("purchases")).toEqual([
         "src/account-api/domain/economy.ts",
@@ -980,6 +982,7 @@ describeDb("POST /shop/purchase", () => {
       // users.ts only creates the empty wallet row of a new account
       expect(writers("wallets").sort()).toEqual([
         "src/account-api/domain/economy.ts",
+        "src/account-api/domain/vault.ts",
         "src/account-api/repo/users.ts",
       ]);
       expect(text("src/account-api/repo/users.ts")).toMatch(
@@ -999,6 +1002,7 @@ describeDb("POST /shop/purchase", () => {
         "src/account-api/domain/adminOps.ts",
         "src/account-api/domain/economy.ts",
         "src/account-api/domain/progression.ts",
+        "src/account-api/domain/vault.ts",
         "src/account-api/repo/inventory.ts",
       ]);
     });

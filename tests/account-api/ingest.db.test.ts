@@ -878,7 +878,9 @@ describeDb("wallet safety", () => {
     ).toHaveLength(0);
   });
 
-  it("only the Credits module writes wallets and the ledger", () => {
+  // The Vault (docs/Vault.md) is the second module: it debits and credits in the
+  // same locked transaction as its draw.
+  it("only the Credits and Vault modules write wallets and the ledger", () => {
     const root = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
       "../../src/account-api",
@@ -900,7 +902,7 @@ describeDb("wallet safety", () => {
       }
     };
     walk(root);
-    expect(offenders).toEqual(["domain/economy.ts"]);
+    expect(offenders.sort()).toEqual(["domain/economy.ts", "domain/vault.ts"]);
   });
 });
 
