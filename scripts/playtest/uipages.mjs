@@ -816,6 +816,23 @@ for (const page of pages) {
     await click('[data-vault-pack="officer"] [data-ui-button="open-officer"]');
     await sleep(1000);
     await shot("ui-vault-sealed");
+    // a real pointer near the pack's top-right corner: it leans towards it
+    const hover = async (sel, fx, fy) => {
+      const at = await g.ev(
+        `(()=>{ const r=document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return {x:r.x+r.width*${fx},y:r.y+r.height*${fy}} })()`,
+      );
+      for (const dx of [-8, 0]) {
+        await g.b.send("Input.dispatchMouseEvent", {
+          type: "mouseMoved",
+          x: at.x + dx,
+          y: at.y,
+        });
+        await sleep(120);
+      }
+      await sleep(400);
+    };
+    await hover("[data-reveal-pack]", 0.92, 0.08);
+    await shot("ui-vault-sealed-tilt");
     await click("[data-reveal-pack]");
     await sleep(350);
     await shot("ui-vault-tearing");
@@ -827,6 +844,8 @@ for (const page of pages) {
     await click("[data-reveal-skip]");
     await sleep(3200);
     await shot("ui-vault-done");
+    await hover('[data-reveal-card="2"]', 0.1, 0.9);
+    await shot("ui-vault-card-tilt");
   }
   // the news, help and settings icons while their buttons are hovered: which animations run, and a close-up frame of each
   if (page === "navicons") {
