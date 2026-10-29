@@ -40,7 +40,8 @@ const CSS = `
   @keyframes vr-flash { 0% { opacity: 0; } 25% { opacity: .95; } 100% { opacity: 0; } }
   @keyframes vr-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
   @keyframes vr-rays { to { transform: rotate(360deg); } }
-  @keyframes vr-shine { 0% { transform: translateX(-160%) skewX(-18deg); } 40%, 100% { transform: translateX(420%) skewX(-18deg); } }
+  /* the band is a fifth of the card wide: it starts and ends fully off the card, so the loop has no pause and no jump */
+  @keyframes vr-shine { from { transform: translateX(-250%) skewX(-18deg); } to { transform: translateX(750%) skewX(-18deg); } }
   .vr-card { perspective: 900px; }
   .vr-inner { position: relative; transform-style: preserve-3d; transition: transform .75s cubic-bezier(.2,.8,.2,1.1); }
   .vr-card[data-flipped="true"] .vr-inner { transform: rotateY(180deg); }
@@ -240,7 +241,7 @@ export class VaultReveal extends LitElement {
             ${rarityPower(card.rarity) >= 2
               ? html`<span
                   class="pointer-events-none absolute inset-y-0 left-0 w-1/5 bg-white/20"
-                  style="animation: vr-shine 3.4s ease-in-out infinite;"
+                  style="animation: vr-shine 2.6s linear infinite;"
                 ></span>`
               : nothing}
           </div>
