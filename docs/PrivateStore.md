@@ -162,6 +162,10 @@ Check before restarting: a bad catalog stops the API from starting, so the
 change needs only the API restarted, not the game server (it reads the catalog
 from the API over HTTP).
 
+## The Vault's content
+
+The Vault (`docs/Vault.md`) is configured and drawn in this repository too: `generator/vault.ts` holds the wheel, packs, pools, odds and limits, and `vault-crowns.ts`, `vault-flags.ts`, `vault-patterns.ts` the Vault-only art. The generator asserts the economy before it writes the catalog.
+
 ## Admin item tools
 
 `npm run admin -- item:grant|item:revoke|item:list` validate against the catalog
