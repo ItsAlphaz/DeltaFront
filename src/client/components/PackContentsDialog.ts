@@ -9,7 +9,7 @@ import {
 import { customElement, property } from "lit/decorators.js";
 import { bundleSavings, ResolvedCosmetic } from "../Cosmetics";
 import { translateText } from "../Utils";
-import { TIER_COLOR } from "./BundleCard";
+import { ensureBundleStyles, tierStyle } from "./BundleCard";
 import "./CosmeticCard";
 import { cosmeticTypeLabel } from "./CosmeticPresentation";
 import { isPreviewableCosmetic } from "./CosmeticPreviewBubble";
@@ -88,11 +88,12 @@ export class PackContentsDialog extends LitElement {
   }
 
   private renderOverlay(resolved: ResolvedCosmetic) {
+    ensureBundleStyles();
     const pack = resolved.cosmetic as CosmeticPack;
     const items = resolved.packItems ?? [];
     const savings = bundleSavings(resolved);
     return html`<div
-      class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/80"
+      class="pc-overlay"
       @click=${(e: Event) => {
         if (e.target === e.currentTarget) this.close();
       }}
@@ -102,61 +103,40 @@ export class PackContentsDialog extends LitElement {
         data-pack-contents
         role="dialog"
         aria-label=${pack.displayName}
-        class="relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-surface shadow-2xl"
-        style="--tier: ${TIER_COLOR[String(pack.rarity)] ??
-        TIER_COLOR.common}; border-color: color-mix(in srgb, var(--tier) 45%, var(--color-ui-border))"
+        class="pc-dialog"
+        style=${tierStyle(String(pack.rarity))}
       >
-        <div
-          aria-hidden="true"
-          class="h-3 w-full"
-          style="background:repeating-linear-gradient(-45deg,var(--tier) 0 8px,var(--color-ui-ground) 8px 16px)"
-        ></div>
+        <div aria-hidden="true" class="pc-hazard"></div>
         <button
           type="button"
           aria-label=${translateText("common.close")}
           @click=${() => this.close()}
-          class="absolute right-3 top-5 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-ui-muted transition-all hover:bg-white/10 hover:text-ui-text"
+          class="pc-close"
         >
           ×
         </button>
         <div class="p-6 pt-5">
-          <h2
-            class="mb-1 pr-8 font-pixel text-2xl uppercase tracking-wide text-ui-text"
-          >
-            ${pack.displayName}
-          </h2>
+          <h2 class="pc-title">${pack.displayName}</h2>
           ${pack.tagline
-            ? html`<p
-                class="mb-1 font-pixel text-[11px] uppercase tracking-[0.18em]"
-                style="color:var(--tier)"
-              >
-                ${pack.tagline}
-              </p>`
+            ? html`<p class="pc-tag">${pack.tagline}</p>`
             : nothing}
           ${pack.description
-            ? html`<p class="mb-4 text-sm text-ui-muted">
-                ${pack.description}
-              </p>`
+            ? html`<p class="pc-desc">${pack.description}</p>`
             : html`<div class="mb-4"></div>`}
           ${savings !== null && savings.savePct > 0
-            ? html`<div
-                data-pack-contents-savings
-                class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-ui-card border border-ui-border bg-ui-ground px-4 py-3 text-xs uppercase tracking-wider text-ui-muted"
-              >
+            ? html`<div data-pack-contents-savings class="pc-savings">
                 <span
                   >${translateText("store.bundle_value")}
-                  <s class="text-ui-placeholder"
-                    >${savings.value.toLocaleString()}</s
-                  ></span
+                  <s>${savings.value.toLocaleString()}</s></span
                 >
-                <span class="font-bold" style="color:var(--tier)"
+                <b
                   >${translateText("store.bundle_you_save", {
                     amount: (savings.value - savings.price).toLocaleString(),
                   })}
                   ·
                   ${translateText("store.bundle_save", {
                     percent: savings.savePct,
-                  })}</span
+                  })}</b
                 >
               </div>`
             : nothing}
@@ -164,29 +144,29 @@ export class PackContentsDialog extends LitElement {
             ? html`<p class="py-6 text-center text-sm text-ui-muted">
                 ${translateText("store.pack_no_items")}
               </p>`
-            : html`<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            : html`<div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 ${items.map(
-                  (item) =>
+                  (item, i) =>
                     html`<div
                       data-pack-contents-item=${item.key}
-                      class="flex min-w-0 flex-col items-center gap-1"
+                      class="pc-item flex min-w-0 flex-col items-center gap-2"
+                      style="--d:${i * 0.05}s"
                     >
                       <cosmetic-card
+                        pixel
                         class="block w-full"
                         .resolved=${item}
                         .onActivate=${(r: ResolvedCosmetic) =>
                           this.openPreview(r)}
                       ></cosmetic-card>
-                      <span
-                        data-pack-contents-type
-                        class="text-[10px] font-bold uppercase tracking-wider text-ui-muted"
+                      <span data-pack-contents-type class="pc-type"
                         >${cosmeticTypeLabel(item)}</span
                       >
                     </div>`,
                 )}
               </div>`}
           ${this.actionContent !== nothing
-            ? html`<div data-pack-contents-action class="mx-auto mt-4 max-w-xs">
+            ? html`<div data-pack-contents-action class="mx-auto mt-5 max-w-xs">
                 ${this.actionContent}
               </div>`
             : nothing}

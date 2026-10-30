@@ -223,9 +223,12 @@ if (process.env.OWN_CREATOR) account.flares.push("pattern:create_your_own");
 const vaultCatalog = process.env.VAULT ? privateCatalog() : null;
 const vaultApi = vaultCatalog ? vaultMock(vaultCatalog, account) : null;
 if (vaultCatalog) {
+  // the sample bundles stay, so the Bundles tab can be looked at beside the Vault
+  const bundles = catalog.packs;
   for (const key of Object.keys(catalog)) delete catalog[key];
   Object.assign(catalog, vaultCatalog);
   delete catalog.vault;
+  catalog.packs = { ...bundles, ...catalog.packs };
   account.flares = ["pattern:delta_stripes:ash"];
   account.credits = 5000;
 }
@@ -702,6 +705,46 @@ for (const page of pages) {
         Buffer.from(png.result.data, "base64"),
       );
     }
+  }
+}
+// a bundle with the real mouse: leaning towards it, the hop and sparks of the hover, the burst of a click
+for (const page of pages) {
+  if (page === "bundlefx") {
+    await g.ev(`window.showPage('page-item-store'); 1`);
+    await sleep(3000);
+    await g.ev(
+      `document.querySelector('store-modal [data-ui-segmented="store-tabs"] [data-key="bundles"]')?.click(); 1`,
+    );
+    await sleep(2000);
+    const box = await g.J(
+      `(()=>{ const c=document.querySelectorAll('store-modal [data-bundle-card]')[3]; c.scrollIntoView({block:'center'}); const r=c.getBoundingClientRect(); return {x:r.left,y:r.top,w:r.width,h:r.height} })()`,
+    );
+    await sleep(600);
+    const at = async (fx, fy, type = "mouseMoved", extra = {}) =>
+      g.b.send("Input.dispatchMouseEvent", {
+        type,
+        x: box.x + box.w * fx,
+        y: box.y + box.h * fy,
+        ...extra,
+      });
+    await at(0.2, 0.2);
+    await sleep(120);
+    await at(0.8, 0.8);
+    await sleep(500);
+    await shot("ui-bundlefx-hover");
+    await at(0.5, 0.45);
+    await sleep(100);
+    await at(0.5, 0.45, "mousePressed", { button: "left", clickCount: 1 });
+    await shot("ui-bundlefx-press");
+    await at(0.5, 0.45, "mouseReleased", { button: "left", clickCount: 1 });
+    await sleep(120);
+    await shot("ui-bundlefx-click");
+    await sleep(600);
+    await shot("ui-bundlefx-dialog");
+    console.log(
+      "dialog open:",
+      await g.ev(`!!document.querySelector('[data-pack-contents]')`),
+    );
   }
 }
 for (const page of pages) {

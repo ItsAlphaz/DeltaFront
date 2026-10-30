@@ -228,6 +228,21 @@ describe("<bundle-card>", () => {
     expect(onActivate).toHaveBeenCalledTimes(3);
   });
 
+  it("is drawn in the Vault's pixel look: tier colour, edge light on epic and up, leans, sparks", async () => {
+    const epic = await mount(pack(four));
+    const root = epic.querySelector<HTMLElement>("[data-bundle-card]")!;
+    expect(root.classList).toContain("vault-tilt");
+    expect(root.getAttribute("style")).toContain("--c:#c084fc");
+    expect(root.getAttribute("style")).toContain("--bi:url(");
+    expect(epic.querySelector(".vault-edge")).toBeTruthy();
+    expect(epic.querySelector(".vault-glare")).toBeTruthy();
+    expect(epic.querySelectorAll(".bc-spark")).toHaveLength(4);
+    expect(document.getElementById("bundle-card-styles")).toBeTruthy();
+
+    const common = await mount(pack(four, { rarity: "common" }));
+    expect(common.querySelector(".vault-edge")).toBeNull();
+  });
+
   it("is marked focused when it is the inspected one", async () => {
     const card = await mount(pack(four), { state: "focused" });
     expect(

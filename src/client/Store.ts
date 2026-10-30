@@ -18,7 +18,7 @@ import type { PropertyValues, TemplateResult } from "lit";
 import { html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { BaseModal } from "./components/BaseModal";
-import "./components/BundleCard";
+import { ensureBundleStyles } from "./components/BundleCard";
 import "./components/CosmeticCard";
 import {
   cosmeticDisplayName,
@@ -1071,18 +1071,10 @@ export class StoreModal extends BaseModal {
   }
 
   private renderBundleGrid(): TemplateResult {
-    return html`<div
-        class="mx-3 mt-3 flex items-center gap-3 rounded-ui-card border border-ui-border bg-ui-surface px-4 py-3"
-      >
-        <span
-          aria-hidden="true"
-          class="h-3 w-12 shrink-0 rounded-sm"
-          style="background:repeating-linear-gradient(-45deg,var(--color-ui-accent) 0 6px,var(--color-ui-ground) 6px 12px)"
-        ></span>
-        <span
-          class="font-pixel text-[11px] uppercase tracking-[0.18em] text-ui-muted"
-          >${translateText("store.bundles_tagline")}</span
-        >
+    ensureBundleStyles();
+    return html`<div class="bundle-banner">
+        <span class="bb-hazard" aria-hidden="true"></span>
+        <span class="bb-text">${translateText("store.bundles_tagline")}</span>
       </div>
       ${this.renderBrowser(this.visibleGroups, {
         emptyTranslationKey: "store.no_bundles",
