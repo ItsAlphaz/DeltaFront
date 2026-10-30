@@ -267,6 +267,7 @@ export class EffectsGrid extends LitElement {
   private renderTile(slot: string, r: ResolvedCosmetic): TemplateResult {
     if (this.mode === "purchase") {
       return html`<cosmetic-card
+        pixel
         data-store-product
         class="block h-full min-w-0"
         .resolved=${r}
@@ -281,6 +282,7 @@ export class EffectsGrid extends LitElement {
       (name === null && selected === null) ||
       (name !== null && selected === name);
     return html`<cosmetic-card
+      pixel
       .resolved=${r}
       state=${isSelected ? "equipped" : "idle"}
       .onActivate=${() => this.select(slot, name, r)}

@@ -1,3 +1,4 @@
+import { PIXEL_CARD_CSS } from "./VaultCardStyles";
 import { pixelBorder } from "./VaultPixel";
 import { VAULT_TILT_CSS } from "./VaultTilt";
 
@@ -24,6 +25,7 @@ const GREEN = pixelBorder("#4ade80");
 
 export const VAULT_CSS = `
 ${VAULT_TILT_CSS}
+${PIXEL_CARD_CSS}
 
 .vault-px {
   --u: 4px;
@@ -181,19 +183,7 @@ button.vault-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--c)
 .vault-holo { position: absolute; inset: 0; pointer-events: none; opacity: 0; mix-blend-mode: color-dodge; transition: opacity .15s steps(3, end); background: repeating-linear-gradient(115deg, rgba(255,90,200,.5) 0 10px, rgba(90,210,255,.5) 10px 20px, rgba(255,240,100,.5) 20px 30px, transparent 30px 60px); background-size: 200% 200%; background-position: var(--gx, 50%) var(--gy, 50%); }
 .vault-tilt[data-tilting] .vault-holo { opacity: .6; }
 
-/* ---- collection ---- */
-.vault-item { --u: 4px; position: relative; display: flex; height: 100%; flex-direction: column; overflow: hidden; border: var(--u) solid transparent; border-image: var(--bi) 1 / var(--u) / 0 stretch; background-clip: padding-box; background: var(--dither), linear-gradient(180deg, color-mix(in srgb, var(--c) 20%, #16151d) 0 46%, #111016 46%); transition: box-shadow .12s steps(2, end); }
-.vault-item:hover { box-shadow: 0 6px 0 color-mix(in srgb, var(--c) 45%, #000); }
-.vault-item .vault-item-art { position: relative; aspect-ratio: 5 / 4; margin: 10px 10px 0; padding: 8px; background: rgba(0,0,0,.4); box-shadow: inset 0 0 0 3px rgba(255,255,255,.07); transition: filter .15s steps(3, end), opacity .15s steps(3, end); }
-.vault-item[data-owned="false"] .vault-item-art { filter: grayscale(1) brightness(.5); opacity: .8; }
-.vault-item[data-owned="false"]:hover .vault-item-art { filter: grayscale(.3) brightness(.9); opacity: 1; }
-.vault-item .vault-item-state { position: absolute; top: 14px; right: 14px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; font-size: 14px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-.vault-item[data-owned="true"] .vault-item-state { background: #14391f; color: #4ade80; box-shadow: inset 0 0 0 2px #2d8a4e; }
-.vault-item[data-owned="false"] .vault-item-state { background: rgba(0,0,0,.6); color: var(--color-ui-muted); box-shadow: inset 0 0 0 2px #2a2a33; }
-/* a light running round the edge of the epic and legendary ones, a block at a time */
-.vault-edge { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: repeating-linear-gradient(90deg, var(--c) 0 8px, transparent 8px 16px) 0 0 / 100% 4px no-repeat, repeating-linear-gradient(90deg, var(--c) 0 8px, transparent 8px 16px) 0 100% / 100% 4px no-repeat, repeating-linear-gradient(0deg, var(--c) 0 8px, transparent 8px 16px) 0 0 / 4px 100% no-repeat, repeating-linear-gradient(0deg, var(--c) 0 8px, transparent 8px 16px) 100% 0 / 4px 100% no-repeat; animation: vault-march .8s steps(4) infinite; }
-@keyframes vault-march { to { background-position: 16px 0, -16px 100%, 0 -16px, 100% 16px; } }
-.vault-item[data-owned="false"] .vault-edge { opacity: .45; }
+/* ---- collection ---- (the card itself is PIXEL_CARD_CSS, shared with the shop) */
 .vault-progress { position: relative; height: 12px; width: 220px; max-width: 100%; background: repeating-linear-gradient(90deg, rgba(255,255,255,.1) 0 8px, transparent 8px 10px); }
 .vault-progress > i { position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: repeating-linear-gradient(90deg, #fbbf24 0 8px, transparent 8px 10px); }
 

@@ -613,6 +613,7 @@ export class StoreModal extends BaseModal {
       }
       const action = this.renderCardAction(active, userHasSubscription);
       return html`<cosmetic-card
+        pixel
         data-store-product
         data-cosmetic-key=${group[0].key}
         class=${cardClass}

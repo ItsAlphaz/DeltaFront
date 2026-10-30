@@ -8,10 +8,15 @@ import {
 } from "../Cosmetics";
 import { isDesktopShell } from "../DesktopShell";
 import { translateText } from "../Utils";
+import { ensurePixelCardStyles } from "../vault/VaultCardStyles";
+import { RARITY_COLOR } from "../vault/VaultFx";
+import { tone } from "../vault/VaultPixel";
+import { tiltLeave, tiltMove } from "../vault/VaultTilt";
 import "./CosmeticInfo";
 import {
   cosmeticDisplayName,
   cosmeticRarity,
+  cosmeticRarityLabel,
   cosmeticSelectionLabel,
 } from "./CosmeticPresentation";
 import "./CosmeticPreview";
@@ -335,6 +340,10 @@ export class CosmeticCard extends LitElement {
   @property({ type: Boolean })
   interactive = true;
 
+  /** The Vault's pixel card: a pixel frame in the rarity's colour that leans towards the pointer. */
+  @property({ type: Boolean })
+  pixel = false;
+
   @property({ attribute: false })
   onActivate?: (resolved: ResolvedCosmetic) => void;
 
@@ -532,7 +541,115 @@ export class CosmeticCard extends LitElement {
     return perks;
   }
 
+  willUpdate() {
+    if (this.pixel) ensurePixelCardStyles();
+  }
+
+  /** The card as the Vault's collection draws it: art first, then the rarity and the name. */
+  private renderPixel() {
+    const active = this.activeResolved;
+    const rarity = cosmeticRarity(active);
+    const color =
+      (RARITY_COLOR as Record<string, string>)[rarity] ?? RARITY_COLOR.common;
+    const displayName = cosmeticDisplayName(active);
+    const isFocused = this.state === "focused";
+    const isEquipped = this.state === "equipped";
+    const priced = active.cosmetic as {
+      artist?: string;
+      aiDisclosed?: boolean;
+      priceHard?: number;
+    } | null;
+    const usdValue =
+      priced?.priceHard !== undefined ? priced.priceHard / 20 : undefined;
+    const edge = rarity === "epic" || rarity === "legendary";
+    const art = html`<div class="vault-item-art">
+      <cosmetic-preview .resolved=${active} size="card"></cosmetic-preview>
+      ${isEquipped
+        ? html`<span
+            data-cosmetic-equipped="true"
+            class="absolute bottom-1 left-1 z-[4] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+            >✓ ${translateText("inventory.equipped")}</span
+          >`
+        : nothing}
+    </div>`;
+    return html`<div
+      data-cosmetic-rarity=${rarity}
+      class="h-full"
+      @pointermove=${(e: PointerEvent) => tiltMove(e, 9)}
+      @pointerleave=${tiltLeave}
+    >
+      <div
+        data-cosmetic-shell
+        data-shop
+        data-state=${this.state}
+        data-cosmetic-state=${this.state}
+        class="vault-item vault-tilt"
+        style="${tone(color)};--tilt-hover-scale:1.04"
+      >
+        ${edge
+          ? html`<span class="vault-edge" aria-hidden="true"></span>`
+          : nothing}
+        <div class="relative w-full">
+          ${this.interactive
+            ? html`<button
+                type="button"
+                data-cosmetic-main
+                aria-label=${displayName}
+                aria-pressed=${isEquipped ? "true" : nothing}
+                aria-current=${isFocused ? "true" : nothing}
+                class="block w-full cursor-pointer outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                @click=${() => this.onActivate?.(active)}
+              >
+                ${art}
+              </button>`
+            : html`<div data-cosmetic-main class="w-full">${art}</div>`}
+          ${this.interactive && active.cosmetic !== null
+            ? html`<cosmetic-info
+                  .artist=${priced?.artist}
+                  .aiDisclosed=${priced?.aiDisclosed}
+                  .rarity=${rarity}
+                  .colorPalette=${active.colorPalette?.name}
+                  .showAdFree=${active.relationship === "purchasable" &&
+                  !isDesktopShell()}
+                  .usdValue=${usdValue}
+                  .perks=${this.subscriptionPerks()}
+                  .items=${(active.packItems ?? []).map(cosmeticSelectionLabel)}
+                ></cosmetic-info>
+                <cosmetic-preview-bubble
+                  .resolved=${active}
+                ></cosmetic-preview-bubble>`
+            : nothing}
+        </div>
+        <div class="flex flex-col items-center gap-1 px-3 pt-3 text-center">
+          <div data-cosmetic-rarity-label style="color:${color}">
+            ${cosmeticRarityLabel(active)}
+          </div>
+          <span
+            data-cosmetic-name
+            class="w-full whitespace-normal break-words font-bold leading-tight text-white ${this
+              .interactive
+              ? "cursor-pointer"
+              : ""}"
+            @click=${() => this.interactive && this.onActivate?.(active)}
+            >${displayName}</span
+          >
+        </div>
+        ${this.renderSwatches()}
+        ${this.actionContent !== nothing
+          ? html`<div
+              data-cosmetic-action
+              class="mt-auto w-full px-3 pb-3 pt-2"
+            >
+              ${this.actionContent}
+            </div>`
+          : html`<div class="pb-3"></div>`}
+        <span class="vault-glare" aria-hidden="true"></span>
+      </div>
+    </div>`;
+  }
+
   render() {
+    if (this.pixel) return this.renderPixel();
     const active = this.activeResolved;
     const rarity = cosmeticRarity(active);
     const displayName = cosmeticDisplayName(active);

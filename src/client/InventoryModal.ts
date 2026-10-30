@@ -749,7 +749,7 @@ export class InventoryModal extends BaseModal {
     </p>`;
   }
 
-  // The same card as the Store's (components/CosmeticCard.ts): a worn item is
+  // The same card as the Store's (components/CosmeticCard.ts, in the Vault's pixel look): a worn item is
   // marked Equipped, the inspected one is focused, and picking one only shows it
   // in the detail panel, which holds Equip / Unequip.
   private renderItemCard(group: readonly ResolvedCosmetic[]): TemplateResult {
@@ -757,6 +757,7 @@ export class InventoryModal extends BaseModal {
     const inspected = group.find((i) => i.key === this.inspectedKey);
     const active = inspected ?? worn ?? group[0];
     return html`<cosmetic-card
+      pixel
       data-inventory-item
       data-cosmetic-key=${group[0].key}
       class="block h-full min-w-0"

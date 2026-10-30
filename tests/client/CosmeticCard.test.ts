@@ -321,6 +321,35 @@ describe("CosmeticCard", () => {
     }
   });
 
+  it("draws the Vault's pixel card when asked: rarity colour, edge light on epic and up, same hooks", async () => {
+    await createCard();
+    card!.pixel = true;
+    await card!.updateComplete;
+
+    const shell = card!.querySelector<HTMLElement>("[data-cosmetic-shell]")!;
+    expect(shell.classList).toContain("vault-item");
+    expect(shell.classList).toContain("vault-tilt");
+    expect(shell.getAttribute("style")).toContain("--c:#38bdf8");
+    expect(card!.querySelector('[data-cosmetic-rarity="rare"]')).toBeTruthy();
+    expect(card!.querySelector("[data-cosmetic-name]")).toBeTruthy();
+    expect(card!.querySelector("cosmetic-preview")).toBeTruthy();
+    expect(card!.querySelectorAll("[data-variant-key]").length).toBe(0);
+    expect(card!.querySelector(".vault-edge")).toBeNull();
+    // the old card's hover effects are not drawn
+    expect(card!.querySelector("[data-cosmetic-shimmer]")).toBeNull();
+    expect(document.getElementById("vault-pixel-card-styles")).toBeTruthy();
+
+    card!.resolved = {
+      ...red,
+      cosmetic: { ...red.cosmetic!, rarity: "legendary" } as never,
+    };
+    await card!.updateComplete;
+    expect(card!.querySelector(".vault-edge")).toBeTruthy();
+    expect(
+      card!.querySelector("[data-cosmetic-shell]")!.getAttribute("style"),
+    ).toContain("--c:#fbbf24");
+  });
+
   it("adds rarity hover effects only where the rarity needs them", async () => {
     await createCard();
     expect(card!.querySelector("[data-cosmetic-shimmer]")).toBeNull();
